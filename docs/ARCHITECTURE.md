@@ -42,14 +42,16 @@ wedding-platform/
 │   │       └── dashboard/             # ProgressSummary, RsvpBreakdownChart
 │   ├── composables/
 │   │   ├── useAuth.ts                 # sessão do casal/colaborador
-│   │   ├── useWedding.ts              # dados do evento corrente (SSR-friendly)
+│   │   ├── useWedding.ts              # configurações do evento (admin, autenticado)
+│   │   ├── usePublicWedding.ts        # dados do evento para a home pública (sem auth)
 │   │   ├── useGuestAccessToken.ts     # resolução/estado do token do convidado
 │   │   ├── useGuests.ts
 │   │   ├── useGuestGroups.ts
 │   │   ├── useRsvp.ts
 │   │   ├── useGifts.ts
 │   │   ├── useGiftContributions.ts
-│   │   ├── useEventSegments.ts
+│   │   ├── useEventSegments.ts        # CRUD do cronograma (admin, autenticado)
+│   │   ├── usePublicEventSegments.ts  # cronograma para a timeline pública (sem auth)
 │   │   └── useCommunications.ts
 │   ├── layouts/
 │   │   ├── default.vue                # site público
@@ -78,7 +80,7 @@ wedding-platform/
 │   │   └── ui.store.ts
 │   ├── types/
 │   │   ├── database.types.ts          # gerado via Supabase CLI, nunca editado à mão
-│   │   ├── guest.ts / gift.ts / rsvp.ts / event-segment.ts / communication.ts
+│   │   ├── wedding.ts / guest.ts / gift.ts / rsvp.ts / event-segment.ts / communication.ts
 │   └── utils/
 │       ├── formatters.ts
 │       └── validators.ts
@@ -86,6 +88,9 @@ wedding-platform/
 │   ├── api/
 │   │   ├── auth/
 │   │   │   └── session.get.ts
+│   │   ├── wedding/                   # singleton — configurações do evento (admin)
+│   │   │   ├── index.get.ts
+│   │   │   └── index.patch.ts
 │   │   ├── guests/
 │   │   │   ├── index.get.ts / index.post.ts
 │   │   │   ├── [id].patch.ts / [id].delete.ts
@@ -95,7 +100,10 @@ wedding-platform/
 │   │   │   └── [id].patch.ts / [id].delete.ts
 │   │   ├── event-segments/
 │   │   │   ├── index.get.ts / index.post.ts
-│   │   │   └── [id].patch.ts
+│   │   │   └── [id].patch.ts / [id].delete.ts  # exclusão física — ver CLAUDE.md 11
+│   │   ├── public/                    # sem autenticação e sem token — site público (CLAUDE.md 4.5)
+│   │   │   ├── wedding.get.ts
+│   │   │   └── event-segments.get.ts
 │   │   ├── rsvp/
 │   │   │   ├── [code].get.ts          # resolve token, retorna dados do grupo/convidado
 │   │   │   └── [code].post.ts         # submete/atualiza resposta (função transacional)
@@ -304,14 +312,18 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 | Domínio | Base path | Persona | Rate limited |
 |---|---|---|---|
 | Sessão administrativa | `/api/auth` | Admin (JWT) | Não |
+| Configurações do evento | `/api/wedding` | Admin (JWT) | Não |
 | Convidados | `/api/guests` | Admin (JWT) | Não |
 | Grupos | `/api/guest-groups` | Admin (JWT) | Não |
-| Cronograma | `/api/event-segments` | Admin (JWT) / leitura pública via página SSR | Não |
+| Cronograma | `/api/event-segments` | Admin (JWT) | Não |
+| Site público (evento + cronograma) | `/api/public/*` | Pública (sem auth, sem token — CLAUDE.md 4.5) | Não |
 | RSVP | `/api/rsvp/[code]` | Convidado (token) | **Sim** |
 | Presentes (leitura) | `/api/gifts` | Pública / Admin | Não |
 | Presentes (reserva/contribuição/cancelamento) | `/api/gifts/[id]/*` | Convidado (token) | **Sim** |
 | Comunicações | `/api/communications` | Admin (JWT) | Não |
 | Administração | `/api/admin/*` | Admin (JWT, `owner`) | Não |
+
+`/api/wedding` e `/api/event-segments` (admin) são endpoints **distintos** de `/api/public/wedding` e `/api/public/event-segments`: a leitura administrativa resolve `wedding_id` a partir do JWT e usa o client da requisição (RLS como defesa em profundidade — 5.3); a leitura pública não recebe nenhuma credencial e depende da policy `select_public` (CLAUDE.md 4.5) para não vazar nada além do que já é público por natureza. Endpoints separados, em vez de um único handler com lógica condicional por autenticação, mantêm cada um com um único modelo de autorização para raciocinar.
 
 ### 5.2 Convenções de request/response
 
@@ -319,12 +331,13 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 - Erros seguem o formato único descrito em 3.5 — o client tem um único parser de erro para toda a aplicação, nunca um por endpoint.
 - Paginação por parâmetros de query (`page`, `pageSize`), com `pageSize` máximo travado no servidor (evita que um client mal-intencionado peça a base inteira de uma vez, reforça CLAUDE.md 27).
 
-### 5.3 Duas personas de API, dois modelos de autorização
+### 5.3 Três personas de API, três modelos de autorização
 
 Espelhando o modelo de confiança do CLAUDE.md (4.5/14.6):
 
 - **API administrativa**: cada handler resolve `wedding_id` a partir do JWT (via `wedding_members`) e nunca aceita `wedding_id` vindo do body/query da requisição para decidir o que é acessível — o JWT é a única fonte de verdade sobre qual evento o usuário pode tocar.
 - **API do convidado**: cada handler resolve o registro a partir do hash do token recebido na URL, e todo o restante da autorização (esse `guest`/`group` pertence a esse `wedding`, esse presente pertence a esse `wedding`) é revalidado explicitamente dentro do handler — nunca assumida a partir de um único join solto.
+- **API pública** (`/api/public/*`): nenhum handler recebe ou valida credencial — a autorização é inteiramente delegada à policy RLS `select_public` da tabela consultada (CLAUDE.md 4.5). Por isso esse handler só pode existir para tabelas sem nenhum dado sensível; adicionar um novo endpoint em `/api/public/*` exige confirmar antes que a tabela alvo realmente não expõe dado pessoal de convidado.
 
 ### 5.4 Idempotência
 
