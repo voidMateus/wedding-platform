@@ -14,4 +14,8 @@ export default withNuxt(
       'vue/require-default-prop': 'off',
     },
   },
+  {
+    // Gerado por `supabase gen types` — nunca editado manualmente (CLAUDE.md, seção 8).
+    ignores: ['app/types/database.types.ts'],
+  },
 )

@@ -10,3 +10,5 @@ package-lock.json
 CLAUDE.md
 docs/
 .claude/
+# gerado por `supabase gen types` — nunca editado manualmente (CLAUDE.md, seção 8)
+app/types/database.types.ts
