@@ -1,0 +1,2 @@
+-- Dados de desenvolvimento local (ver CLAUDE.md, seção 11 e docs/ARCHITECTURE.md, seção 4.7).
+-- Vazio nesta fase: schema e migrations ainda não existem (Fase C).

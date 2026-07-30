@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Nuxt
+.nuxt/
+.output/
+.data/
+dist/
+# marcador interno auto-gerado pelo @nuxt/test-utils, não é config de projeto
+.nuxtrc
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Editor/OS
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/

@@ -1,0 +1,12 @@
+node_modules
+.nuxt
+.output
+.data
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+CLAUDE.md
+docs/
+.claude/
