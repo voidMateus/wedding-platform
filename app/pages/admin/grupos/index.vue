@@ -3,6 +3,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { guestGroupInputSchema } from '#shared/schemas/guest-groups'
 import type { GuestGroup } from '~/types/guest-group'
+import type { GuestAccessTokenStatus } from '~/types/guest-access-token'
 
 definePageMeta({ layout: 'admin' })
 
@@ -17,6 +18,7 @@ function isApiError(err: unknown): err is ApiError {
 
 const { listGuestGroups, createGuestGroup, updateGuestGroup, deleteGuestGroup } = useGuestGroups()
 const { data, status, refresh } = listGuestGroups()
+const { getStatus, generate, revoke } = useGuestAccessTokens()
 
 // --- criar/editar ---
 
@@ -110,6 +112,74 @@ async function confirmDelete(cascade = false) {
     isDeleting.value = false
   }
 }
+
+// --- link de acesso ---
+
+const accessLinkTarget = ref<GuestGroup | null>(null)
+const isAccessLinkModalOpen = ref(false)
+const isLoadingAccessLinkStatus = ref(false)
+const isGeneratingAccessLink = ref(false)
+const accessLinkStatus = ref<GuestAccessTokenStatus | null>(null)
+const generatedAccessLink = ref<string | null>(null)
+const accessLinkErrorMessage = ref<string | null>(null)
+const accessLinkCopyFeedback = ref<string | null>(null)
+
+async function openAccessLinkModal(group: GuestGroup) {
+  accessLinkTarget.value = group
+  accessLinkErrorMessage.value = null
+  accessLinkCopyFeedback.value = null
+  generatedAccessLink.value = null
+  isAccessLinkModalOpen.value = true
+  isLoadingAccessLinkStatus.value = true
+  try {
+    accessLinkStatus.value = await getStatus({ groupId: group.id })
+  } catch {
+    accessLinkErrorMessage.value = 'Não foi possível consultar o status do link.'
+  } finally {
+    isLoadingAccessLinkStatus.value = false
+  }
+}
+
+async function handleGenerateAccessLink() {
+  if (!accessLinkTarget.value) return
+  isGeneratingAccessLink.value = true
+  accessLinkErrorMessage.value = null
+  try {
+    const result = await generate({ groupId: accessLinkTarget.value.id })
+    generatedAccessLink.value = `${window.location.origin}/rsvp/${result.code}`
+    accessLinkStatus.value = { active: true, id: result.id, createdAt: result.createdAt }
+  } catch {
+    accessLinkErrorMessage.value = 'Não foi possível gerar o link. Tente novamente.'
+  } finally {
+    isGeneratingAccessLink.value = false
+  }
+}
+
+async function handleRevokeAccessLink() {
+  if (!accessLinkStatus.value?.id) return
+  isGeneratingAccessLink.value = true
+  accessLinkErrorMessage.value = null
+  try {
+    await revoke(accessLinkStatus.value.id)
+    accessLinkStatus.value = { active: false, id: null, createdAt: null }
+    generatedAccessLink.value = null
+  } catch {
+    accessLinkErrorMessage.value = 'Não foi possível revogar o link. Tente novamente.'
+  } finally {
+    isGeneratingAccessLink.value = false
+  }
+}
+
+async function copyAccessLink() {
+  if (!generatedAccessLink.value) return
+  await navigator.clipboard.writeText(generatedAccessLink.value)
+  accessLinkCopyFeedback.value = 'Link copiado.'
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+}
 </script>
 
 <template>
@@ -149,6 +219,9 @@ async function confirmDelete(cascade = false) {
         <td class="px-4 py-2 text-text-muted">{{ group.notes || '—' }}</td>
         <td class="px-4 py-2">
           <div class="flex justify-end gap-2">
+            <UiButton size="sm" variant="ghost" @click="openAccessLinkModal(group)">
+              Link de acesso
+            </UiButton>
             <UiButton size="sm" variant="ghost" @click="openEditModal(group)">Editar</UiButton>
             <UiButton size="sm" variant="destructive" @click="openDeleteModal(group)">
               Excluir
@@ -212,6 +285,57 @@ async function confirmDelete(cascade = false) {
         </UiButton>
         <UiButton v-else variant="destructive" :disabled="isDeleting" @click="confirmDelete(false)">
           Excluir
+        </UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      v-model="isAccessLinkModalOpen"
+      :title="`Link de acesso — ${accessLinkTarget?.name ?? ''}`"
+      description="Envie este link ao grupo (ex.: WhatsApp) para que confirmem presença sem precisar de conta."
+    >
+      <div class="flex flex-col gap-4">
+        <UiSkeleton v-if="isLoadingAccessLinkStatus" class="h-10 w-full" />
+
+        <template v-else>
+          <p v-if="generatedAccessLink" class="text-sm text-text-muted">
+            Copie agora — este link não pode ser recuperado depois de fechar esta janela.
+          </p>
+          <div v-if="generatedAccessLink" class="flex items-center gap-2">
+            <UiInput :model-value="generatedAccessLink" class="flex-1" disabled />
+            <UiButton type="button" size="sm" @click="copyAccessLink">Copiar</UiButton>
+          </div>
+          <p v-else-if="accessLinkStatus?.active" class="text-sm text-text-muted">
+            Link ativo, gerado em {{ formatDate(accessLinkStatus.createdAt) }}. Por segurança, o
+            código não pode ser exibido novamente — gere um novo link se precisar reenviar.
+          </p>
+          <p v-else class="text-sm text-text-muted">Nenhum link de acesso gerado ainda.</p>
+
+          <p v-if="accessLinkCopyFeedback" class="text-sm text-green-700" role="status">
+            {{ accessLinkCopyFeedback }}
+          </p>
+          <p v-if="accessLinkErrorMessage" class="text-sm text-red-600" role="alert">
+            {{ accessLinkErrorMessage }}
+          </p>
+        </template>
+      </div>
+
+      <template #footer>
+        <UiButton
+          v-if="accessLinkStatus?.active"
+          type="button"
+          variant="destructive"
+          :disabled="isGeneratingAccessLink"
+          @click="handleRevokeAccessLink"
+        >
+          Revogar
+        </UiButton>
+        <UiButton
+          type="button"
+          :disabled="isGeneratingAccessLink || isLoadingAccessLinkStatus"
+          @click="handleGenerateAccessLink"
+        >
+          {{ accessLinkStatus?.active ? 'Gerar novo link' : 'Gerar link' }}
         </UiButton>
       </template>
     </UiModal>
