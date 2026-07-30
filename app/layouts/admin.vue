@@ -9,6 +9,7 @@ const { signOut } = useAuth()
         <span class="text-sm font-medium text-text">Wedding Platform — Painel</span>
         <nav class="flex gap-4 text-sm text-text-muted">
           <NuxtLink to="/admin" class="hover:text-text">Dashboard</NuxtLink>
+          <NuxtLink to="/admin/convidados" class="hover:text-text">Convidados</NuxtLink>
           <NuxtLink to="/admin/grupos" class="hover:text-text">Grupos</NuxtLink>
         </nav>
       </div>

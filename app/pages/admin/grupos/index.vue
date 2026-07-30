@@ -136,33 +136,27 @@ async function confirmDelete(cascade = false) {
       <UiButton @click="openCreateModal">Novo grupo</UiButton>
     </UiEmptyState>
 
-    <div v-else class="overflow-x-auto rounded-lg border border-border">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-surface-muted text-text-muted">
-          <tr>
-            <th class="px-4 py-2 font-medium">Nome</th>
-            <th class="px-4 py-2 font-medium">Limite de acompanhantes</th>
-            <th class="px-4 py-2 font-medium">Notas</th>
-            <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="group in data?.data" :key="group.id" class="border-t border-border">
-            <td class="px-4 py-2 text-text">{{ group.name }}</td>
-            <td class="px-4 py-2 text-text">{{ group.max_members }}</td>
-            <td class="px-4 py-2 text-text-muted">{{ group.notes || '—' }}</td>
-            <td class="px-4 py-2">
-              <div class="flex justify-end gap-2">
-                <UiButton size="sm" variant="ghost" @click="openEditModal(group)">Editar</UiButton>
-                <UiButton size="sm" variant="destructive" @click="openDeleteModal(group)">
-                  Excluir
-                </UiButton>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <UiTable v-else>
+      <template #head>
+        <th class="px-4 py-2 font-medium">Nome</th>
+        <th class="px-4 py-2 font-medium">Limite de acompanhantes</th>
+        <th class="px-4 py-2 font-medium">Notas</th>
+        <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
+      </template>
+      <tr v-for="group in data?.data" :key="group.id" class="border-t border-border">
+        <td class="px-4 py-2 text-text">{{ group.name }}</td>
+        <td class="px-4 py-2 text-text">{{ group.max_members }}</td>
+        <td class="px-4 py-2 text-text-muted">{{ group.notes || '—' }}</td>
+        <td class="px-4 py-2">
+          <div class="flex justify-end gap-2">
+            <UiButton size="sm" variant="ghost" @click="openEditModal(group)">Editar</UiButton>
+            <UiButton size="sm" variant="destructive" @click="openDeleteModal(group)">
+              Excluir
+            </UiButton>
+          </div>
+        </td>
+      </tr>
+    </UiTable>
 
     <UiModal v-model="isFormModalOpen" :title="editingGroup ? 'Editar grupo' : 'Novo grupo'">
       <form class="flex flex-col gap-4" @submit="onSubmit">
