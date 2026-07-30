@@ -3,7 +3,7 @@ interface Props {
   modelValue?: string
   label?: string
   placeholder?: string
-  type?: 'text' | 'email' | 'tel' | 'password' | 'number'
+  type?: 'text' | 'email' | 'tel' | 'password' | 'number' | 'date' | 'datetime-local' | 'color'
   error?: string
   disabled?: boolean
 }
