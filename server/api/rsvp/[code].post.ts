@@ -7,12 +7,8 @@ import { rsvpSubmitSchema } from '#shared/schemas/rsvp'
  * função transacional confirm_rsvp() (CLAUDE.md, seção 13/16.4/17.3) — nunca
  * um check-then-insert feito aqui.
  *
- * GAP CONHECIDO: este endpoint (e [code].get.ts) ainda não tem rate limiting
- * (CLAUDE.md, seção 14.5/28 — obrigatório para mitigar força bruta contra o
- * hash do código). Bloqueado em credenciais do Upstash Redis ainda não
- * fornecidas (CLAUDE.md, seção 3 — store durável e compartilhado entre
- * instâncias; rate limit em memória não protege nada em serverless). Ver
- * roadmap (CLAUDE.md, seção 32).
+ * Rate limiting (CLAUDE.md, seção 14.5/28) é aplicado em
+ * server/middleware/rate-limit.ts para todo /api/rsvp/**, não neste handler.
  */
 export default defineEventHandler(async (event) => {
   const code = getRouterParam(event, 'code')

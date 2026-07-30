@@ -1092,11 +1092,11 @@ docs: atualizar CLAUDE.md com convenções de commit
 
 ## 32. Roadmap
 
-### Fase 0 — Fundação (falta CI e Upstash)
+### Fase 0 — Fundação (falta apenas CI)
 - [x] Especificação técnica e de produto (este documento).
 - [x] Setup inicial do projeto Nuxt + Supabase.
 - [ ] CI (GitHub Actions) — lint/typecheck/test/build automatizados em PR; hoje esses checks só rodam manualmente antes de cada merge, não como gate automático.
-- [ ] Upstash Redis (rate limiting, CLAUDE.md seção 3/28) — conta/credenciais ainda não criadas; bloqueia o rate limiting de `/api/rsvp/[code]` (obrigatório pela seção 14.5) e, mais adiante, de `/api/gifts/[id]/reserve`.
+- [x] Upstash Redis (rate limiting, CLAUDE.md seção 3/28) — `server/middleware/rate-limit.ts`, validado contra a instância real (sliding window, 20 requisições/60s por IP em `/api/rsvp/**`).
 - [x] Schema inicial do banco de dados + RLS básica.
 - [x] Design System — tokens e componentes atômicos essenciais.
 
@@ -1105,7 +1105,7 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [x] CRUD de convidados e grupos.
 - [x] Configuração básica do evento (data, local, tema visual simples) — inclui o cronograma (`event_segments`).
 - [x] Site público com informações do evento.
-- [x] Fluxo de RSVP via código único — geração de token (admin) e `/rsvp/[code]` (confirmar/recusar, acompanhantes nominais, limite de grupo validado via `confirm_rsvp()`). Falta rate limiting no endpoint (ver nota abaixo).
+- [x] Fluxo de RSVP via código único — geração de token (admin), `/rsvp/[code]` (confirmar/recusar, acompanhantes nominais, limite de grupo validado via `confirm_rsvp()`), com rate limiting.
 - [ ] Lista de presentes com reserva.
 - [ ] Dashboard administrativo com contadores essenciais — página existe, mas ainda sem os contadores reais (confirmados/pendentes/presentes).
 
