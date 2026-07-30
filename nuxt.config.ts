@@ -10,9 +10,19 @@ export default defineNuxtConfig({
 
   devtools: { enabled: false },
 
-  modules: ['@nuxt/eslint'],
+  modules: ['@nuxt/eslint', '@pinia/nuxt', '@nuxtjs/supabase', '@vee-validate/nuxt'],
 
   css: ['~/assets/css/main.css'],
+
+  // Proteção de rota é feita à mão em app/middleware/auth.global.ts (CLAUDE.md,
+  // seção 5), não pelo redirect automático do módulo — mantém o arquivo e o
+  // comportamento explícitos, coerentes com o resto da árvore documentada.
+  supabase: {
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_ANON_KEY,
+    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    redirect: false,
+  },
 
   vite: {
     // @tailwindcss/vite declara suporte a vite ^8, mas seus tipos publicados

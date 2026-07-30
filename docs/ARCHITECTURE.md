@@ -113,17 +113,17 @@ wedding-platform/
 │   │       └── audit-logs.get.ts
 │   ├── middleware/
 │   │   ├── request-context.ts         # request id, logging estruturado
-│   │   ├── rate-limit.ts              # backed by Upstash Redis
-│   │   └── auth-context.ts            # resolve auth.uid() / wedding_id para uso nos handlers
+│   │   └── rate-limit.ts              # backed by Upstash Redis
 │   ├── utils/
 │   │   ├── supabase-admin.ts          # client com service_role key (uso restrito e auditável)
-│   │   ├── supabase-anon.ts           # client anônimo, quando aplicável
-│   │   ├── schemas/                   # Zod schemas por domínio, compartilháveis com o client
+│   │   ├── wedding-context.ts         # resolve wedding_id/role do usuário autenticado — função, não middleware (ver 3.1)
 │   │   ├── errors.ts                  # tipos de erro padronizados + mapeamento HTTP
 │   │   └── jobs/
 │   │       ├── enqueue.ts
 │   │       └── handlers/              # um handler por `jobs.type` (csv-import, send-reminder, ...)
 │   └── jobs-worker/                   # processo/rota separada que consome a fila `jobs`
+├── shared/
+│   └── schemas/                       # Zod schemas por domínio (alias #shared) — únicos importáveis por client E server
 ├── supabase/
 │   ├── migrations/                    # schema + funções Postgres transacionais, ver CLAUDE.md 13
 │   ├── functions/                     # Supabase Edge Functions (Deno) — reservado, não usado nesta fase
@@ -148,6 +148,8 @@ wedding-platform/
 - **Correção sobre `supabase/functions/`**: esse diretório é reservado pela própria Supabase CLI para *Edge Functions* (Deno/TypeScript) — um arquivo `.sql` ali dentro nunca seria aplicado ao banco. As funções Postgres com controle de concorrência explícito (reserva de presente, confirmação de RSVP contra `max_members`) por isso vivem como migrations normais em `supabase/migrations/`, na ordem em que passam a existir no schema (ver 4.4). `supabase/functions/` fica vazio até o projeto realmente precisar de uma Edge Function.
 - `supabase/policies/` **não duplica** o SQL das RLS policies (isso criaria duas fontes de verdade divergentes) — mantém um README que documenta a convenção de nomenclatura e indexa em qual migration cada tabela tem suas policies definidas, que é o único artefato que efetivamente governa o banco.
 - `server/jobs-worker/` é logicamente separado de `server/api` mesmo rodando no mesmo processo Nitro na v1 — isso permite, no futuro, extraí-lo para um serviço/worker dedicado sem reestruturar o restante do backend.
+- **Correção sobre `schemas/`**: não vivem em `server/utils/schemas/` como a primeira versão desta árvore sugeria — código sob `server/` roda só em Nitro e não é importável pelo bundle do client no Nuxt. Um schema Zod que precisa validar tanto no formulário (client) quanto no handler (server) só pode viver em `shared/` (alias `#shared`, um diretório de primeira classe do Nuxt 4 acessível dos dois lados).
+- **Correção sobre `auth-context`**: não é um middleware Nitro global (`server/middleware/auth-context.ts`) como o desenho original propunha — um middleware roda em toda requisição, e distinguir "essa rota é do caminho administrativo" de "essa rota é do caminho do convidado" só por prefixo de path dentro de um middleware genérico é frágil. Na prática é uma função utilitária (`server/utils/wedding-context.ts`) chamada explicitamente pelos handlers que precisam dela — mais fácil de auditar quais endpoints resolvem contexto de wedding, sem risco de afetar rotas públicas por engano.
 
 ---
 
@@ -213,14 +215,15 @@ Os dois middlewares são independentes e nunca se aplicam à mesma rota — refo
    → aplicado apenas às rotas marcadas como sensíveis (rsvp/*, gifts/*/reserve, gifts/*/contribute)
    → consulta Upstash Redis; excede limite → 429 antes de qualquer acesso a dados
 
-3. auth-context (middleware)
-   → caminho administrativo: valida JWT do Supabase Auth, resolve wedding_id via wedding_members
-   → caminho do convidado: NÃO resolve aqui — cada handler de rsvp/gifts resolve seu próprio
+3. resolução de contexto (dentro do próprio handler, não um middleware — ver 1.1)
+   → caminho administrativo: handler chama server/utils/wedding-context.ts, que valida o
+     usuário via serverSupabaseUser() e resolve wedding_id/role via wedding_members
+   → caminho do convidado: cada handler de rsvp/gifts resolve seu próprio
      guest_access_token explicitamente (ver seção 6), porque o "sujeito" da requisição
      é o token, não uma sessão global
 
 4. handler do endpoint (server/api/**)
-   a. valida body/query com o schema Zod correspondente (server/utils/schemas)
+   a. valida body/query com o schema Zod correspondente (shared/schemas/)
    b. verifica autorização específica do recurso (ex: wedding_id do JWT bate com o
       wedding_id do recurso solicitado)
    c. executa a operação — leitura direta, ou chamada RPC a uma função Postgres
@@ -241,7 +244,7 @@ Reflete a lista de tabelas do CLAUDE.md (11.1), com uma pasta por recurso de dom
 | Módulo | Responsabilidade |
 |---|---|
 | `supabase-admin.ts` | Único ponto de criação do client com `service_role key`; qualquer novo uso passa por revisão explícita, já que é a credencial mais crítica (CLAUDE.md 28) |
-| `schemas/` | Um arquivo Zod por recurso, importado tanto pelo handler quanto (via tipo inferido) pelo client — schema único, nunca duplicado entre camadas (CLAUDE.md 8) |
+| `wedding-context.ts` | Resolve wedding_id/role do usuário autenticado via `wedding_members`, usando o client da própria requisição (RLS como defesa em profundidade, não o client admin) — chamada explicitamente pelos handlers do caminho administrativo, não é middleware |
 | `errors.ts` | Vocabulário fechado de erros de domínio (`NotFoundError`, `ValidationError`, `ConcurrencyConflictError`, `TokenRevokedError`, `RateLimitedError`) mapeado para status HTTP de forma consistente em todos os endpoints |
 | `jobs/enqueue.ts` | Único ponto de escrita na tabela `jobs` — nenhum endpoint insere na fila diretamente sem passar por essa função (garante formato de `payload` consistente) |
 | `jobs/handlers/` | Um handler por `jobs.type`; o worker apenas despacha para o handler correspondente, sem lógica de negócio própria |
@@ -333,18 +336,32 @@ Endpoints de mutação do caminho do convidado (`rsvp/[code].post`, `gifts/[id]/
 
 ### 6.1 Caminho administrativo (casal/colaboradores)
 
+Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por baixo) — gerencia os cookies httpOnly/secure e expõe `useSupabaseUser()`/`useSupabaseClient()` no client e `serverSupabaseUser()`/`serverSupabaseClient()`/`serverSupabaseServiceRole()` no server. O redirect automático do módulo é desligado (`redirect: false`); a proteção de rota é o `app/middleware/auth.global.ts` explícito, coerente com o resto da árvore.
+
 ```
 1. Usuário submete e-mail/senha (ou solicita magic link) em /login
 2. Supabase Auth valida e emite JWT (access + refresh), setados como cookies
-   httpOnly/secure pela integração Nuxt-Supabase
-3. Navegação subsequente para /admin/** → middleware auth.global.ts verifica
-   sessão client-side (evita flash de conteúdo protegido)
-4. Toda chamada a /api/admin/**, /api/guests, etc. → middleware auth-context
-   no server valida o JWT novamente e resolve wedding_id via wedding_members
-   (a checagem client-side é UX, a checagem server-side é a que garante segurança)
-5. Expiração de access token → refresh automático via refresh token;
+   httpOnly/secure pelo módulo
+3. Login com senha aguarda useSupabaseUser() refletir a nova sessão antes de
+   navegar — signInWithPassword() resolve antes do ref reativo atualizar (a
+   mudança chega via onAuthStateChange, não sincronamente), e um navigateTo
+   imediato bateria no middleware antes do usuário aparecer
+4. Navegação para /admin/** → middleware auth.global.ts verifica
+   useSupabaseUser() client-side (evita flash de conteúdo protegido) e
+   popula app/stores/auth.store.ts via GET /api/auth/session se ainda vazio
+   (ex: refresh direto em /admin/algo)
+5. GET /api/auth/session no server chama server/utils/wedding-context.ts, que
+   usa o client autenticado da própria requisição (não o admin) para ler
+   wedding_members — a leitura continua protegida por RLS como defesa em
+   profundidade (a checagem client-side é UX, a checagem server-side é a
+   que garante segurança)
+6. Expiração de access token → refresh automático via refresh token;
    falha no refresh → sessão encerrada, redirecionamento para /login
 ```
+
+**Não há tela de cadastro/signup**: a criação do `wedding` é manual/via seed nesta fase (CLAUDE.md 33.2), e por consequência a conta do primeiro `owner` também é provisionada manualmente (Supabase Dashboard ou Admin API + um `insert` em `wedding_members`) — nunca por um formulário público. Um fluxo de convite para colaboradores é um recurso de produto separado, não parte da autenticação básica.
+
+**Nota para testes/dev**: `serverSupabaseUser()` retorna o payload cru do JWT — o id do usuário vem na claim `sub`, não em `id` (esse é o formato do objeto `User` da API de Admin, um tipo diferente). Usar `.id` silenciosamente quebra qualquer query filtrada por esse valor.
 
 ### 6.2 Caminho do convidado (RSVP e presentes)
 
