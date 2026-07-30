@@ -58,8 +58,7 @@ wedding-platform/
 │   │   ├── admin.vue                  # painel administrativo
 │   │   └── auth.vue                   # login/cadastro do casal
 │   ├── middleware/
-│   │   ├── auth.global.ts             # protege /admin/**
-│   │   └── guest-access.global.ts     # resolve o token nas rotas /rsvp/** e /presentes/**
+│   │   └── auth.global.ts             # protege /admin/** (sem middleware de guest-access — ver 2.4)
 │   ├── pages/
 │   │   ├── index.vue
 │   │   ├── presentes/index.vue
@@ -193,12 +192,9 @@ Definido via `routeRules` no `nuxt.config.ts`, mantendo a decisão centralizada 
 
 ### 2.4 Pipeline de middleware de rota (client)
 
-Ordem de execução para uma navegação:
+- `auth.global.ts` — se a rota estiver sob `/admin/**`, verifica sessão Supabase; sem sessão válida, redireciona para `/login` preservando a rota de destino.
 
-1. `guest-access.global.ts` — se a rota for `/rsvp/[code]` ou `/presentes` com código na URL, resolve o token contra o backend (ver seção 6) e injeta o contexto do convidado.
-2. `auth.global.ts` — se a rota estiver sob `/admin/**`, verifica sessão Supabase; sem sessão válida, redireciona para `/login` preservando a rota de destino.
-
-Os dois middlewares são independentes e nunca se aplicam à mesma rota — reforça o desacoplamento público/admin já definido no CLAUDE.md (5.1).
+**Correção sobre `guest-access.global.ts`**: o desenho original desta seção propunha um middleware global que resolveria o token do convidado em `/rsvp/[code]` e `/presentes`. Na implementação real (CLAUDE.md, seção 14.3, PR do fluxo de RSVP), isso não existe como middleware — cada página resolve o próprio código via composable (`useRsvp(code).getRsvp()`) dentro do `<script setup>`, do mesmo jeito que o caminho administrativo resolve `wedding_id` via função explícita (`wedding-context.ts`, não middleware — ver correção equivalente em 1.1). Um middleware global rodaria em toda navegação, inclusive `/admin/**`, sem necessidade; a resolução por página é mais simples de auditar e não risca vazar lógica de convidado para rotas que não precisam dela.
 
 ### 2.5 Módulos Nuxt esperados
 
@@ -380,8 +376,8 @@ Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por 
 
 ```
 1. Convidado abre /rsvp/{code} (ou /presentes?code={code})
-2. middleware guest-access.global.ts (client) apenas prepara o estado de UI —
-   a resolução de verdade acontece no server
+2. A própria página resolve o código via composable no <script setup>
+   (useRsvp(code).getRsvp()) — sem middleware, ver correção em 2.4
 3. GET /api/rsvp/[code]:
    a. calcula hash do código recebido
    b. busca em guest_access_tokens por code_hash, com revoked_at nulo
