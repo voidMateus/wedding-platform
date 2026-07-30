@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       audit_logs: {
@@ -55,6 +80,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "wedding_members"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
           },
           {
             foreignKeyName: "audit_logs_wedding_id_fkey"
@@ -111,6 +143,13 @@ export type Database = {
             foreignKeyName: "communications_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "communications_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -156,6 +195,13 @@ export type Database = {
             foreignKeyName: "companions_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "companions_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -187,6 +233,13 @@ export type Database = {
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "entitlements_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
           {
             foreignKeyName: "entitlements_wedding_id_fkey"
             columns: ["wedding_id"]
@@ -238,6 +291,13 @@ export type Database = {
             foreignKeyName: "event_segments_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "event_segments_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -269,6 +329,13 @@ export type Database = {
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "gift_categories_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
           {
             foreignKeyName: "gift_categories_wedding_id_fkey"
             columns: ["wedding_id"]
@@ -341,6 +408,13 @@ export type Database = {
             foreignKeyName: "gift_contributions_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "gift_contributions_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -401,6 +475,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "guests"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_reservations_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
           },
           {
             foreignKeyName: "gift_reservations_wedding_id_fkey"
@@ -469,6 +550,13 @@ export type Database = {
             foreignKeyName: "gifts_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "gifts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -524,6 +612,13 @@ export type Database = {
             foreignKeyName: "guest_access_tokens_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "guest_access_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -561,6 +656,13 @@ export type Database = {
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "guest_groups_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
           {
             foreignKeyName: "guest_groups_wedding_id_fkey"
             columns: ["wedding_id"]
@@ -622,6 +724,13 @@ export type Database = {
             foreignKeyName: "guests_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "guests_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -669,6 +778,13 @@ export type Database = {
             foreignKeyName: "jobs_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "jobs_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -712,6 +828,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "wedding_members"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photos_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
           },
           {
             foreignKeyName: "photos_wedding_id_fkey"
@@ -808,6 +931,13 @@ export type Database = {
             foreignKeyName: "rsvp_responses_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "rsvp_responses_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -850,6 +980,13 @@ export type Database = {
             foreignKeyName: "subscriptions_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: true
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -875,6 +1012,13 @@ export type Database = {
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "usage_counters_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
           {
             foreignKeyName: "usage_counters_wedding_id_fkey"
             columns: ["wedding_id"]
@@ -910,6 +1054,13 @@ export type Database = {
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "wedding_members_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
           {
             foreignKeyName: "wedding_members_wedding_id_fkey"
             columns: ["wedding_id"]
@@ -957,7 +1108,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      wedding_rsvp_summary: {
+        Row: {
+          responses_confirmed: number | null
+          responses_declined: number | null
+          total_companions_confirmed: number | null
+          total_groups: number | null
+          total_guests: number | null
+          wedding_id: string | null
+        }
+        Insert: {
+          responses_confirmed?: never
+          responses_declined?: never
+          total_companions_confirmed?: never
+          total_groups?: never
+          total_guests?: never
+          wedding_id?: string | null
+        }
+        Update: {
+          responses_confirmed?: never
+          responses_declined?: never
+          total_companions_confirmed?: never
+          total_groups?: never
+          total_guests?: never
+          wedding_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cancel_gift_reservation: {
@@ -1153,6 +1330,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

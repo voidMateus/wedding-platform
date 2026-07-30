@@ -1107,7 +1107,7 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [x] Site público com informações do evento.
 - [x] Fluxo de RSVP via código único — geração de token (admin), `/rsvp/[code]` (confirmar/recusar, acompanhantes nominais, limite de grupo validado via `confirm_rsvp()`), com rate limiting.
 - [ ] Lista de presentes com reserva.
-- [ ] Dashboard administrativo com contadores essenciais — página existe, mas ainda sem os contadores reais (confirmados/pendentes/presentes).
+- [x] Dashboard administrativo com contadores essenciais — confirmados/recusados/pendentes, acompanhantes confirmados e prazo de RSVP, lidos da view `wedding_rsvp_summary` (CLAUDE.md, seção 13). Contador de presentes reservados entra quando a lista de presentes existir.
 
 ### Fase 2 — Consolidação
 - [ ] Importação de convidados via CSV.
