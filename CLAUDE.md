@@ -195,12 +195,13 @@ Embora a v1 opere como single-tenant (um casamento por instância/deploy), o mod
 
 ### 4.5 Modelo de Confiança por Fluxo
 
-A arquitetura tem **dois modelos de enforcement de segurança diferentes**, e isso precisa ser explícito para não gerar falsa sensação de proteção uniforme:
+A arquitetura tem **três modelos de enforcement de segurança diferentes**, e isso precisa ser explícito para não gerar falsa sensação de proteção uniforme:
 
 - **Caminho administrativo (casal/colaboradores)**: autenticado via Supabase Auth. As requisições ao Postgres carregam `auth.uid()`, e as **RLS policies são a última linha de defesa** — mesmo um bug no `server/api` não vaza dados de outro `wedding_id`, porque o banco recusa a query.
 - **Caminho do convidado (RSVP, presentes)**: não há sessão Supabase — o acesso é resolvido por um token opaco (ver 14.3). O Nitro server usa a `service_role key` (que **ignora RLS**) para atender esse fluxo. Isso significa que, para o convidado, **a autorização é inteiramente responsabilidade do código do `server/api`**, não do banco.
+- **Caminho público (site do casamento)**: sem sessão e sem token — qualquer pessoa com o link (ex.: home pública, `GET /api/public/wedding`, `GET /api/public/event-segments`). Como as colunas expostas por esse caminho nunca são sensíveis, o enforcement continua sendo **RLS**, via uma policy de leitura explícita e deliberada (`<tabela>_select_public`, `using (true)`) — o banco permanece a última linha de defesa mesmo sem autenticação alguma, em vez de empurrar essa responsabilidade para o `server/api` como no caminho do convidado. Esse padrão só é válido para tabelas sem nenhum dado sensível (hoje: `weddings`, `event_segments`) — nunca para `guests`, `gift_reservations` ou qualquer tabela com dado pessoal de convidado.
 
-Consequência prática: o caminho do convidado exige sua própria suíte de testes de segurança (garantir que um token só retorna dados do próprio `guest`/`group`), separada da suíte que valida RLS no caminho administrativo. Essa distinção é detalhada na seção 28.
+Consequência prática: o caminho do convidado exige sua própria suíte de testes de segurança (garantir que um token só retorna dados do próprio `guest`/`group`), separada da suíte que valida RLS no caminho administrativo e no caminho público. Essa distinção é detalhada na seção 28.
 
 ---
 
@@ -446,8 +447,8 @@ Modelo de decisão em camadas — do mais local ao mais global:
 - **Modelagem**: normalizada (3FN) como padrão; denormalização só é aceita com justificativa de performance documentada em comentário SQL.
 - **Chaves primárias**: `uuid` (`gen_random_uuid()`), nunca `serial`/`bigserial` — evita vazamento de contagem de registros e facilita merge futuro entre tenants.
 - **Timestamps**: toda tabela possui `created_at` e `updated_at` (`timestamptz`, default `now()`), atualizados via trigger `set_updated_at`.
-- **Soft delete**: entidades com valor histórico (convidados, presentes) usam `deleted_at timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria. `guest_groups` também usa soft delete — não por valor histórico próprio, mas porque `guests.group_id` é `NOT NULL` com `ON DELETE RESTRICT`: um grupo nunca pode ser excluído fisicamente enquanto qualquer convidado, mesmo já soft-deleted, ainda referenciar seu id (ver seção 17.3).
-- **Row Level Security (RLS)**: habilitado em **todas** as tabelas desde a v1, mesmo em modo single-tenant — a policy já filtra por `wedding_id` pertencente ao usuário autenticado, preparando a base para o modelo SaaS. Válido para o caminho administrativo; o caminho do convidado tem enforcement próprio (ver 4.5 e 28).
+- **Soft delete**: entidades com valor histórico (convidados, presentes) usam `deleted_at timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria. `guest_groups` também usa soft delete — não por valor histórico próprio, mas porque `guests.group_id` é `NOT NULL` com `ON DELETE RESTRICT`: um grupo nunca pode ser excluído fisicamente enquanto qualquer convidado, mesmo já soft-deleted, ainda referenciar seu id (ver seção 17.3). `event_segments`, por outro lado, usa exclusão física — nenhuma outra tabela referencia essa entidade e ela não tem valor histórico por si só.
+- **Row Level Security (RLS)**: habilitado em **todas** as tabelas desde a v1, mesmo em modo single-tenant. Na maioria das tabelas, a policy filtra por `wedding_id` pertencente ao usuário autenticado (caminho administrativo, preparando a base para o modelo SaaS); `weddings` e `event_segments` também têm uma policy adicional de leitura pública, sem filtro de `wedding_id`, para atender o site público (ver 4.5). O caminho do convidado tem enforcement próprio, fora de RLS (ver 4.5 e 28).
 - **`wedding_id` denormalizado em toda tabela filha**: mesmo quando `wedding_id` é tecnicamente derivável via join (ex.: `guests` → `guest_groups` → `weddings`), a coluna é duplicada diretamente na tabela filha (`guests.wedding_id`, `rsvp_responses.wedding_id`, `gift_reservations.wedding_id` etc.). Isso simplifica e acelera as RLS policies (evita join por linha) e prepara particionamento futuro por `wedding_id` (ver 33.4). A consistência entre `guests.wedding_id` e `guests.group_id → guest_groups.wedding_id` é garantida por `CHECK`/trigger, não apenas por convenção.
 - **Tokens de acesso hasheados em repouso**: qualquer valor que funcione como credencial (código de acesso do convidado) é armazenado como hash (ex.: SHA-256), nunca em texto plano — comparação sempre feita pelo hash do valor recebido. Reduz o dano de um vazamento de banco a zero reutilização direta dos códigos.
 - **Extensões utilizadas**: `pgcrypto` (geração de UUID e hashing), `citext` (e-mails case-insensitive).
@@ -701,8 +702,9 @@ Modelo de decisão em camadas — do mais local ao mais global:
 |---|---|---|
 | Administrativo (casal/colaboradores) | Supabase Auth (JWT, `auth.uid()`) | RLS policies no Postgres — banco é a última linha de defesa |
 | Convidado (RSVP, presentes) | Token opaco (`guest_access_tokens`, hash) | Autorização manual em `server/api/**`, usando `service_role key` — servidor é a última linha de defesa |
+| Público (site do casamento) | Nenhuma — link direto | RLS policy de leitura pública explícita (`select using (true)`) — banco continua sendo a última linha de defesa, sem dado sensível para vazar |
 
-Essa tabela existe para deixar explícito que "RLS em 100% das tabelas" (seção 28) protege o caminho administrativo; o caminho do convidado depende da correção do código do servidor e precisa de cobertura de teste equivalente em rigor, não apenas de RLS.
+Essa tabela existe para deixar explícito que "RLS em 100% das tabelas" (seção 28) protege o caminho administrativo e o caminho público; o caminho do convidado depende da correção do código do servidor e precisa de cobertura de teste equivalente em rigor, não apenas de RLS.
 
 ---
 
@@ -880,6 +882,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
     --color-text-muted: #6b6259;
   }
   ```
+  > **Achado da implementação**: `#a8785c` (o valor de exemplo acima, também usado como default real em `app/assets/css/main.css` e `shared/utils/contrast.ts`) fica em ~3.81:1 de contraste contra `--color-surface`, abaixo do mínimo de 4.5:1 exigido pela própria seção 22.4 — confirmado por teste unitário (`tests/unit/utils/contrast.spec.ts`). O validador bloqueia corretamente esse valor ao tentar salvá-lo como cor de tema; a cor permanece aqui como default técnico (não passou a validação de marca) até uma decisão de produto sobre a paleta definitiva.
 - **Tipografia**: uma fonte serifada para o site público (identidade emocional) e uma fonte sans-serif para o painel administrativo (legibilidade em densidade de dados).
 - **Espaçamento**: escala baseada em múltiplos de 4px (Tailwind spacing scale padrão, sem customização salvo necessidade real).
 - **Raio de borda e sombra**: escala limitada (`sm`, `md`, `lg`) aplicada consistentemente — nenhum valor arbitrário de `border-radius`/`box-shadow` direto em componentes.
@@ -1089,20 +1092,21 @@ docs: atualizar CLAUDE.md com convenções de commit
 
 ## 32. Roadmap
 
-### Fase 0 — Fundação (atual)
+### Fase 0 — Fundação (falta apenas CI)
 - [x] Especificação técnica e de produto (este documento).
-- [ ] Setup inicial do projeto Nuxt + Supabase + CI.
-- [ ] Schema inicial do banco de dados + RLS básica.
-- [ ] Design System — tokens e componentes atômicos essenciais.
+- [x] Setup inicial do projeto Nuxt + Supabase.
+- [ ] CI (GitHub Actions) — lint/typecheck/test/build automatizados em PR; hoje esses checks só rodam manualmente antes de cada merge, não como gate automático.
+- [x] Schema inicial do banco de dados + RLS básica.
+- [x] Design System — tokens e componentes atômicos essenciais.
 
-### Fase 1 — MVP Single-Tenant
-- [ ] Autenticação do casal (login/cadastro).
-- [ ] CRUD de convidados e grupos.
-- [ ] Configuração básica do evento (data, local, tema visual simples).
-- [ ] Site público com informações do evento.
+### Fase 1 — MVP Single-Tenant (em andamento)
+- [x] Autenticação do casal (login/cadastro) — login por e-mail/senha e magic link; cadastro é manual/via seed nesta fase (self-service nasce só na Fase 5, ver seção 33.2).
+- [x] CRUD de convidados e grupos.
+- [x] Configuração básica do evento (data, local, tema visual simples) — inclui o cronograma (`event_segments`).
+- [x] Site público com informações do evento.
 - [ ] Fluxo de RSVP via código único.
 - [ ] Lista de presentes com reserva.
-- [ ] Dashboard administrativo com contadores essenciais.
+- [ ] Dashboard administrativo com contadores essenciais — página existe, mas ainda sem os contadores reais (confirmados/pendentes/presentes).
 
 ### Fase 2 — Consolidação
 - [ ] Importação de convidados via CSV.
@@ -1116,7 +1120,7 @@ docs: atualizar CLAUDE.md com convenções de commit
 ### Fase 3 — Refinamento de Produto
 - [ ] Galeria de fotos do casal com upload direto (Supabase Storage).
 - [ ] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal.
-- [ ] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa).
+- [ ] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1 (junto de "Configuração básica do evento"); este item cobre especificamente o refinamento visual futuro da timeline.
 - [ ] Mapa/localização integrada (embed de mapa até o local do evento).
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
