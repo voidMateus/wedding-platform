@@ -11,6 +11,8 @@ const { signOut } = useAuth()
           <NuxtLink to="/admin" class="hover:text-text">Dashboard</NuxtLink>
           <NuxtLink to="/admin/convidados" class="hover:text-text">Convidados</NuxtLink>
           <NuxtLink to="/admin/grupos" class="hover:text-text">Grupos</NuxtLink>
+          <NuxtLink to="/admin/cronograma" class="hover:text-text">Cronograma</NuxtLink>
+          <NuxtLink to="/admin/configuracoes" class="hover:text-text">Configurações</NuxtLink>
         </nav>
       </div>
       <UiButton variant="ghost" size="sm" @click="signOut">Sair</UiButton>
