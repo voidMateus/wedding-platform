@@ -532,6 +532,7 @@ export type Database = {
       guest_groups: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           max_members: number
           name: string
@@ -541,6 +542,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           max_members?: number
           name: string
@@ -550,6 +552,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           max_members?: number
           name?: string

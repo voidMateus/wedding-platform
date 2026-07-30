@@ -26,7 +26,7 @@ export async function resolveWeddingContext(event: H3Event): Promise<WeddingCont
   // API de Admin, um tipo diferente).
   const { data, error } = await client
     .from('wedding_members')
-    .select('wedding_id, role')
+    .select('id, wedding_id, role')
     .eq('user_id', user.sub)
     .limit(1)
     .maybeSingle()
@@ -42,5 +42,28 @@ export async function resolveWeddingContext(event: H3Event): Promise<WeddingCont
     return null
   }
 
-  return { weddingId: data.wedding_id, role: data.role as WeddingContext['role'] }
+  return {
+    weddingId: data.wedding_id,
+    role: data.role as WeddingContext['role'],
+    memberId: data.id,
+  }
+}
+
+/**
+ * Variante estrita para handlers do caminho administrativo: lança 401 se não
+ * há sessão, 403 se a sessão existe mas não está vinculada a nenhum wedding
+ * (conta provisionada sem wedding_members — CLAUDE.md, seção 33.2).
+ */
+export async function requireWeddingContext(event: H3Event): Promise<WeddingContext> {
+  const user = await serverSupabaseUser(event)
+  if (!user) {
+    throw unauthorizedError()
+  }
+
+  const context = await resolveWeddingContext(event)
+  if (!context) {
+    throw forbiddenError('Sua conta ainda não está vinculada a nenhum casamento.')
+  }
+
+  return context
 }

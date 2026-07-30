@@ -446,7 +446,7 @@ Modelo de decisão em camadas — do mais local ao mais global:
 - **Modelagem**: normalizada (3FN) como padrão; denormalização só é aceita com justificativa de performance documentada em comentário SQL.
 - **Chaves primárias**: `uuid` (`gen_random_uuid()`), nunca `serial`/`bigserial` — evita vazamento de contagem de registros e facilita merge futuro entre tenants.
 - **Timestamps**: toda tabela possui `created_at` e `updated_at` (`timestamptz`, default `now()`), atualizados via trigger `set_updated_at`.
-- **Soft delete**: entidades com valor histórico (convidados, presentes) usam `deleted_at timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria.
+- **Soft delete**: entidades com valor histórico (convidados, presentes) usam `deleted_at timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria. `guest_groups` também usa soft delete — não por valor histórico próprio, mas porque `guests.group_id` é `NOT NULL` com `ON DELETE RESTRICT`: um grupo nunca pode ser excluído fisicamente enquanto qualquer convidado, mesmo já soft-deleted, ainda referenciar seu id (ver seção 17.3).
 - **Row Level Security (RLS)**: habilitado em **todas** as tabelas desde a v1, mesmo em modo single-tenant — a policy já filtra por `wedding_id` pertencente ao usuário autenticado, preparando a base para o modelo SaaS. Válido para o caminho administrativo; o caminho do convidado tem enforcement próprio (ver 4.5 e 28).
 - **`wedding_id` denormalizado em toda tabela filha**: mesmo quando `wedding_id` é tecnicamente derivável via join (ex.: `guests` → `guest_groups` → `weddings`), a coluna é duplicada diretamente na tabela filha (`guests.wedding_id`, `rsvp_responses.wedding_id`, `gift_reservations.wedding_id` etc.). Isso simplifica e acelera as RLS policies (evita join por linha) e prepara particionamento futuro por `wedding_id` (ver 33.4). A consistência entre `guests.wedding_id` e `guests.group_id → guest_groups.wedding_id` é garantida por `CHECK`/trigger, não apenas por convenção.
 - **Tokens de acesso hasheados em repouso**: qualquer valor que funcione como credencial (código de acesso do convidado) é armazenado como hash (ex.: SHA-256), nunca em texto plano — comparação sempre feita pelo hash do valor recebido. Reduz o dano de um vazamento de banco a zero reutilização direta dos códigos.
@@ -537,9 +537,9 @@ Modelo de decisão em camadas — do mais local ao mais global:
 │ name             │        │ group_id (FK)                  │
 │ max_members      │        │ full_name / email / phone       │
 │ notes            │        │ is_child                          │
-│ created_at       │        │ dietary_restrictions                │
-└──────────────────┘        │ deleted_at / created_at               │
-                             └──────────────┬─────────────────────────┘
+│ deleted_at       │        │ dietary_restrictions                │
+│ created_at       │        │ deleted_at / created_at               │
+└──────────────────┘        └──────────────┬─────────────────────────┘
                                             │1
                                             │
                              ┌──────────────▼─────────────┐
@@ -774,7 +774,7 @@ RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou
 
 ### 17.3 Regras de negócio
 
-- Excluir um grupo com convidados associados exige realocar os convidados para outro grupo ou confirmar exclusão em cascata (soft delete) — nunca exclusão física silenciosa.
+- Excluir um grupo com convidados associados exige realocar os convidados para outro grupo ou confirmar exclusão em cascata (soft delete) — nunca exclusão física silenciosa. A cascata soft-deleta os convidados do grupo **e** o próprio grupo (nunca um `DELETE` físico na linha do grupo): `guests.group_id` é `NOT NULL`/`ON DELETE RESTRICT`, então a linha do grupo permanece referenciada por qualquer convidado soft-deleted que já tenha pertencido a ele. Um grupo sem nenhum convidado (nem ativo, nem soft-deleted) também é apenas soft-deleted, pela mesma convenção (seção 11).
 - `max_members` é validado no momento do RSVP: o formulário não permite confirmar mais acompanhantes do que o limite definido pelo casal.
 
 ---
