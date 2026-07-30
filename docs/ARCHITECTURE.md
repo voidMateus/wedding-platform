@@ -125,9 +125,9 @@ wedding-platform/
 │   │       └── handlers/              # um handler por `jobs.type` (csv-import, send-reminder, ...)
 │   └── jobs-worker/                   # processo/rota separada que consome a fila `jobs`
 ├── supabase/
-│   ├── migrations/                    # uma migration por mudança lógica (ver CLAUDE.md 13)
-│   ├── functions/                     # funções Postgres para operações transacionais (reserva, RSVP)
-│   ├── policies/                      # RLS documentadas/versionadas separadas das migrations de schema
+│   ├── migrations/                    # schema + funções Postgres transacionais, ver CLAUDE.md 13
+│   ├── functions/                     # Supabase Edge Functions (Deno) — reservado, não usado nesta fase
+│   ├── policies/                      # README indexando onde cada RLS policy está definida (não duplica SQL)
 │   └── seed.sql
 ├── tests/
 │   ├── unit/                          # composables, utils, schemas Zod
@@ -138,7 +138,6 @@ wedding-platform/
 │   └── e2e/                           # Playwright — fluxos críticos ponta a ponta
 ├── .env.example
 ├── nuxt.config.ts
-├── tailwind.config.ts
 ├── tsconfig.json
 └── CLAUDE.md
 ```
@@ -146,8 +145,8 @@ wedding-platform/
 ### 1.1 Notas sobre a estrutura
 
 - `server/api` é organizado **por recurso de domínio**, espelhando 1:1 as tabelas descritas no CLAUDE.md (11.1) — facilita localizar rapidamente onde uma regra de negócio de uma tabela específica está implementada.
-- `supabase/functions/` guarda as funções Postgres que implementam operações com controle de concorrência explícito (reserva de presente, confirmação de RSVP contra `max_members`) — mantidas separadas de `migrations/` porque têm ciclo de revisão mais sensível (lógica de negócio dentro do banco).
-- `supabase/policies/` mantém as RLS policies como artefato revisável isoladamente, mesmo que fisicamente apliquem via migration — facilita auditoria de segurança sem varrer todo o histórico de migrations.
+- **Correção sobre `supabase/functions/`**: esse diretório é reservado pela própria Supabase CLI para *Edge Functions* (Deno/TypeScript) — um arquivo `.sql` ali dentro nunca seria aplicado ao banco. As funções Postgres com controle de concorrência explícito (reserva de presente, confirmação de RSVP contra `max_members`) por isso vivem como migrations normais em `supabase/migrations/`, na ordem em que passam a existir no schema (ver 4.4). `supabase/functions/` fica vazio até o projeto realmente precisar de uma Edge Function.
+- `supabase/policies/` **não duplica** o SQL das RLS policies (isso criaria duas fontes de verdade divergentes) — mantém um README que documenta a convenção de nomenclatura e indexa em qual migration cada tabela tem suas policies definidas, que é o único artefato que efetivamente governa o banco.
 - `server/jobs-worker/` é logicamente separado de `server/api` mesmo rodando no mesmo processo Nitro na v1 — isso permite, no futuro, extraí-lo para um serviço/worker dedicado sem reestruturar o restante do backend.
 
 ---
@@ -193,7 +192,7 @@ Os dois middlewares são independentes e nunca se aplicam à mesma rota — refo
 
 ### 2.5 Módulos Nuxt esperados
 
-`@nuxtjs/tailwindcss`, `@pinia/nuxt`, `@nuxt/eslint`, `@nuxt/image` (para `NuxtImg`/`NuxtPicture`, ver CLAUDE.md 24/27), módulo de sitemap/robots (ver CLAUDE.md 26), e o módulo oficial do Supabase (ou um wrapper fino próprio sobre `@supabase/supabase-js`) restrito ao client anônimo — o client com `service_role key` só existe em `server/utils/supabase-admin.ts`, nunca em módulo carregado no bundle do browser.
+`@tailwindcss/vite` (Tailwind v4, CSS-first — tokens em `app/assets/css/main.css` via `@theme`, sem `tailwind.config.ts`; ver Fase B), `@pinia/nuxt`, `@nuxt/eslint`, `@nuxt/image` (para `NuxtImg`/`NuxtPicture`, ver CLAUDE.md 24/27), módulo de sitemap/robots (ver CLAUDE.md 26), e o módulo oficial do Supabase (ou um wrapper fino próprio sobre `@supabase/supabase-js`) restrito ao client anônimo — o client com `service_role key` só existe em `server/utils/supabase-admin.ts`, nunca em módulo carregado no bundle do browser.
 
 ### 2.6 Tratamento de erro na apresentação
 
@@ -224,8 +223,8 @@ Os dois middlewares são independentes e nunca se aplicam à mesma rota — refo
    a. valida body/query com o schema Zod correspondente (server/utils/schemas)
    b. verifica autorização específica do recurso (ex: wedding_id do JWT bate com o
       wedding_id do recurso solicitado)
-   c. executa a operação — leitura direta, ou chamada a uma função Postgres
-      (supabase/functions/) quando há controle de concorrência envolvido
+   c. executa a operação — leitura direta, ou chamada RPC a uma função Postgres
+      definida em supabase/migrations/ (ver 4.4) quando há controle de concorrência envolvido
    d. serializa resposta no formato padronizado (ver 5.2)
 
 5. tratamento de erro centralizado (server/utils/errors.ts)
@@ -278,7 +277,7 @@ Um projeto Supabase por ambiente (`dev`, `staging`, `prod`), nunca compartilhado
 
 ### 4.4 Funções Postgres para operações transacionais
 
-Operações com controle de concorrência explícito (CLAUDE.md 13/18.3) — reserva de presente, confirmação de RSVP contra `max_members` — são implementadas como funções Postgres (`supabase/functions/`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas.
+Operações com controle de concorrência explícito (CLAUDE.md 13/18.3) — reserva de presente, confirmação de RSVP contra `max_members` — são implementadas como funções Postgres versionadas em `supabase/migrations/` (`reserve_gift`, `cancel_gift_reservation`, `confirm_rsvp`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas. Nenhuma é `SECURITY DEFINER`: rodam com o papel de quem chama, para que o caminho administrativo continue protegido por RLS como defesa em profundidade (o caminho do convidado já ignora RLS via `service_role`, ver 4.5).
 
 ### 4.5 Storage
 
