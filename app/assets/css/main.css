@@ -1,0 +1,24 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens do Wedding Platform (ver CLAUDE.md, seção 22.1).
+ * Definidos como variáveis CSS dentro de @theme: o Tailwind v4 gera as
+ * utilities (bg-primary, text-text-muted, border-border...) a partir
+ * delas, mas os valores continuam sendo variáveis CSS reais em :root —
+ * por isso permanecem sobrescrevíveis em runtime por casamento a partir
+ * de weddings.theme_config (implementação fora do escopo desta fase).
+ */
+@theme {
+  --color-primary: #a8785c;
+  --color-primary-foreground: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f5f3;
+  --color-border: #e5e1dd;
+  --color-text: #2b2622;
+  --color-text-muted: #6b6259;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
