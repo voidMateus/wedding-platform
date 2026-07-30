@@ -24,6 +24,13 @@ export default defineNuxtConfig({
     redirect: false,
   },
 
+  // Só server-side (não existe runtimeConfig.public.upstash*) — rate limiting
+  // de endpoints públicos sensíveis (CLAUDE.md, seção 3/14.5/28).
+  runtimeConfig: {
+    upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL,
+    upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
+  },
+
   vite: {
     // @tailwindcss/vite declara suporte a vite ^8, mas seus tipos publicados
     // ainda não batem estruturalmente com o Plugin/PluginContextMeta do
