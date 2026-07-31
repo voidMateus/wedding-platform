@@ -814,6 +814,8 @@ export type Database = {
           caption: string | null
           created_at: string
           display_order: number
+          focal_x: number
+          focal_y: number
           id: string
           storage_path: string
           updated_at: string
@@ -824,6 +826,8 @@ export type Database = {
           caption?: string | null
           created_at?: string
           display_order?: number
+          focal_x?: number
+          focal_y?: number
           id?: string
           storage_path: string
           updated_at?: string
@@ -834,6 +838,8 @@ export type Database = {
           caption?: string | null
           created_at?: string
           display_order?: number
+          focal_x?: number
+          focal_y?: number
           id?: string
           storage_path?: string
           updated_at?: string

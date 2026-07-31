@@ -50,6 +50,19 @@ export const themeConfigSchema = z.object({
 
 export type ThemeConfigInput = z.infer<typeof themeConfigSchema>
 
+// Ponto de foco (enquadramento) da foto de capa ou da foto da "Nossa
+// História" — endpoint próprio (PATCH /api/wedding/theme/focal-point),
+// separado do upload em si (o foco só pode ser escolhido depois de ver a
+// prévia da foto já enviada) e do restante da Aparência, mesma filosofia já
+// documentada para coverImageUrl/storyImageUrl.
+export const themeFocalPointSchema = z.object({
+  target: z.enum(['cover', 'story']),
+  x: z.coerce.number().int('Deve ser um número inteiro.').min(0).max(100),
+  y: z.coerce.number().int('Deve ser um número inteiro.').min(0).max(100),
+})
+
+export type ThemeFocalPointInput = z.infer<typeof themeFocalPointSchema>
+
 /** Shape completo de weddings.theme_config como lido do banco (inclui coverImageUrl, gerido à parte). */
 export interface ThemeConfig {
   presetId?: string
@@ -63,5 +76,11 @@ export interface ThemeConfig {
   coverImageUrl?: string
   /** Foto da seção "Nossa História" — independente de coverImageUrl (Hero). */
   storyImageUrl?: string
+  /** Ponto de foco (0-100%, default 50/50 = centro) usado como object-position da foto de capa. */
+  coverFocalX?: number
+  coverFocalY?: number
+  /** Ponto de foco (0-100%, default 50/50 = centro) usado como object-position da foto da história. */
+  storyFocalX?: number
+  storyFocalY?: number
   showCountdown: boolean
 }

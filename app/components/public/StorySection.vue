@@ -18,6 +18,13 @@ const storyImageUrl = computed(() => {
   const theme = (wedding.theme_config ?? {}) as Partial<ThemeConfig>
   return theme.storyImageUrl ?? null
 })
+
+// Ponto de foco (enquadramento) escolhido pelo casal no upload — CLAUDE.md,
+// seção 22.2. Default 50/50 = centro.
+const storyFocalPosition = computed(() => {
+  const theme = (wedding.theme_config ?? {}) as Partial<ThemeConfig>
+  return `${theme.storyFocalX ?? 50}% ${theme.storyFocalY ?? 50}%`
+})
 </script>
 
 <template>
@@ -27,6 +34,7 @@ const storyImageUrl = computed(() => {
         :src="storyImageUrl"
         :alt="`Foto de ${wedding.couple_names}`"
         class="aspect-[4/5] w-full rounded-lg object-cover shadow-md"
+        :style="{ objectPosition: storyFocalPosition }"
         sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"
         loading="lazy"
       />
