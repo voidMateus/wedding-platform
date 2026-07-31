@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ThemeConfig } from '#shared/schemas/theme'
-import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -17,12 +16,6 @@ const formattedDate = computed(() =>
     month: 'long',
     year: 'numeric',
   }),
-)
-
-const showCountdown = computed(() => theme.value.showCountdown ?? true)
-
-const targetDateTime = computed(() =>
-  resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
 )
 
 // Totalmente opcional — casais sem foto de capa não têm um "menos" do
@@ -52,11 +45,6 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
       <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
       <h1 class="font-display text-4xl font-semibold sm:text-5xl">{{ wedding.couple_names }}</h1>
       <p class="text-lg text-white/90">{{ formattedDate }}</p>
-      <UiCountdownTimer v-if="showCountdown" :target-date-time="targetDateTime" class="mt-4">
-        <template #past>
-          <p class="text-lg font-medium">O grande dia chegou!</p>
-        </template>
-      </UiCountdownTimer>
     </div>
   </section>
 
@@ -72,11 +60,6 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
         {{ wedding.couple_names }}
       </h1>
       <p class="text-lg text-text-muted">{{ formattedDate }}</p>
-      <UiCountdownTimer v-if="showCountdown" :target-date-time="targetDateTime" class="mt-4">
-        <template #past>
-          <p class="text-lg font-medium text-primary">O grande dia chegou!</p>
-        </template>
-      </UiCountdownTimer>
     </div>
   </section>
 </template>

@@ -43,6 +43,11 @@ describe('PublicEditorialSection', () => {
     expect(wrapper.classes()).toContain('bg-surface')
   })
 
+  it('aplica bg-secondary/10 quando tone="accent"', () => {
+    const wrapper = mountSection({ tone: 'accent' })
+    expect(wrapper.classes()).toContain('bg-secondary/10')
+  })
+
   it('propaga o id para a tag <section> (âncora de navegação)', () => {
     const wrapper = mountSection({ id: 'historia' })
     expect(wrapper.attributes('id')).toBe('historia')

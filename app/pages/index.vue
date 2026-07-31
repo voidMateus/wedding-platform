@@ -48,6 +48,7 @@ useSeoMeta({
     <template v-else>
       <PublicHero :wedding="wedding" />
       <PublicStorySection :wedding="wedding" />
+      <PublicCountdownSection :wedding="wedding" />
       <PublicTimeline :segments="segmentsResponse?.data ?? []" />
       <PublicEventSpotlight v-if="ceremonySegment" id="cerimonia" :segment="ceremonySegment" />
       <PublicEventSpotlight

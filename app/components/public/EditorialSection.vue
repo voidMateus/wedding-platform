@@ -6,20 +6,25 @@
 // mesmo padrão já usado em Timeline.vue.
 interface Props {
   title?: string
-  tone?: 'default' | 'muted'
+  tone?: 'default' | 'muted' | 'accent'
   divider?: boolean
   id?: string
 }
 
 const { title, tone = 'default', divider = true, id } = defineProps<Props>()
+
+const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
+  default: 'bg-surface',
+  muted: 'bg-surface-muted',
+  // Banda de destaque (ex: contagem regressiva) — mesmo tom já usado no
+  // Hero sem foto de capa (bg-secondary/10), para marcar uma pausa/momento
+  // na leitura sem introduzir uma cor nova.
+  accent: 'bg-secondary/10',
+}
 </script>
 
 <template>
-  <section
-    :id="id"
-    class="px-4 py-20 sm:py-28"
-    :class="tone === 'muted' ? 'bg-surface-muted' : 'bg-surface'"
-  >
+  <section :id="id" class="px-4 py-20 sm:py-28" :class="TONE_CLASSES[tone]">
     <div
       v-motion
       :initial="{ opacity: 0, y: 24 }"
