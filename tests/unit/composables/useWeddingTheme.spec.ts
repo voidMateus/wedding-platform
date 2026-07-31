@@ -30,4 +30,16 @@ describe('useWeddingTheme', () => {
     const style = useWeddingTheme({ fontPairId: 'não-existe' }, { includeFont: true })
     expect(style['--font-display']).toBeUndefined()
   })
+
+  it('não inclui --color-heading/--color-body quando o casal não definiu cor avançada', () => {
+    const style = useWeddingTheme({ primaryColor: '#6e2439', secondaryColor: '#8a6d1f' })
+    expect(style['--color-heading']).toBeUndefined()
+    expect(style['--color-body']).toBeUndefined()
+  })
+
+  it('resolve --color-heading/--color-body quando o casal define cor avançada', () => {
+    const style = useWeddingTheme({ titleColor: '#2b2622', bodyColor: '#3a332c' })
+    expect(style['--color-heading']).toBe('#2b2622')
+    expect(style['--color-body']).toBe('#3a332c')
+  })
 })
