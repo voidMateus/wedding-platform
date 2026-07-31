@@ -56,6 +56,38 @@ export const GUEST_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
   ],
 }
 
+export interface FaqItem {
+  question: string
+  answer: string
+}
+
+export const FAQ_CONTENT: FaqItem[] = [
+  {
+    question: 'Posso levar acompanhante?',
+    answer:
+      'Confirmamos os acompanhantes que constam no seu convite — o número exato aparece no formulário de confirmação de presença, acessado pelo seu link pessoal.',
+  },
+  {
+    question: 'Crianças estão convidadas?',
+    answer:
+      'Cada convite indica se inclui crianças. Se tiver dúvida, entre em contato com a gente antes de confirmar presença.',
+  },
+  {
+    question: 'Até quando posso confirmar presença?',
+    answer:
+      'O prazo final de confirmação aparece no seu link pessoal de RSVP. Depois dessa data, o formulário fica somente para consulta.',
+  },
+  {
+    question: 'Onde encontro a lista de presentes?',
+    answer: 'A lista completa está na seção "Lista de Presentes", um pouco acima nesta página.',
+  },
+  {
+    question: 'O evento é ao ar livre?',
+    answer:
+      'Sim — tanto a cerimônia quanto a recepção acontecem em espaços abertos. Veja as sugestões na seção Dress Code.',
+  },
+]
+
 export const GROOMSMEN_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
   intro: 'Um guia rápido para quem vai estar ao nosso lado nos bastidores do grande dia.',
   topics: [
