@@ -60,6 +60,8 @@ useSeoMeta({
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
       <PublicGroomsmenManualSection />
+      <PublicGiftsTeaserSection />
+      <PublicRsvpTeaserSection />
     </template>
   </div>
 </template>

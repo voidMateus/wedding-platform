@@ -4,9 +4,11 @@ interface Props {
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
+  /** Quando definido, renderiza como NuxtLink (CTA de navegação) em vez de <button>. */
+  to?: string
 }
 
-const { variant = 'primary', size = 'md', disabled = false, type = 'button' } = defineProps<Props>()
+const { variant = 'primary', size = 'md', disabled = false, type = 'button', to } = defineProps<Props>()
 
 const variantClasses: Record<NonNullable<Props['variant']>, string> = {
   primary: 'bg-primary text-primary-foreground hover:opacity-90',
@@ -23,7 +25,20 @@ const sizeClasses: Record<NonNullable<Props['size']>, string> = {
 </script>
 
 <template>
+  <NuxtLink
+    v-if="to"
+    :to="to"
+    :class="[
+      'inline-flex items-center justify-center rounded-md font-medium transition-colors',
+      'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+      variantClasses[variant],
+      sizeClasses[size],
+    ]"
+  >
+    <slot />
+  </NuxtLink>
   <button
+    v-else
     :type="type"
     :disabled="disabled"
     :class="[
