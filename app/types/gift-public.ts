@@ -5,6 +5,7 @@ export interface PublicGift {
   priceCents: number | null
   imageUrl: string | null
   categoryId: string | null
+  categoryName: string | null
   isGroupGift: boolean
   quantityAvailable: number | null
   targetAmountCents: number | null
