@@ -429,7 +429,7 @@ Modelo de decisão em camadas — do mais local ao mais global:
    - `auth.store.ts` — sessão do usuário autenticado (casal/admin).
    - `guests.store.ts` — cache normalizado da lista de convidados no painel admin.
    - `gifts.store.ts` — cache da lista de presentes e status de reserva.
-   - `ui.store.ts` — estado de UI global (tema ativo do casamento, sidebar aberta/fechada).
+   - `ui.store.ts` — estado de UI global: `themeConfig` (o `theme_config` bruto do casamento ativo, resolvido para CSS vars via `useWeddingTheme.ts` e aplicado pelos layouts via `useHead`, ver seção 21) e `sidebarOpen` (sidebar do admin).
 4. **Server state vs. client state**: dados vindos do banco são tratados como *server state* — usam `useAsyncData`/`useFetch` com suas próprias chaves de cache; Pinia armazena apenas a "última versão conhecida" para uso síncrono na UI, não é a fonte de verdade.
 
 ### 10.1 Regras
@@ -857,8 +857,8 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 ## 21. Interface do Usuário (UI)
 
-- Interface do **site público** é fortemente visual e emocional (fotos do casal, tipografia expressiva), permitindo customização de tema por casamento.
-- Interface do **painel administrativo** é funcional e densa em informação, priorizando escaneabilidade (tabelas, contadores, filtros) sobre estética decorativa.
+- Interface do **site público** é fortemente visual e emocional (fotos do casal, tipografia expressiva), permitindo customização de tema por casamento — cor primária, cor secundária e par tipográfico (`--font-display`) aplicados globalmente via `layouts/default.vue` (`ui.store.ts` + `useWeddingTheme.ts`), cobrindo `/`, `/presentes` e `/rsvp/[code]` automaticamente, por herdarem do mesmo layout.
+- Interface do **painel administrativo** é funcional e densa em informação, priorizando escaneabilidade (tabelas, contadores, filtros) sobre estética decorativa — mas herda a paleta de cores do casamento (`layouts/admin.vue`, mesmo mecanismo do site público), para que o painel não pareça um produto à parte. A fonte, porém, nunca varia: `--font-sans` é fixa em toda a plataforma, mesmo que o casal tenha escolhido um `fontPairId` diferente para o site público — legibilidade em densidade de dados prevalece sobre identidade visual aqui.
 - Uso consistente de **estado vazio ilustrado** nas listagens administrativas para orientar o próximo passo do usuário.
 - Modais reservados para ações rápidas e contidas (ex: editar um convidado); fluxos longos (ex: importação CSV com mapeamento de colunas) usam página dedicada ou wizard em etapas.
 - Toasts para feedback de ações assíncronas (sucesso/erro), nunca `alert()` nativo do navegador.

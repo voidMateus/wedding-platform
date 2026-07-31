@@ -1,5 +1,34 @@
 <script setup lang="ts">
+// Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
+// preserva --font-sans fixo — nunca troca de fonte por casamento, mesmo que
+// o casal tenha escolhido um fontPairId diferente (CLAUDE.md, seção 21).
 const { signOut } = useAuth()
+const uiStore = useUiStore()
+const { getWedding } = useWedding()
+const { data: wedding } = await getWedding()
+
+// watch (não uma atribuição única): a página de configurações usa a mesma
+// chave 'wedding' (useWedding.ts) — ao salvar a Aparência e dar refresh()
+// nela, este layout reflete a cor nova sem precisar de reload completo.
+watch(
+  wedding,
+  (value) => {
+    uiStore.setThemeConfig(value?.theme_config ?? null)
+  },
+  { immediate: true },
+)
+
+const themeStyleTag = computed(() => {
+  const style = useWeddingTheme(uiStore.themeConfig, { includeFont: false })
+  const declarations = Object.entries(style)
+    .map(([property, value]) => `${property}: ${value};`)
+    .join(' ')
+  return `:root { ${declarations} }`
+})
+
+useHead({
+  style: [{ innerHTML: themeStyleTag }],
+})
 </script>
 
 <template>
