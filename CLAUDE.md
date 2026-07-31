@@ -945,7 +945,7 @@ Um componente só é extraído para uso compartilhado após aparecer em **pelo m
 
 - **Mobile-first** obrigatório: a maioria dos convidados acessará o link de RSVP diretamente do WhatsApp no celular.
 - Breakpoints padrão do Tailwind (`sm`, `md`, `lg`, `xl`) — sem breakpoints customizados salvo necessidade comprovada.
-- Painel administrativo é otimizado primeiro para desktop/tablet (uso típico do casal planejando em casa), mas nenhuma tela pode "quebrar" em mobile — no mínimo, uso funcional garantido.
+- Painel administrativo é otimizado primeiro para desktop/tablet (uso típico do casal planejando em casa), mas nenhuma tela pode "quebrar" em mobile — no mínimo, uso funcional garantido. A navegação do admin é uma sidebar (`layouts/admin.vue`, estado `sidebarOpen` em `ui.store.ts`): no desktop, colapsa para uma trilha só de ícones; no mobile, vira um drawer sobreposto (com overlay escurecido) que começa fechado e fecha sozinho ao navegar para outra página.
 - Tabelas administrativas em telas estreitas colapsam para formato de cards empilhados, em vez de scroll horizontal forçado como única solução.
 - Imagens (galeria do casal, fotos de presentes) sempre com `srcset`/componente de imagem otimizada do Nuxt (`<NuxtImg>`), nunca `<img>` cru com imagem em resolução total.
 
