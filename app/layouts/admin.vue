@@ -39,6 +39,7 @@ const navItems = [
   { to: '/admin/grupos', label: 'Grupos', icon: 'lucide:users-round' },
   { to: '/admin/cronograma', label: 'Cronograma', icon: 'lucide:calendar-clock' },
   { to: '/admin/presentes', label: 'Presentes', icon: 'lucide:gift' },
+  { to: '/admin/galeria', label: 'Galeria', icon: 'lucide:image' },
   { to: '/admin/configuracoes', label: 'Configurações', icon: 'lucide:settings' },
 ]
 

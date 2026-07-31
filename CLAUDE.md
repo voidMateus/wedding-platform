@@ -486,7 +486,7 @@ Modelo de decisão em camadas — do mais local ao mais global:
 
 | Tabela | Propósito |
 |---|---|
-| `photos` | Itens da galeria de fotos do casal (Fase 3), já reservada na v1 para evitar migration disruptiva depois |
+| `photos` | Itens da galeria de fotos do casal — reservada desde a v1, ativada na Fase Editorial (CRUD admin em `/admin/galeria`, upload real via bucket `wedding-photos` no Supabase Storage, mesmo padrão de `wedding-covers`: path `{wedding_id}/{uuid}.{ext}`, leitura pública, escrita restrita a `wedding_members`). Tem policy de leitura pública (`photos_select_public`) além da de membros — mesmo padrão de `weddings`/`event_segments`/`gift_categories`, seção 4.5 |
 | `jobs` | Fila de processamento assíncrono (importação de CSV, envio de e-mail em lote) |
 | `audit_logs` | Trilha de auditoria de ações administrativas sensíveis |
 
@@ -1131,7 +1131,7 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [ ] Testes E2E cobrindo os fluxos críticos (RSVP, reserva de presente, login).
 
 ### Fase 3 — Refinamento de Produto
-- [ ] Galeria de fotos do casal com upload direto (Supabase Storage).
+- [x] Galeria de fotos do casal com upload direto (Supabase Storage) — adiantada para a Fase Editorial (fora da sequência original do roadmap): bucket `wedding-photos`, CRUD admin em `/admin/galeria` (`PhotoGalleryManager.vue`). Exibição pública entra em PR separado da mesma fase.
 - [x] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal — adiantado para a Fase Visual (fora da sequência original do roadmap): `shared/theme-presets.ts` (`THEME_PRESETS`), `AdminThemePresetPicker.vue`, seção "Aparência" de `/admin/configuracoes`. Preset é só um atalho de largada — cor e fonte continuam manualmente editáveis (ver CLAUDE.md, seção 22.3).
 - [x] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1; o refinamento visual (trilho conectando os itens, ícone por palavra-chave no título, reveal animado ao rolar) foi adiantado para a Fase Visual (`PublicTimeline.vue`).
 - [ ] Mapa/localização integrada (embed de mapa até o local do evento).
