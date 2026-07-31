@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { EVENT_SEGMENT_ICONS, classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
 import type { EventSegment } from '~/types/event-segment'
 
 interface Props {
@@ -12,15 +13,8 @@ function formatTime(value: string | null): string | null {
   return new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-// event_segments não tem uma coluna de tipo estruturada (CLAUDE.md, seção
-// 12) — o ícone é só um indício visual por palavra-chave no título, nunca
-// uma classificação de negócio. Fallback genérico para títulos livres.
 function iconFor(title: string): string {
-  const normalized = title.toLowerCase()
-  if (normalized.includes('cerimônia') || normalized.includes('cerimonia')) return 'lucide:church'
-  if (normalized.includes('recepção') || normalized.includes('recepcao')) return 'lucide:glass-water'
-  if (normalized.includes('festa')) return 'lucide:party-popper'
-  return 'lucide:calendar'
+  return EVENT_SEGMENT_ICONS[classifyEventSegmentTitle(title)]
 }
 </script>
 

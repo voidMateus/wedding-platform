@@ -1,9 +1,23 @@
 <script setup lang="ts">
+import { classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
+
 const { getPublicWedding } = usePublicWedding()
 const { getPublicEventSegments } = usePublicEventSegments()
 
 const { data: wedding, status: weddingStatus } = getPublicWedding()
 const { data: segmentsResponse } = getPublicEventSegments()
+
+// Cerimônia/Recepção em destaque (Fase Editorial) reaproveitam os mesmos
+// event_segments da Timeline — sem coluna de tipo estruturada, então só
+// aparecem se o título do segmento bater com a heurística de palavra-chave
+// (shared/utils/event-segment-keywords.ts). Sem correspondência, a seção
+// simplesmente não aparece (nunca um estado vazio quebrado).
+const ceremonySegment = computed(
+  () => segmentsResponse.value?.data.find((s) => classifyEventSegmentTitle(s.title) === 'ceremony') ?? null,
+)
+const receptionSegment = computed(
+  () => segmentsResponse.value?.data.find((s) => classifyEventSegmentTitle(s.title) === 'reception') ?? null,
+)
 
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
 // preview correto ao compartilhar o link no WhatsApp.
@@ -35,6 +49,13 @@ useSeoMeta({
       <PublicHero :wedding="wedding" />
       <PublicStorySection :wedding="wedding" />
       <PublicTimeline :segments="segmentsResponse?.data ?? []" />
+      <PublicEventSpotlight v-if="ceremonySegment" id="cerimonia" :segment="ceremonySegment" />
+      <PublicEventSpotlight
+        v-if="receptionSegment"
+        id="recepcao"
+        :segment="receptionSegment"
+        tone="muted"
+      />
     </template>
   </div>
 </template>
