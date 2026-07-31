@@ -24,6 +24,24 @@ function isConflict(err: unknown): boolean {
 
 const toast = useToast()
 
+// Filtro por categoria (Fase Visual) — client-side, sem novo request: a
+// vitrine já retorna categoryName por presente. null = "Todas".
+const selectedCategory = ref<string | null>(null)
+
+const categories = computed(() => {
+  const names = new Set<string>()
+  for (const gift of data.value?.data ?? []) {
+    if (gift.categoryName) names.add(gift.categoryName)
+  }
+  return [...names].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+})
+
+const filteredGifts = computed(() => {
+  const gifts = data.value?.data ?? []
+  if (!selectedCategory.value) return gifts
+  return gifts.filter((gift) => gift.categoryName === selectedCategory.value)
+})
+
 async function handleReserve(giftId: string) {
   try {
     await reserveGift(giftId)
@@ -78,16 +96,52 @@ async function handleContribute(giftId: string, amountCents: number) {
       description="Volte em breve para conferir a lista."
     />
 
-    <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <GiftsGiftCard
-        v-for="gift in data.data"
-        :key="gift.id"
-        :gift="gift"
-        :has-code="Boolean(code)"
-        @reserve="handleReserve(gift.id)"
-        @cancel="handleCancel(gift.id)"
-        @contribute="(amountCents) => handleContribute(gift.id, amountCents)"
+    <template v-else>
+      <div v-if="categories.length" class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="rounded-full border px-3 py-1 text-sm transition-colors"
+          :class="
+            selectedCategory === null
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border text-text-muted hover:border-primary/50'
+          "
+          @click="selectedCategory = null"
+        >
+          Todas
+        </button>
+        <button
+          v-for="category in categories"
+          :key="category"
+          type="button"
+          class="rounded-full border px-3 py-1 text-sm transition-colors"
+          :class="
+            selectedCategory === category
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border text-text-muted hover:border-primary/50'
+          "
+          @click="selectedCategory = category"
+        >
+          {{ category }}
+        </button>
+      </div>
+
+      <UiEmptyState
+        v-if="!filteredGifts.length"
+        title="Nenhum presente nessa categoria"
+        description="Escolha outra categoria ou veja todos os presentes."
       />
-    </div>
+      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <GiftsGiftCard
+          v-for="gift in filteredGifts"
+          :key="gift.id"
+          :gift="gift"
+          :has-code="Boolean(code)"
+          @reserve="handleReserve(gift.id)"
+          @cancel="handleCancel(gift.id)"
+          @contribute="(amountCents) => handleContribute(gift.id, amountCents)"
+        />
+      </div>
+    </template>
   </div>
 </template>

@@ -32,6 +32,17 @@ export default defineEventHandler(async (event) => {
     throw badRequestError(giftsError.message)
   }
 
+  const { data: categories, error: categoriesError } = await client
+    .from('gift_categories')
+    .select('id, name')
+    .eq('wedding_id', wedding.id)
+
+  if (categoriesError) {
+    throw badRequestError(categoriesError.message)
+  }
+
+  const categoryNameById = new Map(categories.map((category) => [category.id, category.name]))
+
   const groupGiftIds = gifts.filter((g) => g.is_group_gift).map((g) => g.id)
 
   const collectedByGiftId = new Map<string, number>()
@@ -98,6 +109,7 @@ export default defineEventHandler(async (event) => {
     priceCents: gift.price_cents,
     imageUrl: gift.image_url,
     categoryId: gift.category_id,
+    categoryName: gift.category_id ? (categoryNameById.get(gift.category_id) ?? null) : null,
     isGroupGift: gift.is_group_gift,
     quantityAvailable: gift.quantity_available,
     targetAmountCents: gift.target_amount_cents,
