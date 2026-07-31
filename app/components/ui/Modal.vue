@@ -47,10 +47,10 @@ const SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
             </DialogDescription>
           </div>
           <DialogClose
-            class="rounded-md p-1 text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             aria-label="Fechar"
           >
-            <Icon name="lucide:x" class="h-4 w-4" />
+            <Icon name="lucide:x" class="h-5 w-5" />
           </DialogClose>
         </div>
 

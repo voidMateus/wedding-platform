@@ -73,6 +73,19 @@
   --shadow-lg: 0 12px 24px -4px rgb(43 38 34 / 0.12), 0 4px 8px -4px rgb(43 38 34 / 0.06);
 }
 
+/* O drawer mobile (NavBar.vue/admin.vue) fica fora da tela via
+   `translate-x-full` num elemento `fixed`/`right-0` — a posição deslocada
+   ainda soma na área de scroll horizontal do documento (elementos `fixed`
+   escapam do `overflow: hidden` de qualquer ancestral que não seja o
+   próprio viewport — por isso o corte precisa estar em `html`, não só em
+   `body`). Achado da auditoria de mobile da Fase Editorial (CLAUDE.md,
+   seção 24) — forma padrão de blindar qualquer elemento off-canvas
+   futuro, sem afetar a rolagem vertical normal da página. */
+html,
+body {
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--color-surface);
   color: var(--color-text);

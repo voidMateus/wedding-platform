@@ -993,6 +993,21 @@ Um componente só é extraído para uso compartilhado após aparecer em **pelo m
 - **Importação de CSV processada de forma assíncrona** via `jobs` (ver 11.1/3): o endpoint que recebe o upload apenas enfileira o processamento e retorna imediatamente; o parsing/validação/inserção em lote roda em um worker separado, evitando estourar o tempo de vida de uma função serverless síncrona em listas grandes.
 - **Rate limiting com store compartilhado** (Upstash Redis, ver 3) — contadores em memória de processo não funcionam corretamente em ambiente serverless com múltiplas instâncias, e dariam falsa sensação de proteção.
 
+### 27.1 Medição real (Lighthouse mobile, pós-Fase Editorial)
+
+Medido contra o build de produção (`npm run build` + `node .output/server/index.mjs`), Lighthouse `--form-factor=mobile --throttling-method=simulate` (4G simulado), na home pública já com as 13 seções da Fase Editorial:
+
+| Métrica | Medido | Meta (acima) | Status |
+|---|---|---|---|
+| LCP | 5.8s | < 2.5s | ❌ acima da meta |
+| CLS | 0 | < 0.1 | ✅ |
+| TBT | 150ms | — | ✅ |
+| Speed Index | 4.9s | — | ❌ |
+
+**Achado**: o elemento de LCP é o `<h1>` do Hero (texto, não imagem), mas o carregamento inicial da página baixa um chunk JS único (`_nuxt/CPRH98eB.js`, ~471KB) contendo referências às rotas `/admin/**` (`convidados`, `cronograma` aparecem no bundle) — hidratação do site público está sendo bloqueada por JS que inclui pelo menos parte do grafo de rotas do admin, contrariando o item acima ("bundle do admin carregado separadamente"). Isso não foi introduzido por uma mudança específica desta fase (é o padrão de bundling já existente do projeto), mas as 13 seções novas da home tornaram o custo de hidratação visível o suficiente para aparecer claramente na medição.
+
+**Não corrigido nesta fase** — decisão deliberada: uma investigação de code-splitting (por que o manifesto de rotas do admin entra no chunk inicial do público, se dá para lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é um trabalho à parte, arriscado de tentar no fim de uma fase já longa sem tempo para validar a fundo. Fica registrado aqui como o item de maior prioridade antes da Fase 4 ("Revisão de performance").
+
 ---
 
 ## 28. Segurança
@@ -1132,15 +1147,28 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [ ] Testes E2E cobrindo os fluxos críticos (RSVP, reserva de presente, login).
 
 ### Fase 3 — Refinamento de Produto
-- [x] Galeria de fotos do casal com upload direto (Supabase Storage) — adiantada para a Fase Editorial (fora da sequência original do roadmap): bucket `wedding-photos`, CRUD admin em `/admin/galeria` (`PhotoGalleryManager.vue`). Exibição pública entra em PR separado da mesma fase.
+- [x] Galeria de fotos do casal com upload direto (Supabase Storage) — adiantada para a Fase Editorial (fora da sequência original do roadmap): bucket `wedding-photos`, CRUD admin em `/admin/galeria` (`PhotoGalleryManager.vue`), grade pública com lightbox (`PublicGallerySection.vue`, `GET /api/public/photos`).
 - [x] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal — adiantado para a Fase Visual (fora da sequência original do roadmap): `shared/theme-presets.ts` (`THEME_PRESETS`), `AdminThemePresetPicker.vue`, seção "Aparência" de `/admin/configuracoes`. Preset é só um atalho de largada — cor e fonte continuam manualmente editáveis (ver CLAUDE.md, seção 22.3).
 - [x] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1; o refinamento visual (trilho conectando os itens, ícone por palavra-chave no título, reveal animado ao rolar) foi adiantado para a Fase Visual (`PublicTimeline.vue`).
 - [ ] Mapa/localização integrada (embed de mapa até o local do evento).
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
 
+### Fase Editorial (concluída, fora da sequência numerada)
+
+Redesign completo de identidade visual e conteúdo do site público, motivado por feedback direto do usuário pedindo qualidade de "editorial de revista de casamento de luxo" — 14 PRs sequenciais, cada um validado contra o Supabase real antes do merge (mesmo ciclo já estabelecido na Fase Visual).
+
+- **Identidade**: paleta Borgonha profundo/Dourado fosco aplicada como tema real do casamento (`shared/theme-presets.ts#borgonha-editorial`); modo de cor avançada opcional (`titleColor`/`bodyColor`, seção 22.3); tokens neutros da plataforma refinados para off-white/branco puro com profundidade sutil (`--color-surface` vs. `--color-surface-elevated`, seção 22.1).
+- **Fundação reutilizável**: `PublicEditorialSection` (wrapper de "capítulo" — título, divisor, alternância de fundo, reveal-on-scroll, âncora) e `UiSectionDivider`, usados por todas as seções novas.
+- **7 novas seções na home** (`app/pages/index.vue`): Nossa História, Cerimônia/Recepção em destaque (`PublicEventSpotlight`, deriva de `event_segments` existentes), Contagem Regressiva (promovida de dentro do Hero para seção própria), Dress Code, Manual dos Convidados/Padrinhos (`PublicTopicGrid` compartilhado), teasers de Presentes/RSVP, Galeria, FAQ (`UiAccordion`, headless via Reka UI) e Contato — a maioria com copy fixo centralizado em `shared/wedding-content.ts` (decisão explícita: sem admin de conteúdo ainda, ver "Não-decisões" abaixo).
+- **Galeria** ativada de ponta a ponta (tabela `photos`, reservada desde a Fase 1) — ver bullet acima.
+- **Navegação**: `PublicNavBar` reescrita com 6 links curados por âncora (`/#id`, funciona a partir de qualquer página do layout público) e menu mobile em drawer.
+- **QA de mobile/performance**: auditoria de área de toque (≥44×44px) em todo elemento interativo novo, `html`/`body { overflow-x: hidden }` (elemento `fixed` do drawer fechado inflava `scrollWidth` sem ser de fato alcançável — achado da auditoria), `NuxtImg` com `preload` no Hero (LCP) e `loading="lazy"` nas imagens abaixo da dobra.
+
+**Não-decisões / adiado deliberadamente**: as 7 novas seções de conteúdo (exceto Galeria) não têm tela de admin para o casal editar — o texto vive em `shared/wedding-content.ts`, centralizado para facilitar a migração para colunas/tabelas editáveis quando essa fase futura existir. Cerimônia/Recepção em destaque derivam de `event_segments` por heurística de palavra-chave (mesma de `Timeline.vue`), sem coluna de tipo estruturada.
+
 ### Fase 4 — Preparação para Escala
-- [ ] Revisão de performance com dados de casamentos grandes (500+ convidados).
+- [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
 - [ ] Observabilidade completa (Sentry + métricas de uso).
 - [ ] Testes de carga nos endpoints públicos (RSVP, reserva de presentes).
 - [ ] Revisão de segurança/RLS por terceiros antes da abertura multi-tenant.

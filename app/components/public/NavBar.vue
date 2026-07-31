@@ -32,7 +32,7 @@ function closeMobileMenu() {
     <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
       <NuxtLink
         to="/"
-        class="font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
         {{ coupleNames || 'Wedding Platform' }}
