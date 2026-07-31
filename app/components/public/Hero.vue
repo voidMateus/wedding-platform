@@ -19,7 +19,7 @@ const formattedDate = computed(() =>
 <template>
   <section class="flex flex-col items-center gap-4 px-4 py-20 text-center">
     <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
-    <h1 class="font-serif text-4xl font-semibold text-text sm:text-5xl">
+    <h1 class="font-display text-4xl font-semibold text-text sm:text-5xl">
       {{ wedding.couple_names }}
     </h1>
     <p class="text-lg text-text-muted">{{ formattedDate }}</p>
