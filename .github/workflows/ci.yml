@@ -1,0 +1,33 @@
+name: CI
+
+# Gate obrigatório antes de merge (CLAUDE.md, seção 29): lint, type-check,
+# testes unitários e build. Não depende de nenhuma credencial/secret — build
+# e testes funcionam sem .env real (confirmado localmente), então nenhum
+# GitHub Secret precisa ser configurado para este workflow funcionar.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run test
+
+      - run: npm run build
