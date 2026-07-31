@@ -1,11 +1,13 @@
 import { z } from 'zod'
-import { WCAG_AA_MIN_CONTRAST, checkPrimaryColorContrast, isValidHexColor } from '../utils/contrast'
 
 // Compartilhado entre client (formulário de configurações) e server
 // (revalidação — CLAUDE.md, seção 8/20.1).
 //
 // rsvpMode é comportamento de negócio, deliberadamente uma coluna própria —
 // nunca dentro de theme_config, que é só visual (CLAUDE.md, seção 16.2/22.3).
+// A cor/fonte/foto de capa vivem em shared/schemas/theme.ts, endpoint
+// próprio (PATCH /api/wedding/theme) — nunca neste schema de dados de
+// negócio do evento.
 
 // HH:MM ou HH:MM:SS — formato nativo do <input type="time">.
 const TIME_PATTERN = /^\d{2}:\d{2}(:\d{2})?$/
@@ -21,14 +23,6 @@ export const weddingSettingsSchema = z.object({
     .or(z.literal('')),
   rsvpMode: z.enum(['per_group', 'per_guest']),
   rsvpDeadline: z.string().trim().optional().or(z.literal('')),
-  primaryColor: z
-    .string()
-    .trim()
-    .refine(isValidHexColor, 'Informe uma cor em formato hexadecimal (ex: #a8785c).')
-    .refine(
-      (hex) => !isValidHexColor(hex) || checkPrimaryColorContrast(hex).meetsMinimum,
-      `Contraste insuficiente (mínimo ${WCAG_AA_MIN_CONTRAST}:1) entre essa cor e o fundo padrão — escolha um tom mais escuro (CLAUDE.md, seção 22.4).`,
-    ),
 })
 
 export type WeddingSettingsInput = z.infer<typeof weddingSettingsSchema>

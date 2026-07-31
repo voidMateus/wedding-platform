@@ -51,15 +51,23 @@ export default defineNuxtConfig({
 
   // Fontes carregadas via @nuxt/fonts são self-hosted automaticamente
   // (baixadas no build, servidas pela própria aplicação) — nunca via CDN
-  // do Google Fonts em runtime. "Playfair Display" é a serifada padrão do
-  // site público (--font-display); "Inter" é a sans-serif fixa de todo o
-  // site, inclusive admin (--font-sans, ver main.css). Presets de tema
-  // (Fase Visual, PR de theme_config) podem declarar famílias adicionais
-  // aqui quando trocarem --font-display por casamento.
+  // do Google Fonts em runtime. "Inter" é a sans-serif fixa de todo o site,
+  // inclusive admin (--font-sans, ver main.css) — nunca varia por casamento.
+  // As demais famílias compõem os pares tipográficos de shared/theme-presets.ts
+  // (FONT_PAIRS) — cada casamento escolhe um par, que troca --font-display no
+  // site público (aplicado globalmente na PR 7).
   fonts: {
     families: [
-      { name: 'Playfair Display', provider: 'google' },
       { name: 'Inter', provider: 'google' },
+      { name: 'Playfair Display', provider: 'google' },
+      { name: 'Cormorant Garamond', provider: 'google' },
+      { name: 'Nunito Sans', provider: 'google' },
+      { name: 'DM Serif Display', provider: 'google' },
+      { name: 'DM Sans', provider: 'google' },
+      { name: 'Abril Fatface', provider: 'google' },
+      { name: 'Work Sans', provider: 'google' },
+      { name: 'Libre Baskerville', provider: 'google' },
+      { name: 'Karla', provider: 'google' },
     ],
   },
 

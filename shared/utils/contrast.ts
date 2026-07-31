@@ -5,7 +5,14 @@
 
 export const DEFAULT_SURFACE_COLOR = '#ffffff'
 export const DEFAULT_TEXT_COLOR = '#2b2622'
-export const DEFAULT_PRIMARY_COLOR = '#a8785c'
+// #a8785c (o valor de exemplo original do CLAUDE.md, seção 22.1) fica em
+// ~3.81:1 contra --color-surface — abaixo do mínimo exigido pela própria
+// seção 22.4 (achado documentado, ver tests/unit/utils/contrast.spec.ts).
+// #6b4a35 é a cor primária do preset "Clássico Elegante" (shared/theme-
+// presets.ts, Fase Visual) — mesma família de tom, mas corrigida para
+// passar no contraste mínimo.
+export const DEFAULT_PRIMARY_COLOR = '#6b4a35'
+export const DEFAULT_SECONDARY_COLOR = '#5f6f52'
 export const WCAG_AA_MIN_CONTRAST = 4.5
 
 const HEX_COLOR_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
@@ -48,22 +55,23 @@ export function getContrastRatio(hexA: string, hexB: string): number {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
-export interface PrimaryColorContrastResult {
+export interface ColorContrastResult {
   ratioAgainstSurface: number
   ratioAgainstText: number
   meetsMinimum: boolean
 }
 
 /**
- * A cor primária é usada tanto como fundo (ex: botões — precisa contrastar
- * com o texto que fica sobre ela) quanto como texto/destaque sobre a
- * superfície padrão — por isso validamos contra os dois tokens fixos
- * (CLAUDE.md, seção 22.3: só a cor primária é customizável, não
- * surface/text).
+ * Valida uma cor da paleta do casal (primária ou secundária — CLAUDE.md,
+ * seção 22.3, Fase Visual) contra os dois tokens fixos da superfície/texto
+ * padrão. Cada cor da paleta é usada tanto como fundo (ex: botões — precisa
+ * contrastar com o texto que fica sobre ela) quanto como texto/destaque
+ * sobre a superfície padrão — nunca surface/text em si, que permanecem
+ * fixos.
  */
-export function checkPrimaryColorContrast(primaryColorHex: string): PrimaryColorContrastResult {
-  const ratioAgainstSurface = getContrastRatio(primaryColorHex, DEFAULT_SURFACE_COLOR)
-  const ratioAgainstText = getContrastRatio(primaryColorHex, DEFAULT_TEXT_COLOR)
+export function checkColorContrast(colorHex: string): ColorContrastResult {
+  const ratioAgainstSurface = getContrastRatio(colorHex, DEFAULT_SURFACE_COLOR)
+  const ratioAgainstText = getContrastRatio(colorHex, DEFAULT_TEXT_COLOR)
 
   return {
     ratioAgainstSurface,
