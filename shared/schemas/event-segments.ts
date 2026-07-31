@@ -44,9 +44,14 @@ export const eventSegmentInputSchema = z.object({
     .refine(isValidOptionalDateTime, 'Data/hora de término inválida.'),
   displayOrder: z.coerce.number().int('A ordem deve ser um número inteiro.').min(0).default(0),
   // Coordenadas do local (Fase Editorial — mapa interativo), opcionais: sem
-  // elas, a seção pública mostra só o botão "Abrir no Google Maps".
+  // elas, o mapa/botão usam o endereço em texto.
   venueLatitude: optionalCoordinateSchema(-90, 90),
   venueLongitude: optionalCoordinateSchema(-180, 180),
+  // Cerimônia e recepção no mesmo local (Fase Editorial): quando definido,
+  // reaproveita o local de outro segmento em vez de duplicar o cadastro —
+  // validação de "não é o próprio id" / "não é uma corrente" acontece no
+  // server (precisa consultar o banco, ver server/utils/validate-same-venue.ts).
+  sameVenueAs: z.string().trim().uuid().optional().or(z.literal('')),
 })
 
 export type EventSegmentInput = z.infer<typeof eventSegmentInputSchema>

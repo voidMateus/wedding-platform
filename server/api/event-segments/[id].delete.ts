@@ -12,6 +12,25 @@ export default defineEventHandler(async (event) => {
   }
 
   const client = await serverSupabaseClient(event)
+
+  // Não deleta silenciosamente um local que outro item ainda reaproveita
+  // (same_venue_as) — o item dependente ficaria sem endereço nenhum
+  // (on delete set null zeraria a referência, mas o local em si nunca foi
+  // duplicado nesse item — CLAUDE.md, 12.2). Pede pra desvincular antes.
+  const { data: dependents, error: dependentsError } = await client
+    .from('event_segments')
+    .select('id, title')
+    .eq('same_venue_as', id)
+
+  if (dependentsError) {
+    throw badRequestError(dependentsError.message)
+  }
+  if (dependents.length > 0) {
+    throw badRequestError(
+      `Não é possível excluir: ${dependents.map((d) => d.title).join(', ')} usa este local. Altere o local desses itens antes de excluir.`,
+    )
+  }
+
   const { data, error } = await client
     .from('event_segments')
     .delete()

@@ -12,12 +12,16 @@ const { data: segmentsResponse } = getPublicEventSegments()
 // aparecem se o título do segmento bater com a heurística de palavra-chave
 // (shared/utils/event-segment-keywords.ts). Sem correspondência, a seção
 // simplesmente não aparece (nunca um estado vazio quebrado).
-const ceremonySegment = computed(
-  () => segmentsResponse.value?.data.find((s) => classifyEventSegmentTitle(s.title) === 'ceremony') ?? null,
-)
-const receptionSegment = computed(
-  () => segmentsResponse.value?.data.find((s) => classifyEventSegmentTitle(s.title) === 'reception') ?? null,
-)
+const ceremonySegment = computed(() => {
+  const segments = segmentsResponse.value?.data ?? []
+  const segment = segments.find((s) => classifyEventSegmentTitle(s.title) === 'ceremony')
+  return segment ? resolveEventSegmentVenue(segment, segments) : null
+})
+const receptionSegment = computed(() => {
+  const segments = segmentsResponse.value?.data ?? []
+  const segment = segments.find((s) => classifyEventSegmentTitle(s.title) === 'reception')
+  return segment ? resolveEventSegmentVenue(segment, segments) : null
+})
 
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
 // preview correto ao compartilhar o link no WhatsApp.

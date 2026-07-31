@@ -19,6 +19,7 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     display_order: 0,
     venue_latitude: null,
     venue_longitude: null,
+    same_venue_as: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -72,24 +73,38 @@ describe('PublicEventSpotlight', () => {
     expect(wrapper.find('#cerimonia').exists()).toBe(true)
   })
 
-  it('renderiza o mapa quando latitude/longitude existem', () => {
+  it('renderiza o mapa a partir do endereço em texto, mesmo sem coordenadas', () => {
+    const wrapper = mountSpotlight({ segment: makeSegment() })
+    expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(true)
+  })
+
+  it('renderiza o mapa quando há coordenadas (mesmo sem endereço em texto)', () => {
     const wrapper = mountSpotlight({
-      segment: makeSegment({ venue_latitude: -15.6, venue_longitude: -56.1 }),
+      segment: makeSegment({
+        venue_name: null,
+        venue_address: null,
+        venue_latitude: -15.6,
+        venue_longitude: -56.1,
+      }),
     })
     expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(true)
   })
 
-  it('não renderiza o mapa quando latitude/longitude estão ausentes', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment() })
+  it('não renderiza o mapa quando não há local, endereço nem coordenadas', () => {
+    const wrapper = mountSpotlight({
+      segment: makeSegment({ venue_name: null, venue_address: null }),
+    })
     expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(false)
   })
 
-  it('botão "Abrir no Google Maps" usa as coordenadas quando existem', () => {
+  it('botão "Abrir no Google Maps" usa as coordenadas quando existem (prioridade sobre o endereço)', () => {
     const wrapper = mountSpotlight({
       segment: makeSegment({ venue_latitude: -15.6, venue_longitude: -56.1 }),
     })
     const link = wrapper.find('a')
-    expect(link.attributes('href')).toBe('https://www.google.com/maps/search/?api=1&query=-15.6,-56.1')
+    expect(link.attributes('href')).toBe(
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('-15.6,-56.1')}`,
+    )
     expect(link.attributes('target')).toBe('_blank')
   })
 

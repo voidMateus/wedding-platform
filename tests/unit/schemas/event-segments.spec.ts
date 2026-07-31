@@ -98,4 +98,25 @@ describe('eventSegmentInputSchema', () => {
 
     expect(result.success).toBe(false)
   })
+
+  it('aceita sameVenueAs como um uuid válido', () => {
+    const result = eventSegmentInputSchema.safeParse({
+      title: 'Recepção',
+      sameVenueAs: '11111111-1111-1111-1111-111111111111',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('aceita sameVenueAs ausente ou vazio (endereço próprio)', () => {
+    const result = eventSegmentInputSchema.safeParse({ title: 'Cerimônia', sameVenueAs: '' })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejeita sameVenueAs que não é um uuid', () => {
+    const result = eventSegmentInputSchema.safeParse({ title: 'Recepção', sameVenueAs: 'não-é-um-uuid' })
+
+    expect(result.success).toBe(false)
+  })
 })

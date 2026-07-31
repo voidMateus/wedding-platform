@@ -139,7 +139,7 @@ O produto nasce como uma aplicação de uso único por casamento (single-tenant,
 | Hospedagem | **Vercel** (ou Netlify) | Deploy integrado com Nuxt, edge functions, preview deployments por PR |
 | Observabilidade | **Sentry** (erros) + logs do provedor de hosting | Rastreio de erros em produção |
 | CI/CD | **GitHub Actions** | Lint, type-check, testes e build em cada PR |
-| Mapa interativo | **Leaflet** + tiles OpenStreetMap | Mapa do local da Cerimônia/Recepção (`VenueMap.client.vue`), sem chave de API/billing — alternativa à Google Maps JS API. Import dinâmico dentro de `onMounted` (não estático no topo do arquivo): o pacote não publica entry point ESM, e import estático fazia o mapa nunca inicializar |
+| Mapa interativo | **Embed do Google Maps** (`google.com/maps?q=...&output=embed` num `<iframe>`) | Mapa do local da Cerimônia/Recepção (`VenueMap.vue`), sem chave de API/billing — usa a URL pública de embed, não a "Maps Embed API" oficial (essa exige chave). Funciona a partir do endereço em texto sozinho (geocodificação do próprio Google) ou de coordenadas quando cadastradas, para mais precisão. Chegou a ser implementado com Leaflet + OpenStreetMap primeiro; trocado por pedido do usuário para bater visualmente com o Google Maps (mesma referência do comparativo desta fase) |
 
 ### 3.1 Critérios de escolha
 
@@ -525,8 +525,9 @@ Modelo de decisão em camadas — do mais local ao mais global:
 │ title            │
 │ venue_name       │
 │ venue_address    │
-│ venue_latitude   │  (opcional — mapa interativo)
-│ venue_longitude  │  (opcional — mapa interativo)
+│ venue_latitude   │  (opcional — precisão do mapa)
+│ venue_longitude  │  (opcional — precisão do mapa)
+│ same_venue_as    │  (opcional — reaproveita o local de outro segmento)
 │ starts_at        │
 │ ends_at          │
 │ display_order    │
@@ -632,6 +633,7 @@ Modelo de decisão em camadas — do mais local ao mais global:
 - `gift_reservations`/`gift_contributions` permitem `guest_id`/`group_id` nulos simultaneamente apenas quando `contributor_name` está preenchido — cenário de presente físico/contribuição de alguém fora da lista de convidados cadastrados.
 - `guest_access_tokens` é a única fonte de autenticação implícita do convidado; `communications` é apenas log — revogar/rotacionar um token (`revoked_at`) não apaga o histórico de comunicações já registrado, e um novo lembrete (Fase 2) gera uma nova linha em `communications` sem invalidar o link original.
 - Toda tabela com `wedding_id` possui índice composto `(wedding_id, <coluna mais consultada>)` para otimizar queries filtradas por evento.
+- `event_segments.same_venue_as` (auto-referência, `on delete set null`) resolve o caso de cerimônia e recepção no mesmo local — quando definido, os campos `venue_name`/`venue_address`/`venue_latitude`/`venue_longitude` deste próprio registro ficam sempre nulos (fonte de verdade única, evita duas cópias divergentes do mesmo endereço). Validado na aplicação (`server/utils/validate-same-venue.ts`): não pode ser o próprio id, e não pode apontar para um segmento que já tem `same_venue_as` definido (só um nível de indireção, nunca uma corrente). Excluir um segmento referenciado por outro é bloqueado até o dependente ser desvinculado — checado explicitamente no handler antes do `DELETE`, não só confiando na mensagem de erro da FK.
 
 ---
 
@@ -946,7 +948,7 @@ Ao salvar `theme_config`, `primaryColor`, `secondaryColor` e, quando definidas, 
 | `ProgressSummary` | Barra/cartão de progresso (ex: "82 de 120 confirmados") reutilizado no dashboard e em relatórios |
 | `CsvImportWizard` | Fluxo de importação de convidados em etapas (upload → mapear colunas → revisar → confirmar) |
 | `EditorialSection` | Wrapper padrão de "capítulo" da home pública (Fase Editorial) — título centralizado + `SectionDivider` opcionais, alternância de fundo `bg-surface`/`bg-surface-muted` (prop `tone`), reveal-on-scroll via `v-motion`, `id` para âncora de navegação. Todas as novas seções da home (história, cerimônia/recepção, dress code, manuais, presentes/RSVP, galeria, FAQ, contato) o reutilizam — conteúdo do slot default fica livre para o layout interno de cada seção |
-| `VenueMap` | `.client.vue` (Leaflet manipula `window`/DOM, não roda em SSR) — mapa interativo do local de `EventSpotlight.vue`, props `latitude`/`longitude`/`label`. Opcional: sem coordenadas cadastradas no cronograma, a seção mostra só o botão "Abrir no Google Maps" (via coordenadas ou busca por endereço em texto), nunca um espaço quebrado |
+| `VenueMap` | Embed do Google Maps num `<iframe>` (SSR-safe, sem manipulação de `window`/DOM) — mapa interativo do local de `EventSpotlight.vue`, props `query` (coordenadas ou endereço em texto) e `label`. Aparece sempre que há local/endereço ou coordenadas cadastrados (junto do botão "Abrir no Google Maps"); sem nenhum dos dois, nem mapa nem botão aparecem — nunca um espaço quebrado |
 
 ### 23.2 Critério para "promover" um componente a reutilizável
 

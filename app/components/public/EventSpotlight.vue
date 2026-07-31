@@ -24,20 +24,23 @@ const timeRange = computed(() => {
   return start
 })
 
-const hasCoordinates = computed(
-  () => segment.venue_latitude !== null && segment.venue_longitude !== null,
-)
-
-// Sempre um jeito de abrir no mapa externo, com ou sem coordenadas
-// cadastradas — nunca um botão quebrado (mesmo princípio de coverImageUrl).
-const externalMapsUrl = computed(() => {
-  if (hasCoordinates.value) {
-    return `https://www.google.com/maps/search/?api=1&query=${segment.venue_latitude},${segment.venue_longitude}`
+// Coordenadas são só um reforço de precisão — na maioria dos casos o
+// próprio endereço em texto já geocodifica bem no embed do Google Maps
+// (CLAUDE.md, seção 3). Preferidas quando existem, senão cai para o
+// endereço; sem nenhum dos dois, nem mapa nem botão aparecem.
+const locationQuery = computed(() => {
+  if (segment.venue_latitude !== null && segment.venue_longitude !== null) {
+    return `${segment.venue_latitude},${segment.venue_longitude}`
   }
-  const query = [segment.venue_name, segment.venue_address].filter(Boolean).join(', ')
-  if (!query) return null
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+  const address = [segment.venue_name, segment.venue_address].filter(Boolean).join(', ')
+  return address || null
 })
+
+const externalMapsUrl = computed(() =>
+  locationQuery.value
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationQuery.value)}`
+    : null,
+)
 </script>
 
 <template>
@@ -55,9 +58,8 @@ const externalMapsUrl = computed(() => {
       </div>
 
       <PublicVenueMap
-        v-if="hasCoordinates"
-        :latitude="segment.venue_latitude as number"
-        :longitude="segment.venue_longitude as number"
+        v-if="locationQuery"
+        :query="locationQuery"
         :label="segment.venue_name || segment.title"
         class="mt-2 w-full"
       />
