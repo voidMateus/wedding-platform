@@ -18,12 +18,17 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@nuxt/fonts": "^0.14.0",
+    "@nuxt/icon": "^2.4.1",
+    "@nuxt/image": "^2.1.0",
     "@nuxtjs/supabase": "^2.0.9",
     "@pinia/nuxt": "^1.0.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vee-validate/nuxt": "^4.15.1",
     "@vee-validate/zod": "^4.15.1",
+    "@vueuse/core": "^14.4.0",
+    "@vueuse/motion": "^3.0.3",
     "nuxt": "~4.3.1",
     "pinia": "^4.0.2",
     "reka-ui": "^2.10.1",
@@ -31,6 +36,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.120",
     "@nuxt/eslint": "^1.16.0",
     "@nuxt/test-utils": "^4.1.0",
     "@playwright/test": "^1.62.0",
