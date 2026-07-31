@@ -23,3 +23,61 @@ export const DRESS_CODE_CONTENT = {
     'A cerimônia e a recepção acontecem ao ar livre — calçados confortáveis agradecem.',
   ],
 }
+
+export interface ManualTopic {
+  icon: string
+  title: string
+  description: string
+}
+
+export const GUEST_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
+  intro: 'Algumas informações práticas para você aproveitar o dia sem preocupação.',
+  topics: [
+    {
+      icon: 'lucide:bed',
+      title: 'Hospedagem',
+      description: 'Há hotéis e pousadas a poucos minutos do local — teremos uma lista de sugestões em breve.',
+    },
+    {
+      icon: 'lucide:car',
+      title: 'Transporte e estacionamento',
+      description: 'O local conta com estacionamento próprio; se preferir, aplicativos de transporte chegam até a entrada.',
+    },
+    {
+      icon: 'lucide:shirt',
+      title: 'Traje',
+      description: 'Confira as sugestões na seção Dress Code, um pouco mais acima nesta página.',
+    },
+    {
+      icon: 'lucide:clock',
+      title: 'Horários',
+      description: 'Chegue com 30 minutos de antecedência para se acomodar antes do início da cerimônia.',
+    },
+  ],
+}
+
+export const GROOMSMEN_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
+  intro: 'Um guia rápido para quem vai estar ao nosso lado nos bastidores do grande dia.',
+  topics: [
+    {
+      icon: 'lucide:door-open',
+      title: 'Chegada',
+      description: 'Pedimos a chegada com 1h de antecedência, para fotos e os últimos ajustes antes da cerimônia.',
+    },
+    {
+      icon: 'lucide:calendar-check',
+      title: 'Ensaio',
+      description: 'Marcaremos um ensaio nos dias anteriores — a data será combinada diretamente com cada um.',
+    },
+    {
+      icon: 'lucide:shirt',
+      title: 'Traje',
+      description: 'Alinharemos cor e estilo com antecedência, para tudo conversar com a nossa paleta.',
+    },
+    {
+      icon: 'lucide:heart-handshake',
+      title: 'No dia',
+      description: 'Contamos com vocês para ajudar os convidados a se acomodarem e para deixar tudo mais leve.',
+    },
+  ],
+}
