@@ -4,6 +4,7 @@ import EventSpotlight from '~/components/public/EventSpotlight.vue'
 import EditorialSection from '~/components/public/EditorialSection.vue'
 import SectionDivider from '~/components/ui/SectionDivider.vue'
 import type { EventSegment } from '~/types/event-segment'
+import { ICON_STUBS } from '../test-utils/icon-stubs'
 
 function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
   return {
@@ -26,10 +27,7 @@ function mountSpotlight(props: Record<string, unknown>) {
     props,
     global: {
       components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
-      stubs: {
-        Icon: { template: '<span />', props: ['name'] },
-        NuxtIcon: { template: '<span />', props: ['name'] },
-      },
+      stubs: ICON_STUBS,
     },
   })
 }

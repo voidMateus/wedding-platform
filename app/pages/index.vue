@@ -58,6 +58,8 @@ useSeoMeta({
         tone="muted"
       />
       <PublicDressCodeSection :wedding="wedding" />
+      <PublicGuestManualSection />
+      <PublicGroomsmenManualSection />
     </template>
   </div>
 </template>
