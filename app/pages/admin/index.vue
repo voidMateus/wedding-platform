@@ -1,8 +1,19 @@
 <script setup lang="ts">
+import { resolveEventDateTime } from '#shared/utils/event-datetime'
+
 definePageMeta({ layout: 'admin' })
 
 const { getSummary } = useDashboard()
 const { data, status } = getSummary()
+
+// Mesma chave 'wedding' do layout admin (useWedding.ts) — dedup automático,
+// sem fetch extra.
+const { getWedding } = useWedding()
+const { data: wedding } = getWedding()
+
+const targetDateTime = computed(() =>
+  wedding.value ? resolveEventDateTime(wedding.value.event_date, wedding.value.event_time).toISOString() : null,
+)
 
 const confirmedPercent = computed(() => {
   if (!data.value || data.value.totalInvitedUnits === 0) return 0
@@ -71,6 +82,15 @@ function formatDeadline(value: string | null): string {
         <UiBadge :tone="data.rsvpMode === 'per_group' ? 'neutral' : 'neutral'">
           Modo: {{ data.rsvpMode === 'per_group' ? 'por grupo' : 'por convidado' }}
         </UiBadge>
+      </UiCard>
+
+      <UiCard v-if="targetDateTime" class="flex flex-col gap-3">
+        <p class="text-sm font-medium text-text">Contagem regressiva</p>
+        <UiCountdownTimer :target-date-time="targetDateTime">
+          <template #past>
+            <p class="text-sm font-medium text-primary">O grande dia chegou!</p>
+          </template>
+        </UiCountdownTimer>
       </UiCard>
 
       <p class="text-sm text-text-muted">

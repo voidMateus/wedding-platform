@@ -904,6 +904,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | `Avatar` | Representação visual de convidado/casal |
 | `Skeleton` | Estado de carregamento consistente |
 | `EmptyState` | Estado vazio ilustrado e padronizado |
+| `CountdownTimer` | Contagem regressiva até a data/hora do evento (dias/horas/min/seg); sem conhecimento de domínio (props `targetDateTime`, slot `past` para a mensagem de "já aconteceu") — usado no Hero público (condicionado a `theme_config.showCountdown`) e no dashboard admin (sempre visível, é uso interno do casal) |
 
 ### 22.3 Regras de governança
 
