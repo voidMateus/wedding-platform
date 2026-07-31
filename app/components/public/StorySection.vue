@@ -27,7 +27,7 @@ const coverImageUrl = computed(() => {
         :src="coverImageUrl"
         :alt="`Foto de ${wedding.couple_names}`"
         class="aspect-[4/5] w-full rounded-lg object-cover shadow-md"
-        sizes="(min-width: 640px) 50vw, 100vw"
+        sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"
         loading="lazy"
       />
       <div class="flex flex-col gap-4 text-body">

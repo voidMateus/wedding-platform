@@ -29,7 +29,7 @@ function openLightbox(photo: PhotoWithUrl) {
           :src="photo.url"
           :alt="photo.caption || 'Foto da galeria'"
           class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          sizes="sm:50vw md:33vw lg:25vw xl:25vw 2xl:25vw"
           loading="lazy"
         />
       </button>
@@ -45,7 +45,7 @@ function openLightbox(photo: PhotoWithUrl) {
         :src="selectedPhoto.url"
         :alt="selectedPhoto.caption || 'Foto da galeria'"
         class="max-h-[70vh] w-full rounded-md object-contain"
-        sizes="90vw"
+        sizes="sm:90vw md:90vw lg:90vw xl:90vw 2xl:90vw"
       />
     </UiModal>
   </PublicEditorialSection>

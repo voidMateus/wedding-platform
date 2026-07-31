@@ -1008,6 +1008,16 @@ Medido contra o build de produção (`npm run build` + `node .output/server/inde
 
 **Não corrigido nesta fase** — decisão deliberada: uma investigação de code-splitting (por que o manifesto de rotas do admin entra no chunk inicial do público, se dá para lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é um trabalho à parte, arriscado de tentar no fim de uma fase já longa sem tempo para validar a fundo. Fica registrado aqui como o item de maior prioridade antes da Fase 4 ("Revisão de performance").
 
+### 27.2 Achado crítico: sintaxe da prop `sizes` do NuxtImg (pós-Fase Editorial)
+
+Reportado pelo usuário logo após o merge da Fase Editorial: a foto de capa (Hero) e as fotos da Galeria não apareciam no site — sem nenhum erro de console, sem falha de rede (a imagem original respondia 200 normalmente).
+
+**Causa raiz**: `@nuxt/image` não aceita a sintaxe crua do atributo HTML `sizes` (`sizes="100vw"` ou `sizes="(min-width: 640px) 50vw, 100vw"`) — a prop exige o formato próprio do módulo, `"breakpoint:valor"`, com chaves iguais às do `tailwind.config` (`sm`/`md`/`lg`/`xl`/`2xl`). Qualquer valor sem `:` é internamente tratado como se a chave fosse a string literal `"1px"`; para valores em `vw`, isso faz o módulo calcular a largura como **1% de 1px**, gerando um `srcset` de ~1-2px de largura — uma imagem essencialmente em branco, carregada com sucesso (por isso nenhum erro aparece), só que do tamanho errado. Confirmado via leitura direta de `node_modules/@nuxt/image/dist/runtime/utils/index.js#parseSizes`.
+
+**Correção**: todo uso de `sizes` com unidade `vw` em `NuxtImg`/`NuxtPicture` neste projeto precisa listar os 5 breakpoints explicitamente, ex.: `sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"` (constante) ou `sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"` (variável — nota: a biblioteca desloca cada valor para valer "a partir deste breakpoint até o próximo", não "abaixo deste breakpoint"; sempre conferir o `srcset`/`naturalWidth` renderizado após qualquer mudança, não confiar só na leitura do código). Valores em `px` (ex.: `sizes="400px"`, usado em `GiftCard.vue`/`PhotoGalleryManager.vue`) não têm esse problema — o bug é específico de unidades fluidas (`vw`).
+
+Corrigido em `Hero.vue`, `StorySection.vue` e `GallerySection.vue` (grade e lightbox) — comentário de alerta deixado em `Hero.vue` como referência para o próximo uso de `sizes` no projeto.
+
 ---
 
 ## 28. Segurança
