@@ -38,32 +38,32 @@ function formatDeadline(value: string | null): string {
 
     <template v-else-if="data">
       <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div class="rounded-lg border border-border bg-surface p-4">
+        <UiCard>
           <p class="text-sm text-text-muted">Confirmados</p>
           <p class="mt-1 text-2xl font-semibold text-text">
             {{ data.responsesConfirmed }}
             <span class="text-sm font-normal text-text-muted">/ {{ data.totalInvitedUnits }}</span>
           </p>
           <p class="mt-1 text-xs text-text-muted">{{ confirmedPercent }}% dos {{ invitedUnitLabel }}</p>
-        </div>
+        </UiCard>
 
-        <div class="rounded-lg border border-border bg-surface p-4">
+        <UiCard>
           <p class="text-sm text-text-muted">Recusados</p>
           <p class="mt-1 text-2xl font-semibold text-text">{{ data.responsesDeclined }}</p>
-        </div>
+        </UiCard>
 
-        <div class="rounded-lg border border-border bg-surface p-4">
+        <UiCard>
           <p class="text-sm text-text-muted">Pendentes</p>
           <p class="mt-1 text-2xl font-semibold text-text">{{ data.responsesPending }}</p>
-        </div>
+        </UiCard>
 
-        <div class="rounded-lg border border-border bg-surface p-4">
+        <UiCard>
           <p class="text-sm text-text-muted">Acompanhantes confirmados</p>
           <p class="mt-1 text-2xl font-semibold text-text">{{ data.totalCompanionsConfirmed }}</p>
-        </div>
+        </UiCard>
       </div>
 
-      <div class="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+      <UiCard class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p class="text-sm font-medium text-text">Prazo de RSVP</p>
           <p class="text-sm text-text-muted">{{ formatDeadline(data.rsvpDeadline) }}</p>
@@ -71,7 +71,7 @@ function formatDeadline(value: string | null): string {
         <UiBadge :tone="data.rsvpMode === 'per_group' ? 'neutral' : 'neutral'">
           Modo: {{ data.rsvpMode === 'per_group' ? 'por grupo' : 'por convidado' }}
         </UiBadge>
-      </div>
+      </UiCard>
 
       <p class="text-sm text-text-muted">
         {{ data.totalGuests }} convidado{{ data.totalGuests === 1 ? '' : 's' }} cadastrado{{
