@@ -57,6 +57,7 @@ useSeoMeta({
         :segment="receptionSegment"
         tone="muted"
       />
+      <PublicDressCodeSection :wedding="wedding" />
     </template>
   </div>
 </template>
