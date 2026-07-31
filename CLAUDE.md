@@ -909,6 +909,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | `Skeleton` | Estado de carregamento consistente |
 | `EmptyState` | Estado vazio ilustrado e padronizado |
 | `SectionDivider` | Divisor ornamental discreto (linha fina + marca central em `--color-secondary`) entre capítulos do site público; puramente decorativo (`aria-hidden`), sem conhecimento de domínio — usado por `PublicEditorialSection` |
+| `Accordion` | Headless via Reka UI (`AccordionRoot`/`Item`/`Header`/`Trigger`/`Content`), `type="single" collapsible`; navegação por teclado e `aria-expanded` nativos do primitive — usado pela seção de FAQ pública |
 | `CountdownTimer` | Contagem regressiva até a data/hora do evento (dias/horas/min/seg); sem conhecimento de domínio (props `targetDateTime`, slot `past` para a mensagem de "já aconteceu") — usado no Hero público (condicionado a `theme_config.showCountdown`) e no dashboard admin (sempre visível, é uso interno do casal) |
 
 ### 22.3 Regras de governança
