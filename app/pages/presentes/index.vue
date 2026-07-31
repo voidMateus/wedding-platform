@@ -22,44 +22,39 @@ function isConflict(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as ApiError).statusCode === 409
 }
 
-const feedbackMessage = ref<string | null>(null)
-const feedbackTone = ref<'success' | 'error'>('success')
+const toast = useToast()
 
 async function handleReserve(giftId: string) {
   try {
     await reserveGift(giftId)
-    feedbackTone.value = 'success'
-    feedbackMessage.value = 'Presente reservado! Obrigado.'
+    toast.success('Presente reservado! Obrigado.')
     await refresh()
   } catch (err) {
-    feedbackTone.value = 'error'
-    feedbackMessage.value = isConflict(err)
-      ? 'Esse presente acabou de ser reservado por outra pessoa.'
-      : 'Não foi possível reservar. Tente novamente.'
+    toast.error(
+      isConflict(err)
+        ? 'Esse presente acabou de ser reservado por outra pessoa.'
+        : 'Não foi possível reservar. Tente novamente.',
+    )
   }
 }
 
 async function handleCancel(giftId: string) {
   try {
     await cancelGift(giftId)
-    feedbackTone.value = 'success'
-    feedbackMessage.value = 'Cancelado.'
+    toast.success('Cancelado.')
     await refresh()
   } catch {
-    feedbackTone.value = 'error'
-    feedbackMessage.value = 'Não foi possível cancelar. Tente novamente.'
+    toast.error('Não foi possível cancelar. Tente novamente.')
   }
 }
 
 async function handleContribute(giftId: string, amountCents: number) {
   try {
     await contributeToGift(giftId, amountCents)
-    feedbackTone.value = 'success'
-    feedbackMessage.value = 'Contribuição registrada! Obrigado.'
+    toast.success('Contribuição registrada! Obrigado.')
     await refresh()
   } catch {
-    feedbackTone.value = 'error'
-    feedbackMessage.value = 'Não foi possível registrar a contribuição. Tente novamente.'
+    toast.error('Não foi possível registrar a contribuição. Tente novamente.')
   }
 }
 </script>
@@ -72,15 +67,6 @@ async function handleContribute(giftId: string, amountCents: number) {
         Acesse pelo link enviado a você para poder reservar ou contribuir.
       </p>
     </div>
-
-    <p
-      v-if="feedbackMessage"
-      class="text-sm"
-      :class="feedbackTone === 'success' ? 'text-green-700' : 'text-red-600'"
-      :role="feedbackTone === 'success' ? 'status' : 'alert'"
-    >
-      {{ feedbackMessage }}
-    </p>
 
     <div v-if="status === 'pending'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <UiSkeleton v-for="n in 6" :key="n" class="h-64 w-full" />

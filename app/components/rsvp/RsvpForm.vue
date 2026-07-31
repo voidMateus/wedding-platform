@@ -59,21 +59,19 @@ function addCompanion() {
   pushCompanion({ fullName: '', dietaryRestrictions: '' })
 }
 
-const submitErrorMessage = ref<string | null>(null)
-const successMessage = ref<string | null>(null)
+const toast = useToast()
 
 const onSubmit = handleSubmit(async (formValues) => {
-  submitErrorMessage.value = null
-  successMessage.value = null
   try {
     await submitRsvp(formValues)
-    successMessage.value =
+    toast.success(
       formValues.status === 'confirmed'
         ? 'Presença confirmada! Você pode alterar sua resposta até o prazo final.'
-        : 'Resposta registrada. Sentiremos sua falta!'
+        : 'Resposta registrada. Sentiremos sua falta!',
+    )
     emit('submitted')
   } catch {
-    submitErrorMessage.value = 'Não foi possível enviar sua resposta. Tente novamente.'
+    toast.error('Não foi possível enviar sua resposta. Tente novamente.')
   }
 })
 </script>
@@ -155,13 +153,6 @@ const onSubmit = handleSubmit(async (formValues) => {
       :disabled="details.isPastDeadline"
       :error="errors.message"
     />
-
-    <p v-if="submitErrorMessage" class="text-sm text-red-600" role="alert">
-      {{ submitErrorMessage }}
-    </p>
-    <p v-if="successMessage" class="text-sm text-green-700" role="status">
-      {{ successMessage }}
-    </p>
 
     <UiButton type="submit" :disabled="isSubmitting || details.isPastDeadline">
       {{ details.response ? 'Atualizar resposta' : 'Enviar resposta' }}
