@@ -13,3 +13,13 @@ export const STORY_CONTENT = {
     'Entre risadas, planos adiados e recomeços, aprendemos que construir uma vida a dois é, acima de tudo, escolher o outro todos os dias — e é exatamente isso que queremos celebrar com vocês.',
   ],
 }
+
+export const DRESS_CODE_CONTENT = {
+  description:
+    'Escolha um look que reflita a elegância do momento — sugerimos traje social, em tons que conversem com a nossa paleta.',
+  suggestions: [
+    'Evite branco e tons muito próximos do branco, reservados para a noiva.',
+    'Cores terrosas, joias discretas e tecidos fluidos são bem-vindos.',
+    'A cerimônia e a recepção acontecem ao ar livre — calçados confortáveis agradecem.',
+  ],
+}
