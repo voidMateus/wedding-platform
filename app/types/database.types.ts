@@ -1078,6 +1078,7 @@ export type Database = {
           couple_names: string
           created_at: string
           event_date: string
+          event_time: string | null
           id: string
           rsvp_deadline: string | null
           rsvp_mode: string
@@ -1089,6 +1090,7 @@ export type Database = {
           couple_names: string
           created_at?: string
           event_date: string
+          event_time?: string | null
           id?: string
           rsvp_deadline?: string | null
           rsvp_mode?: string
@@ -1100,6 +1102,7 @@ export type Database = {
           couple_names?: string
           created_at?: string
           event_date?: string
+          event_time?: string | null
           id?: string
           rsvp_deadline?: string | null
           rsvp_mode?: string

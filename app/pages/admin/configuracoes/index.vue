@@ -35,6 +35,7 @@ const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
 
 const [coupleNames] = defineField('coupleNames')
 const [eventDate] = defineField('eventDate')
+const [eventTime] = defineField('eventTime')
 const [rsvpMode] = defineField('rsvpMode')
 const [rsvpDeadline] = defineField('rsvpDeadline')
 const [primaryColor] = defineField('primaryColor')
@@ -48,6 +49,7 @@ watch(
       values: {
         coupleNames: value.couple_names,
         eventDate: value.event_date,
+        eventTime: value.event_time ? value.event_time.slice(0, 5) : '',
         rsvpMode: value.rsvp_mode as 'per_group' | 'per_guest',
         rsvpDeadline: value.rsvp_deadline ? isoToDatetimeLocal(value.rsvp_deadline) : '',
         primaryColor: theme.primaryColor ?? DEFAULT_PRIMARY_COLOR,
@@ -94,7 +96,26 @@ const onSubmit = handleSubmit(async (values) => {
 
     <form v-else class="flex flex-col gap-4" @submit="onSubmit">
       <UiInput v-model="coupleNames" label="Nome do casal" :error="errors.coupleNames" />
-      <UiInput v-model="eventDate" type="date" label="Data do casamento" :error="errors.eventDate" />
+      <div class="flex gap-3">
+        <UiInput
+          v-model="eventDate"
+          type="date"
+          label="Data do casamento"
+          class="flex-1"
+          :error="errors.eventDate"
+        />
+        <UiInput
+          v-model="eventTime"
+          type="time"
+          label="Horário (opcional)"
+          class="flex-1"
+          :error="errors.eventTime"
+        />
+      </div>
+      <p class="-mt-2 text-xs text-text-muted">
+        Usado na contagem regressiva do site. Sem horário definido, a contagem mira meia-noite do
+        dia do evento.
+      </p>
       <UiSelect
         v-model="rsvpMode"
         label="Modo de RSVP"
