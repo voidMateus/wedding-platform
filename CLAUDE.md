@@ -900,7 +900,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | `Input` / `Textarea` | Campos de formulário com estado de erro integrado |
 | `Select` / `Combobox` | Seleção simples e busca (ex: selecionar grupo do convidado) |
 | `Checkbox` / `RadioGroup` | Seleção múltipla/única (ex: restrições alimentares) |
-| `Modal` / `Dialog` | Confirmações e edições rápidas |
+| `Modal` / `Dialog` | Confirmações e edições rápidas; prop `size` (`'md'` default, `'lg'` para conteúdo mais largo — ex.: lightbox de foto da galeria pública) |
 | `Toast` / `ToastViewport` | Feedback de ações assíncronas (nunca `alert()` nativo) — estado em `ui.store.ts` (`toasts`), disparado via `useToast().success()/error()/info()`, `ToastViewport` montado uma vez em `app.vue` |
 | `Badge` | Status visual (RSVP confirmado/pendente/recusado) |
 | `Card` | Contêiner padrão para itens de lista (convidado, presente) |

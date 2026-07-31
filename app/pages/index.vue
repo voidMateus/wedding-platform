@@ -62,6 +62,7 @@ useSeoMeta({
       <PublicGroomsmenManualSection />
       <PublicGiftsTeaserSection />
       <PublicRsvpTeaserSection />
+      <PublicGallerySection />
     </template>
   </div>
 </template>
