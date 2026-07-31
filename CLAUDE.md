@@ -897,7 +897,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | `Select` / `Combobox` | Seleção simples e busca (ex: selecionar grupo do convidado) |
 | `Checkbox` / `RadioGroup` | Seleção múltipla/única (ex: restrições alimentares) |
 | `Modal` / `Dialog` | Confirmações e edições rápidas |
-| `Toast` | Feedback de ações |
+| `Toast` / `ToastViewport` | Feedback de ações assíncronas (nunca `alert()` nativo) — estado em `ui.store.ts` (`toasts`), disparado via `useToast().success()/error()/info()`, `ToastViewport` montado uma vez em `app.vue` |
 | `Badge` | Status visual (RSVP confirmado/pendente/recusado) |
 | `Card` | Contêiner padrão para itens de lista (convidado, presente) |
 | `Table` | Listagens administrativas com ordenação/paginação |
