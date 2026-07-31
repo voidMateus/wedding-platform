@@ -53,6 +53,13 @@ function formatDeadline(value: string | null): string {
       </p>
 
       <RsvpForm :code="code" :details="data" @submitted="refresh" />
+
+      <NuxtLink
+        :to="`/presentes?code=${code}`"
+        class="text-center text-sm text-primary underline-offset-2 hover:underline"
+      >
+        Ver lista de presentes
+      </NuxtLink>
     </template>
   </div>
 </template>

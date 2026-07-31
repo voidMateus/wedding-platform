@@ -12,25 +12,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const client = supabaseAdmin(event)
-  const codeHash = hashAccessCode(code)
-
-  const { data: token, error: tokenError } = await client
-    .from('guest_access_tokens')
-    .select('wedding_id, guest_id, group_id, revoked_at')
-    .eq('code_hash', codeHash)
-    .maybeSingle()
-
-  if (tokenError) {
-    throw badRequestError(tokenError.message)
-  }
-  if (!token || token.revoked_at) {
+  const token = await resolveGuestToken(client, code)
+  if (!token) {
     throw notFoundError('Link inválido ou expirado.')
   }
 
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
     .select('couple_names, event_date, rsvp_mode, rsvp_deadline')
-    .eq('id', token.wedding_id)
+    .eq('id', token.weddingId)
     .single()
 
   if (weddingError) {
@@ -40,11 +30,11 @@ export default defineEventHandler(async (event) => {
   let displayName: string
   let maxMembers: number
 
-  if (token.guest_id) {
+  if (token.guestId) {
     const { data: guest, error: guestError } = await client
       .from('guests')
       .select('full_name, group_id')
-      .eq('id', token.guest_id)
+      .eq('id', token.guestId)
       .single()
     if (guestError || !guest) {
       throw notFoundError('Convidado não encontrado.')
@@ -65,7 +55,7 @@ export default defineEventHandler(async (event) => {
     const { data: group, error: groupError } = await client
       .from('guest_groups')
       .select('name, max_members')
-      .eq('id', token.group_id as string)
+      .eq('id', token.groupId as string)
       .single()
     if (groupError || !group) {
       throw notFoundError('Grupo não encontrado.')
@@ -75,8 +65,8 @@ export default defineEventHandler(async (event) => {
     maxMembers = group.max_members
   }
 
-  const responseColumn = token.guest_id ? 'guest_id' : 'group_id'
-  const responseValue = token.guest_id ?? (token.group_id as string)
+  const responseColumn = token.guestId ? 'guest_id' : 'group_id'
+  const responseValue = token.guestId ?? (token.groupId as string)
 
   const { data: rsvpResponse, error: responseError } = await client
     .from('rsvp_responses')
@@ -116,8 +106,8 @@ export default defineEventHandler(async (event) => {
       rsvpMode: wedding.rsvp_mode,
       rsvpDeadline: wedding.rsvp_deadline,
     },
-    guestId: token.guest_id,
-    groupId: token.group_id,
+    guestId: token.guestId,
+    groupId: token.groupId,
     displayName,
     maxMembers,
     isPastDeadline,

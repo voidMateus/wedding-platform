@@ -2,8 +2,7 @@
 
 > Este documento é a fonte única de verdade (single source of truth) para o desenvolvimento do **Wedding Platform**. Toda decisão de arquitetura, convenção de código, modelagem de dados e prioridade de produto deve ser consultada e mantida atualizada aqui. Qualquer assistente de IA (Claude Code) ou desenvolvedor humano que trabalhe neste repositório deve ler este arquivo antes de propor mudanças estruturais.
 
-**Status:** Documento vivo — versão inicial (pré-implementação).
-**Escopo desta versão:** Especificação apenas. Nenhuma funcionalidade foi implementada ainda.
+**Status:** Documento vivo — Fase 0 e Fase 1 (MVP single-tenant) implementadas; ver roadmap (seção 32) para o detalhamento do que falta nas fases seguintes.
 
 ---
 
@@ -1100,14 +1099,14 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [x] Schema inicial do banco de dados + RLS básica.
 - [x] Design System — tokens e componentes atômicos essenciais.
 
-### Fase 1 — MVP Single-Tenant (em andamento)
+### Fase 1 — MVP Single-Tenant (concluída)
 - [x] Autenticação do casal (login/cadastro) — login por e-mail/senha e magic link; cadastro é manual/via seed nesta fase (self-service nasce só na Fase 5, ver seção 33.2).
 - [x] CRUD de convidados e grupos.
 - [x] Configuração básica do evento (data, local, tema visual simples) — inclui o cronograma (`event_segments`).
 - [x] Site público com informações do evento.
 - [x] Fluxo de RSVP via código único — geração de token (admin), `/rsvp/[code]` (confirmar/recusar, acompanhantes nominais, limite de grupo validado via `confirm_rsvp()`), com rate limiting.
-- [ ] Lista de presentes com reserva — CRUD administrativo (categorias + presentes simples/cota) já implementado; falta a vitrine pública e o fluxo de reserva/contribuição/cancelamento pelo convidado.
-- [x] Dashboard administrativo com contadores essenciais — confirmados/recusados/pendentes, acompanhantes confirmados e prazo de RSVP, lidos da view `wedding_rsvp_summary` (CLAUDE.md, seção 13). Contador de presentes reservados entra quando a lista de presentes existir.
+- [x] Lista de presentes com reserva — CRUD administrativo, vitrine pública (`/presentes?code=`), reserva atômica (`reserve_gift()`), contribuição em presentes de cota e cancelamento, todos via `guest_access_token`. Contribuição avulsa por `contributor_name` (presente físico entregue por terceiro, CLAUDE.md §18.2) é só de uso administrativo/manual — não exposta como fluxo self-service na vitrine pública ainda.
+- [x] Dashboard administrativo com contadores essenciais — confirmados/recusados/pendentes, acompanhantes confirmados e prazo de RSVP, lidos da view `wedding_rsvp_summary` (CLAUDE.md, seção 13). Contador de presentes reservados ainda não foi adicionado ao dashboard — a lista de presentes já existe agora, então isso deixou de ser um bloqueio; fica como ajuste pontual futuro.
 
 ### Fase 2 — Consolidação
 - [ ] Importação de convidados via CSV.
