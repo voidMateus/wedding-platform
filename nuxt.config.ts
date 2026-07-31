@@ -1,5 +1,13 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// @nuxt/image (IPX) só otimiza domínios explicitamente allowlistados — a
+// própria variável documentada pelo módulo (NUXT_IMAGE_DOMAINS), derivada de
+// SUPABASE_URL, é mais confiável que a chave `image.domains` do módulo (ver
+// achado documentado no commit desta seção).
+if (process.env.SUPABASE_URL && !process.env.NUXT_IMAGE_DOMAINS) {
+  process.env.NUXT_IMAGE_DOMAINS = new URL(process.env.SUPABASE_URL).hostname
+}
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-29',
@@ -38,14 +46,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL,
     upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
-  },
-
-  // Permite ao @nuxt/image otimizar as fotos de capa (bucket wedding-covers,
-  // CLAUDE.md seção 28) — IPX só otimiza domínios explicitamente
-  // allowlistados. Derivado de SUPABASE_URL (nunca hardcoded) para não
-  // acoplar este arquivo a um projeto Supabase específico.
-  image: {
-    domains: process.env.SUPABASE_URL ? [new URL(process.env.SUPABASE_URL).hostname] : [],
   },
 
   // Ícones vêm do pacote local @iconify-json/lucide (devDependency), não da

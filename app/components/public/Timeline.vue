@@ -11,27 +11,50 @@ function formatTime(value: string | null): string | null {
   if (!value) return null
   return new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
+
+// event_segments não tem uma coluna de tipo estruturada (CLAUDE.md, seção
+// 12) — o ícone é só um indício visual por palavra-chave no título, nunca
+// uma classificação de negócio. Fallback genérico para títulos livres.
+function iconFor(title: string): string {
+  const normalized = title.toLowerCase()
+  if (normalized.includes('cerimônia') || normalized.includes('cerimonia')) return 'lucide:church'
+  if (normalized.includes('recepção') || normalized.includes('recepcao')) return 'lucide:glass-water'
+  if (normalized.includes('festa')) return 'lucide:party-popper'
+  return 'lucide:calendar'
+}
 </script>
 
 <template>
-  <section v-if="segments.length" class="mx-auto flex max-w-lg flex-col gap-6 px-4 py-12">
+  <section v-if="segments.length" class="mx-auto flex max-w-lg flex-col gap-8 px-4 py-12">
     <h2 class="text-center text-xl font-semibold text-text">Programação</h2>
-    <ol class="flex flex-col gap-4">
+    <ol class="relative flex flex-col gap-8">
+      <div
+        class="absolute bottom-5 left-[1.375rem] top-5 w-px bg-secondary/30"
+        aria-hidden="true"
+      />
       <li
-        v-for="segment in segments"
+        v-for="(segment, index) in segments"
         :key="segment.id"
-        class="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4"
+        v-motion
+        :initial="{ opacity: 0, x: -16 }"
+        :visible-once="{ opacity: 1, x: 0, transition: { duration: 400, delay: index * 80 } }"
+        class="flex gap-4"
       >
-        <div class="flex items-baseline justify-between gap-2">
-          <span class="font-medium text-text">{{ segment.title }}</span>
-          <span v-if="formatTime(segment.starts_at)" class="text-sm text-text-muted">
-            {{ formatTime(segment.starts_at) }}
-          </span>
+        <span
+          class="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-surface text-secondary shadow-sm"
+        >
+          <Icon :name="iconFor(segment.title)" class="h-5 w-5" />
+        </span>
+        <div class="flex flex-1 flex-col gap-1 rounded-lg border border-border bg-surface p-4 shadow-sm">
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="font-medium text-text">{{ segment.title }}</span>
+            <span v-if="formatTime(segment.starts_at)" class="text-sm text-text-muted">
+              {{ formatTime(segment.starts_at) }}
+            </span>
+          </div>
+          <p v-if="segment.venue_name" class="text-sm text-text-muted">{{ segment.venue_name }}</p>
+          <p v-if="segment.venue_address" class="text-sm text-text-muted">{{ segment.venue_address }}</p>
         </div>
-        <p v-if="segment.venue_name" class="text-sm text-text-muted">{{ segment.venue_name }}</p>
-        <p v-if="segment.venue_address" class="text-sm text-text-muted">
-          {{ segment.venue_address }}
-        </p>
       </li>
     </ol>
   </section>
