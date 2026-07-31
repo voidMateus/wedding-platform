@@ -17,25 +17,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const client = supabaseAdmin(event)
-  const codeHash = hashAccessCode(code)
-
-  const { data: token, error: tokenError } = await client
-    .from('guest_access_tokens')
-    .select('wedding_id, guest_id, group_id, revoked_at')
-    .eq('code_hash', codeHash)
-    .maybeSingle()
-
-  if (tokenError) {
-    throw badRequestError(tokenError.message)
-  }
-  if (!token || token.revoked_at) {
+  const token = await resolveGuestToken(client, code)
+  if (!token) {
     throw notFoundError('Link inválido ou expirado.')
   }
 
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
     .select('rsvp_deadline')
-    .eq('id', token.wedding_id)
+    .eq('id', token.weddingId)
     .single()
 
   if (weddingError) {
@@ -49,9 +39,9 @@ export default defineEventHandler(async (event) => {
   const input = await validateBody(event, rsvpSubmitSchema)
 
   const { data, error } = await client.rpc('confirm_rsvp', {
-    p_wedding_id: token.wedding_id,
-    p_guest_id: token.guest_id,
-    p_group_id: token.group_id,
+    p_wedding_id: token.weddingId,
+    p_guest_id: token.guestId,
+    p_group_id: token.groupId,
     p_status: input.status,
     p_dietary_notes: input.dietaryNotes || null,
     p_message: input.message || null,

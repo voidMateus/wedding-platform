@@ -19,3 +19,38 @@ export function generateAccessCode(): string {
 export function hashAccessCode(code: string): string {
   return createHash('sha256').update(code).digest('hex')
 }
+
+export interface ResolvedGuestToken {
+  weddingId: string
+  guestId: string | null
+  groupId: string | null
+}
+
+/**
+ * Resolve um código em texto plano para o guest/group/wedding correspondente
+ * (CLAUDE.md, seção 14.3) — usado por todo endpoint do caminho do convidado
+ * (RSVP, presentes). Retorna null se o código não existe ou o token foi
+ * revogado; nunca lança, para o handler decidir a mensagem de erro
+ * apropriada ao contexto.
+ */
+export async function resolveGuestToken(
+  client: Awaited<ReturnType<typeof supabaseAdmin>>,
+  code: string,
+): Promise<ResolvedGuestToken | null> {
+  const codeHash = hashAccessCode(code)
+
+  const { data: token, error } = await client
+    .from('guest_access_tokens')
+    .select('wedding_id, guest_id, group_id, revoked_at')
+    .eq('code_hash', codeHash)
+    .maybeSingle()
+
+  if (error) {
+    throw badRequestError(error.message)
+  }
+  if (!token || token.revoked_at) {
+    return null
+  }
+
+  return { weddingId: token.wedding_id, guestId: token.guest_id, groupId: token.group_id }
+}

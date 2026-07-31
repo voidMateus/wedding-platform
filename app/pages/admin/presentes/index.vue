@@ -5,6 +5,7 @@ import { giftCategoryInputSchema } from '#shared/schemas/gift-categories'
 import { giftInputSchema } from '#shared/schemas/gifts'
 import type { GiftCategory } from '~/types/gift-category'
 import type { Gift } from '~/types/gift'
+import type { GiftReservationsView } from '~/types/gift-public'
 
 definePageMeta({ layout: 'admin' })
 
@@ -35,6 +36,28 @@ const { data: categoriesData, refresh: refreshCategories } = listGiftCategories(
 
 const { listGifts, createGift, updateGift, deleteGift } = useGifts()
 const { data: giftsData, status: giftsStatus, refresh: refreshGifts } = listGifts()
+
+const { getGiftReservations } = useGiftReservations()
+const isReservationsModalOpen = ref(false)
+const reservationsTarget = ref<Gift | null>(null)
+const reservationsData = ref<GiftReservationsView | null>(null)
+const isLoadingReservations = ref(false)
+
+async function openReservationsModal(gift: Gift) {
+  reservationsTarget.value = gift
+  reservationsData.value = null
+  isReservationsModalOpen.value = true
+  isLoadingReservations.value = true
+  try {
+    reservationsData.value = await getGiftReservations(gift.id)
+  } finally {
+    isLoadingReservations.value = false
+  }
+}
+
+function formatCentsAdmin(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 function categoryName(categoryId: string | null): string {
   if (!categoryId) return '—'
@@ -343,6 +366,9 @@ function formatPrice(cents: number | null): string {
           </td>
           <td class="px-4 py-2">
             <div class="flex justify-end gap-2">
+              <UiButton size="sm" variant="ghost" @click="openReservationsModal(gift)">
+                Ver reservas
+              </UiButton>
               <UiButton size="sm" variant="ghost" @click="openEditGiftModal(gift)">
                 Editar
               </UiButton>
@@ -448,6 +474,41 @@ function formatPrice(cents: number | null): string {
           Excluir
         </UiButton>
       </template>
+    </UiModal>
+
+    <UiModal
+      v-model="isReservationsModalOpen"
+      :title="`Reservas — ${reservationsTarget?.title ?? ''}`"
+    >
+      <div v-if="isLoadingReservations" class="flex flex-col gap-2">
+        <UiSkeleton class="h-8 w-full" />
+        <UiSkeleton class="h-8 w-full" />
+      </div>
+      <div v-else-if="reservationsTarget?.is_group_gift" class="flex flex-col gap-2">
+        <p v-if="!reservationsData?.contributions.length" class="text-sm text-text-muted">
+          Nenhuma contribuição ainda.
+        </p>
+        <div
+          v-for="contribution in reservationsData?.contributions"
+          :key="contribution.id"
+          class="flex items-center justify-between rounded-md border border-border p-3 text-sm"
+        >
+          <span class="text-text">{{ contribution.name }}</span>
+          <span class="text-text-muted">{{ formatCentsAdmin(contribution.amountCents) }}</span>
+        </div>
+      </div>
+      <div v-else class="flex flex-col gap-2">
+        <p v-if="!reservationsData?.reservations.length" class="text-sm text-text-muted">
+          Ninguém reservou este presente ainda.
+        </p>
+        <div
+          v-for="reservation in reservationsData?.reservations"
+          :key="reservation.id"
+          class="rounded-md border border-border p-3 text-sm text-text"
+        >
+          {{ reservation.name }}
+        </div>
+      </div>
     </UiModal>
   </div>
 </template>
