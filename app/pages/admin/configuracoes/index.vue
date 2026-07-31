@@ -27,7 +27,12 @@ function isoToDatetimeLocal(iso: string): string {
 }
 
 const { getWedding, updateWedding } = useWedding()
-const { data: wedding, status } = getWedding()
+const { data: wedding, status, refresh } = getWedding()
+
+const coverImageUrl = computed(() => {
+  const theme = (wedding.value?.theme_config ?? {}) as { coverImageUrl?: string }
+  return theme.coverImageUrl ?? null
+})
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(weddingSettingsSchema),
@@ -165,5 +170,9 @@ const onSubmit = handleSubmit(async (values) => {
         <UiButton type="submit" :disabled="isSubmitting">Salvar</UiButton>
       </div>
     </form>
+
+    <div v-if="status !== 'pending'" class="border-t border-border pt-6">
+      <AdminCoverImageUploader :model-value="coverImageUrl" @update:model-value="() => refresh()" />
+    </div>
   </div>
 </template>
