@@ -68,7 +68,7 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
       class="flex flex-col items-center gap-4"
     >
       <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
-      <h1 class="font-display text-5xl font-semibold text-text sm:text-6xl">
+      <h1 class="font-display text-5xl font-semibold text-heading sm:text-6xl">
         {{ wedding.couple_names }}
       </h1>
       <p class="text-lg text-text-muted">{{ formattedDate }}</p>

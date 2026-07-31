@@ -87,8 +87,15 @@ const {
 const [presetId] = defineThemeField('presetId')
 const [primaryColor] = defineThemeField('primaryColor')
 const [secondaryColor] = defineThemeField('secondaryColor')
+const [titleColor] = defineThemeField('titleColor')
+const [bodyColor] = defineThemeField('bodyColor')
 const [fontPairId] = defineThemeField('fontPairId')
 const [showCountdown] = defineThemeField('showCountdown')
+
+// Personalização avançada (Fase Editorial, CLAUDE.md seção 22.3): título e
+// corpo de texto continuam opcionais mesmo com o modo ligado — o toggle só
+// controla a visibilidade dos campos, nunca força um valor.
+const advancedColorEnabled = ref(false)
 
 watch(
   wedding,
@@ -111,10 +118,13 @@ watch(
         presetId: theme.presetId ?? '',
         primaryColor: theme.primaryColor ?? DEFAULT_PRIMARY_COLOR,
         secondaryColor: theme.secondaryColor ?? DEFAULT_SECONDARY_COLOR,
+        titleColor: theme.titleColor ?? '',
+        bodyColor: theme.bodyColor ?? '',
         fontPairId: theme.fontPairId ?? DEFAULT_FONT_PAIR_ID,
         showCountdown: theme.showCountdown ?? true,
       },
     })
+    advancedColorEnabled.value = Boolean(theme.titleColor || theme.bodyColor)
   },
   { immediate: true },
 )
@@ -153,6 +163,21 @@ const primaryContrastPreview = computed(() => {
 const secondaryContrastPreview = computed(() => {
   if (!secondaryColor.value || !isValidHexColor(secondaryColor.value)) return null
   return checkColorContrast(secondaryColor.value)
+})
+const titleContrastPreview = computed(() => {
+  if (!titleColor.value || !isValidHexColor(titleColor.value)) return null
+  return checkColorContrast(titleColor.value)
+})
+const bodyContrastPreview = computed(() => {
+  if (!bodyColor.value || !isValidHexColor(bodyColor.value)) return null
+  return checkColorContrast(bodyColor.value)
+})
+
+watch(advancedColorEnabled, (enabled) => {
+  if (!enabled) {
+    titleColor.value = ''
+    bodyColor.value = ''
+  }
 })
 
 const themeFormErrorMessage = ref<string | null>(null)
@@ -304,6 +329,63 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
                 {{ WCAG_AA_MIN_CONTRAST }}:1 —
                 {{ secondaryContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
               </p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <UiCheckbox
+              v-model="advancedColorEnabled"
+              label="Personalização avançada (cor de título e de corpo de texto)"
+            />
+            <p class="text-xs text-text-muted">
+              Opcional — sem isso, títulos e textos usam a cor neutra padrão da plataforma. Cada
+              cor continua validada por contraste, como a primária e a secundária.
+            </p>
+
+            <div v-if="advancedColorEnabled" class="flex flex-col gap-4 sm:flex-row">
+              <div class="flex flex-1 flex-col gap-1">
+                <label class="text-sm font-medium text-text" for="title-color">Cor de título</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    id="title-color"
+                    v-model="titleColor"
+                    type="color"
+                    class="h-10 w-14 cursor-pointer rounded-md border border-border"
+                  />
+                  <UiInput v-model="titleColor" class="flex-1" :error="themeErrors.titleColor" />
+                </div>
+                <p
+                  v-if="titleContrastPreview"
+                  class="text-xs"
+                  :class="titleContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+                >
+                  Contraste: {{ titleContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
+                  {{ WCAG_AA_MIN_CONTRAST }}:1 —
+                  {{ titleContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+                </p>
+              </div>
+
+              <div class="flex flex-1 flex-col gap-1">
+                <label class="text-sm font-medium text-text" for="body-color">Cor de corpo de texto</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    id="body-color"
+                    v-model="bodyColor"
+                    type="color"
+                    class="h-10 w-14 cursor-pointer rounded-md border border-border"
+                  />
+                  <UiInput v-model="bodyColor" class="flex-1" :error="themeErrors.bodyColor" />
+                </div>
+                <p
+                  v-if="bodyContrastPreview"
+                  class="text-xs"
+                  :class="bodyContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+                >
+                  Contraste: {{ bodyContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
+                  {{ WCAG_AA_MIN_CONTRAST }}:1 —
+                  {{ bodyContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+                </p>
+              </div>
             </div>
           </div>
 

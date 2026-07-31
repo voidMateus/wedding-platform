@@ -66,6 +66,13 @@ export const THEME_PRESETS: ThemePreset[] = [
     fontPairId: 'playfair-inter',
   },
   {
+    id: 'borgonha-editorial',
+    label: 'Borgonha Editorial',
+    primaryColor: '#5c1a2b',
+    secondaryColor: '#8a6a1f',
+    fontPairId: 'dmserif-dmsans',
+  },
+  {
     id: 'romantico-pastel',
     label: 'Romântico',
     primaryColor: '#a15c6b',

@@ -34,6 +34,14 @@
   --color-text: #2b2622;
   --color-text-muted: #6b6259;
 
+  /* --color-heading/--color-body (modo de cor avançada, Fase Editorial —
+     CLAUDE.md, seção 22.3): sobrescrita opcional de título/corpo de texto
+     por casamento, além da paleta primária/secundária. Default = herda
+     --color-text — só muda quando useWeddingTheme.ts injeta uma
+     sobrescrita real no :root do casamento. */
+  --color-heading: var(--color-text);
+  --color-body: var(--color-text);
+
   /* Serifada no site público (identidade emocional), sans-serif densa
      no admin (legibilidade de dados) — CLAUDE.md, seção 22.1. O par
      tipográfico do site público varia por preset de tema (Fase Visual,
