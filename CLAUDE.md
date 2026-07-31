@@ -1091,10 +1091,10 @@ docs: atualizar CLAUDE.md com convenções de commit
 
 ## 32. Roadmap
 
-### Fase 0 — Fundação (falta apenas CI)
+### Fase 0 — Fundação (concluída)
 - [x] Especificação técnica e de produto (este documento).
 - [x] Setup inicial do projeto Nuxt + Supabase.
-- [ ] CI (GitHub Actions) — lint/typecheck/test/build automatizados em PR; hoje esses checks só rodam manualmente antes de cada merge, não como gate automático.
+- [x] CI (GitHub Actions) — `.github/workflows/ci.yml` roda lint/typecheck/test/build em todo PR contra `main`. Não exige nenhum secret (build e testes funcionam sem `.env`, confirmado localmente). Falta ainda habilitar a branch protection rule na configuração do repositório para transformar o check em gate obrigatório de fato (hoje ele roda e reporta status, mas não bloqueia merge sozinho) — ação de configuração do GitHub, fora do escopo de um PR de código.
 - [x] Upstash Redis (rate limiting, CLAUDE.md seção 3/28) — `server/middleware/rate-limit.ts`, validado contra a instância real (sliding window, 20 requisições/60s por IP em `/api/rsvp/**`).
 - [x] Schema inicial do banco de dados + RLS básica.
 - [x] Design System — tokens e componentes atômicos essenciais.
