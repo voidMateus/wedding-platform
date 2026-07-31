@@ -13,13 +13,20 @@ interface Props {
   modelValue: boolean
   title: string
   description?: string
+  /** 'lg' é mais largo (ex.: lightbox de foto) — 'md' (default) preserva o tamanho já usado em toda a plataforma. */
+  size?: 'md' | 'lg'
 }
 
-const { modelValue, title, description } = defineProps<Props>()
+const { modelValue, title, description, size = 'md' } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
+
+const SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
+  md: 'max-w-md',
+  lg: 'max-w-3xl',
+}
 </script>
 
 <template>
@@ -29,7 +36,8 @@ const emit = defineEmits<{
         class="fixed inset-0 z-40 bg-black/40 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100"
       />
       <DialogContent
-        class="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 scale-95 rounded-lg border border-border bg-surface p-6 opacity-0 shadow-lg transition-all duration-200 focus:outline-none data-[state=open]:scale-100 data-[state=open]:opacity-100"
+        class="fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 scale-95 rounded-lg border border-border bg-surface p-6 opacity-0 shadow-lg transition-all duration-200 focus:outline-none data-[state=open]:scale-100 data-[state=open]:opacity-100"
+        :class="SIZE_CLASSES[size]"
       >
         <div class="mb-4 flex items-start justify-between gap-4">
           <div>
