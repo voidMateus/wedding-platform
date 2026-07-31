@@ -88,6 +88,12 @@ export const FAQ_CONTENT: FaqItem[] = [
   },
 ]
 
+export const CONTACT_CONTENT = {
+  intro: 'Ficou com alguma dúvida que não respondemos aqui? Fale com a gente.',
+  email: 'contato@anaejoao.com.br',
+  note: 'Prefere WhatsApp? O número está no convite enviado junto com o seu link pessoal de confirmação.',
+}
+
 export const GROOMSMEN_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
   intro: 'Um guia rápido para quem vai estar ao nosso lado nos bastidores do grande dia.',
   topics: [
