@@ -11,10 +11,13 @@ interface Props {
 
 const { coupleNames } = defineProps<Props>()
 
+// "/presentes" fica de fora da lista de texto — vira um CTA destacado
+// (UiButton) tanto no menu desktop quanto no topo do drawer mobile, mesmo
+// papel do botão "Presentear" do concorrente: sempre visível, sempre a
+// ação com mais destaque visual da navegação.
 const NAV_LINKS = [
   { to: '/#historia', label: 'Nossa História' },
   { to: '/#cronograma', label: 'Cronograma' },
-  { to: '/presentes', label: 'Presentes' },
   { to: '/#confirmar-presenca', label: 'Confirmar Presença' },
   { to: '/#galeria', label: 'Galeria' },
   { to: '/#contato', label: 'Contato' },
@@ -42,6 +45,7 @@ function closeMobileMenu() {
         <NuxtLink v-for="link in NAV_LINKS" :key="link.to" :to="link.to" class="hover:text-text">
           {{ link.label }}
         </NuxtLink>
+        <UiButton to="/presentes" size="sm">Presentear</UiButton>
       </div>
 
       <button
@@ -64,6 +68,7 @@ function closeMobileMenu() {
       class="fixed inset-y-0 right-0 z-30 flex w-64 flex-col gap-1 border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 sm:hidden"
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
     >
+      <UiButton to="/presentes" class="mb-2 w-full" @click="closeMobileMenu">Presentear</UiButton>
       <NuxtLink
         v-for="link in NAV_LINKS"
         :key="link.to"

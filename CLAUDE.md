@@ -867,6 +867,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 - Uso consistente de **estado vazio ilustrado** nas listagens administrativas para orientar o próximo passo do usuário.
 - Modais reservados para ações rápidas e contidas (ex: editar um convidado); fluxos longos (ex: importação CSV com mapeamento de colunas) usam página dedicada ou wizard em etapas.
 - Toasts para feedback de ações assíncronas (sucesso/erro), nunca `alert()` nativo do navegador.
+- **Atalhos de navegação no Hero** (`Hero.vue`, gap vs. concorrente): logo abaixo da data, 4 `UiButton` — 1 primário ("Ver lista de presentes", `to="/presentes"`) + 3 secundários (Confirmar presença, Cronograma, Manual do convidado, via âncora `/#id`), presentes nas duas variantes do Hero (com/sem foto de capa). `PublicNavBar` reserva o mesmo tratamento para `/presentes`: não é mais um link de texto entre os demais (`NAV_LINKS`), é um `UiButton` sempre visível e destacado (cor primária) tanto no menu desktop quanto no topo do drawer mobile — a ação com mais intenção comercial da navegação ganha peso visual próprio, mesmo padrão do "Presentear" do concorrente que motivou a mudança.
 
 ---
 

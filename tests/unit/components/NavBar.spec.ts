@@ -1,12 +1,14 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import NavBar from '~/components/public/NavBar.vue'
+import Button from '~/components/ui/Button.vue'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
 
 function mountNavBar(props = {}) {
   return mount(NavBar, {
     props,
     global: {
+      components: { UiButton: Button },
       stubs: { ...ICON_STUBS, NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to'] } },
     },
   })
@@ -36,6 +38,18 @@ describe('PublicNavBar', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     expect(hrefs).toContain('/presentes')
+  })
+
+  it('o CTA de /presentes é um botão destacado (cor primária), não um link de texto', () => {
+    const wrapper = mountNavBar()
+    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/presentes')
+    expect(presentesLink?.classes()).toContain('bg-primary')
+  })
+
+  it('renderiza o CTA "Presentear" duas vezes (desktop + topo do drawer mobile)', () => {
+    const wrapper = mountNavBar()
+    const presentesLinks = wrapper.findAll('a').filter((a) => a.attributes('href') === '/presentes')
+    expect(presentesLinks).toHaveLength(2)
   })
 
   it('menu mobile começa fechado (drawer fora da tela)', () => {

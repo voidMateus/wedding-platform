@@ -22,6 +22,17 @@ const formattedDate = computed(() =>
 // layout com foto, têm um segundo layout pensado de propósito (tipografia
 // maior, cor secundária como destaque de fundo), nunca um espaço vazio.
 const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
+
+// Atalhos de navegação logo abaixo da data (gap vs. concorrente — CLAUDE.md,
+// comparativo com mimodocasal.com.br). Âncoras fixas já usadas pela navbar
+// (NavBar.vue) e pelas próprias seções da home (RsvpTeaserSection,
+// EventSpotlight/#cronograma, GuestManualSection).
+const HERO_QUICK_LINKS = [
+  { to: '/presentes', label: 'Ver lista de presentes', variant: 'primary' as const },
+  { to: '/#confirmar-presenca', label: 'Confirmar presença', variant: 'secondary' as const },
+  { to: '/#cronograma', label: 'Cronograma', variant: 'secondary' as const },
+  { to: '/#manual-convidados', label: 'Manual do convidado', variant: 'secondary' as const },
+]
 </script>
 
 <template>
@@ -57,6 +68,17 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
       <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
       <h1 class="font-display text-4xl font-semibold sm:text-5xl">{{ wedding.couple_names }}</h1>
       <p class="text-lg text-white/90">{{ formattedDate }}</p>
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <UiButton
+          v-for="link in HERO_QUICK_LINKS"
+          :key="link.to"
+          :to="link.to"
+          :variant="link.variant"
+          size="sm"
+        >
+          {{ link.label }}
+        </UiButton>
+      </div>
     </div>
   </section>
 
@@ -72,6 +94,17 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
         {{ wedding.couple_names }}
       </h1>
       <p class="text-lg text-text-muted">{{ formattedDate }}</p>
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <UiButton
+          v-for="link in HERO_QUICK_LINKS"
+          :key="link.to"
+          :to="link.to"
+          :variant="link.variant"
+          size="sm"
+        >
+          {{ link.label }}
+        </UiButton>
+      </div>
     </div>
   </section>
 </template>
