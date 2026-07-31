@@ -31,10 +31,13 @@ const optionalHexColorSchema = z
     `Contraste insuficiente (mínimo ${WCAG_AA_MIN_CONTRAST}:1) entre essa cor e o fundo padrão — escolha um tom mais escuro (CLAUDE.md, seção 22.4).`,
   )
 
-// coverImageUrl NÃO faz parte deste schema de propósito: é gerido
-// exclusivamente por POST/DELETE /api/wedding/theme/cover-upload (upload
-// real via Storage), nunca submetido junto com o restante do formulário de
-// Aparência — evita que salvar cor/fonte apague a foto de capa por engano.
+// coverImageUrl/storyImageUrl NÃO fazem parte deste schema de propósito: são
+// geridos exclusivamente por POST/DELETE /api/wedding/theme/cover-upload e
+// /api/wedding/theme/story-upload (upload real via Storage, arquivos
+// independentes — CLAUDE.md, feedback de produto: a foto de capa do Hero e a
+// foto da seção "Nossa História" são fotos diferentes, não a mesma
+// reaproveitada), nunca submetidos junto com o restante do formulário de
+// Aparência — evita que salvar cor/fonte apague uma foto por engano.
 export const themeConfigSchema = z.object({
   presetId: z.string().trim().optional().or(z.literal('')),
   primaryColor: hexColorSchema,
@@ -58,5 +61,7 @@ export interface ThemeConfig {
   bodyColor?: string
   fontPairId: string
   coverImageUrl?: string
+  /** Foto da seção "Nossa História" — independente de coverImageUrl (Hero). */
+  storyImageUrl?: string
   showCountdown: boolean
 }
