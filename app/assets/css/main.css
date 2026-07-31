@@ -22,15 +22,26 @@
  * original do CLAUDE.md (#a8785c, ~3.81:1, achado documentado em
  * tests/unit/utils/contrast.spec.ts) — mesma família de tom, contraste
  * ajustado (~7.91:1).
+ *
+ * --color-surface (off-white) vs. --color-surface-elevated (branco puro)
+ * — refinamento de Design System da Fase Editorial: a plataforma inteira
+ * (público e admin) usa off-white como fundo de página, com cartões/
+ * conteúdo em destaque (Card.vue) flutuando em branco puro por cima —
+ * a mesma sensação de profundidade sutil de um editorial impresso, não
+ * uma preferência por casamento. shared/utils/contrast.ts continua
+ * validando contra branco puro (pior caso — off-white é só ligeiramente
+ * mais escuro, a margem de contraste das cores da paleta é grande o
+ * suficiente para essa diferença não importar).
  */
 @theme {
   --color-primary: #6b4a35;
   --color-primary-foreground: #ffffff;
   --color-secondary: #5f6f52;
   --color-secondary-foreground: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f7f5f3;
-  --color-border: #e5e1dd;
+  --color-surface: #fbf9f5;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #f2ece2;
+  --color-border: #e8ddd0;
   --color-text: #2b2622;
   --color-text-muted: #6b6259;
 

@@ -13,7 +13,7 @@ const paddingClasses: Record<NonNullable<Props['padding']>, string> = {
 </script>
 
 <template>
-  <div class="rounded-lg border border-border bg-surface shadow-sm" :class="paddingClasses[padding]">
+  <div class="rounded-lg border border-border bg-surface-elevated shadow-sm" :class="paddingClasses[padding]">
     <div v-if="$slots.header" class="mb-3 flex items-center justify-between gap-2">
       <slot name="header" />
     </div>

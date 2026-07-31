@@ -25,9 +25,12 @@ function iconFor(title: string): string {
 </script>
 
 <template>
-  <section v-if="segments.length" class="mx-auto flex max-w-lg flex-col gap-8 px-4 py-12">
-    <h2 class="text-center text-xl font-semibold text-text">Programação</h2>
-    <ol class="relative flex flex-col gap-8">
+  <section v-if="segments.length" class="bg-surface-muted px-4 py-20 sm:py-28">
+    <div class="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
+      <UiSectionDivider />
+      <h2 class="font-display text-3xl font-semibold text-heading sm:text-4xl">Programação</h2>
+    </div>
+    <ol class="relative mx-auto mt-10 flex max-w-lg flex-col gap-8">
       <div
         class="absolute bottom-5 left-[1.375rem] top-5 w-px bg-secondary/30"
         aria-hidden="true"
@@ -41,11 +44,11 @@ function iconFor(title: string): string {
         class="flex gap-4"
       >
         <span
-          class="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-surface text-secondary shadow-sm"
+          class="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-surface-elevated text-secondary shadow-sm"
         >
           <Icon :name="iconFor(segment.title)" class="h-5 w-5" />
         </span>
-        <div class="flex flex-1 flex-col gap-1 rounded-lg border border-border bg-surface p-4 shadow-sm">
+        <div class="flex flex-1 flex-col gap-1 rounded-lg border border-border bg-surface-elevated p-4 shadow-sm">
           <div class="flex items-baseline justify-between gap-2">
             <span class="font-medium text-text">{{ segment.title }}</span>
             <span v-if="formatTime(segment.starts_at)" class="text-sm text-text-muted">

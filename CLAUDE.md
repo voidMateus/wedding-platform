@@ -876,14 +876,18 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
     --color-primary-foreground: #ffffff;
     --color-secondary: #5f6f52; /* customizável por casamento */
     --color-secondary-foreground: #ffffff;
-    --color-surface: #ffffff;
-    --color-surface-muted: #f7f5f3;
-    --color-border: #e5e1dd;
+    --color-surface: #fbf9f5; /* off-white — fundo de página, fixo na plataforma */
+    --color-surface-elevated: #ffffff; /* branco puro — cartões/conteúdo em destaque (Card.vue), flutuando sobre o off-white */
+    --color-surface-muted: #f2ece2;
+    --color-border: #e8ddd0;
     --color-text: #2b2622;
     --color-text-muted: #6b6259;
+    --color-heading: var(--color-text); /* customizável por casamento (titleColor, opcional — modo de cor avançada) */
+    --color-body: var(--color-text); /* customizável por casamento (bodyColor, opcional — modo de cor avançada) */
   }
   ```
   > **Achado da implementação (corrigido)**: o valor de exemplo original desta seção era `#a8785c`, que fica em ~3.81:1 de contraste contra `--color-surface` — abaixo do mínimo de 4.5:1 exigido pela própria seção 22.4 (achado confirmado por teste unitário, `tests/unit/utils/contrast.spec.ts`). O default real (`app/assets/css/main.css`, `shared/utils/contrast.ts#DEFAULT_PRIMARY_COLOR`) foi corrigido para `#6b4a35` — mesma família de tom do preset "Clássico Elegante" (`shared/theme-presets.ts`), agora passando no contraste mínimo. `#a8785c` permanece citado nos testes como caso de rejeição conhecido.
+  > **Off-white vs. branco puro (Fase Editorial)**: `--color-surface`/`--color-surface-muted`/`--color-border` são tons neutros fixos da **plataforma inteira** (público e admin) — não variam por casamento, ao contrário de `primary`/`secondary`/`heading`/`body`. `--color-surface-elevated` existe à parte para dar profundidade sutil (cartão branco puro sobre página off-white, como um editorial impresso); `shared/utils/contrast.ts` continua validando contra branco puro como pior caso.
 - **Tipografia**: um par tipográfico por casamento — uma fonte serifada de destaque (`--font-display`, aplicada ao site público) e uma fonte sans-serif fixa de plataforma (`--font-sans`, aplicada a corpo de texto e a todo o painel administrativo, nunca customizada por casamento — legibilidade em densidade de dados). O casal escolhe o par via `shared/theme-presets.ts#FONT_PAIRS`, independentemente da paleta de cores (ver 22.3).
 - **Espaçamento**: escala baseada em múltiplos de 4px (Tailwind spacing scale padrão, sem customização salvo necessidade real).
 - **Raio de borda e sombra**: escala limitada (`--radius-sm/md/lg`, `--shadow-sm/md/lg`) fixa na plataforma — não varia por tema, aplicada consistentemente via os componentes de `components/ui/`; nenhum valor arbitrário de `border-radius`/`box-shadow` direto em componentes de domínio.
@@ -904,6 +908,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | `Avatar` | Representação visual de convidado/casal |
 | `Skeleton` | Estado de carregamento consistente |
 | `EmptyState` | Estado vazio ilustrado e padronizado |
+| `SectionDivider` | Divisor ornamental discreto (linha fina + marca central em `--color-secondary`) entre capítulos do site público; puramente decorativo (`aria-hidden`), sem conhecimento de domínio — usado por `PublicEditorialSection` |
 | `CountdownTimer` | Contagem regressiva até a data/hora do evento (dias/horas/min/seg); sem conhecimento de domínio (props `targetDateTime`, slot `past` para a mensagem de "já aconteceu") — usado no Hero público (condicionado a `theme_config.showCountdown`) e no dashboard admin (sempre visível, é uso interno do casal) |
 
 ### 22.3 Regras de governança
@@ -936,6 +941,7 @@ Ao salvar `theme_config`, `primaryColor`, `secondaryColor` e, quando definidas, 
 | `StatusBadge` | Badge de status genérico, parametrizado por mapa de cores/labels (RSVP, convite enviado, etc.) |
 | `ProgressSummary` | Barra/cartão de progresso (ex: "82 de 120 confirmados") reutilizado no dashboard e em relatórios |
 | `CsvImportWizard` | Fluxo de importação de convidados em etapas (upload → mapear colunas → revisar → confirmar) |
+| `EditorialSection` | Wrapper padrão de "capítulo" da home pública (Fase Editorial) — título centralizado + `SectionDivider` opcionais, alternância de fundo `bg-surface`/`bg-surface-muted` (prop `tone`), reveal-on-scroll via `v-motion`, `id` para âncora de navegação. Todas as novas seções da home (história, cerimônia/recepção, dress code, manuais, presentes/RSVP, galeria, FAQ, contato) o reutilizam — conteúdo do slot default fica livre para o layout interno de cada seção |
 
 ### 23.2 Critério para "promover" um componente a reutilizável
 
