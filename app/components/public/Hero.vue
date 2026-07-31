@@ -29,11 +29,22 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
     v-if="coverImageUrl"
     class="relative flex min-h-[70vh] items-end justify-center overflow-hidden sm:min-h-[80vh]"
   >
+    <!--
+      ATENÇÃO: a prop `sizes` do NuxtImg NÃO aceita o valor cru do atributo
+      HTML `sizes` (ex.: "100vw" ou "(min-width: 640px) 50vw, 100vw"). O
+      @nuxt/image só entende o formato "breakpoint:valor" (chaves iguais às
+      de tailwind.config: sm/md/lg/xl/2xl). Um valor sem ":" é tratado como
+      chave "1px" — para tamanhos em vw isso gera um srcset de ~1px de
+      largura, uma imagem essencialmente invisível, sem nenhum erro visível
+      no console (achado real desta fase, CLAUDE.md seção 27.1). Sempre usar
+      "sm:X md:X lg:X xl:X 2xl:X" (repetindo o valor quando for constante em
+      todos os breakpoints) — nunca um valor solto com "vw".
+    -->
     <NuxtImg
       :src="coverImageUrl"
       :alt="`Foto de capa de ${wedding.couple_names}`"
       class="absolute inset-0 h-full w-full object-cover"
-      sizes="100vw"
+      sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
       preload
     />
     <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
