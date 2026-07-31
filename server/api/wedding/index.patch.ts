@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
     .update({
       couple_names: input.coupleNames,
       event_date: input.eventDate,
+      event_time: input.eventTime || null,
       rsvp_mode: input.rsvpMode,
       rsvp_deadline: input.rsvpDeadline || null,
       theme_config: themeConfig,

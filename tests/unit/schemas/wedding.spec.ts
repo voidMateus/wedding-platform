@@ -15,6 +15,41 @@ describe('weddingSettingsSchema', () => {
     expect(result.success).toBe(true)
   })
 
+  it('aceita eventTime válido (HH:MM)', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      eventTime: '16:00',
+      rsvpMode: 'per_group',
+      primaryColor: DEFAULT_TEXT_COLOR,
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('aceita eventTime ausente (contagem regressiva usa meia-noite como fallback)', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      rsvpMode: 'per_group',
+      primaryColor: DEFAULT_TEXT_COLOR,
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejeita eventTime em formato inválido', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      eventTime: 'às quatro da tarde',
+      rsvpMode: 'per_group',
+      primaryColor: DEFAULT_TEXT_COLOR,
+    })
+
+    expect(result.success).toBe(false)
+  })
+
   it('rejeita cor em formato inválido', () => {
     const result = weddingSettingsSchema.safeParse({
       coupleNames: 'Ana & João',
