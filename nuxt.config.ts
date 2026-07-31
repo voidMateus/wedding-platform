@@ -10,7 +10,16 @@ export default defineNuxtConfig({
 
   devtools: { enabled: false },
 
-  modules: ['@nuxt/eslint', '@pinia/nuxt', '@nuxtjs/supabase', '@vee-validate/nuxt'],
+  modules: [
+    '@nuxt/eslint',
+    '@pinia/nuxt',
+    '@nuxtjs/supabase',
+    '@vee-validate/nuxt',
+    '@nuxt/fonts',
+    '@nuxt/icon',
+    '@nuxt/image',
+    '@vueuse/motion/nuxt',
+  ],
 
   css: ['~/assets/css/main.css'],
 
@@ -30,6 +39,21 @@ export default defineNuxtConfig({
     upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL,
     upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
   },
+
+  // Ícones vêm do pacote local @iconify-json/lucide (devDependency), não da
+  // API pública do Iconify em runtime — evita dependência de rede externa
+  // tanto em build quanto em produção.
+  icon: {
+    serverBundle: {
+      collections: ['lucide'],
+    },
+  },
+
+  // Fontes carregadas via @nuxt/fonts são self-hosted automaticamente
+  // (baixadas no build, servidas pela própria aplicação) — nunca via CDN
+  // do Google Fonts em runtime. Famílias específicas entram na Fase Visual,
+  // PR de tokens de tipografia.
+  fonts: {},
 
   vite: {
     // @tailwindcss/vite declara suporte a vite ^8, mas seus tipos publicados
