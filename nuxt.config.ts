@@ -40,6 +40,14 @@ export default defineNuxtConfig({
     upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
   },
 
+  // Permite ao @nuxt/image otimizar as fotos de capa (bucket wedding-covers,
+  // CLAUDE.md seção 28) — IPX só otimiza domínios explicitamente
+  // allowlistados. Derivado de SUPABASE_URL (nunca hardcoded) para não
+  // acoplar este arquivo a um projeto Supabase específico.
+  image: {
+    domains: process.env.SUPABASE_URL ? [new URL(process.env.SUPABASE_URL).hostname] : [],
+  },
+
   // Ícones vêm do pacote local @iconify-json/lucide (devDependency), não da
   // API pública do Iconify em runtime — evita dependência de rede externa
   // tanto em build quanto em produção.
