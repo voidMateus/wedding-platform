@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ThemeConfig } from '#shared/schemas/theme'
+import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -14,6 +16,15 @@ const formattedDate = computed(() =>
     year: 'numeric',
   }),
 )
+
+const showCountdown = computed(() => {
+  const theme = (wedding.theme_config ?? {}) as Partial<ThemeConfig>
+  return theme.showCountdown ?? true
+})
+
+const targetDateTime = computed(() =>
+  resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
+)
 </script>
 
 <template>
@@ -23,5 +34,10 @@ const formattedDate = computed(() =>
       {{ wedding.couple_names }}
     </h1>
     <p class="text-lg text-text-muted">{{ formattedDate }}</p>
+    <UiCountdownTimer v-if="showCountdown" :target-date-time="targetDateTime" class="mt-4">
+      <template #past>
+        <p class="text-lg font-medium text-primary">O grande dia chegou!</p>
+      </template>
+    </UiCountdownTimer>
   </section>
 </template>
