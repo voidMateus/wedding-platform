@@ -23,6 +23,24 @@ const timeRange = computed(() => {
   if (start && end) return `${start} – ${end}`
   return start
 })
+
+// Coordenadas são só um reforço de precisão — na maioria dos casos o
+// próprio endereço em texto já geocodifica bem no embed do Google Maps
+// (CLAUDE.md, seção 3). Preferidas quando existem, senão cai para o
+// endereço; sem nenhum dos dois, nem mapa nem botão aparecem.
+const locationQuery = computed(() => {
+  if (segment.venue_latitude !== null && segment.venue_longitude !== null) {
+    return `${segment.venue_latitude},${segment.venue_longitude}`
+  }
+  const address = [segment.venue_name, segment.venue_address].filter(Boolean).join(', ')
+  return address || null
+})
+
+const externalMapsUrl = computed(() =>
+  locationQuery.value
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationQuery.value)}`
+    : null,
+)
 </script>
 
 <template>
@@ -38,6 +56,17 @@ const timeRange = computed(() => {
         <p v-if="segment.venue_name" class="font-medium">{{ segment.venue_name }}</p>
         <p v-if="segment.venue_address" class="text-sm text-text-muted">{{ segment.venue_address }}</p>
       </div>
+
+      <PublicVenueMap
+        v-if="locationQuery"
+        :query="locationQuery"
+        :label="segment.venue_name || segment.title"
+        class="mt-2 w-full"
+      />
+
+      <UiButton v-if="externalMapsUrl" variant="secondary" :to="externalMapsUrl" target="_blank">
+        Abrir no Google Maps
+      </UiButton>
     </div>
   </PublicEditorialSection>
 </template>

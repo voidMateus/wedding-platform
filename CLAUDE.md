@@ -139,6 +139,7 @@ O produto nasce como uma aplicação de uso único por casamento (single-tenant,
 | Hospedagem | **Vercel** (ou Netlify) | Deploy integrado com Nuxt, edge functions, preview deployments por PR |
 | Observabilidade | **Sentry** (erros) + logs do provedor de hosting | Rastreio de erros em produção |
 | CI/CD | **GitHub Actions** | Lint, type-check, testes e build em cada PR |
+| Mapa interativo | **Embed do Google Maps** (`google.com/maps?q=...&output=embed` num `<iframe>`) | Mapa do local da Cerimônia/Recepção (`VenueMap.vue`), sem chave de API/billing — usa a URL pública de embed, não a "Maps Embed API" oficial (essa exige chave). Funciona a partir do endereço em texto sozinho (geocodificação do próprio Google) ou de coordenadas quando cadastradas, para mais precisão. Chegou a ser implementado com Leaflet + OpenStreetMap primeiro; trocado por pedido do usuário para bater visualmente com o Google Maps (mesma referência do comparativo desta fase) |
 
 ### 3.1 Critérios de escolha
 
@@ -214,7 +215,7 @@ wedding-platform/
 │   │       └── main.css
 │   ├── components/
 │   │   ├── ui/                  # Design System — componentes atômicos (Button, Input, Badge...)
-│   │   ├── public/              # Componentes do site público (Hero, Timeline, GallerySection)
+│   │   ├── public/              # Componentes do site público (Hero, EventSpotlight, GallerySection)
 │   │   ├── rsvp/                # Componentes do fluxo de RSVP
 │   │   ├── gifts/                # Componentes da lista de presentes
 │   │   └── admin/               # Componentes exclusivos do painel administrativo
@@ -524,6 +525,9 @@ Modelo de decisão em camadas — do mais local ao mais global:
 │ title            │
 │ venue_name       │
 │ venue_address    │
+│ venue_latitude   │  (opcional — precisão do mapa)
+│ venue_longitude  │  (opcional — precisão do mapa)
+│ same_venue_as    │  (opcional — reaproveita o local de outro segmento)
 │ starts_at        │
 │ ends_at          │
 │ display_order    │
@@ -629,6 +633,7 @@ Modelo de decisão em camadas — do mais local ao mais global:
 - `gift_reservations`/`gift_contributions` permitem `guest_id`/`group_id` nulos simultaneamente apenas quando `contributor_name` está preenchido — cenário de presente físico/contribuição de alguém fora da lista de convidados cadastrados.
 - `guest_access_tokens` é a única fonte de autenticação implícita do convidado; `communications` é apenas log — revogar/rotacionar um token (`revoked_at`) não apaga o histórico de comunicações já registrado, e um novo lembrete (Fase 2) gera uma nova linha em `communications` sem invalidar o link original.
 - Toda tabela com `wedding_id` possui índice composto `(wedding_id, <coluna mais consultada>)` para otimizar queries filtradas por evento.
+- `event_segments.same_venue_as` (auto-referência, `on delete set null`) resolve o caso de cerimônia e recepção no mesmo local — quando definido, os campos `venue_name`/`venue_address`/`venue_latitude`/`venue_longitude` deste próprio registro ficam sempre nulos (fonte de verdade única, evita duas cópias divergentes do mesmo endereço). Validado na aplicação (`server/utils/validate-same-venue.ts`): não pode ser o próprio id, e não pode apontar para um segmento que já tem `same_venue_as` definido (só um nível de indireção, nunca uma corrente). Excluir um segmento referenciado por outro é bloqueado até o dependente ser desvinculado — checado explicitamente no handler antes do `DELETE`, não só confiando na mensagem de erro da FK.
 
 ---
 
@@ -896,7 +901,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 | Componente | Responsabilidade |
 |---|---|
-| `Button` | Variantes: `primary`, `secondary`, `ghost`, `destructive`; tamanhos `sm/md/lg` |
+| `Button` | Variantes: `primary`, `secondary`, `ghost`, `destructive`; tamanhos `sm/md/lg`; prop `to` (renderiza como `NuxtLink` em vez de `<button>`, mesmas classes de variante — CTAs de navegação nunca duplicam classes soltas em componentes de domínio) + `target` (só com `to`, ex.: `"_blank"` para links externos, aplica `rel="noopener noreferrer"` automaticamente) |
 | `Input` / `Textarea` | Campos de formulário com estado de erro integrado |
 | `Select` / `Combobox` | Seleção simples e busca (ex: selecionar grupo do convidado) |
 | `Checkbox` / `RadioGroup` | Seleção múltipla/única (ex: restrições alimentares) |
@@ -943,6 +948,7 @@ Ao salvar `theme_config`, `primaryColor`, `secondaryColor` e, quando definidas, 
 | `ProgressSummary` | Barra/cartão de progresso (ex: "82 de 120 confirmados") reutilizado no dashboard e em relatórios |
 | `CsvImportWizard` | Fluxo de importação de convidados em etapas (upload → mapear colunas → revisar → confirmar) |
 | `EditorialSection` | Wrapper padrão de "capítulo" da home pública (Fase Editorial) — título centralizado + `SectionDivider` opcionais, alternância de fundo `bg-surface`/`bg-surface-muted` (prop `tone`), reveal-on-scroll via `v-motion`, `id` para âncora de navegação. Todas as novas seções da home (história, cerimônia/recepção, dress code, manuais, presentes/RSVP, galeria, FAQ, contato) o reutilizam — conteúdo do slot default fica livre para o layout interno de cada seção |
+| `VenueMap` | Embed do Google Maps num `<iframe>` (SSR-safe, sem manipulação de `window`/DOM) — mapa interativo do local de `EventSpotlight.vue`, props `query` (coordenadas ou endereço em texto) e `label`. Aparece sempre que há local/endereço ou coordenadas cadastrados (junto do botão "Abrir no Google Maps"); sem nenhum dos dois, nem mapa nem botão aparecem — nunca um espaço quebrado |
 
 ### 23.2 Critério para "promover" um componente a reutilizável
 
@@ -1159,8 +1165,8 @@ docs: atualizar CLAUDE.md com convenções de commit
 ### Fase 3 — Refinamento de Produto
 - [x] Galeria de fotos do casal com upload direto (Supabase Storage) — adiantada para a Fase Editorial (fora da sequência original do roadmap): bucket `wedding-photos`, CRUD admin em `/admin/galeria` (`PhotoGalleryManager.vue`), grade pública com lightbox (`PublicGallerySection.vue`, `GET /api/public/photos`).
 - [x] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal — adiantado para a Fase Visual (fora da sequência original do roadmap): `shared/theme-presets.ts` (`THEME_PRESETS`), `AdminThemePresetPicker.vue`, seção "Aparência" de `/admin/configuracoes`. Preset é só um atalho de largada — cor e fonte continuam manualmente editáveis (ver CLAUDE.md, seção 22.3).
-- [x] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1; o refinamento visual (trilho conectando os itens, ícone por palavra-chave no título, reveal animado ao rolar) foi adiantado para a Fase Visual (`PublicTimeline.vue`).
-- [ ] Mapa/localização integrada (embed de mapa até o local do evento).
+- [x] Cronograma detalhado do evento (cerimônia, recepção, festa) — CRUD administrativo de `event_segments` já implementado na Fase 1. Na home pública, cada item do cronograma vira sua própria seção em destaque (`PublicEventSpotlight`, uma por `event_segment`, ordenadas por `display_order`) — a versão anterior tinha uma lista "Programação" (`PublicTimeline.vue`) **e** seções de destaque de Cerimônia/Recepção mostrando a mesma informação duas vezes; a lista separada foi removida por redundância (feedback de produto), unificando tudo num único fluxo de seções. A classificação por palavra-chave (`shared/utils/event-segment-keywords.ts`) segue decidindo o ícone de cada seção e, só para Cerimônia/Recepção, uma âncora fixa (`#cerimonia`/`#recepcao`) — os demais itens do cronograma (ex.: chá de panela, coquetel) aparecem normalmente, sem âncora própria.
+- [x] Mapa/localização integrada — embed do Google Maps (`VenueMap.vue`, ver §22.2) em cada seção do cronograma que tenha local/endereço ou coordenadas, com botão "Abrir no Google Maps". Segmentos podem também apontar `same_venue_as` para outro segmento (ex.: recepção no mesmo local da cerimônia, ver §12.2) em vez de repetir o endereço.
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
 
@@ -1175,7 +1181,7 @@ Redesign completo de identidade visual e conteúdo do site público, motivado po
 - **Navegação**: `PublicNavBar` reescrita com 6 links curados por âncora (`/#id`, funciona a partir de qualquer página do layout público) e menu mobile em drawer.
 - **QA de mobile/performance**: auditoria de área de toque (≥44×44px) em todo elemento interativo novo, `html`/`body { overflow-x: hidden }` (elemento `fixed` do drawer fechado inflava `scrollWidth` sem ser de fato alcançável — achado da auditoria), `NuxtImg` com `preload` no Hero (LCP) e `loading="lazy"` nas imagens abaixo da dobra.
 
-**Não-decisões / adiado deliberadamente**: as 7 novas seções de conteúdo (exceto Galeria) não têm tela de admin para o casal editar — o texto vive em `shared/wedding-content.ts`, centralizado para facilitar a migração para colunas/tabelas editáveis quando essa fase futura existir. Cerimônia/Recepção em destaque derivam de `event_segments` por heurística de palavra-chave (mesma de `Timeline.vue`), sem coluna de tipo estruturada.
+**Não-decisões / adiado deliberadamente**: as 7 novas seções de conteúdo (exceto Galeria) não têm tela de admin para o casal editar — o texto vive em `shared/wedding-content.ts`, centralizado para facilitar a migração para colunas/tabelas editáveis quando essa fase futura existir. Cerimônia/Recepção em destaque derivam de `event_segments` por heurística de palavra-chave (`shared/utils/event-segment-keywords.ts`), sem coluna de tipo estruturada — depois generalizado para toda seção do cronograma (não só as duas classificadas), ver bullet "Cronograma detalhado do evento" na Fase 3.
 
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).

@@ -23,6 +23,9 @@ const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
     startsAt: '',
     endsAt: '',
     displayOrder: 0,
+    venueLatitude: '',
+    venueLongitude: '',
+    sameVenueAs: '',
   },
 })
 
@@ -32,11 +35,50 @@ const [venueAddress] = defineField('venueAddress')
 const [startsAt] = defineField('startsAt')
 const [endsAt] = defineField('endsAt')
 const [displayOrder] = defineField('displayOrder')
+const [venueLatitude] = defineField('venueLatitude')
+const [venueLongitude] = defineField('venueLongitude')
+const [sameVenueAs] = defineField('sameVenueAs')
+
+// "Mesmo local de" (CLAUDE.md, 12.2) — exclui o próprio item (edição) e
+// qualquer item que já reaproveita local de outro (nunca uma corrente,
+// mesma regra validada no server em validateSameVenueTarget).
+const NO_SAME_VENUE_OPTION = { value: '', label: 'Não — endereço próprio' }
+const sameVenueOptions = computed(() => {
+  const segments = data.value?.data ?? []
+  const options = segments
+    .filter((segment) => segment.id !== editingSegment.value?.id && !segment.same_venue_as)
+    .map((segment) => ({ value: segment.id, label: segment.title }))
+  return [NO_SAME_VENUE_OPTION, ...options]
+})
+const hasSameVenue = computed(() => Boolean(sameVenueAs.value))
+
+function resolveVenueLabel(segment: EventSegment): string {
+  if (!segment.same_venue_as) return segment.venue_name || '—'
+  const source = data.value?.data.find((candidate) => candidate.id === segment.same_venue_as)
+  if (!source) return '—'
+  return `${source.venue_name || '—'} (mesmo local de "${source.title}")`
+}
 
 const displayOrderText = computed({
   get: () => (displayOrder.value === undefined ? '' : String(displayOrder.value)),
   set: (value: string) => {
     displayOrder.value = value === '' ? undefined : Number(value)
+  },
+})
+
+// UiInput só aceita modelValue string — venueLatitude/venueLongitude
+// aceitam string|number|undefined (schema em shared/schemas/event-segments.ts,
+// mesmo raciocínio de displayOrderText acima).
+const venueLatitudeText = computed({
+  get: () => (venueLatitude.value === undefined ? '' : String(venueLatitude.value)),
+  set: (value: string) => {
+    venueLatitude.value = value
+  },
+})
+const venueLongitudeText = computed({
+  get: () => (venueLongitude.value === undefined ? '' : String(venueLongitude.value)),
+  set: (value: string) => {
+    venueLongitude.value = value
   },
 })
 
@@ -52,6 +94,9 @@ function openCreateModal() {
       startsAt: '',
       endsAt: '',
       displayOrder: nextOrder,
+      venueLatitude: '',
+      venueLongitude: '',
+      sameVenueAs: '',
     },
   })
   isFormModalOpen.value = true
@@ -68,6 +113,9 @@ function openEditModal(segment: EventSegment) {
       startsAt: segment.starts_at ?? '',
       endsAt: segment.ends_at ?? '',
       displayOrder: segment.display_order,
+      venueLatitude: segment.venue_latitude ?? '',
+      venueLongitude: segment.venue_longitude ?? '',
+      sameVenueAs: segment.same_venue_as ?? '',
     },
   })
   isFormModalOpen.value = true
@@ -150,7 +198,7 @@ function formatDateTime(value: string | null): string {
       </template>
       <tr v-for="segment in data?.data" :key="segment.id" class="border-t border-border">
         <td class="px-4 py-2 text-text">{{ segment.title }}</td>
-        <td class="px-4 py-2 text-text-muted">{{ segment.venue_name || '—' }}</td>
+        <td class="px-4 py-2 text-text-muted">{{ resolveVenueLabel(segment) }}</td>
         <td class="px-4 py-2 text-text-muted">{{ formatDateTime(segment.starts_at) }}</td>
         <td class="px-4 py-2 text-text-muted">{{ formatDateTime(segment.ends_at) }}</td>
         <td class="px-4 py-2">
@@ -170,8 +218,48 @@ function formatDateTime(value: string | null): string {
     >
       <form class="flex flex-col gap-4" @submit="onSubmit">
         <UiInput v-model="title" label="Título" placeholder="Ex.: Cerimônia" :error="errors.title" />
-        <UiInput v-model="venueName" label="Local (opcional)" :error="errors.venueName" />
-        <UiInput v-model="venueAddress" label="Endereço (opcional)" :error="errors.venueAddress" />
+
+        <UiSelect
+          v-model="sameVenueAs"
+          label="Local"
+          :options="sameVenueOptions"
+          :error="errors.sameVenueAs"
+        />
+        <p class="-mt-2 text-xs text-text-muted">
+          Cerimônia e recepção no mesmo lugar? Escolha o item que já tem o endereço em vez de
+          cadastrar de novo.
+        </p>
+
+        <template v-if="!hasSameVenue">
+          <UiInput v-model="venueName" label="Local (opcional)" :error="errors.venueName" />
+          <UiInput v-model="venueAddress" label="Endereço (opcional)" :error="errors.venueAddress" />
+          <div class="flex flex-col gap-1">
+            <div class="flex gap-3">
+              <UiInput
+                v-model="venueLatitudeText"
+                type="number"
+                step="any"
+                label="Latitude (opcional)"
+                class="flex-1"
+                :error="errors.venueLatitude"
+              />
+              <UiInput
+                v-model="venueLongitudeText"
+                type="number"
+                step="any"
+                label="Longitude (opcional)"
+                class="flex-1"
+                :error="errors.venueLongitude"
+              />
+            </div>
+            <p class="text-xs text-text-muted">
+              Coordenadas são opcionais — sem elas, o mapa do site usa o endereço em texto.
+              Preencha só se o endereço não for preciso o bastante (clique com o botão direito no
+              local no Google Maps para copiar as coordenadas).
+            </p>
+          </div>
+        </template>
+
         <UiInput
           v-model="startsAt"
           type="datetime-local"

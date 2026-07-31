@@ -5,8 +5,8 @@ interface EventSegmentListResponse {
 }
 
 /**
- * Cronograma público (Timeline da home, CLAUDE.md seção 1/26). Sem
- * autenticação — mesma tabela do painel administrativo, exposta em
+ * Cronograma público (seções em destaque da home, CLAUDE.md seção 1/26).
+ * Sem autenticação — mesma tabela do painel administrativo, exposta em
  * somente leitura.
  */
 export function usePublicEventSegments() {

@@ -255,10 +255,13 @@ export type Database = {
           display_order: number
           ends_at: string | null
           id: string
+          same_venue_as: string | null
           starts_at: string | null
           title: string
           updated_at: string
           venue_address: string | null
+          venue_latitude: number | null
+          venue_longitude: number | null
           venue_name: string | null
           wedding_id: string
         }
@@ -267,10 +270,13 @@ export type Database = {
           display_order?: number
           ends_at?: string | null
           id?: string
+          same_venue_as?: string | null
           starts_at?: string | null
           title: string
           updated_at?: string
           venue_address?: string | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
           venue_name?: string | null
           wedding_id: string
         }
@@ -279,14 +285,24 @@ export type Database = {
           display_order?: number
           ends_at?: string | null
           id?: string
+          same_venue_as?: string | null
           starts_at?: string | null
           title?: string
           updated_at?: string
           venue_address?: string | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
           venue_name?: string | null
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_segments_same_venue_as_fkey"
+            columns: ["same_venue_as"]
+            isOneToOne: false
+            referencedRelation: "event_segments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_segments_wedding_id_fkey"
             columns: ["wedding_id"]

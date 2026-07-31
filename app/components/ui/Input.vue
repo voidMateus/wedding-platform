@@ -13,6 +13,8 @@ interface Props {
     | 'time'
     | 'datetime-local'
     | 'color'
+  /** Só relevante para type="number" (ex.: "any" para permitir decimais). */
+  step?: string | number
   error?: string
   disabled?: boolean
 }
@@ -22,6 +24,7 @@ const {
   label,
   placeholder,
   type = 'text',
+  step,
   error,
   disabled = false,
 } = defineProps<Props>()
@@ -41,6 +44,7 @@ const inputId = useId()
     <input
       :id="inputId"
       :type="type"
+      :step="step"
       :placeholder="placeholder"
       :disabled="disabled"
       :value="modelValue"
