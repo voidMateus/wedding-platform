@@ -33,6 +33,7 @@ useSeoMeta({
 
     <template v-else>
       <PublicHero :wedding="wedding" />
+      <PublicStorySection :wedding="wedding" />
       <PublicTimeline :segments="segmentsResponse?.data ?? []" />
     </template>
   </div>
