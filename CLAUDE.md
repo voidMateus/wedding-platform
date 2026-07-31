@@ -1125,7 +1125,7 @@ docs: atualizar CLAUDE.md com convenções de commit
 ### Fase 3 — Refinamento de Produto
 - [ ] Galeria de fotos do casal com upload direto (Supabase Storage).
 - [x] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal — adiantado para a Fase Visual (fora da sequência original do roadmap): `shared/theme-presets.ts` (`THEME_PRESETS`), `AdminThemePresetPicker.vue`, seção "Aparência" de `/admin/configuracoes`. Preset é só um atalho de largada — cor e fonte continuam manualmente editáveis (ver CLAUDE.md, seção 22.3).
-- [ ] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1 (junto de "Configuração básica do evento"); este item cobre especificamente o refinamento visual futuro da timeline.
+- [x] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1; o refinamento visual (trilho conectando os itens, ícone por palavra-chave no título, reveal animado ao rolar) foi adiantado para a Fase Visual (`PublicTimeline.vue`).
 - [ ] Mapa/localização integrada (embed de mapa até o local do evento).
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
