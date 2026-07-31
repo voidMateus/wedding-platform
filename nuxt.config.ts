@@ -51,9 +51,17 @@ export default defineNuxtConfig({
 
   // Fontes carregadas via @nuxt/fonts são self-hosted automaticamente
   // (baixadas no build, servidas pela própria aplicação) — nunca via CDN
-  // do Google Fonts em runtime. Famílias específicas entram na Fase Visual,
-  // PR de tokens de tipografia.
-  fonts: {},
+  // do Google Fonts em runtime. "Playfair Display" é a serifada padrão do
+  // site público (--font-display); "Inter" é a sans-serif fixa de todo o
+  // site, inclusive admin (--font-sans, ver main.css). Presets de tema
+  // (Fase Visual, PR de theme_config) podem declarar famílias adicionais
+  // aqui quando trocarem --font-display por casamento.
+  fonts: {
+    families: [
+      { name: 'Playfair Display', provider: 'google' },
+      { name: 'Inter', provider: 'google' },
+    ],
+  },
 
   vite: {
     // @tailwindcss/vite declara suporte a vite ^8, mas seus tipos publicados
