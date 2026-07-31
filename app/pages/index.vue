@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import { DEFAULT_PRIMARY_COLOR } from '#shared/utils/contrast'
-
 const { getPublicWedding } = usePublicWedding()
 const { getPublicEventSegments } = usePublicEventSegments()
 
 const { data: wedding, status: weddingStatus } = getPublicWedding()
 const { data: segmentsResponse } = getPublicEventSegments()
-
-const primaryColor = computed(() => {
-  const theme = (wedding.value?.theme_config ?? {}) as { primaryColor?: string }
-  return theme.primaryColor ?? DEFAULT_PRIMARY_COLOR
-})
 
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
 // preview correto ao compartilhar o link no WhatsApp.
@@ -25,7 +18,7 @@ useSeoMeta({
 </script>
 
 <template>
-  <div :style="{ '--color-primary': primaryColor }">
+  <div>
     <div v-if="weddingStatus === 'pending'" class="flex flex-col items-center gap-4 px-4 py-20">
       <UiSkeleton class="h-10 w-64" />
       <UiSkeleton class="h-6 w-40" />

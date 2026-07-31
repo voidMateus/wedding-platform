@@ -163,6 +163,9 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
   themeSuccessMessage.value = null
   try {
     await updateWeddingTheme(values)
+    // Atualiza o cache compartilhado (chave 'wedding') para que o layout
+    // admin reflita a cor nova imediatamente, sem reload completo.
+    await refresh()
     themeSuccessMessage.value = 'Aparência salva.'
   } catch (err) {
     themeFormErrorMessage.value = isApiError(err)
