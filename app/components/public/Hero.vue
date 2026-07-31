@@ -34,6 +34,7 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
       :alt="`Foto de capa de ${wedding.couple_names}`"
       class="absolute inset-0 h-full w-full object-cover"
       sizes="100vw"
+      preload
     />
     <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
     <div
