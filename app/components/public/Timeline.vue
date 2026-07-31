@@ -19,7 +19,7 @@ function iconFor(title: string): string {
 </script>
 
 <template>
-  <section v-if="segments.length" class="bg-surface-muted px-4 py-20 sm:py-28">
+  <section v-if="segments.length" id="cronograma" class="bg-surface-muted px-4 py-20 sm:py-28">
     <div class="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
       <UiSectionDivider />
       <h2 class="font-display text-3xl font-semibold text-heading sm:text-4xl">Programação</h2>
