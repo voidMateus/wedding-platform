@@ -3,7 +3,7 @@
 // CLAUDE.md, seção 22.2). Título/divisor sempre centralizados; o conteúdo
 // do slot default fica livre para o próprio layout de cada seção (texto
 // corrido, cards, grade de fotos...). Reveal-on-scroll consistente com o
-// mesmo padrão já usado em Timeline.vue.
+// mesmo padrão usado nas demais seções públicas.
 interface Props {
   title?: string
   tone?: 'default' | 'muted' | 'accent'
