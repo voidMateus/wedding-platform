@@ -31,7 +31,11 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface text-text">
-    <slot />
+  <div class="flex min-h-screen flex-col bg-surface text-text">
+    <PublicNavBar :couple-names="wedding?.couple_names" />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <PublicFooter :couple-names="wedding?.couple_names" />
   </div>
 </template>
