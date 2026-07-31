@@ -6,9 +6,12 @@ interface Props {
   type?: 'button' | 'submit' | 'reset'
   /** Quando definido, renderiza como NuxtLink (CTA de navegação) em vez de <button>. */
   to?: string
+  /** Só relevante com `to` — ex.: "_blank" para links externos (mapa, redes sociais). */
+  target?: string
 }
 
-const { variant = 'primary', size = 'md', disabled = false, type = 'button', to } = defineProps<Props>()
+const { variant = 'primary', size = 'md', disabled = false, type = 'button', to, target } =
+  defineProps<Props>()
 
 const variantClasses: Record<NonNullable<Props['variant']>, string> = {
   primary: 'bg-primary text-primary-foreground hover:opacity-90',
@@ -28,6 +31,8 @@ const sizeClasses: Record<NonNullable<Props['size']>, string> = {
   <NuxtLink
     v-if="to"
     :to="to"
+    :target="target"
+    :rel="target === '_blank' ? 'noopener noreferrer' : undefined"
     :class="[
       'inline-flex items-center justify-center rounded-md font-medium transition-colors',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',

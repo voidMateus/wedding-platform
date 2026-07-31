@@ -23,6 +23,21 @@ const timeRange = computed(() => {
   if (start && end) return `${start} – ${end}`
   return start
 })
+
+const hasCoordinates = computed(
+  () => segment.venue_latitude !== null && segment.venue_longitude !== null,
+)
+
+// Sempre um jeito de abrir no mapa externo, com ou sem coordenadas
+// cadastradas — nunca um botão quebrado (mesmo princípio de coverImageUrl).
+const externalMapsUrl = computed(() => {
+  if (hasCoordinates.value) {
+    return `https://www.google.com/maps/search/?api=1&query=${segment.venue_latitude},${segment.venue_longitude}`
+  }
+  const query = [segment.venue_name, segment.venue_address].filter(Boolean).join(', ')
+  if (!query) return null
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+})
 </script>
 
 <template>
@@ -38,6 +53,18 @@ const timeRange = computed(() => {
         <p v-if="segment.venue_name" class="font-medium">{{ segment.venue_name }}</p>
         <p v-if="segment.venue_address" class="text-sm text-text-muted">{{ segment.venue_address }}</p>
       </div>
+
+      <PublicVenueMap
+        v-if="hasCoordinates"
+        :latitude="segment.venue_latitude as number"
+        :longitude="segment.venue_longitude as number"
+        :label="segment.venue_name || segment.title"
+        class="mt-2 w-full"
+      />
+
+      <UiButton v-if="externalMapsUrl" variant="secondary" :to="externalMapsUrl" target="_blank">
+        Abrir no Google Maps
+      </UiButton>
     </div>
   </PublicEditorialSection>
 </template>

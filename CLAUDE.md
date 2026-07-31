@@ -139,6 +139,7 @@ O produto nasce como uma aplicação de uso único por casamento (single-tenant,
 | Hospedagem | **Vercel** (ou Netlify) | Deploy integrado com Nuxt, edge functions, preview deployments por PR |
 | Observabilidade | **Sentry** (erros) + logs do provedor de hosting | Rastreio de erros em produção |
 | CI/CD | **GitHub Actions** | Lint, type-check, testes e build em cada PR |
+| Mapa interativo | **Leaflet** + tiles OpenStreetMap | Mapa do local da Cerimônia/Recepção (`VenueMap.client.vue`), sem chave de API/billing — alternativa à Google Maps JS API. Import dinâmico dentro de `onMounted` (não estático no topo do arquivo): o pacote não publica entry point ESM, e import estático fazia o mapa nunca inicializar |
 
 ### 3.1 Critérios de escolha
 
@@ -524,6 +525,8 @@ Modelo de decisão em camadas — do mais local ao mais global:
 │ title            │
 │ venue_name       │
 │ venue_address    │
+│ venue_latitude   │  (opcional — mapa interativo)
+│ venue_longitude  │  (opcional — mapa interativo)
 │ starts_at        │
 │ ends_at          │
 │ display_order    │
@@ -896,7 +899,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 | Componente | Responsabilidade |
 |---|---|
-| `Button` | Variantes: `primary`, `secondary`, `ghost`, `destructive`; tamanhos `sm/md/lg` |
+| `Button` | Variantes: `primary`, `secondary`, `ghost`, `destructive`; tamanhos `sm/md/lg`; prop `to` (renderiza como `NuxtLink` em vez de `<button>`, mesmas classes de variante — CTAs de navegação nunca duplicam classes soltas em componentes de domínio) + `target` (só com `to`, ex.: `"_blank"` para links externos, aplica `rel="noopener noreferrer"` automaticamente) |
 | `Input` / `Textarea` | Campos de formulário com estado de erro integrado |
 | `Select` / `Combobox` | Seleção simples e busca (ex: selecionar grupo do convidado) |
 | `Checkbox` / `RadioGroup` | Seleção múltipla/única (ex: restrições alimentares) |
@@ -943,6 +946,7 @@ Ao salvar `theme_config`, `primaryColor`, `secondaryColor` e, quando definidas, 
 | `ProgressSummary` | Barra/cartão de progresso (ex: "82 de 120 confirmados") reutilizado no dashboard e em relatórios |
 | `CsvImportWizard` | Fluxo de importação de convidados em etapas (upload → mapear colunas → revisar → confirmar) |
 | `EditorialSection` | Wrapper padrão de "capítulo" da home pública (Fase Editorial) — título centralizado + `SectionDivider` opcionais, alternância de fundo `bg-surface`/`bg-surface-muted` (prop `tone`), reveal-on-scroll via `v-motion`, `id` para âncora de navegação. Todas as novas seções da home (história, cerimônia/recepção, dress code, manuais, presentes/RSVP, galeria, FAQ, contato) o reutilizam — conteúdo do slot default fica livre para o layout interno de cada seção |
+| `VenueMap` | `.client.vue` (Leaflet manipula `window`/DOM, não roda em SSR) — mapa interativo do local de `EventSpotlight.vue`, props `latitude`/`longitude`/`label`. Opcional: sem coordenadas cadastradas no cronograma, a seção mostra só o botão "Abrir no Google Maps" (via coordenadas ou busca por endereço em texto), nunca um espaço quebrado |
 
 ### 23.2 Critério para "promover" um componente a reutilizável
 

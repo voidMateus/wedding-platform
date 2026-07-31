@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
       starts_at: input.startsAt || null,
       ends_at: input.endsAt || null,
       display_order: input.displayOrder,
+      venue_latitude: input.venueLatitude ?? null,
+      venue_longitude: input.venueLongitude ?? null,
     })
     .select()
     .single()

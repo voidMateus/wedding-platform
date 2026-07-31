@@ -41,4 +41,20 @@ describe('UiButton', () => {
     expect(link.attributes('href')).toBe('/presentes')
     expect(link.classes()).toContain('bg-primary')
   })
+
+  it('aplica target="_blank" e rel="noopener noreferrer" em links externos', () => {
+    const wrapper = mount(Button, {
+      props: { to: 'https://maps.google.com/?q=1,2', target: '_blank' },
+      slots: { default: 'Abrir no mapa' },
+      global: {
+        stubs: {
+          NuxtLink: { template: '<a :href="to" :target="target" :rel="rel"><slot /></a>', props: ['to', 'target', 'rel'] },
+        },
+      },
+    })
+
+    const link = wrapper.find('a')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+  })
 })

@@ -23,6 +23,8 @@ const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
     startsAt: '',
     endsAt: '',
     displayOrder: 0,
+    venueLatitude: '',
+    venueLongitude: '',
   },
 })
 
@@ -32,11 +34,29 @@ const [venueAddress] = defineField('venueAddress')
 const [startsAt] = defineField('startsAt')
 const [endsAt] = defineField('endsAt')
 const [displayOrder] = defineField('displayOrder')
+const [venueLatitude] = defineField('venueLatitude')
+const [venueLongitude] = defineField('venueLongitude')
 
 const displayOrderText = computed({
   get: () => (displayOrder.value === undefined ? '' : String(displayOrder.value)),
   set: (value: string) => {
     displayOrder.value = value === '' ? undefined : Number(value)
+  },
+})
+
+// UiInput só aceita modelValue string — venueLatitude/venueLongitude
+// aceitam string|number|undefined (schema em shared/schemas/event-segments.ts,
+// mesmo raciocínio de displayOrderText acima).
+const venueLatitudeText = computed({
+  get: () => (venueLatitude.value === undefined ? '' : String(venueLatitude.value)),
+  set: (value: string) => {
+    venueLatitude.value = value
+  },
+})
+const venueLongitudeText = computed({
+  get: () => (venueLongitude.value === undefined ? '' : String(venueLongitude.value)),
+  set: (value: string) => {
+    venueLongitude.value = value
   },
 })
 
@@ -52,6 +72,8 @@ function openCreateModal() {
       startsAt: '',
       endsAt: '',
       displayOrder: nextOrder,
+      venueLatitude: '',
+      venueLongitude: '',
     },
   })
   isFormModalOpen.value = true
@@ -68,6 +90,8 @@ function openEditModal(segment: EventSegment) {
       startsAt: segment.starts_at ?? '',
       endsAt: segment.ends_at ?? '',
       displayOrder: segment.display_order,
+      venueLatitude: segment.venue_latitude ?? '',
+      venueLongitude: segment.venue_longitude ?? '',
     },
   })
   isFormModalOpen.value = true
@@ -172,6 +196,30 @@ function formatDateTime(value: string | null): string {
         <UiInput v-model="title" label="Título" placeholder="Ex.: Cerimônia" :error="errors.title" />
         <UiInput v-model="venueName" label="Local (opcional)" :error="errors.venueName" />
         <UiInput v-model="venueAddress" label="Endereço (opcional)" :error="errors.venueAddress" />
+        <div class="flex flex-col gap-1">
+          <div class="flex gap-3">
+            <UiInput
+              v-model="venueLatitudeText"
+              type="number"
+              step="any"
+              label="Latitude (opcional)"
+              class="flex-1"
+              :error="errors.venueLatitude"
+            />
+            <UiInput
+              v-model="venueLongitudeText"
+              type="number"
+              step="any"
+              label="Longitude (opcional)"
+              class="flex-1"
+              :error="errors.venueLongitude"
+            />
+          </div>
+          <p class="text-xs text-text-muted">
+            Preencha para mostrar um mapa interativo no site — clique com o botão direito no local
+            no Google Maps e copie as coordenadas.
+          </p>
+        </div>
         <UiInput
           v-model="startsAt"
           type="datetime-local"

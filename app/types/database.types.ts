@@ -259,6 +259,8 @@ export type Database = {
           title: string
           updated_at: string
           venue_address: string | null
+          venue_latitude: number | null
+          venue_longitude: number | null
           venue_name: string | null
           wedding_id: string
         }
@@ -271,6 +273,8 @@ export type Database = {
           title: string
           updated_at?: string
           venue_address?: string | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
           venue_name?: string | null
           wedding_id: string
         }
@@ -283,6 +287,8 @@ export type Database = {
           title?: string
           updated_at?: string
           venue_address?: string | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
           venue_name?: string | null
           wedding_id?: string
         }

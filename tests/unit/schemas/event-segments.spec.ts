@@ -44,4 +44,58 @@ describe('eventSegmentInputSchema', () => {
 
     expect(result.success).toBe(false)
   })
+
+  it('aceita latitude/longitude válidas', () => {
+    const result = eventSegmentInputSchema.safeParse({
+      title: 'Cerimônia',
+      venueLatitude: -15.601398,
+      venueLongitude: -56.097892,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.venueLatitude).toBeCloseTo(-15.601398)
+      expect(result.data.venueLongitude).toBeCloseTo(-56.097892)
+    }
+  })
+
+  it('trata latitude/longitude como string vazia = não definido (não vira 0,0)', () => {
+    const result = eventSegmentInputSchema.safeParse({
+      title: 'Cerimônia',
+      venueLatitude: '',
+      venueLongitude: '',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.venueLatitude).toBeUndefined()
+      expect(result.data.venueLongitude).toBeUndefined()
+    }
+  })
+
+  it('aceita latitude/longitude enviadas como string (formulário HTML)', () => {
+    const result = eventSegmentInputSchema.safeParse({
+      title: 'Cerimônia',
+      venueLatitude: '-15.6',
+      venueLongitude: '-56.1',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.venueLatitude).toBeCloseTo(-15.6)
+      expect(result.data.venueLongitude).toBeCloseTo(-56.1)
+    }
+  })
+
+  it('rejeita latitude fora do intervalo -90..90', () => {
+    const result = eventSegmentInputSchema.safeParse({ title: 'Cerimônia', venueLatitude: 95 })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita longitude fora do intervalo -180..180', () => {
+    const result = eventSegmentInputSchema.safeParse({ title: 'Cerimônia', venueLongitude: 200 })
+
+    expect(result.success).toBe(false)
+  })
 })
