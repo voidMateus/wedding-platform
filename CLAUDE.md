@@ -869,11 +869,13 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 ### 22.1 Fundamentos (tokens)
 
-- **Cor**: paleta base neutra (escala de cinzas) + uma cor de "tema do casamento" configurável (aplicada via CSS variables, permitindo customização por evento sem alterar código).
+- **Cor**: paleta base neutra (escala de cinzas) + duas cores de "tema do casamento" configuráveis, `primary` e `secondary` (aplicadas via CSS variables, permitindo customização por evento sem alterar código — ver 22.3).
   ```css
   :root {
-    --color-primary: #a8785c; /* customizável por casamento */
+    --color-primary: #6b4a35; /* customizável por casamento */
     --color-primary-foreground: #ffffff;
+    --color-secondary: #5f6f52; /* customizável por casamento */
+    --color-secondary-foreground: #ffffff;
     --color-surface: #ffffff;
     --color-surface-muted: #f7f5f3;
     --color-border: #e5e1dd;
@@ -881,10 +883,10 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
     --color-text-muted: #6b6259;
   }
   ```
-  > **Achado da implementação**: `#a8785c` (o valor de exemplo acima, também usado como default real em `app/assets/css/main.css` e `shared/utils/contrast.ts`) fica em ~3.81:1 de contraste contra `--color-surface`, abaixo do mínimo de 4.5:1 exigido pela própria seção 22.4 — confirmado por teste unitário (`tests/unit/utils/contrast.spec.ts`). O validador bloqueia corretamente esse valor ao tentar salvá-lo como cor de tema; a cor permanece aqui como default técnico (não passou a validação de marca) até uma decisão de produto sobre a paleta definitiva.
-- **Tipografia**: uma fonte serifada para o site público (identidade emocional) e uma fonte sans-serif para o painel administrativo (legibilidade em densidade de dados).
+  > **Achado da implementação (corrigido)**: o valor de exemplo original desta seção era `#a8785c`, que fica em ~3.81:1 de contraste contra `--color-surface` — abaixo do mínimo de 4.5:1 exigido pela própria seção 22.4 (achado confirmado por teste unitário, `tests/unit/utils/contrast.spec.ts`). O default real (`app/assets/css/main.css`, `shared/utils/contrast.ts#DEFAULT_PRIMARY_COLOR`) foi corrigido para `#6b4a35` — mesma família de tom do preset "Clássico Elegante" (`shared/theme-presets.ts`), agora passando no contraste mínimo. `#a8785c` permanece citado nos testes como caso de rejeição conhecido.
+- **Tipografia**: um par tipográfico por casamento — uma fonte serifada de destaque (`--font-display`, aplicada ao site público) e uma fonte sans-serif fixa de plataforma (`--font-sans`, aplicada a corpo de texto e a todo o painel administrativo, nunca customizada por casamento — legibilidade em densidade de dados). O casal escolhe o par via `shared/theme-presets.ts#FONT_PAIRS`, independentemente da paleta de cores (ver 22.3).
 - **Espaçamento**: escala baseada em múltiplos de 4px (Tailwind spacing scale padrão, sem customização salvo necessidade real).
-- **Raio de borda e sombra**: escala limitada (`sm`, `md`, `lg`) aplicada consistentemente — nenhum valor arbitrário de `border-radius`/`box-shadow` direto em componentes.
+- **Raio de borda e sombra**: escala limitada (`--radius-sm/md/lg`, `--shadow-sm/md/lg`) fixa na plataforma — não varia por tema, aplicada consistentemente via os componentes de `components/ui/`; nenhum valor arbitrário de `border-radius`/`box-shadow` direto em componentes de domínio.
 
 ### 22.2 Componentes base (`components/ui/`)
 
@@ -907,11 +909,13 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 - Nenhum estilo visual (cor, espaçamento, tipografia) é definido diretamente em componentes de domínio — sempre via classes Tailwind mapeadas aos tokens, ou via componente de `components/ui/`.
 - Toda nova variante visual passa primeiro pelo Design System antes de ser usada em uma feature específica — proibido criar "botão especial" isolado dentro de uma página.
-- Temas por casamento (cor primária, fonte de destaque, foto de capa) são dados armazenados em `weddings.theme_config` (jsonb — exclusivamente atributos visuais, nunca comportamento de negócio como `rsvp_mode`, ver 16.2), aplicados via CSS variables no layout público.
+- Temas por casamento são dados armazenados em `weddings.theme_config` (jsonb — exclusivamente atributos visuais, nunca comportamento de negócio como `rsvp_mode`, ver 16.2), aplicados via CSS variables no layout público. Shape atual: `{ presetId?: string, primaryColor: string, secondaryColor: string, fontPairId: string, coverImageUrl?: string, showCountdown: boolean }`. `presetId` é só um rótulo informativo do último preset aplicado (ou `'custom'` após qualquer edição manual) — nunca usado para resolver a aparência em si, que sempre lê `primaryColor`/`secondaryColor`/`fontPairId` diretamente.
+- `theme_config` é gerenciado por um endpoint próprio (`PATCH /api/wedding/theme`, `shared/schemas/theme.ts`), separado dos dados de negócio do evento (`PATCH /api/wedding`, `shared/schemas/wedding.ts`) — reflexo, na camada de API, da mesma separação já documentada para a coluna. `coverImageUrl` fica de fora até desse schema: é gerido exclusivamente pelos endpoints de upload/remoção de capa (seção 28), nunca submetido junto com o restante do formulário de Aparência, evitando que salvar cor/fonte apague a foto por engano.
+- A paleta do casal é sempre **duas cores** (`primaryColor` + `secondaryColor`, cada uma validada independentemente pela seção 22.4), sempre editáveis por hexadecimal exato. `shared/theme-presets.ts` cataloga temas prontos (`THEME_PRESETS`, cor+cor+par tipográfico combinados) e pares tipográficos (`FONT_PAIRS`, independentes de cor) — presets são só um atalho de largada: escolher um preenche os três campos de uma vez, mas cada um continua editável manualmente depois, e a fonte é sempre uma escolha independente da cor (nunca embutida apenas dentro do preset).
 
 ### 22.4 Validação automática de contraste
 
-Ao salvar `theme_config`, a cor primária customizada pelo casal é validada contra `--color-surface`/`--color-text` calculando a razão de contraste (fórmula de luminância relativa do WCAG). Se a combinação ficar abaixo de 4.5:1, a interface administrativa bloqueia o salvamento e sugere o tom mais próximo que atende ao mínimo — evitando que a customização visual quebre a acessibilidade prometida na seção 25.
+Ao salvar `theme_config`, `primaryColor` e `secondaryColor` são validadas independentemente contra `--color-surface`/`--color-text` calculando a razão de contraste (fórmula de luminância relativa do WCAG, `shared/utils/contrast.ts#checkColorContrast`). Se qualquer uma das duas ficar abaixo de 4.5:1, a interface administrativa bloqueia o salvamento — evitando que a customização visual quebre a acessibilidade prometida na seção 25. Todo preset de `shared/theme-presets.ts` é coberto por teste de guarda garantindo que as duas cores de cada entrada passam nesse mínimo.
 
 ---
 
@@ -1119,7 +1123,7 @@ docs: atualizar CLAUDE.md com convenções de commit
 
 ### Fase 3 — Refinamento de Produto
 - [ ] Galeria de fotos do casal com upload direto (Supabase Storage).
-- [ ] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal.
+- [x] Temas visuais pré-configurados (templates de Design System) selecionáveis pelo casal — adiantado para a Fase Visual (fora da sequência original do roadmap): `shared/theme-presets.ts` (`THEME_PRESETS`), `AdminThemePresetPicker.vue`, seção "Aparência" de `/admin/configuracoes`. Preset é só um atalho de largada — cor e fonte continuam manualmente editáveis (ver CLAUDE.md, seção 22.3).
 - [ ] Cronograma detalhado do evento (timeline visual: cerimônia, recepção, festa) — CRUD administrativo e listagem pública básica de `event_segments` já implementados na Fase 1 (junto de "Configuração básica do evento"); este item cobre especificamente o refinamento visual futuro da timeline.
 - [ ] Mapa/localização integrada (embed de mapa até o local do evento).
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SECONDARY_COLOR,
   DEFAULT_SURFACE_COLOR,
   DEFAULT_TEXT_COLOR,
   WCAG_AA_MIN_CONTRAST,
-  checkPrimaryColorContrast,
+  checkColorContrast,
   getContrastRatio,
   isValidHexColor,
 } from '#shared/utils/contrast'
@@ -42,26 +44,36 @@ describe('getContrastRatio', () => {
   })
 })
 
-describe('checkPrimaryColorContrast', () => {
+describe('checkColorContrast', () => {
   it('DEFAULT_TEXT_COLOR contra o fundo padrão passa no mínimo do WCAG AA', () => {
-    const result = checkPrimaryColorContrast(DEFAULT_TEXT_COLOR)
+    const result = checkColorContrast(DEFAULT_TEXT_COLOR)
     expect(result.ratioAgainstSurface).toBeGreaterThanOrEqual(WCAG_AA_MIN_CONTRAST)
     expect(result.meetsMinimum).toBe(true)
   })
 
   it('branco contra branco não passa (contraste 1:1)', () => {
-    const result = checkPrimaryColorContrast(DEFAULT_SURFACE_COLOR)
+    const result = checkColorContrast(DEFAULT_SURFACE_COLOR)
     expect(result.meetsMinimum).toBe(false)
   })
 
-  it('a cor de exemplo do CLAUDE.md (#a8785c) NÃO atinge 4.5:1 contra branco', () => {
+  it('a cor de exemplo original do CLAUDE.md (#a8785c) NÃO atinge 4.5:1 contra branco', () => {
     // Achado real ao implementar a validação (CLAUDE.md, seção 22.4): o
-    // valor de exemplo usado na seção 22.1 fica em ~3.8:1, abaixo do
-    // mínimo exigido pela própria seção 22.4. Este teste documenta o
-    // comportamento atual — não "corrige" a cor por conta própria, já que
-    // trocar a cor de marca é uma decisão de produto, não de arquitetura.
-    const result = checkPrimaryColorContrast('#a8785c')
+    // valor de exemplo original da seção 22.1 fica em ~3.8:1, abaixo do
+    // mínimo exigido pela própria seção 22.4. Corrigido na Fase Visual —
+    // DEFAULT_PRIMARY_COLOR agora é a cor do preset "Clássico Elegante"
+    // (mesma família de tom, contraste ajustado), ver teste abaixo.
+    const result = checkColorContrast('#a8785c')
     expect(result.ratioAgainstSurface).toBeLessThan(WCAG_AA_MIN_CONTRAST)
     expect(result.meetsMinimum).toBe(false)
+  })
+
+  it('DEFAULT_PRIMARY_COLOR (corrigido na Fase Visual) passa no mínimo do WCAG AA', () => {
+    const result = checkColorContrast(DEFAULT_PRIMARY_COLOR)
+    expect(result.meetsMinimum).toBe(true)
+  })
+
+  it('DEFAULT_SECONDARY_COLOR passa no mínimo do WCAG AA', () => {
+    const result = checkColorContrast(DEFAULT_SECONDARY_COLOR)
+    expect(result.meetsMinimum).toBe(true)
   })
 })

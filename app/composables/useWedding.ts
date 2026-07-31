@@ -1,4 +1,5 @@
 import type { WeddingSettingsInput } from '#shared/schemas/wedding'
+import type { ThemeConfigInput } from '#shared/schemas/theme'
 import type { Wedding } from '~/types/wedding'
 
 /**
@@ -14,5 +15,11 @@ export function useWedding() {
     return $fetch<Wedding>('/api/wedding', { method: 'PATCH', body: input })
   }
 
-  return { getWedding, updateWedding }
+  // Aparência (cor/fonte/countdown) — endpoint próprio, separado dos dados
+  // de negócio do evento (CLAUDE.md, seção 22.3).
+  async function updateWeddingTheme(input: ThemeConfigInput): Promise<Wedding> {
+    return $fetch<Wedding>('/api/wedding/theme', { method: 'PATCH', body: input })
+  }
+
+  return { getWedding, updateWedding, updateWeddingTheme }
 }

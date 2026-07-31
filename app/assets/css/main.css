@@ -13,13 +13,18 @@
  * --color-secondary é o tom complementar da paleta do casal (fundos de
  * seção, trilho da timeline, acentos do countdown, badges secundários)
  * — nunca decorativo isolado, sempre com propósito visual definido em
- * algum componente. O default abaixo (#5f6f52) foi escolhido para
- * passar no mínimo de contraste do WCAG AA (~5.41:1 contra
- * --color-surface, ver shared/utils/contrast.ts) — evita repetir o
- * problema documentado com o default de --color-primary.
+ * algum componente.
+ *
+ * Os defaults abaixo são a cor primária/secundária do preset "Clássico
+ * Elegante" (shared/theme-presets.ts, Fase Visual) — ambos calculados
+ * para passar no mínimo de contraste do WCAG AA contra --color-surface
+ * (ver shared/utils/contrast.ts). --color-primary corrige o valor
+ * original do CLAUDE.md (#a8785c, ~3.81:1, achado documentado em
+ * tests/unit/utils/contrast.spec.ts) — mesma família de tom, contraste
+ * ajustado (~7.91:1).
  */
 @theme {
-  --color-primary: #a8785c;
+  --color-primary: #6b4a35;
   --color-primary-foreground: #ffffff;
   --color-secondary: #5f6f52;
   --color-secondary-foreground: #ffffff;
