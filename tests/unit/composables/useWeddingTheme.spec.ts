@@ -42,4 +42,19 @@ describe('useWeddingTheme', () => {
     expect(style['--color-heading']).toBe('#2b2622')
     expect(style['--color-body']).toBe('#3a332c')
   })
+
+  it('não inclui --font-button quando o par tipográfico não define buttonFontFamily', () => {
+    const style = useWeddingTheme({ fontPairId: 'playfair-inter' }, { includeFont: true })
+    expect(style['--font-button']).toBeUndefined()
+  })
+
+  it('resolve --font-button quando o par tipográfico define buttonFontFamily', () => {
+    const style = useWeddingTheme({ fontPairId: 'cinzel-inter-montserrat' }, { includeFont: true })
+    expect(style['--font-button']).toBe("'Montserrat', var(--font-sans)")
+  })
+
+  it('não inclui --font-button quando includeFont não é passado, mesmo com buttonFontFamily definido', () => {
+    const style = useWeddingTheme({ fontPairId: 'cinzel-inter-montserrat' })
+    expect(style['--font-button']).toBeUndefined()
+  })
 })

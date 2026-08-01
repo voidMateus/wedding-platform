@@ -22,6 +22,8 @@ export interface FontPair {
   label: string
   displayFontFamily: string
   bodyFontFamily: string
+  /** Fonte de botões/CTAs (--font-button) — opcional; sem ela, botões herdam bodyFontFamily via --font-sans. */
+  buttonFontFamily?: string
 }
 
 export const FONT_PAIRS: FontPair[] = [
@@ -54,6 +56,13 @@ export const FONT_PAIRS: FontPair[] = [
     label: 'Libre Baskerville + Karla',
     displayFontFamily: 'Libre Baskerville',
     bodyFontFamily: 'Karla',
+  },
+  {
+    id: 'cinzel-inter-montserrat',
+    label: 'Cinzel + Inter (botões em Montserrat)',
+    displayFontFamily: 'Cinzel',
+    bodyFontFamily: 'Inter',
+    buttonFontFamily: 'Montserrat',
   },
 ]
 
@@ -99,6 +108,13 @@ export const THEME_PRESETS: ThemePreset[] = [
     primaryColor: '#3f5b3f',
     secondaryColor: '#a35d3a',
     fontPairId: 'librebaskerville-karla',
+  },
+  {
+    id: 'vermelho-classico',
+    label: 'Vermelho Clássico',
+    primaryColor: '#dc2626',
+    secondaryColor: '#7f1d1d',
+    fontPairId: 'cinzel-inter-montserrat',
   },
 ]
 

@@ -55,9 +55,8 @@ useSeoMeta({
     />
 
     <template v-else>
-      <PublicHero :wedding="wedding" />
+      <PublicHero :wedding="wedding" :segments="resolvedSegments" />
       <PublicStorySection :wedding="wedding" />
-      <PublicCountdownSection :wedding="wedding" />
       <div id="cronograma">
         <PublicEventSpotlight
           v-for="(segment, index) in resolvedSegments"

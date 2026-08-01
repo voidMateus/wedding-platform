@@ -19,6 +19,16 @@ describe('UiButton', () => {
     expect(wrapper.classes()).toContain('bg-primary')
   })
 
+  it('aplica a classe da variante outline (borda, sem preenchimento)', () => {
+    const wrapper = mount(Button, {
+      props: { variant: 'outline' },
+      slots: { default: 'Confirmar presença' },
+    })
+
+    expect(wrapper.classes()).toContain('border')
+    expect(wrapper.classes()).toContain('bg-transparent')
+  })
+
   it('fica desabilitado quando a prop disabled é verdadeira', () => {
     const wrapper = mount(Button, {
       props: { disabled: true },
