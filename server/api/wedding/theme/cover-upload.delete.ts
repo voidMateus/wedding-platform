@@ -24,6 +24,8 @@ export default defineEventHandler(async (event) => {
 
   const themeConfig = { ...(current.theme_config as Record<string, unknown>) }
   delete themeConfig.coverImageUrl
+  delete themeConfig.coverFocalX
+  delete themeConfig.coverFocalY
 
   const { error: updateError } = await client
     .from('weddings')

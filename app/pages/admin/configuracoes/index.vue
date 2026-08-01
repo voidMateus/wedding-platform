@@ -47,6 +47,14 @@ const storyImageUrl = computed(() => {
   const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
   return theme.storyImageUrl ?? null
 })
+const coverFocalPoint = computed(() => {
+  const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
+  return { x: theme.coverFocalX ?? 50, y: theme.coverFocalY ?? 50 }
+})
+const storyFocalPoint = computed(() => {
+  const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
+  return { x: theme.storyFocalX ?? 50, y: theme.storyFocalY ?? 50 }
+})
 
 // --- Dados do evento (comportamento de negócio — CLAUDE.md, seção 22.3) ---
 const {
@@ -280,9 +288,19 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
         </template>
 
         <form class="flex flex-col gap-6" @submit="onThemeSubmit">
-          <AdminCoverImageUploader :model-value="coverImageUrl" @update:model-value="() => refresh()" />
+          <AdminCoverImageUploader
+            :model-value="coverImageUrl"
+            :focal-point="coverFocalPoint"
+            @update:model-value="() => refresh()"
+            @update:focal-point="() => refresh()"
+          />
 
-          <AdminStoryImageUploader :model-value="storyImageUrl" @update:model-value="() => refresh()" />
+          <AdminStoryImageUploader
+            :model-value="storyImageUrl"
+            :focal-point="storyFocalPoint"
+            @update:model-value="() => refresh()"
+            @update:focal-point="() => refresh()"
+          />
 
           <AdminThemePresetPicker :model-value="activePresetId" @update:model-value="applyPreset" />
 

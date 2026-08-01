@@ -22,6 +22,13 @@ const formattedDate = computed(() =>
 // layout com foto, têm um segundo layout pensado de propósito (tipografia
 // maior, cor secundária como destaque de fundo), nunca um espaço vazio.
 const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
+
+// Ponto de foco (enquadramento) escolhido pelo casal no upload — CLAUDE.md,
+// seção 22.2. Default 50/50 = centro (mesmo comportamento de antes da
+// ferramenta existir).
+const coverFocalPosition = computed(
+  () => `${theme.value.coverFocalX ?? 50}% ${theme.value.coverFocalY ?? 50}%`,
+)
 </script>
 
 <template>
@@ -44,6 +51,7 @@ const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
       :src="coverImageUrl"
       :alt="`Foto de capa de ${wedding.couple_names}`"
       class="absolute inset-0 h-full w-full object-cover"
+      :style="{ objectPosition: coverFocalPosition }"
       sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
       preload
     />

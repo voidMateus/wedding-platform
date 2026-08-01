@@ -40,11 +40,13 @@ const editErrorMessage = ref<string | null>(null)
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(photoMetadataSchema),
-  initialValues: { caption: '', displayOrder: 0 },
+  initialValues: { caption: '', displayOrder: 0, focalX: 50, focalY: 50 },
 })
 
 const [caption] = defineField('caption')
 const [displayOrder] = defineField('displayOrder')
+const [focalX] = defineField('focalX')
+const [focalY] = defineField('focalY')
 
 const displayOrderText = computed({
   get: () => (displayOrder.value === undefined ? '' : String(displayOrder.value)),
@@ -53,10 +55,32 @@ const displayOrderText = computed({
   },
 })
 
+// Bridge para o formato {x,y} do AdminImageFocalPointPicker (CLAUDE.md,
+// seção 22.2) — os campos do form continuam separados (focalX/focalY),
+// mesmo padrão de bridging já usado para displayOrderText.
+const focalPoint = computed({
+  get: () => ({ x: focalX.value ?? 50, y: focalY.value ?? 50 }),
+  set: (value: { x: number; y: number }) => {
+    focalX.value = value.x
+    focalY.value = value.y
+  },
+})
+
+function focalStyle(photo: PhotoWithUrl) {
+  return { objectPosition: `${photo.focal_x}% ${photo.focal_y}%` }
+}
+
 function openEditModal(photo: PhotoWithUrl) {
   editingPhoto.value = photo
   editErrorMessage.value = null
-  resetForm({ values: { caption: photo.caption ?? '', displayOrder: photo.display_order } })
+  resetForm({
+    values: {
+      caption: photo.caption ?? '',
+      displayOrder: photo.display_order,
+      focalX: photo.focal_x,
+      focalY: photo.focal_y,
+    },
+  })
   isEditModalOpen.value = true
 }
 
@@ -137,6 +161,7 @@ async function confirmDelete() {
           :src="photo.url"
           :alt="photo.caption || 'Foto da galeria'"
           class="aspect-square w-full object-cover"
+          :style="focalStyle(photo)"
           sizes="200px"
         />
         <div class="flex flex-col gap-2 p-3">
@@ -152,11 +177,12 @@ async function confirmDelete() {
 
     <UiModal v-model="isEditModalOpen" title="Editar foto">
       <form class="flex flex-col gap-4" @submit="onEditSubmit">
-        <NuxtImg
+        <AdminImageFocalPointPicker
           v-if="editingPhoto"
+          v-model="focalPoint"
           :src="editingPhoto.url"
           :alt="editingPhoto.caption || 'Foto da galeria'"
-          class="h-40 w-full rounded-lg object-cover"
+          preview-aspect-class="aspect-square"
         />
         <UiInput v-model="caption" label="Legenda (opcional)" :error="errors.caption" />
         <UiInput

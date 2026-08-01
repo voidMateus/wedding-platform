@@ -29,6 +29,7 @@ function openLightbox(photo: PhotoWithUrl) {
           :src="photo.url"
           :alt="photo.caption || 'Foto da galeria'"
           class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          :style="{ objectPosition: `${photo.focal_x}% ${photo.focal_y}%` }"
           sizes="sm:50vw md:33vw lg:25vw xl:25vw 2xl:25vw"
           loading="lazy"
         />

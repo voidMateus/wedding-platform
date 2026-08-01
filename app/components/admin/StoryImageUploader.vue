@@ -1,15 +1,26 @@
 <script setup lang="ts">
-interface Props {
-  modelValue: string | null
+import { useDebounceFn } from '@vueuse/core'
+
+interface FocalPoint {
+  x: number
+  y: number
 }
 
-const { modelValue } = defineProps<Props>()
+interface Props {
+  modelValue: string | null
+  focalPoint: FocalPoint
+}
+
+const { modelValue, focalPoint } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | null]
+  'update:focalPoint': [value: FocalPoint]
 }>()
 
 const { uploadStoryImage, removeStoryImage } = useWeddingStoryUpload()
+const { updateThemeFocalPoint } = useWeddingThemeFocalPoint()
+const toast = useToast()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
@@ -50,6 +61,30 @@ async function handleRemove() {
     isRemoving.value = false
   }
 }
+
+// Ponto de foco (CLAUDE.md, seção 22.2) — mesma persistência debounced do
+// CoverImageUploader.vue.
+const localFocalPoint = ref<FocalPoint>(focalPoint)
+watch(
+  () => focalPoint,
+  (value) => {
+    localFocalPoint.value = value
+  },
+)
+
+const persistFocalPoint = useDebounceFn(async (value: FocalPoint) => {
+  try {
+    await updateThemeFocalPoint({ target: 'story', x: value.x, y: value.y })
+    emit('update:focalPoint', value)
+  } catch {
+    toast.error('Não foi possível salvar o enquadramento.')
+  }
+}, 400)
+
+function handleFocalPointChange(value: FocalPoint) {
+  localFocalPoint.value = value
+  persistFocalPoint(value)
+}
 </script>
 
 <template>
@@ -78,10 +113,12 @@ async function handleRemove() {
     </UiEmptyState>
 
     <div v-else class="flex flex-col gap-2">
-      <img
+      <AdminImageFocalPointPicker
+        :model-value="localFocalPoint"
         :src="modelValue"
         alt="Prévia da foto da seção Nossa História"
-        class="h-40 w-full rounded-lg border border-border object-cover"
+        preview-aspect-class="aspect-[4/5]"
+        @update:model-value="handleFocalPointChange"
       />
       <div class="flex gap-2">
         <UiButton

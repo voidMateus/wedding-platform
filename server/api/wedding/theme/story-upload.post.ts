@@ -64,10 +64,12 @@ export default defineEventHandler(async (event) => {
     throw badRequestError(fetchError.message)
   }
 
-  const themeConfig = {
-    ...(current.theme_config as Record<string, unknown>),
-    storyImageUrl: publicUrl,
-  }
+  // Reseta o ponto de foco: uma foto nova não deve herdar o enquadramento
+  // escolhido para a foto anterior (imagens diferentes, focos diferentes).
+  const themeConfig = { ...(current.theme_config as Record<string, unknown>) }
+  delete themeConfig.storyFocalX
+  delete themeConfig.storyFocalY
+  themeConfig.storyImageUrl = publicUrl
 
   const { error: updateError } = await client
     .from('weddings')
