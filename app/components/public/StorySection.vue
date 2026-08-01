@@ -9,22 +9,22 @@ interface Props {
 
 const { wedding } = defineProps<Props>()
 
-// Reaproveita a mesma foto de capa do Hero (CLAUDE.md, seção 22.3) — a Fase
-// Editorial não introduz um upload dedicado para esta seção. Totalmente
-// opcional: sem foto, o layout centralizado não é um "menos" da versão com
-// foto, é um segundo tratamento pensado de propósito (mesmo princípio já
-// aplicado ao Hero).
-const coverImageUrl = computed(() => {
+// Foto própria da seção — independente da foto de capa do Hero (CLAUDE.md,
+// seção 22.3; separadas a pedido do casal, cada uma é uma foto diferente).
+// Totalmente opcional: sem foto, o layout centralizado não é um "menos" da
+// versão com foto, é um segundo tratamento pensado de propósito (mesmo
+// princípio já aplicado ao Hero).
+const storyImageUrl = computed(() => {
   const theme = (wedding.theme_config ?? {}) as Partial<ThemeConfig>
-  return theme.coverImageUrl ?? null
+  return theme.storyImageUrl ?? null
 })
 </script>
 
 <template>
   <PublicEditorialSection id="historia" title="Nossa História">
-    <div v-if="coverImageUrl" class="grid gap-10 sm:grid-cols-2 sm:items-center">
+    <div v-if="storyImageUrl" class="grid gap-10 sm:grid-cols-2 sm:items-center">
       <NuxtImg
-        :src="coverImageUrl"
+        :src="storyImageUrl"
         :alt="`Foto de ${wedding.couple_names}`"
         class="aspect-[4/5] w-full rounded-lg object-cover shadow-md"
         sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"

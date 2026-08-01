@@ -43,6 +43,10 @@ const coverImageUrl = computed(() => {
   const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
   return theme.coverImageUrl ?? null
 })
+const storyImageUrl = computed(() => {
+  const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
+  return theme.storyImageUrl ?? null
+})
 
 // --- Dados do evento (comportamento de negócio — CLAUDE.md, seção 22.3) ---
 const {
@@ -277,6 +281,8 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
 
         <form class="flex flex-col gap-6" @submit="onThemeSubmit">
           <AdminCoverImageUploader :model-value="coverImageUrl" @update:model-value="() => refresh()" />
+
+          <AdminStoryImageUploader :model-value="storyImageUrl" @update:model-value="() => refresh()" />
 
           <AdminThemePresetPicker :model-value="activePresetId" @update:model-value="applyPreset" />
 

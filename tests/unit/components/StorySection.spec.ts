@@ -45,13 +45,20 @@ describe('PublicStorySection', () => {
     expect(wrapper.find('img').exists()).toBe(false)
   })
 
-  it('layout com foto quando coverImageUrl está definido, com alt descritivo', () => {
+  it('layout com foto quando storyImageUrl está definido, com alt descritivo', () => {
     const wrapper = mountStory(
-      makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
+      makeWedding({ theme_config: { storyImageUrl: 'https://example.com/story.jpg' } }),
     )
     const img = wrapper.find('img')
     expect(img.exists()).toBe(true)
     expect(img.attributes('alt')).toBe('Foto de Ana & João')
+  })
+
+  it('ignora coverImageUrl — a foto da história é independente da foto de capa', () => {
+    const wrapper = mountStory(
+      makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
+    )
+    expect(wrapper.find('img').exists()).toBe(false)
   })
 
   it('usa o título "Nossa História" e a âncora #historia', () => {
