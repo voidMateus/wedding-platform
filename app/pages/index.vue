@@ -71,7 +71,7 @@ useSeoMeta({
       <PublicGuestManualSection />
       <PublicGroomsmenManualSection />
       <PublicGiftsShowcaseSection />
-      <PublicRsvpTeaserSection />
+      <PublicRsvpTeaserSection :wedding="wedding" />
       <PublicGallerySection />
       <PublicFaqSection />
       <PublicContactSection />
