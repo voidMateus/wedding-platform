@@ -8,6 +8,7 @@ export interface WeddingThemeStyle {
   '--color-heading'?: string
   '--color-body'?: string
   '--font-display'?: string
+  '--font-button'?: string
 }
 
 /**
@@ -42,6 +43,9 @@ export function useWeddingTheme(
     const pair = findFontPair(theme.fontPairId)
     if (pair) {
       style['--font-display'] = `'${pair.displayFontFamily}', Georgia, serif`
+      if (pair.buttonFontFamily) {
+        style['--font-button'] = `'${pair.buttonFontFamily}', var(--font-sans)`
+      }
     }
   }
 

@@ -54,4 +54,38 @@ describe('themeConfigSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('usa o default de heroButtons quando ausente', () => {
+    const result = themeConfigSchema.safeParse(BASE)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroButtons).toEqual(['presentes', 'confirmar-presenca', 'cronograma', 'manual-convidados'])
+    }
+  })
+
+  it('aceita uma seleção customizada de heroButtons/heroFeaturedButton', () => {
+    const result = themeConfigSchema.safeParse({
+      ...BASE,
+      heroButtons: ['galeria', 'faq'],
+      heroFeaturedButton: 'faq',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroButtons).toEqual(['galeria', 'faq'])
+      expect(result.data.heroFeaturedButton).toBe('faq')
+    }
+  })
+
+  it('rejeita um id de heroButtons desconhecido', () => {
+    const result = themeConfigSchema.safeParse({ ...BASE, heroButtons: ['não-existe'] })
+    expect(result.success).toBe(false)
+  })
+
+  it('trata heroFeaturedButton como string vazia = não definido', () => {
+    const result = themeConfigSchema.safeParse({ ...BASE, heroFeaturedButton: '' })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroFeaturedButton).toBeUndefined()
+    }
+  })
 })

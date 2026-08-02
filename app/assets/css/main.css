@@ -60,6 +60,10 @@
      inclusive no admin, mesmo quando o casal troca de preset. */
   --font-display: 'Playfair Display', Georgia, serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Fonte de botões/CTAs — opcional por par tipográfico (ver FontPair.
+     buttonFontFamily); sem sobrescrita, herda --font-sans (mesmo raciocínio
+     de --color-heading/--color-body caindo em --color-text por default). */
+  --font-button: var(--font-sans);
 
   /* Raio de borda e sombra — escala fixa da plataforma, não variam por
      tema (CLAUDE.md, seção 22.1: "só a cor primária e a fonte são

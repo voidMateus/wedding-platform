@@ -11,6 +11,11 @@ import {
   isValidHexColor,
 } from '#shared/utils/contrast'
 import { DEFAULT_FONT_PAIR_ID, findThemePreset } from '#shared/theme-presets'
+import {
+  DEFAULT_HERO_BUTTONS,
+  DEFAULT_HERO_FEATURED_BUTTON,
+  HERO_BUTTON_CATALOG,
+} from '#shared/hero-buttons'
 
 definePageMeta({ layout: 'admin' })
 
@@ -103,6 +108,31 @@ const [titleColor] = defineThemeField('titleColor')
 const [bodyColor] = defineThemeField('bodyColor')
 const [fontPairId] = defineThemeField('fontPairId')
 const [showCountdown] = defineThemeField('showCountdown')
+const [heroButtons] = defineThemeField('heroButtons')
+const [heroFeaturedButton] = defineThemeField('heroFeaturedButton')
+
+function isHeroButtonSelected(id: string): boolean {
+  return (heroButtons.value ?? []).includes(id)
+}
+
+function toggleHeroButton(id: string, checked: boolean) {
+  const current = heroButtons.value ?? []
+  const next = checked ? [...current, id] : current.filter((buttonId) => buttonId !== id)
+  heroButtons.value = next
+  // O destaque só pode ser um atalho atualmente selecionado — se o casal
+  // desmarcar o que estava em destaque, escolhe o próximo automaticamente
+  // em vez de deixar um id "órfão" salvo (nunca quebra o Hero público).
+  if (!next.includes(heroFeaturedButton.value ?? '')) {
+    heroFeaturedButton.value = next[0] ?? ''
+  }
+}
+
+const heroFeaturedButtonOptions = computed(() =>
+  HERO_BUTTON_CATALOG.filter((button) => isHeroButtonSelected(button.id)).map((button) => ({
+    value: button.id,
+    label: button.label,
+  })),
+)
 
 // Personalização avançada (Fase Editorial, CLAUDE.md seção 22.3): título e
 // corpo de texto continuam opcionais mesmo com o modo ligado — o toggle só
@@ -134,6 +164,8 @@ watch(
         bodyColor: theme.bodyColor ?? '',
         fontPairId: theme.fontPairId ?? DEFAULT_FONT_PAIR_ID,
         showCountdown: theme.showCountdown ?? true,
+        heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
+        heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
       },
     })
     advancedColorEnabled.value = Boolean(theme.titleColor || theme.bodyColor)
@@ -414,6 +446,32 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
           </div>
 
           <UiCheckbox v-model="showCountdown" label="Mostrar contagem regressiva no site" />
+
+          <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <span class="text-sm font-medium text-text">Atalhos do Hero</span>
+            <p class="text-xs text-text-muted">
+              Escolha quais botões aparecem logo abaixo da contagem regressiva no topo do site e
+              qual fica em destaque (cor preenchida) — os demais aparecem em contorno.
+            </p>
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <UiCheckbox
+                v-for="button in HERO_BUTTON_CATALOG"
+                :key="button.id"
+                :model-value="isHeroButtonSelected(button.id)"
+                :label="button.label"
+                @update:model-value="(checked) => toggleHeroButton(button.id, checked)"
+              />
+            </div>
+            <UiSelect
+              v-if="heroFeaturedButtonOptions.length"
+              v-model="heroFeaturedButton"
+              label="Atalho em destaque"
+              :options="heroFeaturedButtonOptions"
+            />
+            <p v-else class="text-xs text-text-muted">
+              Selecione ao menos um atalho acima para escolher qual fica em destaque.
+            </p>
+          </div>
 
           <p v-if="themeFormErrorMessage" class="text-sm text-red-600" role="alert">
             {{ themeFormErrorMessage }}

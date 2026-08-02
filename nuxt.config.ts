@@ -76,6 +76,8 @@ export default defineNuxtConfig({
       { name: 'Work Sans', provider: 'google' },
       { name: 'Libre Baskerville', provider: 'google' },
       { name: 'Karla', provider: 'google' },
+      { name: 'Cinzel', provider: 'google' },
+      { name: 'Montserrat', provider: 'google' },
     ],
   },
 
