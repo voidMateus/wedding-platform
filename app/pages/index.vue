@@ -57,6 +57,7 @@ useSeoMeta({
     <template v-else>
       <PublicHero :wedding="wedding" :segments="resolvedSegments" />
       <PublicStorySection :wedding="wedding" />
+      <PublicSaveTheDateCard v-if="resolvedSegments.length" :event-date="wedding.event_date" />
       <div id="cronograma">
         <PublicEventSpotlight
           v-for="(segment, index) in resolvedSegments"

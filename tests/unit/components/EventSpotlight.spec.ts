@@ -121,4 +121,16 @@ describe('PublicEventSpotlight', () => {
     })
     expect(wrapper.find('a').exists()).toBe(false)
   })
+
+  it('badge usa o título em maiúsculas quando classificado (Cerimônia/Recepção/Festa)', () => {
+    const wrapper = mountSpotlight({ segment: makeSegment({ title: 'Cerimônia' }) })
+    const badge = wrapper.find('span.rounded-full')
+    expect(badge.text()).toBe('CERIMÔNIA')
+  })
+
+  it('badge usa o título original quando não classificado (ex.: chá de panela)', () => {
+    const wrapper = mountSpotlight({ segment: makeSegment({ title: 'Chá de panela' }) })
+    const badge = wrapper.find('span.rounded-full')
+    expect(badge.text()).toBe('Chá de panela')
+  })
 })
