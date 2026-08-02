@@ -41,13 +41,15 @@ function submitContribution() {
 
 <template>
   <UiCard padding="none" class="overflow-hidden">
-    <NuxtImg
-      v-if="gift.imageUrl"
-      :src="gift.imageUrl"
-      :alt="gift.title"
-      class="h-40 w-full object-cover"
-      sizes="400px"
-    />
+    <div v-if="gift.imageUrl" class="relative">
+      <NuxtImg :src="gift.imageUrl" :alt="gift.title" class="h-40 w-full object-cover" sizes="400px" />
+      <span
+        v-if="!gift.isGroupGift && gift.priceCents !== null"
+        class="absolute bottom-2 right-2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground shadow-sm"
+      >
+        {{ formatCents(gift.priceCents) }}
+      </span>
+    </div>
     <div class="flex flex-col gap-3 p-4">
       <div>
         <div class="flex items-start justify-between gap-2">
@@ -58,7 +60,7 @@ function submitContribution() {
       </div>
 
       <template v-if="!gift.isGroupGift">
-        <p class="text-sm text-text-muted">{{ formatCents(gift.priceCents) }}</p>
+        <p v-if="!gift.imageUrl" class="text-sm text-text-muted">{{ formatCents(gift.priceCents) }}</p>
         <div>
           <UiBadge v-if="gift.reservedByMe" tone="success">Você reservou</UiBadge>
           <UiBadge v-else-if="(gift.quantityAvailable ?? 0) > 0" tone="neutral">Disponível</UiBadge>
@@ -71,9 +73,11 @@ function submitContribution() {
         <UiButton
           v-else-if="hasCode && (gift.quantityAvailable ?? 0) > 0"
           size="sm"
+          rounded="full"
           @click="emit('reserve')"
         >
-          Reservar
+          <Icon name="lucide:gift" class="h-4 w-4" />
+          Presentear
         </UiButton>
       </template>
 
