@@ -6,75 +6,10 @@ definePageMeta({ layout: 'default' })
 const route = useRoute()
 const code = typeof route.query.code === 'string' ? route.query.code : undefined
 
-const { getPublicGifts, reserveGift, contributeToGift, cancelGift } = usePublicGifts(code)
-const { data, status, refresh } = getPublicGifts()
-
 useSeoMeta({
   title: 'Lista de presentes',
   robots: code ? 'noindex, nofollow' : undefined,
 })
-
-interface ApiError {
-  statusCode?: number
-}
-
-function isConflict(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as ApiError).statusCode === 409
-}
-
-const toast = useToast()
-
-// Filtro por categoria (Fase Visual) — client-side, sem novo request: a
-// vitrine já retorna categoryName por presente. null = "Todas".
-const selectedCategory = ref<string | null>(null)
-
-const categories = computed(() => {
-  const names = new Set<string>()
-  for (const gift of data.value?.data ?? []) {
-    if (gift.categoryName) names.add(gift.categoryName)
-  }
-  return [...names].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-})
-
-const filteredGifts = computed(() => {
-  const gifts = data.value?.data ?? []
-  if (!selectedCategory.value) return gifts
-  return gifts.filter((gift) => gift.categoryName === selectedCategory.value)
-})
-
-async function handleReserve(giftId: string) {
-  try {
-    await reserveGift(giftId)
-    toast.success('Presente reservado! Obrigado.')
-    await refresh()
-  } catch (err) {
-    toast.error(
-      isConflict(err)
-        ? 'Esse presente acabou de ser reservado por outra pessoa.'
-        : 'Não foi possível reservar. Tente novamente.',
-    )
-  }
-}
-
-async function handleCancel(giftId: string) {
-  try {
-    await cancelGift(giftId)
-    toast.success('Cancelado.')
-    await refresh()
-  } catch {
-    toast.error('Não foi possível cancelar. Tente novamente.')
-  }
-}
-
-async function handleContribute(giftId: string, amountCents: number) {
-  try {
-    await contributeToGift(giftId, amountCents)
-    toast.success('Contribuição registrada! Obrigado.')
-    await refresh()
-  } catch {
-    toast.error('Não foi possível registrar a contribuição. Tente novamente.')
-  }
-}
 </script>
 
 <template>
@@ -86,62 +21,6 @@ async function handleContribute(giftId: string, amountCents: number) {
       </p>
     </div>
 
-    <div v-if="status === 'pending'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <UiSkeleton v-for="n in 6" :key="n" class="h-64 w-full" />
-    </div>
-
-    <UiEmptyState
-      v-else-if="!data?.data.length"
-      title="Nenhum presente cadastrado ainda"
-      description="Volte em breve para conferir a lista."
-    />
-
-    <template v-else>
-      <div v-if="categories.length" class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="rounded-full border px-3 py-1 text-sm transition-colors"
-          :class="
-            selectedCategory === null
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border text-text-muted hover:border-primary/50'
-          "
-          @click="selectedCategory = null"
-        >
-          Todas
-        </button>
-        <button
-          v-for="category in categories"
-          :key="category"
-          type="button"
-          class="rounded-full border px-3 py-1 text-sm transition-colors"
-          :class="
-            selectedCategory === category
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border text-text-muted hover:border-primary/50'
-          "
-          @click="selectedCategory = category"
-        >
-          {{ category }}
-        </button>
-      </div>
-
-      <UiEmptyState
-        v-if="!filteredGifts.length"
-        title="Nenhum presente nessa categoria"
-        description="Escolha outra categoria ou veja todos os presentes."
-      />
-      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <GiftsGiftCard
-          v-for="gift in filteredGifts"
-          :key="gift.id"
-          :gift="gift"
-          :has-code="Boolean(code)"
-          @reserve="handleReserve(gift.id)"
-          @cancel="handleCancel(gift.id)"
-          @contribute="(amountCents) => handleContribute(gift.id, amountCents)"
-        />
-      </div>
-    </template>
+    <GiftsShowcase :code="code" />
   </div>
 </template>

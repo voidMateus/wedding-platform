@@ -70,7 +70,7 @@ useSeoMeta({
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
       <PublicGroomsmenManualSection />
-      <PublicGiftsTeaserSection />
+      <PublicGiftsShowcaseSection />
       <PublicRsvpTeaserSection />
       <PublicGallerySection />
       <PublicFaqSection />
