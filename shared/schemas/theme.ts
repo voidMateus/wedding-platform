@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import { WCAG_AA_MIN_CONTRAST, checkColorContrast, isValidHexColor } from '../utils/contrast'
+import { DEFAULT_HERO_BUTTONS, HERO_BUTTON_CATALOG } from '../hero-buttons'
+
+const HERO_BUTTON_ID_SET = new Set(HERO_BUTTON_CATALOG.map((button) => button.id))
+const heroButtonIdSchema = z.string().refine((id) => HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.')
 
 // Compartilhado entre client (Aparência, admin) e server (revalidação —
 // CLAUDE.md, seção 8/20.1). Endpoint próprio (PATCH /api/wedding/theme),
@@ -46,6 +50,16 @@ export const themeConfigSchema = z.object({
   bodyColor: optionalHexColorSchema,
   fontPairId: z.string().trim().min(1, 'Selecione um par tipográfico.'),
   showCountdown: z.boolean(),
+  // Atalhos do Hero (CLAUDE.md, seção 21 — "Fase Vermelho Clássico"): o
+  // casal escolhe quais botões aparecem e qual fica em destaque (cor
+  // preenchida); os demais ficam em outline. Catálogo fixo em
+  // shared/hero-buttons.ts — só a seleção é editável, não o catálogo.
+  heroButtons: z.array(heroButtonIdSchema).max(HERO_BUTTON_CATALOG.length).default(DEFAULT_HERO_BUTTONS),
+  heroFeaturedButton: z
+    .string()
+    .optional()
+    .transform((value) => (value ? value : undefined))
+    .refine((id) => id === undefined || HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.'),
 })
 
 export type ThemeConfigInput = z.infer<typeof themeConfigSchema>
@@ -83,4 +97,8 @@ export interface ThemeConfig {
   storyFocalX?: number
   storyFocalY?: number
   showCountdown: boolean
+  /** Atalhos selecionados para o Hero — ids do catálogo em shared/hero-buttons.ts. */
+  heroButtons?: string[]
+  /** Id do atalho em destaque (cor preenchida) — os demais ficam em outline. */
+  heroFeaturedButton?: string
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ThemeConfig } from '#shared/schemas/theme'
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
+import { resolveHeroButtons } from '#shared/hero-buttons'
 import type { EventSegment } from '~/types/event-segment'
 import type { Wedding } from '~/types/wedding'
 
@@ -55,14 +56,13 @@ const coverFocalPosition = computed(
 )
 
 // Atalhos de navegação logo abaixo da contagem (gap vs. concorrente —
-// CLAUDE.md, comparativo com mimodocasal.com.br). Âncoras fixas já usadas
-// pela navbar e pelas próprias seções da home.
-const HERO_QUICK_LINKS = [
-  { to: '/#presentes', label: 'Ver lista de presentes', icon: 'lucide:gift', variant: 'primary' as const },
-  { to: '/#confirmar-presenca', label: 'Confirmar presença', icon: 'lucide:check', variant: 'outline' as const },
-  { to: '/#cronograma', label: 'Cerimônia e festa', icon: 'lucide:calendar-clock', variant: 'outline' as const },
-  { to: '/#manual-convidados', label: 'Manual do convidado', icon: 'lucide:info', variant: 'outline' as const },
-]
+// CLAUDE.md, comparativo com mimodocasal.com.br). O casal escolhe quais
+// aparecem e qual fica em destaque (theme_config.heroButtons/
+// heroFeaturedButton, editável em /admin/configuracoes) — catálogo fixo em
+// shared/hero-buttons.ts, sem seleção salva ainda cai num default sensato.
+const heroButtons = computed(() =>
+  resolveHeroButtons(theme.value.heroButtons, theme.value.heroFeaturedButton),
+)
 </script>
 
 <template>
@@ -115,18 +115,18 @@ const HERO_QUICK_LINKS = [
         </UiCountdownTimer>
       </div>
 
-      <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
+      <div v-if="heroButtons.length" class="mt-2 flex flex-wrap items-center justify-center gap-3">
         <UiButton
-          v-for="link in HERO_QUICK_LINKS"
-          :key="link.to"
-          :to="link.to"
-          :variant="link.variant"
+          v-for="button in heroButtons"
+          :key="button.id"
+          :to="button.href"
+          :variant="button.featured ? 'primary' : 'outline'"
           rounded="full"
           size="sm"
-          :class="link.variant === 'outline' ? '!border-white !text-white hover:!bg-white/10' : ''"
+          :class="!button.featured ? '!border-white !text-white hover:!bg-white/10' : ''"
         >
-          <Icon :name="link.icon" class="h-4 w-4" />
-          {{ link.label }}
+          <Icon :name="button.icon" class="h-4 w-4" />
+          {{ button.label }}
         </UiButton>
       </div>
 
@@ -168,17 +168,17 @@ const HERO_QUICK_LINKS = [
         </UiCountdownTimer>
       </div>
 
-      <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
+      <div v-if="heroButtons.length" class="mt-2 flex flex-wrap items-center justify-center gap-3">
         <UiButton
-          v-for="link in HERO_QUICK_LINKS"
-          :key="link.to"
-          :to="link.to"
-          :variant="link.variant"
+          v-for="button in heroButtons"
+          :key="button.id"
+          :to="button.href"
+          :variant="button.featured ? 'primary' : 'outline'"
           rounded="full"
           size="sm"
         >
-          <Icon :name="link.icon" class="h-4 w-4" />
-          {{ link.label }}
+          <Icon :name="button.icon" class="h-4 w-4" />
+          {{ button.label }}
         </UiButton>
       </div>
 

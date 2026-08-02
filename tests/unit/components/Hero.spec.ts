@@ -126,4 +126,27 @@ describe('PublicHero', () => {
     const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#presentes')
     expect(presentesLink?.classes()).toContain('bg-primary')
   })
+
+  it('respeita a seleção customizada de atalhos do casal (theme_config.heroButtons)', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({ theme_config: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' } }),
+    })
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    expect(hrefs).toContain('/#galeria')
+    expect(hrefs).toContain('/#faq')
+    expect(hrefs).not.toContain('/#presentes')
+
+    const faqLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#faq')
+    expect(faqLink?.classes()).toContain('bg-primary')
+    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#galeria')
+    expect(galeriaLink?.classes()).not.toContain('bg-primary')
+  })
+
+  it('não renderiza a linha de atalhos quando o casal desmarca todos', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ theme_config: { heroButtons: [] } }) })
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    for (const href of QUICK_LINK_HREFS) {
+      expect(hrefs).not.toContain(href)
+    }
+  })
 })
