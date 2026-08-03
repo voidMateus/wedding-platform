@@ -57,7 +57,12 @@ function mountHero(props: Record<string, unknown>) {
   })
 }
 
-const QUICK_LINK_HREFS = ['/#presentes', '/#confirmar-presenca', '/#cronograma', '/#manual-convidados']
+const QUICK_LINK_HREFS = [
+  '/ana-e-joao/#presentes',
+  '/ana-e-joao/#confirmar-presenca',
+  '/ana-e-joao/#cronograma',
+  '/ana-e-joao/#manual-convidados',
+]
 
 describe('PublicHero', () => {
   beforeEach(() => {
@@ -124,7 +129,7 @@ describe('PublicHero', () => {
 
   it('o atalho de presentes é o CTA primário (cor de destaque)', () => {
     const wrapper = mountHero({ wedding: makeWedding() })
-    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#presentes')
+    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#presentes')
     expect(presentesLink?.classes()).toContain('bg-primary')
   })
 
@@ -133,13 +138,13 @@ describe('PublicHero', () => {
       wedding: makeWedding({ theme_config: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' } }),
     })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain('/#galeria')
-    expect(hrefs).toContain('/#faq')
-    expect(hrefs).not.toContain('/#presentes')
+    expect(hrefs).toContain('/ana-e-joao/#galeria')
+    expect(hrefs).toContain('/ana-e-joao/#faq')
+    expect(hrefs).not.toContain('/ana-e-joao/#presentes')
 
-    const faqLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#faq')
+    const faqLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#faq')
     expect(faqLink?.classes()).toContain('bg-primary')
-    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#galeria')
+    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#galeria')
     expect(galeriaLink?.classes()).not.toContain('bg-primary')
   })
 

@@ -60,8 +60,14 @@ const coverFocalPosition = computed(
 // aparecem e qual fica em destaque (theme_config.heroButtons/
 // heroFeaturedButton, editável em /admin/configuracoes) — catálogo fixo em
 // shared/hero-buttons.ts, sem seleção salva ainda cai num default sensato.
+// shared/hero-buttons.ts guarda só a âncora ("/#presentes") — precisa do
+// slug do casamento (CLAUDE.md, seção 4.4/33) prefixado aqui para navegar
+// para a home certa em vez de cair na raiz neutra sem casamento nenhum.
 const heroButtons = computed(() =>
-  resolveHeroButtons(theme.value.heroButtons, theme.value.heroFeaturedButton),
+  resolveHeroButtons(theme.value.heroButtons, theme.value.heroFeaturedButton).map((button) => ({
+    ...button,
+    href: `/${wedding.slug}${button.href}`,
+  })),
 )
 </script>
 
