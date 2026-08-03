@@ -73,8 +73,19 @@ const {
 const [coupleNames] = defineEventField('coupleNames')
 const [eventDate] = defineEventField('eventDate')
 const [eventTime] = defineEventField('eventTime')
-const [rsvpMode] = defineEventField('rsvpMode')
 const [rsvpDeadline] = defineEventField('rsvpDeadline')
+const [childMaxAge] = defineEventField('childMaxAge')
+const [guestListMode] = defineEventField('guestListMode')
+
+// UiInput só trabalha com string — childMaxAge no form é number (schema com
+// z.coerce.number()), daí o proxy de string aqui (mesmo padrão de
+// maxMembersText no antigo formulário de grupos).
+const childMaxAgeText = computed({
+  get: () => (childMaxAge.value === undefined ? '' : String(childMaxAge.value)),
+  set: (value: string) => {
+    childMaxAge.value = value === '' ? undefined : Number(value)
+  },
+})
 
 const eventFormErrorMessage = ref<string | null>(null)
 const eventSuccessMessage = ref<string | null>(null)
@@ -149,8 +160,9 @@ watch(
         coupleNames: value.couple_names,
         eventDate: value.event_date,
         eventTime: value.event_time ? value.event_time.slice(0, 5) : '',
-        rsvpMode: value.rsvp_mode as 'per_group' | 'per_guest',
         rsvpDeadline: value.rsvp_deadline ? isoToDatetimeLocal(value.rsvp_deadline) : '',
+        childMaxAge: value.child_max_age,
+        guestListMode: value.guest_list_mode as 'closed' | 'open',
       },
     })
 
@@ -285,20 +297,26 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
             Usado na contagem regressiva do site. Sem horário definido, a contagem mira meia-noite
             do dia do evento.
           </p>
-          <UiSelect
-            v-model="rsvpMode"
-            label="Modo de RSVP"
-            :options="[
-              { value: 'per_group', label: 'Por grupo (uma resposta por grupo)' },
-              { value: 'per_guest', label: 'Por convidado (cada um responde)' },
-            ]"
-            :error="eventErrors.rsvpMode"
-          />
           <UiInput
             v-model="rsvpDeadline"
             type="datetime-local"
             label="Prazo final de RSVP (opcional)"
             :error="eventErrors.rsvpDeadline"
+          />
+          <UiInput
+            v-model="childMaxAgeText"
+            type="number"
+            label="Idade máxima considerada criança"
+            :error="eventErrors.childMaxAge"
+          />
+          <UiSelect
+            v-model="guestListMode"
+            label="Lista de convidados"
+            :options="[
+              { value: 'closed', label: 'Fechada (só convidados pré-cadastrados)' },
+              { value: 'open', label: 'Aberta (permite acompanhante avulso no RSVP)' },
+            ]"
+            :error="eventErrors.guestListMode"
           />
 
           <p v-if="eventFormErrorMessage" class="text-sm text-red-600" role="alert">

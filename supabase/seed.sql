@@ -8,15 +8,14 @@
 --   insert into wedding_members (wedding_id, user_id, role)
 --   values ('11111111-1111-1111-1111-111111111111', '<id do auth.users>', 'owner');
 
-insert into weddings (id, slug, couple_names, event_date, rsvp_mode, rsvp_deadline, theme_config)
+insert into weddings (id, slug, couple_names, event_date, rsvp_deadline, theme_config)
 values (
   '11111111-1111-1111-1111-111111111111',
   'ana-e-joao',
   'Ana & João',
   '2026-12-12',
-  'per_group',
   '2026-11-01T00:00:00Z',
-  '{"primaryColor": "#a8785c"}'::jsonb
+  '{"primaryColor": "#6b4a35"}'::jsonb
 );
 
 insert into event_segments (wedding_id, title, venue_name, venue_address, starts_at, ends_at, display_order)
@@ -24,24 +23,33 @@ values
   ('11111111-1111-1111-1111-111111111111', 'Cerimônia', 'Igreja São José', 'Rua das Flores, 100', '2026-12-12T16:00:00Z', '2026-12-12T17:00:00Z', 1),
   ('11111111-1111-1111-1111-111111111111', 'Recepção', 'Espaço Jardim', 'Av. Central, 500', '2026-12-12T19:00:00Z', '2026-12-13T02:00:00Z', 2);
 
-insert into guest_groups (id, wedding_id, name, max_members, notes)
+-- Convite: quem recebeu o mesmo convite (CLAUDE.md, seção 12.1).
+insert into invites (id, wedding_id, name, internal_code, notes)
 values (
   '22222222-2222-2222-2222-222222222222',
   '11111111-1111-1111-1111-111111111111',
   'Família Silva',
-  4,
+  'CONV-SEED0001',
   'Sentar próximo à mesa dos padrinhos'
 );
 
-insert into guests (id, wedding_id, group_id, full_name, email, phone, is_child, dietary_restrictions)
-values
-  ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'Maria Silva', 'maria@example.com', '+55 11 90000-0001', false, null),
-  ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'Pedro Silva', 'pedro@example.com', '+55 11 90000-0002', false, 'vegetariano');
+-- Maria e Pedro são Acompanhantes um do outro (guest_parties) e pertencem
+-- ao mesmo convite acima.
+insert into guest_parties (id, wedding_id)
+values ('66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111');
 
--- Token de acesso do grupo Silva para testes locais de RSVP.
+insert into guests (id, wedding_id, invite_id, party_id, party_order, full_name, email, phone, dietary_restrictions)
+values
+  ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '66666666-6666-6666-6666-666666666666', 0, 'Maria Silva', 'maria@example.com', '+55 11 90000-0001', null),
+  ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '66666666-6666-6666-6666-666666666666', 1, 'Pedro Silva', 'pedro@example.com', '+55 11 90000-0002', 'vegetariano');
+
+update invites set responsible_guest_id = '33333333-3333-3333-3333-333333333333'
+where id = '22222222-2222-2222-2222-222222222222';
+
+-- Token de acesso do convite Família Silva para testes locais de RSVP.
 -- Código em texto plano só existe aqui, no seed — nunca em produção
 -- (CLAUDE.md, seção 14.5). Código: DEV-LOCAL-SEED-TOKEN-0001
-insert into guest_access_tokens (wedding_id, group_id, code_hash)
+insert into guest_access_tokens (wedding_id, invite_id, code_hash)
 values (
   '11111111-1111-1111-1111-111111111111',
   '22222222-2222-2222-2222-222222222222',

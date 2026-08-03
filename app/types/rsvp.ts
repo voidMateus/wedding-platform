@@ -1,26 +1,31 @@
-export interface RsvpCompanion {
+export interface RsvpSearchResult {
+  guestId: string
   fullName: string
+}
+
+export interface RsvpSelectResult {
+  guestId: string
+  maskedNames: string[]
+}
+
+export interface RsvpMember {
+  guestId: string
+  fullName: string
+  nickname: string | null
   dietaryRestrictions: string | null
+  status: 'pending' | 'confirmed' | 'declined' | 'waitlisted' | 'removed'
 }
 
-export interface RsvpResponseData {
-  status: 'pending' | 'confirmed' | 'declined'
-  dietaryNotes: string | null
-  message: string | null
-  companions: RsvpCompanion[]
-}
-
-export interface RsvpDetails {
+export interface RsvpInvitePayload {
+  inviteId: string
   wedding: {
     coupleNames: string
     eventDate: string
-    rsvpMode: 'per_group' | 'per_guest'
     rsvpDeadline: string | null
+    guestListMode: 'closed' | 'open'
   }
-  guestId: string | null
-  groupId: string | null
-  displayName: string
-  maxMembers: number
   isPastDeadline: boolean
-  response: RsvpResponseData | null
+  maxCompanions: number | null
+  message: string | null
+  members: RsvpMember[]
 }

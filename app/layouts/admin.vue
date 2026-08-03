@@ -36,6 +36,7 @@ const route = useRoute()
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: 'lucide:layout-dashboard' },
   { to: '/admin/convidados', label: 'Convidados', icon: 'lucide:users' },
+  { to: '/admin/convites', label: 'Convites', icon: 'lucide:mail' },
   { to: '/admin/grupos', label: 'Grupos', icon: 'lucide:users-round' },
   { to: '/admin/cronograma', label: 'Cronograma', icon: 'lucide:calendar-clock' },
   { to: '/admin/presentes', label: 'Presentes', icon: 'lucide:gift' },
@@ -138,6 +139,9 @@ onMounted(() => {
           <Icon name="lucide:menu" class="h-5 w-5" />
         </button>
         <span class="text-sm font-medium text-text">Wedding Platform</span>
+      </header>
+      <header class="hidden items-center border-b border-border bg-surface px-6 py-3 sm:flex">
+        <AdminGlobalSearch />
       </header>
       <main class="flex-1 p-6">
         <slot />

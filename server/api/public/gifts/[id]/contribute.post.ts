@@ -43,8 +43,8 @@ export default defineEventHandler(async (event) => {
     .insert({
       wedding_id: token.weddingId,
       gift_id: id,
-      guest_id: token.guestId,
-      group_id: token.groupId,
+      guest_id: null,
+      group_id: token.inviteId,
       amount_cents: input.amountCents,
     })
     .select()

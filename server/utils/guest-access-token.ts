@@ -22,12 +22,11 @@ export function hashAccessCode(code: string): string {
 
 export interface ResolvedGuestToken {
   weddingId: string
-  guestId: string | null
-  groupId: string | null
+  inviteId: string
 }
 
 /**
- * Resolve um código em texto plano para o guest/group/wedding correspondente
+ * Resolve um código em texto plano para o invite/wedding correspondente
  * (CLAUDE.md, seção 14.3) — usado por todo endpoint do caminho do convidado
  * (RSVP, presentes). Retorna null se o código não existe ou o token foi
  * revogado; nunca lança, para o handler decidir a mensagem de erro
@@ -41,7 +40,7 @@ export async function resolveGuestToken(
 
   const { data: token, error } = await client
     .from('guest_access_tokens')
-    .select('wedding_id, guest_id, group_id, revoked_at')
+    .select('wedding_id, invite_id, revoked_at')
     .eq('code_hash', codeHash)
     .maybeSingle()
 
@@ -52,5 +51,5 @@ export async function resolveGuestToken(
     return null
   }
 
-  return { weddingId: token.wedding_id, guestId: token.guest_id, groupId: token.group_id }
+  return { weddingId: token.wedding_id, inviteId: token.invite_id }
 }

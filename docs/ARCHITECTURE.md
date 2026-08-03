@@ -267,14 +267,21 @@ Toda resposta de erro do backend segue a mesma forma (código de domínio, mensa
 
 ### 4.1 Projetos por ambiente
 
-Um projeto Supabase por ambiente (`dev`, `staging`, `prod`), nunca compartilhado — evita que dados de teste/desenvolvimento se misturem com dados reais de convidados, o que seria particularmente grave dado o caráter sensível dessa informação (CLAUDE.md 28.1).
+Um projeto Supabase por ambiente, nunca compartilhado — evita que dados de teste/desenvolvimento se misturem com dados reais de convidados, o que seria particularmente grave dado o caráter sensível dessa informação (CLAUDE.md 28.1).
+
+**Decisão atual (produção inicial): 2 ambientes — `dev` e `prod`**, não 3. `dev` é o projeto já usado desde a Fase 0 (onde toda a implementação é validada contra dados reais de schema, mas fictícios); `prod` é um projeto novo, separado, criado só quando a plataforma foi ao ar pela primeira vez (CLAUDE.md 33/4.4 — múltiplos casamentos por instância, cada um com sua própria URL `/{slug}`). Ambos cabem no plano gratuito do Supabase (2 projetos ativos por organização). Mapeamento para a Vercel: `Production` (branch `main` publicada) aponta para `prod`; `Preview` + `Development` (qualquer outra branch/PR) apontam para `dev` — assim uma preview deployment nunca toca dado real.
+
+**Exceção deliberada — Redis (Upstash, rate limiting) é compartilhado entre `dev` e `prod`**, não replicado por ambiente: o plano gratuito da Upstash só inclui 1 banco, e criar um segundo custa uma taxa mensal — cadastrar cartão de crédito na Upstash converte *todos* os bancos da conta para cobrança por uso, não só o novo. Como o Redis aqui guarda só contadores de rate-limit (nunca dado de convidado), o risco de compartilhar é baixo (no pior caso, um teste em `dev` consome parte da cota de `prod`) — desproporcional ao custo de separar. Reavaliar se algum dia isso causar um problema real; separar depois é uma mudança pontual e barata.
+
+Um terceiro ambiente (`staging`, entre `dev` e `prod`) é uma extensão natural — mesmo padrão de projeto Supabase dedicado, promovido automaticamente a cada merge em `main`, servindo de gate antes da promoção manual para `prod` — mas não foi criado nesta primeira fase de produção; adicionar depois é só repetir o mesmo processo descrito abaixo com o projeto novo, sem mudança estrutural.
 
 ### 4.2 Fluxo de migrations
 
 1. Toda mudança de schema nasce como uma migration local (Supabase CLI), testada contra o ambiente `dev`.
 2. Migration é revisada em PR como qualquer mudança de código (CLAUDE.md 29) — incluindo revisão explícita de qualquer nova RLS policy.
-3. Promovida para `staging` automaticamente ao mergear na `main`; promovida para `prod` como etapa manual e deliberada (nunca automática), dado que envolve dados reais de casamentos ativos.
+3. Promoção para `prod` é uma etapa manual e deliberada (nunca automática), dado que envolve dados reais de casamentos ativos: `supabase link --project-ref <ref-prod>` + `supabase db push`, feito só depois da migration já validada em `dev`. (Se/quando `staging` existir como terceiro ambiente, ele entra nesse fluxo como uma promoção automática intermediária, antes da promoção manual para `prod` — ver 4.1.)
 4. Migrations são estritamente aditivas/reversíveis quando possível; mudanças destrutivas (`DROP COLUMN`, `NOT NULL` retroativo) seguem um processo de duas etapas (deploy que tolera ambos os estados → migration de limpeza posterior) para nunca quebrar uma versão de código já em produção.
+5. `supabase/seed.sql` nunca roda em `prod` — é dado fictício de desenvolvimento local (CLAUDE.md 11, seção 9.4 abaixo). Casamentos reais em `prod` são cadastrados manualmente (`weddings` + `wedding_members`, CLAUDE.md 33.2) — sem tela de self-service ainda.
 
 ### 4.3 Padrão de autoria de RLS
 

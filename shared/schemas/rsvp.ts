@@ -1,27 +1,37 @@
 import { z } from 'zod'
 
-// Compartilhado entre client (RsvpForm) e server (revalidação — CLAUDE.md,
-// seção 8/20.1). Espelha o contrato de confirm_rsvp() (supabase/migrations,
-// 20260730120021): companions só é aceito quando status = 'confirmed'
-// (CLAUDE.md, seção 16.3 — recusar não pede acompanhante/restrição).
+// Compartilhado entre client (fluxo público de RSVP) e server (revalidação
+// — CLAUDE.md, seção 8/20.1). Busca por nome + confirmação leve substitui o
+// código como caminho principal (CLAUDE.md, seção 12.1) — o link/QR direto
+// (/rsvp/[code]) continua existindo como atalho.
+
+export const rsvpSearchQuerySchema = z.object({
+  q: z.string().trim().min(3, 'Digite ao menos 3 letras.').max(100),
+})
+
+export const rsvpSelectSchema = z.object({
+  guestId: z.string().uuid(),
+})
+
+export const rsvpConfirmSchema = z.object({
+  guestId: z.string().uuid(),
+})
+
+export const rsvpGuestStatusSchema = z.object({
+  status: z.enum(['confirmed', 'declined'], { message: 'Selecione se você vai comparecer.' }),
+  dietaryRestrictions: z.string().trim().max(500).optional().or(z.literal('')),
+})
+
+export type RsvpGuestStatusInput = z.infer<typeof rsvpGuestStatusSchema>
 
 export const rsvpCompanionSchema = z.object({
   fullName: z.string().trim().min(1, 'Informe o nome do acompanhante.').max(200),
   dietaryRestrictions: z.string().trim().max(500).optional().or(z.literal('')),
 })
 
-export type RsvpCompanionInput = z.infer<typeof rsvpCompanionSchema>
+export const rsvpFinalizeSchema = z.object({
+  companions: z.array(rsvpCompanionSchema).max(50).optional().default([]),
+  message: z.string().trim().max(2000).optional().or(z.literal('')),
+})
 
-export const rsvpSubmitSchema = z
-  .object({
-    status: z.enum(['confirmed', 'declined'], { message: 'Selecione se você vai comparecer.' }),
-    dietaryNotes: z.string().trim().max(1000).optional().or(z.literal('')),
-    message: z.string().trim().max(2000).optional().or(z.literal('')),
-    companions: z.array(rsvpCompanionSchema).max(50).optional().default([]),
-  })
-  .refine((value) => value.status === 'confirmed' || value.companions.length === 0, {
-    message: 'Acompanhantes só podem ser informados ao confirmar presença.',
-    path: ['companions'],
-  })
-
-export type RsvpSubmitInput = z.infer<typeof rsvpSubmitSchema>
+export type RsvpFinalizeInput = z.infer<typeof rsvpFinalizeSchema>

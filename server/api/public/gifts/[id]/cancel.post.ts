@@ -33,8 +33,8 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Presente não encontrado.')
   }
 
-  const identifierColumn = token.guestId ? 'guest_id' : 'group_id'
-  const identifierValue = token.guestId ?? (token.groupId as string)
+  const identifierColumn = 'group_id'
+  const identifierValue = token.inviteId
 
   if (gift.is_group_gift) {
     const { error } = await client
@@ -66,8 +66,8 @@ export default defineEventHandler(async (event) => {
 
   const { error: cancelError } = await client.rpc('cancel_gift_reservation', {
     p_reservation_id: reservation.id,
-    p_guest_id: token.guestId,
-    p_group_id: token.groupId,
+    p_guest_id: null,
+    p_group_id: token.inviteId,
     p_skip_ownership_check: false,
   })
 

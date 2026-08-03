@@ -6,11 +6,20 @@ const querySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   search: z.string().trim().max(200).optional(),
   groupId: z.string().uuid().optional(),
+  unassigned: z.coerce.boolean().optional(),
+  withoutParty: z.coerce.boolean().optional(),
 })
 
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
-  const { page = 1, pageSize = 25, search, groupId } = validateQuery(event, querySchema)
+  const {
+    page = 1,
+    pageSize = 25,
+    search,
+    groupId,
+    unassigned,
+    withoutParty,
+  } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
   const from = (page - 1) * pageSize
@@ -27,6 +36,19 @@ export default defineEventHandler(async (event) => {
   }
   if (groupId) {
     query = query.eq('group_id', groupId)
+  }
+  // Convidados ainda sem convite — usado pelo seletor "adicionar convidado"
+  // na tela de detalhe do convite (CLAUDE.md, seção 12.1).
+  if (unassigned) {
+    query = query.is('invite_id', null)
+  }
+  // Convidados que ainda não são acompanhantes de ninguém — usado pela busca
+  // de "convidado já cadastrado" ao adicionar um acompanhante no wizard
+  // (CLAUDE.md, seção 12.1), pra não sugerir alguém que já pertence a outro
+  // grupo (sync_guest_party ainda bloqueia o caso de convite divergente,
+  // este filtro só evita a sugestão ambígua na UI).
+  if (withoutParty) {
+    query = query.is('party_id', null)
   }
 
   const { data, error, count } = await query.order('full_name', { ascending: true }).range(from, to)

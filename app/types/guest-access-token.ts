@@ -1,8 +1,7 @@
 export interface GuestAccessTokenGenerated {
   id: string
   code: string
-  guestId: string | null
-  groupId: string | null
+  inviteId: string
   createdAt: string
 }
 

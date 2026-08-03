@@ -4,9 +4,11 @@ import NavBar from '~/components/public/NavBar.vue'
 import Button from '~/components/ui/Button.vue'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
 
-function mountNavBar(props = {}) {
+const SLUG = 'ana-e-joao'
+
+function mountNavBar(props: Record<string, unknown> = {}) {
   return mount(NavBar, {
-    props,
+    props: { slug: SLUG, ...props },
     global: {
       components: { UiButton: Button },
       stubs: { ...ICON_STUBS, NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to'] } },
@@ -25,31 +27,33 @@ describe('PublicNavBar', () => {
     expect(wrapper.text()).toContain('Wedding Platform')
   })
 
-  it('links de âncora usam caminho absoluto ("/#id"), não só "#id"', () => {
+  it('links de âncora usam caminho absoluto com o slug do casamento ("/{slug}/#id")', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain('/#historia')
-    expect(hrefs).toContain('/#confirmar-presenca')
-    expect(hrefs).toContain('/#galeria')
-    expect(hrefs).toContain('/#contato')
+    expect(hrefs).toContain(`/${SLUG}/#historia`)
+    expect(hrefs).toContain(`/${SLUG}/#confirmar-presenca`)
+    expect(hrefs).toContain(`/${SLUG}/#galeria`)
+    expect(hrefs).toContain(`/${SLUG}/#contato`)
   })
 
-  it('o CTA "Presentear" aponta para /#presentes (vitrine embutida na home)', () => {
+  it('o CTA "Presentear" aponta para /{slug}/#presentes (vitrine embutida na home)', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain('/#presentes')
+    expect(hrefs).toContain(`/${SLUG}/#presentes`)
   })
 
-  it('o CTA de /#presentes é um botão destacado em pill (cor primária), não um link de texto', () => {
+  it('o CTA de /{slug}/#presentes é um botão destacado em pill (cor primária), não um link de texto', () => {
     const wrapper = mountNavBar()
-    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/#presentes')
+    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === `/${SLUG}/#presentes`)
     expect(presentesLink?.classes()).toContain('bg-primary')
     expect(presentesLink?.classes()).toContain('rounded-full')
   })
 
   it('renderiza o CTA "Presentear" duas vezes (desktop + topo do drawer mobile)', () => {
     const wrapper = mountNavBar()
-    const presentesLinks = wrapper.findAll('a').filter((a) => a.attributes('href') === '/#presentes')
+    const presentesLinks = wrapper
+      .findAll('a')
+      .filter((a) => a.attributes('href') === `/${SLUG}/#presentes`)
     expect(presentesLinks).toHaveLength(2)
   })
 

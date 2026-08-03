@@ -7,24 +7,30 @@
 // até a seção.
 interface Props {
   coupleNames?: string | null
+  /** Slug do casamento atual (CLAUDE.md, seção 4.4/33) — prefixa todo link interno. */
+  slug: string
 }
 
-const { coupleNames } = defineProps<Props>()
+const { coupleNames, slug } = defineProps<Props>()
 
-// "/#presentes" fica de fora da lista de texto — vira um CTA destacado
-// (UiButton, formato pill) tanto no menu desktop quanto no topo do drawer
-// mobile, mesmo papel do botão "Presentear" do concorrente: sempre visível,
-// sempre a ação com mais destaque visual da navegação. A vitrine completa
-// de presentes agora vive embutida na home (`/#presentes`, PublicEditorialSection
-// id="presentes"); `/presentes` continua existindo como página própria
-// (link direto/compartilhável), só deixou de ser o alvo do menu.
-const NAV_LINKS = [
-  { to: '/#historia', label: 'Nossa História' },
-  { to: '/#cronograma', label: 'Cronograma' },
-  { to: '/#confirmar-presenca', label: 'Confirmar Presença' },
-  { to: '/#galeria', label: 'Galeria' },
-  { to: '/#contato', label: 'Contato' },
-]
+// "/{slug}/#presentes" fica de fora da lista de texto — vira um CTA
+// destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
+// do drawer mobile, mesmo papel do botão "Presentear" do concorrente:
+// sempre visível, sempre a ação com mais destaque visual da navegação. A
+// vitrine completa de presentes agora vive embutida na home
+// (`/{slug}/#presentes`, PublicEditorialSection id="presentes");
+// `/{slug}/presentes` continua existindo como página própria (link direto/
+// compartilhável), só deixou de ser o alvo do menu.
+const NAV_LINKS = computed(() => [
+  { to: `/${slug}/#historia`, label: 'Nossa História' },
+  { to: `/${slug}/#cronograma`, label: 'Cronograma' },
+  { to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
+  { to: `/${slug}/#galeria`, label: 'Galeria' },
+  { to: `/${slug}/#contato`, label: 'Contato' },
+])
+
+const homeLink = computed(() => `/${slug}`)
+const giftsLink = computed(() => `/${slug}/#presentes`)
 
 const isMobileMenuOpen = ref(false)
 
@@ -37,7 +43,7 @@ function closeMobileMenu() {
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
     <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
       <NuxtLink
-        to="/"
+        :to="homeLink"
         class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
@@ -48,7 +54,7 @@ function closeMobileMenu() {
         <NuxtLink v-for="link in NAV_LINKS" :key="link.to" :to="link.to" class="hover:text-text">
           {{ link.label }}
         </NuxtLink>
-        <UiButton to="/#presentes" rounded="full" size="sm">Presentear</UiButton>
+        <UiButton :to="giftsLink" rounded="full" size="sm">Presentear</UiButton>
       </div>
 
       <button
@@ -71,7 +77,7 @@ function closeMobileMenu() {
       class="fixed inset-y-0 right-0 z-30 flex w-64 flex-col gap-1 border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 sm:hidden"
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
     >
-      <UiButton to="/#presentes" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
+      <UiButton :to="giftsLink" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
         Presentear
       </UiButton>
       <NuxtLink
