@@ -2,8 +2,11 @@ import { serverSupabaseClient } from '#supabase/server'
 
 /**
  * Soft delete — preserva o histórico de RSVP/presentes associados
- * (CLAUDE.md, seção 11/15.3). Sem regra de cascata como guest_groups: o
- * convidado não é referenciado por nada que precise de realocação prévia.
+ * (CLAUDE.md, seção 11/15.3). Também desvincula de Acompanhantes/Convite
+ * (party_id/party_order/invite_id): um convidado excluído não deve mais
+ * aparecer em sugestões de acompanhantes nem ocupar uma posição no grupo —
+ * evita colidir com o índice único (party_id, party_order) quando um novo
+ * membro é adicionado depois.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -15,7 +18,12 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
     .from('guests')
-    .update({ deleted_at: new Date().toISOString() })
+    .update({
+      deleted_at: new Date().toISOString(),
+      party_id: null,
+      party_order: 0,
+      invite_id: null,
+    })
     .eq('id', id)
     .eq('wedding_id', weddingId)
     .is('deleted_at', null)

@@ -61,13 +61,13 @@ export default defineEventHandler(async (event) => {
 
   const groupNames = new Map<string, string>()
   if (groupIds.length > 0) {
-    const { data } = await client.from('guest_groups').select('id, name').in('id', groupIds)
+    const { data } = await client.from('invites').select('id, name').in('id', groupIds)
     for (const g of data ?? []) groupNames.set(g.id, g.name)
   }
 
   function resolveName(guestId: string | null, groupId: string | null, contributorName: string | null) {
     if (guestId) return guestNames.get(guestId) ?? 'Convidado removido'
-    if (groupId) return groupNames.get(groupId) ?? 'Grupo removido'
+    if (groupId) return groupNames.get(groupId) ?? 'Convite removido'
     return contributorName ?? 'Anônimo'
   }
 

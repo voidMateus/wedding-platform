@@ -6,11 +6,12 @@ const querySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   search: z.string().trim().max(200).optional(),
   groupId: z.string().uuid().optional(),
+  unassigned: z.coerce.boolean().optional(),
 })
 
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
-  const { page = 1, pageSize = 25, search, groupId } = validateQuery(event, querySchema)
+  const { page = 1, pageSize = 25, search, groupId, unassigned } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
   const from = (page - 1) * pageSize
@@ -27,6 +28,11 @@ export default defineEventHandler(async (event) => {
   }
   if (groupId) {
     query = query.eq('group_id', groupId)
+  }
+  // Convidados ainda sem convite — usado pelo seletor "adicionar convidado"
+  // na tela de detalhe do convite (CLAUDE.md, seção 12.1).
+  if (unassigned) {
+    query = query.is('invite_id', null)
   }
 
   const { data, error, count } = await query.order('full_name', { ascending: true }).range(from, to)

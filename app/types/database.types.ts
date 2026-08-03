@@ -1474,6 +1474,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      search_guests_by_name: {
+        Args: { p_limit?: number; p_query: string; p_wedding_id: string }
+        Returns: {
+          full_name: string
+          id: string
+          nickname: string
+        }[]
+      }
       sync_guest_party: {
         Args: {
           p_companions?: Json

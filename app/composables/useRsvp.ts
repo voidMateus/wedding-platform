@@ -1,19 +1,42 @@
-import type { RsvpSubmitInput } from '#shared/schemas/rsvp'
-import type { RsvpDetails } from '~/types/rsvp'
+import type { RsvpFinalizeInput, RsvpGuestStatusInput } from '#shared/schemas/rsvp'
+import type { RsvpInvitePayload, RsvpSearchResult, RsvpSelectResult } from '~/types/rsvp'
 
 /**
- * Fluxo público de RSVP via código único (CLAUDE.md, seção 14.3/16). Sem
+ * Fluxo público de RSVP (CLAUDE.md, seção 12.1/16) — busca por nome +
+ * confirmação leve como caminho principal, link/QR direto como atalho. Sem
  * autenticação — toda chamada de rede do client passa por aqui (CLAUDE.md,
  * seção 5.1).
  */
-export function useRsvp(code: string) {
-  function getRsvp() {
-    return useFetch<RsvpDetails>(`/api/rsvp/${code}`, { key: `rsvp-${code}` })
+export function useRsvp() {
+  async function searchGuests(q: string) {
+    return $fetch<{ data: RsvpSearchResult[] }>('/api/public/rsvp-search', { query: { q } })
   }
 
-  async function submitRsvp(input: RsvpSubmitInput) {
-    return $fetch(`/api/rsvp/${code}`, { method: 'POST', body: input })
+  async function selectGuest(guestId: string) {
+    return $fetch<RsvpSelectResult>('/api/public/rsvp-search/select', {
+      method: 'POST',
+      body: { guestId },
+    })
   }
 
-  return { getRsvp, submitRsvp }
+  async function confirmGuest(guestId: string) {
+    return $fetch<RsvpInvitePayload>('/api/public/rsvp-search/confirm', {
+      method: 'POST',
+      body: { guestId },
+    })
+  }
+
+  async function getRsvpByCode(code: string) {
+    return $fetch<RsvpInvitePayload>(`/api/rsvp/${code}`)
+  }
+
+  async function autosaveGuestStatus(guestId: string, input: RsvpGuestStatusInput) {
+    return $fetch(`/api/rsvp/guests/${guestId}`, { method: 'PUT', body: input })
+  }
+
+  async function finalizeInvite(inviteId: string, input: RsvpFinalizeInput) {
+    return $fetch(`/api/rsvp/invites/${inviteId}/finalize`, { method: 'POST', body: input })
+  }
+
+  return { searchGuests, selectGuest, confirmGuest, getRsvpByCode, autosaveGuestStatus, finalizeInvite }
 }

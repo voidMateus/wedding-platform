@@ -1,16 +1,17 @@
 <script setup lang="ts">
-// noindex: página individual por convidado, nunca deve ser indexada
-// (CLAUDE.md, seção 26).
+// noindex: link individual do convite, nunca deve ser indexado (CLAUDE.md,
+// seção 26). Atalho direto — pula busca e confirmação leve (CLAUDE.md,
+// seção 12.1).
 definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const code = route.params.code as string
 
-const { getRsvp } = useRsvp(code)
-const { data, status, error, refresh } = getRsvp()
+const { getRsvpByCode } = useRsvp()
+const { data, status, error } = await useAsyncData(`rsvp-code-${code}`, () => getRsvpByCode(code))
 
 useSeoMeta({
-  title: 'Confirmar presença',
+  title: 'Confirmação de Presença',
   robots: 'noindex, nofollow',
 })
 
@@ -22,7 +23,7 @@ function formatDeadline(value: string | null): string {
 
 <template>
   <div class="mx-auto flex max-w-lg flex-col gap-6 px-4 py-16">
-    <div v-if="status === 'pending' && !data" class="flex flex-col gap-3">
+    <div v-if="status === 'pending'" class="flex flex-col gap-3">
       <UiSkeleton class="h-8 w-48" />
       <UiSkeleton class="h-40 w-full" />
     </div>
@@ -35,29 +36,16 @@ function formatDeadline(value: string | null): string {
 
     <template v-else>
       <div>
-        <p class="text-sm uppercase tracking-widest text-text-muted">
-          {{ data.wedding.coupleNames }}
-        </p>
-        <h1 class="mt-1 text-xl font-semibold text-text">Olá, {{ data.displayName }}!</h1>
+        <p class="text-sm uppercase tracking-widest text-text-muted">{{ data.wedding.coupleNames }}</p>
+        <h1 class="mt-1 text-xl font-semibold text-text">Confirmação de Presença</h1>
         <p class="mt-2 text-sm text-text-muted">
           Confirme sua presença até {{ formatDeadline(data.wedding.rsvpDeadline) }}.
         </p>
       </div>
 
-      <p
-        v-if="data.isPastDeadline"
-        class="rounded-md border border-border bg-surface-muted p-3 text-sm text-text-muted"
-      >
-        O prazo para confirmar presença já encerrou. Sua última resposta registrada continua
-        abaixo, mas não é mais possível alterá-la.
-      </p>
+      <RsvpInviteFlow :payload="data" />
 
-      <RsvpForm :code="code" :details="data" @submitted="refresh" />
-
-      <NuxtLink
-        :to="`/presentes?code=${code}`"
-        class="text-center text-sm text-primary underline-offset-2 hover:underline"
-      >
+      <NuxtLink to="/#presentes" class="text-center text-sm text-primary underline-offset-2 hover:underline">
         Ver lista de presentes
       </NuxtLink>
     </template>

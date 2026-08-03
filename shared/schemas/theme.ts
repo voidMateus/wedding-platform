@@ -24,7 +24,10 @@ const hexColorSchema = z
 // ausentes, o site cai no --color-text neutro padrão (ver
 // useWeddingTheme.ts). String vazia é tratada como "não definido", não como
 // erro de validação, para o form poder limpar a sobrescrita.
-const optionalHexColorSchema = z
+// Exportado para reuso em qualquer campo de cor opcional fora do tema do
+// casamento (ex.: groups.color — CLAUDE.md, seção 22.3) que precise do mesmo
+// contraste mínimo.
+export const optionalHexColorSchema = z
   .string()
   .trim()
   .optional()

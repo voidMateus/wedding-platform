@@ -13,8 +13,9 @@ export default defineEventHandler(async (event) => {
       couple_names: input.coupleNames,
       event_date: input.eventDate,
       event_time: input.eventTime || null,
-      rsvp_mode: input.rsvpMode,
       rsvp_deadline: input.rsvpDeadline || null,
+      child_max_age: input.childMaxAge,
+      guest_list_mode: input.guestListMode,
     })
     .eq('id', weddingId)
     .select()

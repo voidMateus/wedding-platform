@@ -6,8 +6,9 @@ describe('weddingSettingsSchema', () => {
     const result = weddingSettingsSchema.safeParse({
       coupleNames: 'Ana & João',
       eventDate: '2026-12-12',
-      rsvpMode: 'per_group',
       rsvpDeadline: '2026-11-01T00:00',
+      childMaxAge: 11,
+      guestListMode: 'closed',
     })
 
     expect(result.success).toBe(true)
@@ -18,7 +19,8 @@ describe('weddingSettingsSchema', () => {
       coupleNames: 'Ana & João',
       eventDate: '2026-12-12',
       eventTime: '16:00',
-      rsvpMode: 'per_group',
+      childMaxAge: 11,
+      guestListMode: 'closed',
     })
 
     expect(result.success).toBe(true)
@@ -28,7 +30,8 @@ describe('weddingSettingsSchema', () => {
     const result = weddingSettingsSchema.safeParse({
       coupleNames: 'Ana & João',
       eventDate: '2026-12-12',
-      rsvpMode: 'per_group',
+      childMaxAge: 11,
+      guestListMode: 'closed',
     })
 
     expect(result.success).toBe(true)
@@ -39,17 +42,19 @@ describe('weddingSettingsSchema', () => {
       coupleNames: 'Ana & João',
       eventDate: '2026-12-12',
       eventTime: 'às quatro da tarde',
-      rsvpMode: 'per_group',
+      childMaxAge: 11,
+      guestListMode: 'closed',
     })
 
     expect(result.success).toBe(false)
   })
 
-  it('rejeita rsvpMode fora do enum', () => {
+  it('rejeita guestListMode fora do enum', () => {
     const result = weddingSettingsSchema.safeParse({
       coupleNames: 'Ana & João',
       eventDate: '2026-12-12',
-      rsvpMode: 'qualquer-coisa',
+      childMaxAge: 11,
+      guestListMode: 'qualquer-coisa',
     })
 
     expect(result.success).toBe(false)
@@ -59,7 +64,8 @@ describe('weddingSettingsSchema', () => {
     const result = weddingSettingsSchema.safeParse({
       coupleNames: '  ',
       eventDate: '2026-12-12',
-      rsvpMode: 'per_group',
+      childMaxAge: 11,
+      guestListMode: 'closed',
     })
 
     expect(result.success).toBe(false)

@@ -1,48 +1,70 @@
 import { describe, expect, it } from 'vitest'
-import { rsvpSubmitSchema } from '#shared/schemas/rsvp'
+import {
+  rsvpFinalizeSchema,
+  rsvpGuestStatusSchema,
+  rsvpSearchQuerySchema,
+  rsvpSelectSchema,
+} from '#shared/schemas/rsvp'
 
-describe('rsvpSubmitSchema', () => {
-  it('aceita confirmação sem acompanhantes', () => {
-    const result = rsvpSubmitSchema.safeParse({ status: 'confirmed' })
+describe('rsvpSearchQuerySchema', () => {
+  it('aceita termo com 3+ caracteres', () => {
+    expect(rsvpSearchQuerySchema.safeParse({ q: 'Ana' }).success).toBe(true)
+  })
+
+  it('rejeita termo com menos de 3 caracteres', () => {
+    expect(rsvpSearchQuerySchema.safeParse({ q: 'an' }).success).toBe(false)
+  })
+})
+
+describe('rsvpSelectSchema', () => {
+  it('aceita guestId válido', () => {
+    const result = rsvpSelectSchema.safeParse({ guestId: '11111111-1111-1111-1111-111111111111' })
     expect(result.success).toBe(true)
   })
 
-  it('aceita confirmação com acompanhantes', () => {
-    const result = rsvpSubmitSchema.safeParse({
+  it('rejeita guestId que não é uuid', () => {
+    expect(rsvpSelectSchema.safeParse({ guestId: 'não-é-uuid' }).success).toBe(false)
+  })
+})
+
+describe('rsvpGuestStatusSchema', () => {
+  it('aceita confirmed com restrição alimentar', () => {
+    const result = rsvpGuestStatusSchema.safeParse({
       status: 'confirmed',
-      companions: [{ fullName: 'Ana Silva', dietaryRestrictions: 'vegetariana' }],
+      dietaryRestrictions: 'vegetariana',
     })
     expect(result.success).toBe(true)
   })
 
-  it('aceita recusa sem restrição/acompanhante', () => {
-    const result = rsvpSubmitSchema.safeParse({ status: 'declined', message: 'Não poderei ir.' })
+  it('aceita declined sem restrição', () => {
+    const result = rsvpGuestStatusSchema.safeParse({ status: 'declined' })
     expect(result.success).toBe(true)
   })
 
-  it('rejeita recusa com acompanhantes informados', () => {
-    const result = rsvpSubmitSchema.safeParse({
-      status: 'declined',
-      companions: [{ fullName: 'Ana Silva' }],
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejeita status fora do enum', () => {
-    const result = rsvpSubmitSchema.safeParse({ status: 'pending' })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejeita acompanhante sem nome', () => {
-    const result = rsvpSubmitSchema.safeParse({
-      status: 'confirmed',
-      companions: [{ fullName: '  ' }],
-    })
-    expect(result.success).toBe(false)
+  it('rejeita status fora do enum (waitlisted/removed não são escolhas do convidado)', () => {
+    expect(rsvpGuestStatusSchema.safeParse({ status: 'waitlisted' }).success).toBe(false)
   })
 
   it('rejeita quando status não é informado', () => {
-    const result = rsvpSubmitSchema.safeParse({})
+    expect(rsvpGuestStatusSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('rsvpFinalizeSchema', () => {
+  it('aceita sem acompanhantes nem mensagem', () => {
+    expect(rsvpFinalizeSchema.safeParse({}).success).toBe(true)
+  })
+
+  it('aceita com acompanhantes e mensagem', () => {
+    const result = rsvpFinalizeSchema.safeParse({
+      companions: [{ fullName: 'Ana Silva', dietaryRestrictions: 'vegetariana' }],
+      message: 'Mal podemos esperar!',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejeita acompanhante sem nome', () => {
+    const result = rsvpFinalizeSchema.safeParse({ companions: [{ fullName: '  ' }] })
     expect(result.success).toBe(false)
   })
 })

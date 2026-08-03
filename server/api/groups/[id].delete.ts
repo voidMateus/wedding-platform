@@ -1,26 +1,26 @@
 import { serverSupabaseClient } from '#supabase/server'
-import { guestGroupInputSchema } from '#shared/schemas/guest-groups'
 
+/**
+ * Soft delete simples — diferente de invites, guests.group_id é
+ * ON DELETE SET NULL (etiqueta organizacional, não unidade de RSVP), então
+ * excluir um grupo não exige realocação prévia nem confirmação de cascata:
+ * os convidados só perdem a etiqueta.
+ */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
   const id = getRouterParam(event, 'id')
   if (!id) {
     throw badRequestError('id do grupo não informado.')
   }
-  const input = await validateBody(event, guestGroupInputSchema)
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('guest_groups')
-    .update({
-      name: input.name,
-      max_members: input.maxMembers,
-      notes: input.notes || null,
-    })
+    .from('groups')
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
     .eq('wedding_id', weddingId)
     .is('deleted_at', null)
-    .select()
+    .select('id, name')
     .maybeSingle()
 
   if (error) {
@@ -31,11 +31,11 @@ export default defineEventHandler(async (event) => {
   }
 
   await recordAuditLog(event, weddingId, memberId, {
-    action: 'guest_group.update',
-    entityType: 'guest_group',
+    action: 'group.delete',
+    entityType: 'group',
     entityId: data.id,
     metadata: { name: data.name },
   })
 
-  return data
+  return { id: data.id }
 })

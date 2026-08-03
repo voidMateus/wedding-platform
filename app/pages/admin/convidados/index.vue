@@ -1,29 +1,20 @@
 <script setup lang="ts">
-import { toTypedSchema } from '@vee-validate/zod'
-import { useForm } from 'vee-validate'
-import { guestInputSchema } from '#shared/schemas/guests'
+import { computeIsChild } from '#shared/utils/guest-age'
 import type { Guest } from '~/types/guest'
 
 definePageMeta({ layout: 'admin' })
 
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
+const { listGuests, deleteGuest } = useGuests()
+const { listGroups } = useGroups()
+const { getWedding } = useWedding()
 
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
-
-const { listGuests, createGuest, updateGuest, deleteGuest } = useGuests()
-const { listGuestGroups } = useGuestGroups()
-
-// --- filtros e paginação ---
+const { data: wedding } = getWedding()
+const childMaxAge = computed(() => wedding.value?.child_max_age ?? 11)
 
 const page = ref(1)
 const search = ref('')
 const groupFilter = ref('')
-const PAGE_SIZE = 20
+const PAGE_SIZE = 25
 
 const listParams = computed(() => ({
   page: page.value,
@@ -34,7 +25,7 @@ const listParams = computed(() => ({
 
 const { data, status, refresh } = listGuests(listParams)
 
-const { data: groupsData } = listGuestGroups({ pageSize: 100 })
+const { data: groupsData } = listGroups({ pageSize: 100 })
 const groupOptions = computed(
   () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.name })) ?? [],
 )
@@ -44,85 +35,27 @@ const totalPages = computed(() => {
   return Math.max(1, Math.ceil(total / PAGE_SIZE))
 })
 
-function handleSearchInput() {
-  page.value = 1
-}
-
-// --- criar/editar ---
-
-const isFormModalOpen = ref(false)
-const editingGuest = ref<Guest | null>(null)
-const formErrorMessage = ref<string | null>(null)
-
-const { handleSubmit, defineField, errors, resetForm, isSubmitting, values } = useForm({
-  validationSchema: toTypedSchema(guestInputSchema),
-  initialValues: {
-    groupId: '',
-    fullName: '',
-    email: '',
-    phone: '',
-    isChild: false,
-    dietaryRestrictions: '',
-  },
-})
-
-const [groupId] = defineField('groupId')
-const [fullName] = defineField('fullName')
-const [email] = defineField('email')
-const [phone] = defineField('phone')
-const [isChild] = defineField('isChild')
-const [dietaryRestrictions] = defineField('dietaryRestrictions')
-
-const noContactWarning = computed(() => !values.email && !values.phone)
-
-function openCreateModal() {
-  editingGuest.value = null
-  formErrorMessage.value = null
-  resetForm({
-    values: {
-      groupId: groupOptions.value[0]?.value ?? '',
-      fullName: '',
-      email: '',
-      phone: '',
-      isChild: false,
-      dietaryRestrictions: '',
-    },
-  })
-  isFormModalOpen.value = true
-}
-
-function openEditModal(guest: Guest) {
-  editingGuest.value = guest
-  formErrorMessage.value = null
-  resetForm({
-    values: {
-      groupId: guest.group_id,
-      fullName: guest.full_name,
-      email: guest.email ?? '',
-      phone: guest.phone ?? '',
-      isChild: guest.is_child,
-      dietaryRestrictions: guest.dietary_restrictions ?? '',
-    },
-  })
-  isFormModalOpen.value = true
-}
-
-const onSubmit = handleSubmit(async (formValues) => {
-  formErrorMessage.value = null
-  try {
-    if (editingGuest.value) {
-      await updateGuest(editingGuest.value.id, formValues)
-    } else {
-      await createGuest(formValues)
-    }
-    isFormModalOpen.value = false
-    await refresh()
-  } catch (err) {
-    formErrorMessage.value = isApiError(err)
-      ? (err.data?.message ?? 'Não foi possível salvar o convidado.')
-      : 'Não foi possível salvar o convidado.'
+// 👥 acompanhantes — contagem por party_id na página atual (sem round-trip
+// extra: a listagem já traz party_id, só precisa agrupar).
+const companionCountByParty = computed(() => {
+  const counts = new Map<string, number>()
+  for (const guest of data.value?.data ?? []) {
+    if (!guest.party_id) continue
+    counts.set(guest.party_id, (counts.get(guest.party_id) ?? 0) + 1)
   }
+  return counts
 })
+
+function companionCount(guest: Guest): number {
+  if (!guest.party_id) return 0
+  return (companionCountByParty.value.get(guest.party_id) ?? 1) - 1
+}
+
+const expandedPartyId = ref<string | null>(null)
+function togglePartyExpand(guest: Guest) {
+  if (!guest.party_id) return
+  expandedPartyId.value = expandedPartyId.value === guest.party_id ? null : guest.party_id
+}
 
 // --- excluir ---
 
@@ -154,19 +87,15 @@ async function confirmDelete() {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-xl font-semibold text-text">Convidados</h1>
-        <p class="mt-1 text-sm text-text-muted">Cadastre e organize os convidados por grupo.</p>
+        <p class="mt-1 text-sm text-text-muted">
+          Cadastre convidados e seus acompanhantes em um único fluxo.
+        </p>
       </div>
-      <UiButton :disabled="!groupOptions.length" @click="openCreateModal">Novo convidado</UiButton>
+      <UiButton to="/admin/convidados/novo">Novo convidado</UiButton>
     </div>
 
     <div class="flex flex-wrap gap-3">
-      <UiInput
-        v-model="search"
-        placeholder="Buscar por nome"
-        class="max-w-xs"
-        @keyup.enter="handleSearchInput"
-        @blur="handleSearchInput"
-      />
+      <UiInput v-model="search" placeholder="Buscar por nome" class="max-w-xs" @keyup.enter="page = 1" />
       <UiSelect
         v-model="groupFilter"
         placeholder="Todos os grupos"
@@ -174,12 +103,6 @@ async function confirmDelete() {
         @update:model-value="page = 1"
       />
     </div>
-
-    <p v-if="!groupOptions.length" class="text-sm text-text-muted">
-      Crie um grupo em
-      <NuxtLink to="/admin/grupos" class="underline">Grupos</NuxtLink>
-      antes de cadastrar convidados.
-    </p>
 
     <div v-if="status === 'pending'" class="flex flex-col gap-2">
       <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
@@ -189,36 +112,75 @@ async function confirmDelete() {
       v-else-if="!data?.data.length"
       title="Nenhum convidado encontrado"
       description="Ajuste os filtros ou cadastre o primeiro convidado."
-    />
+    >
+      <UiButton to="/admin/convidados/novo">Novo convidado</UiButton>
+    </UiEmptyState>
 
     <template v-else>
       <UiTable>
         <template #head>
           <th class="px-4 py-2 font-medium">Nome</th>
           <th class="px-4 py-2 font-medium">Grupo</th>
-          <th class="px-4 py-2 font-medium">Contato</th>
           <th class="px-4 py-2 font-medium">Restrições</th>
+          <th class="px-4 py-2 font-medium">Acompanhantes</th>
           <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
         </template>
-        <tr v-for="guest in data?.data" :key="guest.id" class="border-t border-border">
-          <td class="px-4 py-2 text-text">
-            {{ guest.full_name }}
-            <UiBadge v-if="guest.is_child" tone="neutral" class="ml-2">criança</UiBadge>
-          </td>
-          <td class="px-4 py-2 text-text-muted">
-            {{ groupOptions.find((g) => g.value === guest.group_id)?.label ?? '—' }}
-          </td>
-          <td class="px-4 py-2 text-text-muted">{{ guest.email || guest.phone || '—' }}</td>
-          <td class="px-4 py-2 text-text-muted">{{ guest.dietary_restrictions || '—' }}</td>
-          <td class="px-4 py-2">
-            <div class="flex justify-end gap-2">
-              <UiButton size="sm" variant="ghost" @click="openEditModal(guest)">Editar</UiButton>
-              <UiButton size="sm" variant="destructive" @click="openDeleteModal(guest)">
-                Excluir
-              </UiButton>
-            </div>
-          </td>
-        </tr>
+        <template v-for="guest in data?.data" :key="guest.id">
+          <tr class="border-t border-border">
+            <td class="px-4 py-2 text-text">
+              {{ guest.full_name }}
+              <UiBadge v-if="computeIsChild(guest.birth_date, childMaxAge)" tone="neutral" class="ml-2">
+                criança
+              </UiBadge>
+              <UiBadge v-if="guest.wedding_role" tone="success" class="ml-2">
+                {{ guest.wedding_role === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
+              </UiBadge>
+            </td>
+            <td class="px-4 py-2 text-text-muted">
+              {{ groupOptions.find((g) => g.value === guest.group_id)?.label ?? '—' }}
+            </td>
+            <td class="px-4 py-2 text-text-muted">{{ guest.dietary_restrictions || '—' }}</td>
+            <td class="px-4 py-2 text-text-muted">
+              <button
+                v-if="companionCount(guest) > 0"
+                type="button"
+                class="inline-flex items-center gap-1 hover:underline"
+                @click="togglePartyExpand(guest)"
+              >
+                <Icon
+                  :name="expandedPartyId === guest.party_id ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+                  class="h-3.5 w-3.5"
+                />
+                👥 {{ companionCount(guest) }}
+              </button>
+              <span v-else>—</span>
+            </td>
+            <td class="px-4 py-2">
+              <div class="flex justify-end gap-2">
+                <UiButton size="sm" variant="ghost" :to="`/admin/convidados/${guest.id}`">
+                  Editar
+                </UiButton>
+                <UiButton size="sm" variant="destructive" @click="openDeleteModal(guest)">
+                  Excluir
+                </UiButton>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="expandedPartyId === guest.party_id && companionCount(guest) > 0" class="bg-surface-muted">
+            <td colspan="5" class="px-4 py-2 text-sm text-text-muted">
+              <ul class="flex flex-col gap-1">
+                <li
+                  v-for="companion in data?.data.filter(
+                    (g) => g.party_id === guest.party_id && g.id !== guest.id,
+                  )"
+                  :key="companion.id"
+                >
+                  • {{ companion.full_name }}
+                </li>
+              </ul>
+            </td>
+          </tr>
+        </template>
       </UiTable>
 
       <div class="flex items-center justify-between text-sm text-text-muted">
@@ -244,42 +206,6 @@ async function confirmDelete() {
         </div>
       </div>
     </template>
-
-    <UiModal
-      v-model="isFormModalOpen"
-      :title="editingGuest ? 'Editar convidado' : 'Novo convidado'"
-    >
-      <form class="flex flex-col gap-4" @submit="onSubmit">
-        <UiInput v-model="fullName" label="Nome completo" :error="errors.fullName" />
-        <UiSelect
-          v-model="groupId"
-          label="Grupo"
-          placeholder="Selecione um grupo"
-          :options="groupOptions"
-          :error="errors.groupId"
-        />
-        <UiInput v-model="email" type="email" label="E-mail (opcional)" :error="errors.email" />
-        <UiInput v-model="phone" type="tel" label="Telefone (opcional)" :error="errors.phone" />
-        <p v-if="noContactWarning" class="text-sm text-text-muted">
-          Nenhum e-mail ou telefone informado — recomendado, mas não obrigatório.
-        </p>
-        <UiCheckbox v-model="isChild" label="Convidado é criança" />
-        <UiTextarea
-          v-model="dietaryRestrictions"
-          label="Restrições alimentares (opcional)"
-          :error="errors.dietaryRestrictions"
-        />
-        <p v-if="formErrorMessage" class="text-sm text-red-600" role="alert">
-          {{ formErrorMessage }}
-        </p>
-        <div class="mt-2 flex justify-end gap-2">
-          <UiButton type="button" variant="ghost" @click="isFormModalOpen = false">
-            Cancelar
-          </UiButton>
-          <UiButton type="submit" :disabled="isSubmitting">Salvar</UiButton>
-        </div>
-      </form>
-    </UiModal>
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
       <p class="text-sm text-text">

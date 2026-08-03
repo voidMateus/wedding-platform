@@ -1,18 +1,17 @@
 import { serverSupabaseClient } from '#supabase/server'
-import { guestGroupInputSchema } from '#shared/schemas/guest-groups'
+import { groupInputSchema } from '#shared/schemas/groups'
 
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
-  const input = await validateBody(event, guestGroupInputSchema)
+  const input = await validateBody(event, groupInputSchema)
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('guest_groups')
+    .from('groups')
     .insert({
       wedding_id: weddingId,
       name: input.name,
-      max_members: input.maxMembers,
-      notes: input.notes || null,
+      color: input.color ?? null,
     })
     .select()
     .single()
@@ -22,8 +21,8 @@ export default defineEventHandler(async (event) => {
   }
 
   await recordAuditLog(event, weddingId, memberId, {
-    action: 'guest_group.create',
-    entityType: 'guest_group',
+    action: 'group.create',
+    entityType: 'group',
     entityId: data.id,
     metadata: { name: data.name },
   })

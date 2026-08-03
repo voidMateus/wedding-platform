@@ -73,8 +73,8 @@ export default defineEventHandler(async (event) => {
   const contributedByGiftId = new Map<string, number>()
 
   if (token) {
-    const identifierColumn = token.guestId ? 'guest_id' : 'group_id'
-    const identifierValue = token.guestId ?? (token.groupId as string)
+    const identifierColumn = 'group_id'
+    const identifierValue = token.inviteId
 
     const { data: myReservations, error: myReservationsError } = await client
       .from('gift_reservations')

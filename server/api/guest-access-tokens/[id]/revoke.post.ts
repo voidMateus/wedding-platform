@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     .eq('id', id)
     .eq('wedding_id', weddingId)
     .is('revoked_at', null)
-    .select('id, guest_id, group_id')
+    .select('id, invite_id')
     .maybeSingle()
 
   if (error) {
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     action: 'guest_access_token.revoke',
     entityType: 'guest_access_token',
     entityId: id,
-    metadata: { guestId: data.guest_id, groupId: data.group_id },
+    metadata: { inviteId: data.invite_id },
   })
 
   return { id }

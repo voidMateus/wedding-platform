@@ -20,8 +20,8 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await client.rpc('reserve_gift', {
     p_gift_id: id,
-    p_guest_id: token.guestId,
-    p_group_id: token.groupId,
+    p_guest_id: null,
+    p_group_id: token.inviteId,
     p_contributor_name: null,
   })
 

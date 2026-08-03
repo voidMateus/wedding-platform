@@ -44,6 +44,26 @@ function getRsvpRatelimit(): Ratelimit {
   return rsvpRatelimit
 }
 
+// Mais restritivo que o limite geral do caminho do convidado: a busca por
+// nome (CLAUDE.md, seção 12.1) é o ponto de maior risco de enumeração do
+// fluxo sem código — nenhum dado sensível vaza por chamada (só nomes já
+// buscados), mas o volume de tentativas precisa ser mais apertado.
+const RSVP_SEARCH_LIMIT = 10
+const RSVP_SEARCH_WINDOW = '60 s' as const
+
+let rsvpSearchRatelimit: Ratelimit | null = null
+
+function getRsvpSearchRatelimit(): Ratelimit {
+  if (!rsvpSearchRatelimit) {
+    rsvpSearchRatelimit = new Ratelimit({
+      redis: getRedisClient(),
+      limiter: Ratelimit.slidingWindow(RSVP_SEARCH_LIMIT, RSVP_SEARCH_WINDOW),
+      prefix: 'ratelimit:rsvp-search',
+    })
+  }
+  return rsvpSearchRatelimit
+}
+
 let giftsRatelimit: Ratelimit | null = null
 
 function getGiftsRatelimit(): Ratelimit {
@@ -66,6 +86,10 @@ export interface RateLimitResult {
 
 export async function checkRsvpRateLimit(identifier: string): Promise<RateLimitResult> {
   return getRsvpRatelimit().limit(identifier)
+}
+
+export async function checkRsvpSearchRateLimit(identifier: string): Promise<RateLimitResult> {
+  return getRsvpSearchRatelimit().limit(identifier)
 }
 
 export async function checkGiftsRateLimit(identifier: string): Promise<RateLimitResult> {
