@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       audit_logs: {
@@ -158,37 +133,40 @@ export type Database = {
       companions: {
         Row: {
           created_at: string
+          deleted_at: string | null
           dietary_restrictions: string | null
           full_name: string
           id: string
-          rsvp_response_id: string
+          invite_id: string
           updated_at: string
           wedding_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           dietary_restrictions?: string | null
           full_name: string
           id?: string
-          rsvp_response_id: string
+          invite_id: string
           updated_at?: string
           wedding_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           dietary_restrictions?: string | null
           full_name?: string
           id?: string
-          rsvp_response_id?: string
+          invite_id?: string
           updated_at?: string
           wedding_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "companions_rsvp_response_id_fkey"
-            columns: ["rsvp_response_id"]
+            foreignKeyName: "companions_invite_id_fkey"
+            columns: ["invite_id"]
             isOneToOne: false
-            referencedRelation: "rsvp_responses"
+            referencedRelation: "invites"
             referencedColumns: ["id"]
           },
           {
@@ -410,7 +388,7 @@ export type Database = {
             foreignKeyName: "gift_contributions_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
-            referencedRelation: "guest_groups"
+            referencedRelation: "invites"
             referencedColumns: ["id"]
           },
           {
@@ -482,7 +460,7 @@ export type Database = {
             foreignKeyName: "gift_reservations_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
-            referencedRelation: "guest_groups"
+            referencedRelation: "invites"
             referencedColumns: ["id"]
           },
           {
@@ -581,13 +559,57 @@ export type Database = {
           },
         ]
       }
+      groups: {
+        Row: {
+          color: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "groups_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_access_tokens: {
         Row: {
           code_hash: string
           created_at: string
-          group_id: string | null
-          guest_id: string | null
           id: string
+          invite_id: string
           revoked_at: string | null
           updated_at: string
           wedding_id: string
@@ -595,9 +617,8 @@ export type Database = {
         Insert: {
           code_hash: string
           created_at?: string
-          group_id?: string | null
-          guest_id?: string | null
           id?: string
+          invite_id: string
           revoked_at?: string | null
           updated_at?: string
           wedding_id: string
@@ -605,26 +626,18 @@ export type Database = {
         Update: {
           code_hash?: string
           created_at?: string
-          group_id?: string | null
-          guest_id?: string | null
           id?: string
+          invite_id?: string
           revoked_at?: string | null
           updated_at?: string
           wedding_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "guest_access_tokens_group_id_fkey"
-            columns: ["group_id"]
+            foreignKeyName: "guest_access_tokens_invite_id_fkey"
+            columns: ["invite_id"]
             isOneToOne: false
-            referencedRelation: "guest_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "guest_access_tokens_guest_id_fkey"
-            columns: ["guest_id"]
-            isOneToOne: false
-            referencedRelation: "guests"
+            referencedRelation: "invites"
             referencedColumns: ["id"]
           },
           {
@@ -643,47 +656,35 @@ export type Database = {
           },
         ]
       }
-      guest_groups: {
+      guest_parties: {
         Row: {
           created_at: string
-          deleted_at: string | null
           id: string
-          max_members: number
-          name: string
-          notes: string | null
           updated_at: string
           wedding_id: string
         }
         Insert: {
           created_at?: string
-          deleted_at?: string | null
           id?: string
-          max_members?: number
-          name: string
-          notes?: string | null
           updated_at?: string
           wedding_id: string
         }
         Update: {
           created_at?: string
-          deleted_at?: string | null
           id?: string
-          max_members?: number
-          name?: string
-          notes?: string | null
           updated_at?: string
           wedding_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "guest_groups_wedding_id_fkey"
+            foreignKeyName: "guest_parties_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "wedding_rsvp_summary"
             referencedColumns: ["wedding_id"]
           },
           {
-            foreignKeyName: "guest_groups_wedding_id_fkey"
+            foreignKeyName: "guest_parties_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
@@ -693,50 +694,88 @@ export type Database = {
       }
       guests: {
         Row: {
+          birth_date: string | null
           created_at: string
           deleted_at: string | null
           dietary_restrictions: string | null
           email: string | null
           full_name: string
-          group_id: string
+          group_id: string | null
           id: string
-          is_child: boolean
+          invite_id: string | null
+          nickname: string | null
+          notes: string | null
+          party_id: string | null
+          party_order: number
           phone: string | null
+          photo_path: string | null
+          sex: string | null
           updated_at: string
           wedding_id: string
+          wedding_role: string | null
         }
         Insert: {
+          birth_date?: string | null
           created_at?: string
           deleted_at?: string | null
           dietary_restrictions?: string | null
           email?: string | null
           full_name: string
-          group_id: string
+          group_id?: string | null
           id?: string
-          is_child?: boolean
+          invite_id?: string | null
+          nickname?: string | null
+          notes?: string | null
+          party_id?: string | null
+          party_order?: number
           phone?: string | null
+          photo_path?: string | null
+          sex?: string | null
           updated_at?: string
           wedding_id: string
+          wedding_role?: string | null
         }
         Update: {
+          birth_date?: string | null
           created_at?: string
           deleted_at?: string | null
           dietary_restrictions?: string | null
           email?: string | null
           full_name?: string
-          group_id?: string
+          group_id?: string | null
           id?: string
-          is_child?: boolean
+          invite_id?: string | null
+          nickname?: string | null
+          notes?: string | null
+          party_id?: string | null
+          party_order?: number
           phone?: string | null
+          photo_path?: string | null
+          sex?: string | null
           updated_at?: string
           wedding_id?: string
+          wedding_role?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "guests_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
-            referencedRelation: "guest_groups"
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "guest_parties"
             referencedColumns: ["id"]
           },
           {
@@ -751,6 +790,203 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_events: {
+        Row: {
+          event_type: string
+          id: string
+          invite_id: string
+          metadata: Json
+          occurred_at: string
+          wedding_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          invite_id: string
+          metadata?: Json
+          occurred_at?: string
+          wedding_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          invite_id?: string
+          metadata?: Json
+          occurred_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_events_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_events_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "invite_events_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_tag_links: {
+        Row: {
+          created_at: string
+          invite_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          invite_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          invite_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_tag_links_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_tag_links_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "invite_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_tags: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_tags_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "invite_tags_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invites: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          internal_code: string
+          max_companions: number | null
+          name: string
+          notes: string | null
+          responsible_guest_id: string | null
+          rsvp_message: string | null
+          rsvp_message_at: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          internal_code: string
+          max_companions?: number | null
+          name: string
+          notes?: string | null
+          responsible_guest_id?: string | null
+          rsvp_message?: string | null
+          rsvp_message_at?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          internal_code?: string
+          max_companions?: number | null
+          name?: string
+          notes?: string | null
+          responsible_guest_id?: string | null
+          rsvp_message?: string | null
+          rsvp_message_at?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_groups_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "guest_groups_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invites_responsible_guest_id_fkey"
+            columns: ["responsible_guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
             referencedColumns: ["id"]
           },
         ]
@@ -903,11 +1139,9 @@ export type Database = {
       rsvp_responses: {
         Row: {
           created_at: string
-          dietary_notes: string | null
-          group_id: string | null
-          guest_id: string | null
+          guest_id: string
           id: string
-          message: string | null
+          invite_id: string
           responded_at: string | null
           status: string
           updated_at: string
@@ -915,11 +1149,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          dietary_notes?: string | null
-          group_id?: string | null
-          guest_id?: string | null
+          guest_id: string
           id?: string
-          message?: string | null
+          invite_id: string
           responded_at?: string | null
           status?: string
           updated_at?: string
@@ -927,11 +1159,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          dietary_notes?: string | null
-          group_id?: string | null
-          guest_id?: string | null
+          guest_id?: string
           id?: string
-          message?: string | null
+          invite_id?: string
           responded_at?: string | null
           status?: string
           updated_at?: string
@@ -939,17 +1169,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "rsvp_responses_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "guest_groups"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "rsvp_responses_guest_id_fkey"
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rsvp_responses_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "invites"
             referencedColumns: ["id"]
           },
           {
@@ -1097,37 +1327,40 @@ export type Database = {
       }
       weddings: {
         Row: {
+          child_max_age: number
           couple_names: string
           created_at: string
           event_date: string
           event_time: string | null
+          guest_list_mode: string
           id: string
           rsvp_deadline: string | null
-          rsvp_mode: string
           slug: string
           theme_config: Json
           updated_at: string
         }
         Insert: {
+          child_max_age?: number
           couple_names: string
           created_at?: string
           event_date: string
           event_time?: string | null
+          guest_list_mode?: string
           id?: string
           rsvp_deadline?: string | null
-          rsvp_mode?: string
           slug: string
           theme_config?: Json
           updated_at?: string
         }
         Update: {
+          child_max_age?: number
           couple_names?: string
           created_at?: string
           event_date?: string
           event_time?: string | null
+          guest_list_mode?: string
           id?: string
           rsvp_deadline?: string | null
-          rsvp_mode?: string
           slug?: string
           theme_config?: Json
           updated_at?: string
@@ -1141,24 +1374,24 @@ export type Database = {
           responses_confirmed: number | null
           responses_declined: number | null
           total_companions_confirmed: number | null
-          total_groups: number | null
           total_guests: number | null
+          total_invites: number | null
           wedding_id: string | null
         }
         Insert: {
           responses_confirmed?: never
           responses_declined?: never
           total_companions_confirmed?: never
-          total_groups?: never
           total_guests?: never
+          total_invites?: never
           wedding_id?: string | null
         }
         Update: {
           responses_confirmed?: never
           responses_declined?: never
           total_companions_confirmed?: never
-          total_groups?: never
           total_guests?: never
+          total_invites?: never
           wedding_id?: string | null
         }
         Relationships: []
@@ -1174,34 +1407,45 @@ export type Database = {
         }
         Returns: undefined
       }
-      confirm_rsvp: {
+      finalize_invite_rsvp: {
         Args: {
           p_companions?: Json
-          p_dietary_notes?: string
-          p_group_id: string
-          p_guest_id: string
+          p_invite_id: string
           p_message?: string
-          p_status: string
+          p_source?: string
           p_wedding_id: string
         }
         Returns: {
+          archived_at: string | null
           created_at: string
-          dietary_notes: string | null
-          group_id: string | null
-          guest_id: string | null
+          deleted_at: string | null
           id: string
-          message: string | null
-          responded_at: string | null
+          internal_code: string
+          max_companions: number | null
+          name: string
+          notes: string | null
+          responsible_guest_id: string | null
+          rsvp_message: string | null
+          rsvp_message_at: string | null
+          sent_at: string | null
           status: string
           updated_at: string
           wedding_id: string
         }
         SetofOptions: {
           from: "*"
-          to: "rsvp_responses"
+          to: "invites"
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      guest_is_child: {
+        Args: { p_birth_date: string; p_wedding_id: string }
+        Returns: boolean
+      }
+      guest_name_matches: {
+        Args: { p_full_name: string; p_nickname: string; p_query: string }
+        Returns: boolean
       }
       is_wedding_member: { Args: { p_wedding_id: string }; Returns: boolean }
       is_wedding_owner: { Args: { p_wedding_id: string }; Returns: boolean }
@@ -1226,6 +1470,44 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "gift_reservations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sync_guest_party: {
+        Args: {
+          p_companions?: Json
+          p_invite?: Json
+          p_primary: Json
+          p_removed_guest_ids?: string[]
+          p_wedding_id: string
+        }
+        Returns: Json
+      }
+      unaccent: { Args: { "": string }; Returns: string }
+      upsert_guest_rsvp: {
+        Args: {
+          p_dietary_restrictions?: string
+          p_guest_id: string
+          p_ip?: string
+          p_source?: string
+          p_status: string
+          p_user_agent?: string
+          p_wedding_id: string
+        }
+        Returns: {
+          created_at: string
+          guest_id: string
+          id: string
+          invite_id: string
+          responded_at: string | null
+          status: string
+          updated_at: string
+          wedding_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rsvp_responses"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1358,9 +1640,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
