@@ -9,6 +9,7 @@ import { rsvpSearchQuerySchema } from '#shared/schemas/rsvp'
  * ainda (invite_id null) não aparecem — não têm o que confirmar.
  */
 export default defineEventHandler(async (event) => {
+  const slug = getWeddingSlugParam(event)
   const { q } = validateQuery(event, rsvpSearchQuerySchema)
 
   const client = supabaseAdmin(event)
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
     .select('id')
-    .limit(1)
+    .eq('slug', slug)
     .single()
 
   if (weddingError || !wedding) {

@@ -3,8 +3,10 @@
  * sem token obrigatório. Se um `code` for informado na query, a resposta é
  * personalizada com o que o próprio convidado já reservou/contribuiu, sem
  * nunca expor quem reservou o quê para os demais (CLAUDE.md, seção 18.2).
+ * Resolvido por slug (CLAUDE.md, seção 4.4/33).
  */
 export default defineEventHandler(async (event) => {
+  const slug = getWeddingSlugParam(event)
   const query = getQuery(event)
   const code = typeof query.code === 'string' ? query.code : undefined
 
@@ -13,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
     .select('id')
-    .limit(1)
+    .eq('slug', slug)
     .single()
 
   if (weddingError) {

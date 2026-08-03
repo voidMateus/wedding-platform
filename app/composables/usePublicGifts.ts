@@ -7,12 +7,15 @@ interface PublicGiftListResponse {
 /**
  * Vitrine pública de presentes (CLAUDE.md, seção 18.2). Sem autenticação —
  * `code`, quando informado, personaliza a resposta com o que o próprio
- * convidado já reservou/contribuiu.
+ * convidado já reservou/contribuiu. Resolvido pelo slug da rota atual
+ * (`/{slug}`) — mutações (reserve/contribute/cancel) resolvem o casamento
+ * pelo próprio `code` (token), não precisam do slug.
  */
 export function usePublicGifts(code?: string) {
   function getPublicGifts() {
-    return useFetch<PublicGiftListResponse>('/api/public/gifts', {
-      key: `public-gifts-${code ?? 'anon'}`,
+    const slug = useWeddingSlug()
+    return useFetch<PublicGiftListResponse>(`/api/public/${slug}/gifts`, {
+      key: `public-gifts-${slug}-${code ?? 'anon'}`,
       query: code ? { code } : undefined,
     })
   }

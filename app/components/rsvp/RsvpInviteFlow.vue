@@ -8,6 +8,8 @@ interface Props {
 const props = defineProps<Props>()
 const { autosaveGuestStatus, finalizeInvite } = useRsvp()
 const toast = useToast()
+const slug = useWeddingSlug()
+const backToSiteLink = computed(() => `/${slug}`)
 
 interface GuestState {
   guestId: string
@@ -210,7 +212,7 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
           <UiButton variant="outline" :disabled="isPastDeadline" @click="step = 'guests'">
             Alterar confirmação
           </UiButton>
-          <UiButton to="/">Voltar ao site</UiButton>
+          <UiButton :to="backToSiteLink">Voltar ao site</UiButton>
         </div>
       </div>
     </template>

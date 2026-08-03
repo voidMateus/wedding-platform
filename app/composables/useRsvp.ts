@@ -9,7 +9,8 @@ import type { RsvpInvitePayload, RsvpSearchResult, RsvpSelectResult } from '~/ty
  */
 export function useRsvp() {
   async function searchGuests(q: string) {
-    return $fetch<{ data: RsvpSearchResult[] }>('/api/public/rsvp-search', { query: { q } })
+    const slug = useWeddingSlug()
+    return $fetch<{ data: RsvpSearchResult[] }>(`/api/public/${slug}/rsvp-search`, { query: { q } })
   }
 
   async function selectGuest(guestId: string) {

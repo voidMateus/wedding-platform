@@ -6,6 +6,7 @@ definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const code = route.params.code as string
+const slug = useWeddingSlug()
 
 const { getRsvpByCode } = useRsvp()
 const { data, status, error } = await useAsyncData(`rsvp-code-${code}`, () => getRsvpByCode(code))
@@ -45,7 +46,10 @@ function formatDeadline(value: string | null): string {
 
       <RsvpInviteFlow :payload="data" />
 
-      <NuxtLink to="/#presentes" class="text-center text-sm text-primary underline-offset-2 hover:underline">
+      <NuxtLink
+        :to="`/${slug}/#presentes`"
+        class="text-center text-sm text-primary underline-offset-2 hover:underline"
+      >
         Ver lista de presentes
       </NuxtLink>
     </template>

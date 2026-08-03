@@ -18,7 +18,13 @@ const {
 const { getStatus, generate, revoke } = useGuestAccessTokens()
 const { listGuests } = useGuests()
 const { listInviteTags, createInviteTag, deleteInviteTag } = useInviteTags()
+const { getWedding } = useWedding()
 const toast = useToast()
+
+// Mesma chave 'wedding' já usada pelo layout admin (useWedding.ts) — dedup
+// automático, sem fetch extra. Precisamos do slug para montar o link
+// público correto (CLAUDE.md, seção 4.4/33: cada casamento tem sua URL).
+const { data: wedding } = getWedding()
 
 const { data: invite, refresh: refreshInvite } = getInvite(inviteId)
 const { data: timeline, refresh: refreshTimeline } = getInviteTimeline(inviteId)
@@ -229,7 +235,7 @@ async function handleGenerateAccessLink() {
   accessLinkErrorMessage.value = null
   try {
     const result = await generate({ inviteId: invite.value.id })
-    generatedAccessLink.value = `${window.location.origin}/rsvp/${result.code}`
+    generatedAccessLink.value = `${window.location.origin}/${wedding.value?.slug}/rsvp/${result.code}`
     qrCodeDataUrl.value = await QRCode.toDataURL(generatedAccessLink.value)
     accessLinkStatus.value = { active: true, id: result.id, createdAt: result.createdAt }
     await refreshTimeline()

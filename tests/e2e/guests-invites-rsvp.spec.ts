@@ -67,11 +67,13 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   const linkInput = page.locator('input[disabled]')
   await expect(linkInput).toBeVisible({ timeout: 10_000 })
   const link = await linkInput.inputValue()
-  const code = link.split('/rsvp/')[1]
+  const linkPath = new URL(link).pathname
+  const [, slug, , code] = linkPath.split('/')
+  expect(slug).toBeTruthy()
   expect(code).toBeTruthy()
 
   // --- RSVP público via atalho de link direto ---
-  await page.goto(`/rsvp/${code}`)
+  await page.goto(linkPath)
   await page.waitForLoadState('networkidle')
   await expect(page.getByText(primaryName)).toBeVisible({ timeout: 10_000 })
   await expect(page.getByText(companionName)).toBeVisible()
@@ -85,7 +87,7 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await expect(page.getByText('Presença confirmada!')).toBeVisible({ timeout: 10_000 })
 
   // --- busca pública por nome também encontra o mesmo convidado ---
-  await page.goto('/rsvp')
+  await page.goto(`/${slug}/rsvp`)
   await page.waitForLoadState('networkidle')
   await page.getByPlaceholder('Digite seu nome').fill(primaryName)
   await expect(page.getByRole('button', { name: primaryName })).toBeVisible({ timeout: 10_000 })
