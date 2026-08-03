@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import type { GuestPersonInput } from '#shared/schemas/guests'
+import type { Group } from '~/types/group'
 
 interface Props {
   modelValue: GuestPersonInput
   groupOptions: Array<{ value: string; label: string }>
+  /** Mostra o erro "obrigatório" no campo de nome (o pai decide quando validar). */
+  fullNameError?: string | null
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ 'update:modelValue': [value: GuestPersonInput] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: GuestPersonInput]
+  'group-created': [group: Group]
+}>()
 
 function update<K extends keyof GuestPersonInput>(key: K, value: GuestPersonInput[K]) {
   emit('update:modelValue', { ...props.modelValue, [key]: value })
@@ -24,6 +30,32 @@ const weddingRoleOptions = [
   { value: 'padrinho', label: 'Padrinho' },
   { value: 'madrinha', label: 'Madrinha' },
 ]
+
+// Criar um grupo sem sair do cadastro do convidado (CLAUDE.md, seção 12.1) —
+// evita o casal precisar ir em Grupos cadastrar tudo antes de começar.
+const { createGroup } = useGroups()
+const isCreatingGroup = ref(false)
+const newGroupName = ref('')
+const isSavingGroup = ref(false)
+
+function openCreateGroup() {
+  newGroupName.value = ''
+  isCreatingGroup.value = true
+}
+
+async function handleCreateGroup() {
+  const name = newGroupName.value.trim()
+  if (!name) return
+  isSavingGroup.value = true
+  try {
+    const group = await createGroup({ name })
+    update('groupId', group.id)
+    emit('group-created', group)
+    isCreatingGroup.value = false
+  } finally {
+    isSavingGroup.value = false
+  }
+}
 </script>
 
 <template>
@@ -32,6 +64,7 @@ const weddingRoleOptions = [
       <UiInput
         :model-value="modelValue.fullName"
         label="Nome completo"
+        :error="fullNameError ?? undefined"
         @update:model-value="update('fullName', $event)"
       />
       <UiInput
@@ -66,13 +99,37 @@ const weddingRoleOptions = [
       />
     </div>
 
-    <UiSelect
-      :model-value="modelValue.groupId"
-      label="Grupo (opcional)"
-      placeholder="Sem grupo"
-      :options="groupOptions"
-      @update:model-value="update('groupId', $event)"
-    />
+    <div class="flex flex-col gap-1">
+      <UiSelect
+        :model-value="modelValue.groupId"
+        label="Grupo (opcional)"
+        placeholder="Sem grupo"
+        :options="groupOptions"
+        @update:model-value="update('groupId', $event)"
+      />
+      <button
+        v-if="!isCreatingGroup"
+        type="button"
+        class="self-start text-xs text-primary hover:underline"
+        @click="openCreateGroup"
+      >
+        + Criar novo grupo
+      </button>
+      <div v-else class="flex items-center gap-2">
+        <UiInput
+          v-model="newGroupName"
+          placeholder="Nome do novo grupo"
+          class="flex-1"
+          @keyup.enter="handleCreateGroup"
+        />
+        <UiButton type="button" size="sm" :disabled="isSavingGroup" @click="handleCreateGroup">
+          Criar
+        </UiButton>
+        <UiButton type="button" size="sm" variant="ghost" @click="isCreatingGroup = false">
+          Cancelar
+        </UiButton>
+      </div>
+    </div>
 
     <UiTextarea
       :model-value="modelValue.dietaryRestrictions"

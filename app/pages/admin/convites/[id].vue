@@ -17,7 +17,7 @@ const {
 } = useInvites()
 const { getStatus, generate, revoke } = useGuestAccessTokens()
 const { listGuests } = useGuests()
-const { listInviteTags, createInviteTag } = useInviteTags()
+const { listInviteTags, createInviteTag, deleteInviteTag } = useInviteTags()
 const toast = useToast()
 
 const { data: invite, refresh: refreshInvite } = getInvite(inviteId)
@@ -152,6 +152,31 @@ async function addNewTag() {
     newTagName.value = ''
   } catch {
     toast.error('Não foi possível criar a etiqueta.')
+  }
+}
+
+const deleteTagTarget = ref<{ id: string; name: string } | null>(null)
+const isDeleteTagModalOpen = ref(false)
+const isDeletingTag = ref(false)
+
+function openDeleteTagModal(tag: { id: string; name: string }) {
+  deleteTagTarget.value = tag
+  isDeleteTagModalOpen.value = true
+}
+
+async function confirmDeleteTag() {
+  if (!deleteTagTarget.value) return
+  isDeletingTag.value = true
+  try {
+    await deleteInviteTag(deleteTagTarget.value.id)
+    await refreshTags()
+    await refreshInvite()
+    isDeleteTagModalOpen.value = false
+    deleteTagTarget.value = null
+  } catch {
+    toast.error('Não foi possível excluir a etiqueta.')
+  } finally {
+    isDeletingTag.value = false
   }
 }
 
@@ -329,20 +354,26 @@ function formatDateTime(value: string): string {
         <h2 class="text-lg font-medium text-text">Etiquetas</h2>
       </template>
       <div class="flex flex-wrap gap-2">
-        <button
+        <span
           v-for="tag in tagsData?.data ?? []"
           :key="tag.id"
-          type="button"
-          class="rounded-full border px-3 py-1 text-xs"
+          class="inline-flex items-center gap-1 rounded-full border pl-3 pr-1 text-xs"
           :class="
             isTagSelected(tag.id)
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border text-text-muted'
           "
-          @click="toggleTag(tag.id)"
         >
-          {{ tag.name }}
-        </button>
+          <button type="button" class="py-1" @click="toggleTag(tag.id)">{{ tag.name }}</button>
+          <button
+            type="button"
+            class="rounded-full p-0.5 opacity-70 hover:opacity-100"
+            :aria-label="`Excluir etiqueta ${tag.name}`"
+            @click="openDeleteTagModal(tag)"
+          >
+            <Icon name="lucide:x" class="h-3 w-3" />
+          </button>
+        </span>
       </div>
       <div class="mt-3 flex items-center gap-2">
         <UiInput v-model="newTagName" placeholder="Nova etiqueta" class="max-w-xs" />
@@ -455,6 +486,21 @@ function formatDateTime(value: string): string {
           @click="handleGenerateAccessLink"
         >
           {{ accessLinkStatus?.active ? 'Gerar novo link' : 'Gerar link' }}
+        </UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal v-model="isDeleteTagModalOpen" title="Excluir etiqueta">
+      <p class="text-sm text-text">
+        Tem certeza que deseja excluir a etiqueta <strong>{{ deleteTagTarget?.name }}</strong>? Ela
+        será removida de todos os convites que a usam.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" :disabled="isDeletingTag" @click="isDeleteTagModalOpen = false">
+          Cancelar
+        </UiButton>
+        <UiButton variant="destructive" :disabled="isDeletingTag" @click="confirmDeleteTag">
+          Excluir
         </UiButton>
       </template>
     </UiModal>

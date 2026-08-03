@@ -12,7 +12,7 @@ const { syncGuestParty } = useGuests()
 const { listGroups } = useGroups()
 const { listInviteTags, createInviteTag } = useInviteTags()
 
-const { data: groupsData } = listGroups({ pageSize: 100 })
+const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
 const groupOptions = computed(() => [
   ...(groupsData.value?.data.map((g) => ({ value: g.id, label: g.name })) ?? []),
 ])
@@ -87,7 +87,16 @@ const showInviteStep = computed(() => companions.value.length > 0 && !hasExistin
 const currentStepIndex = ref(0)
 const currentStepId = computed(() => steps.value[currentStepIndex.value]?.id)
 
+const primaryNameError = ref<string | null>(null)
+
 function goNext() {
+  if (currentStepId.value === 'dados') {
+    if (!primary.value.fullName.trim()) {
+      primaryNameError.value = 'Informe o nome do convidado.'
+      return
+    }
+    primaryNameError.value = null
+  }
   if (currentStepIndex.value < steps.value.length - 1) currentStepIndex.value += 1
 }
 function goBack() {
@@ -99,28 +108,68 @@ function goBack() {
 const isAddingCompanion = ref(false)
 const companionDraft = ref<GuestPersonInput>(emptyPerson())
 const editingCompanionKey = ref<string | null>(null)
+const companionDraftError = ref<string | null>(null)
+
+// Busca convidados já cadastrados antes de assumir que o acompanhante é uma
+// pessoa nova (CLAUDE.md, seção 12.1) — evita duplicar quem já existe.
+const companionSearchQuery = ref('')
+const companionSearchResults = ref<Array<{ id: string; full_name: string }>>([])
+let companionSearchTimeout: ReturnType<typeof setTimeout> | undefined
+
+watch(companionSearchQuery, (value) => {
+  clearTimeout(companionSearchTimeout)
+  if (value.trim().length < 2) {
+    companionSearchResults.value = []
+    return
+  }
+  companionSearchTimeout = setTimeout(async () => {
+    const excludeIds = new Set(
+      [primary.value.id, ...companions.value.map((c) => c.person.id)].filter(Boolean),
+    )
+    const response = await $fetch<{ data: Array<{ id: string; full_name: string }> }>('/api/guests', {
+      query: { search: value.trim(), withoutParty: true, pageSize: 6 },
+    })
+    companionSearchResults.value = response.data.filter((g) => !excludeIds.has(g.id))
+  }, 300)
+})
+
+async function selectExistingCompanion(guestId: string) {
+  const detail = await $fetch<Record<string, unknown>>(`/api/guests/${guestId}`)
+  companionDraft.value = personFromGuest(detail)
+  companionDraftError.value = null
+  companionSearchQuery.value = ''
+  companionSearchResults.value = []
+}
 
 function startAddCompanion() {
   companionDraft.value = emptyPerson()
   editingCompanionKey.value = null
+  companionDraftError.value = null
+  companionSearchQuery.value = ''
+  companionSearchResults.value = []
   isAddingCompanion.value = true
 }
 
 function startEditCompanion(entry: CompanionEntry) {
   companionDraft.value = { ...entry.person }
   editingCompanionKey.value = entry.key
+  companionDraftError.value = null
   isAddingCompanion.value = true
 }
 
 function confirmCompanion() {
-  if (!companionDraft.value.fullName.trim()) return
+  if (!companionDraft.value.fullName.trim()) {
+    companionDraftError.value = 'Informe o nome do acompanhante.'
+    return
+  }
+  companionDraftError.value = null
 
   if (editingCompanionKey.value) {
     const target = companions.value.find((c) => c.key === editingCompanionKey.value)
     if (target) target.person = { ...companionDraft.value }
   } else {
     companions.value.push({
-      key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      key: companionDraft.value.id ?? `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       person: { ...companionDraft.value },
     })
   }
@@ -238,7 +287,12 @@ async function handleSubmit() {
     <!-- Passo: Dados do Convidado -->
     <UiCard v-if="currentStepId === 'dados'">
       <h2 class="mb-4 text-lg font-medium text-text">Dados do Convidado</h2>
-      <AdminGuestsGuestPersonFields v-model="primary" :group-options="groupOptions" />
+      <AdminGuestsGuestPersonFields
+        v-model="primary"
+        :group-options="groupOptions"
+        :full-name-error="primaryNameError"
+        @group-created="() => refreshGroups()"
+      />
     </UiCard>
 
     <!-- Passo: Acompanhantes -->
@@ -279,7 +333,32 @@ async function handleSubmit() {
       </ul>
 
       <div v-if="isAddingCompanion" class="mb-4 rounded-md border border-border p-4">
-        <AdminGuestsGuestPersonFields v-model="companionDraft" :group-options="groupOptions" />
+        <div v-if="!editingCompanionKey" class="mb-4 flex flex-col gap-2">
+          <UiInput
+            v-model="companionSearchQuery"
+            placeholder="Buscar convidado já cadastrado (opcional)"
+          />
+          <ul v-if="companionSearchResults.length" class="flex flex-col gap-1">
+            <li v-for="result in companionSearchResults" :key="result.id">
+              <button
+                type="button"
+                class="w-full rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-surface-muted"
+                @click="selectExistingCompanion(result.id)"
+              >
+                {{ result.full_name }}
+              </button>
+            </li>
+          </ul>
+          <p v-if="companionDraft.id" class="text-xs text-green-700">
+            Convidado existente selecionado — revise os dados abaixo antes de confirmar.
+          </p>
+        </div>
+        <AdminGuestsGuestPersonFields
+          v-model="companionDraft"
+          :group-options="groupOptions"
+          :full-name-error="companionDraftError"
+          @group-created="() => refreshGroups()"
+        />
         <div class="mt-4 flex justify-end gap-2">
           <UiButton variant="ghost" @click="isAddingCompanion = false">Cancelar</UiButton>
           <UiButton @click="confirmCompanion">Confirmar</UiButton>
