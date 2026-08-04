@@ -9,6 +9,8 @@ useSeoMeta({
 })
 
 const { searchGuests, selectGuest, confirmGuest } = useRsvp()
+const slug = useWeddingSlug()
+const backToSiteLink = computed(() => `/${slug}`)
 
 type Step = 'search' | 'light-confirm' | 'invite'
 const step = ref<Step>('search')
@@ -71,54 +73,94 @@ async function handleConfirmIdentity() {
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-lg flex-col gap-6 px-4 py-16">
+  <div class="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-4 py-16">
+    <!--
+      Só a etapa 'search' não tem uma "etapa anterior" real dentro do
+      próprio fluxo de RSVP — por isso é a única que volta direto pro site.
+      'light-confirm' já tem "Buscar de novo" (volta pra busca) e 'invite'
+      tem seu próprio botão "Voltar à busca" (RsvpInviteFlow, evento @back).
+    -->
+    <NuxtLink
+      v-if="step === 'search'"
+      :to="backToSiteLink"
+      class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+    >
+      <Icon name="lucide:arrow-left" class="h-4 w-4" />
+      Voltar ao site
+    </NuxtLink>
+
     <template v-if="step === 'search'">
-      <div>
-        <h1 class="text-xl font-semibold text-text">Confirmação de Presença</h1>
-        <p class="mt-2 text-sm text-text-muted">Digite seu nome para localizar seu convite.</p>
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 16 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
+        class="flex flex-col gap-6 rounded-lg border border-border bg-surface-elevated p-8 shadow-md sm:p-10"
+      >
+        <div class="flex flex-col items-center gap-3 text-center">
+          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Icon name="lucide:mail-check" class="h-5 w-5" />
+          </span>
+          <div>
+            <h1 class="font-display text-2xl font-semibold text-heading">Confirmação de Presença</h1>
+            <p class="mt-1 text-sm text-text-muted">Digite seu nome para localizar seu convite.</p>
+          </div>
+        </div>
+
+        <UiInput v-model="query" placeholder="Seu nome completo" autofocus />
+
+        <p v-if="searchError" class="text-sm text-red-600" role="alert">{{ searchError }}</p>
+
+        <ul v-if="results.length" class="flex flex-col gap-2">
+          <li v-for="result in results" :key="result.guestId">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-colors hover:border-primary/40 hover:bg-primary/5"
+              @click="handleSelectResult(result)"
+            >
+              {{ result.fullName }}
+              <Icon name="lucide:chevron-right" class="h-4 w-4 text-text-muted" />
+            </button>
+          </li>
+        </ul>
+        <p v-else-if="query.trim().length >= 3 && !isSearching" class="text-center text-sm text-text-muted">
+          Nenhum convidado encontrado com esse nome.
+        </p>
       </div>
-
-      <UiInput v-model="query" placeholder="Digite seu nome" autofocus />
-
-      <p v-if="searchError" class="text-sm text-red-600" role="alert">{{ searchError }}</p>
-
-      <ul v-if="results.length" class="flex flex-col gap-2">
-        <li v-for="result in results" :key="result.guestId">
-          <button
-            type="button"
-            class="w-full rounded-md border border-border px-4 py-3 text-left text-sm text-text hover:bg-surface-muted"
-            @click="handleSelectResult(result)"
-          >
-            {{ result.fullName }}
-          </button>
-        </li>
-      </ul>
-      <p v-else-if="query.trim().length >= 3 && !isSearching" class="text-sm text-text-muted">
-        Nenhum convidado encontrado com esse nome.
-      </p>
     </template>
 
     <template v-else-if="step === 'light-confirm'">
-      <div class="flex flex-col items-center gap-4 text-center">
-        <p class="text-xl font-semibold text-text">Encontramos você! 🎉</p>
-        <p v-if="maskedNames.length" class="text-sm text-text-muted">
-          Seu convite também inclui: {{ maskedNames.join(', ') }}
-        </p>
-        <div class="flex gap-2">
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 16 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
+        class="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface-elevated p-8 text-center shadow-md sm:p-10"
+      >
+        <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon name="lucide:party-popper" class="h-5 w-5" />
+        </span>
+        <div>
+          <p class="font-display text-xl font-semibold text-heading">Encontramos você!</p>
+          <p v-if="maskedNames.length" class="mt-1 text-sm text-text-muted">
+            Seu convite também inclui: {{ maskedNames.join(', ') }}
+          </p>
+        </div>
+        <div class="flex gap-3">
           <UiButton @click="handleConfirmIdentity">Sim, sou eu</UiButton>
-          <UiButton variant="ghost" @click="backToSearch">Não, buscar de novo</UiButton>
+          <UiButton variant="ghost" @click="backToSearch">Buscar de novo</UiButton>
         </div>
       </div>
     </template>
 
     <template v-else-if="step === 'invite' && invitePayload">
-      <div>
-        <p class="text-sm uppercase tracking-widest text-text-muted">
-          {{ invitePayload.wedding.coupleNames }}
-        </p>
-        <h1 class="mt-1 text-xl font-semibold text-text">Confirmação de Presença</h1>
+      <div class="flex flex-col gap-6">
+        <div class="text-center">
+          <p class="text-sm uppercase tracking-widest text-text-muted">
+            {{ invitePayload.wedding.coupleNames }}
+          </p>
+          <h1 class="mt-1 font-display text-2xl font-semibold text-heading">Confirmação de Presença</h1>
+        </div>
+        <RsvpInviteFlow :payload="invitePayload" @back="backToSearch" />
       </div>
-      <RsvpInviteFlow :payload="invitePayload" />
     </template>
   </div>
 </template>

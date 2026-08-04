@@ -6,6 +6,10 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+// 'back' — volta para a etapa anterior do fluxo (busca), não para o site: só
+// a etapa 'guests' (primeira deste componente) emite, o parent (rsvp/
+// index.vue) decide o que "etapa anterior" significa ali.
+const emit = defineEmits<{ back: [] }>()
 const { autosaveGuestStatus, finalizeInvite } = useRsvp()
 const toast = useToast()
 const slug = useWeddingSlug()
@@ -104,6 +108,16 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
 
 <template>
   <div class="flex flex-col gap-6">
+    <button
+      v-if="step === 'guests'"
+      type="button"
+      class="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+      @click="emit('back')"
+    >
+      <Icon name="lucide:arrow-left" class="h-4 w-4" />
+      Voltar à busca
+    </button>
+
     <p
       v-if="isPastDeadline"
       class="rounded-md border border-border bg-surface-muted p-4 text-sm text-text-muted"
@@ -113,42 +127,43 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
     </p>
 
     <template v-if="step === 'guests'">
-      <div v-for="guest in guestStates" :key="guest.guestId" class="rounded-lg border border-border p-4">
-        <p class="mb-3 font-medium text-text">{{ guest.fullName }}</p>
-        <div class="flex gap-2">
-          <button
+      <div
+        v-for="guest in guestStates"
+        :key="guest.guestId"
+        class="rounded-lg border border-border bg-surface-elevated p-5 shadow-sm"
+      >
+        <p class="mb-4 font-display text-lg font-semibold text-heading">{{ guest.fullName }}</p>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <UiButton
             type="button"
-            class="rounded-full px-4 py-2 text-sm font-medium"
-            :class="
-              guest.status === 'confirmed'
-                ? 'bg-primary text-primary-foreground'
-                : 'border border-border text-text'
-            "
+            class="flex-1 whitespace-nowrap"
+            rounded="full"
+            :variant="guest.status === 'confirmed' ? 'primary' : 'outline'"
             :disabled="isPastDeadline"
             @click="setStatus(guest, 'confirmed')"
           >
+            <Icon name="lucide:check" class="h-4 w-4" />
             Estarei lá
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="button"
-            class="rounded-full px-4 py-2 text-sm font-medium"
-            :class="
-              guest.status === 'declined'
-                ? 'bg-primary text-primary-foreground'
-                : 'border border-border text-text'
-            "
+            class="flex-1 whitespace-nowrap"
+            rounded="full"
+            variant="outline"
+            :class="guest.status === 'declined' ? '!border-text !bg-text !text-surface' : ''"
             :disabled="isPastDeadline"
             @click="setStatus(guest, 'declined')"
           >
+            <Icon name="lucide:x" class="h-4 w-4" />
             Não poderei ir
-          </button>
+          </UiButton>
         </div>
 
         <UiTextarea
           v-if="guest.status === 'confirmed'"
           v-model="guest.dietaryRestrictions"
           label="Restrição alimentar (opcional)"
-          class="mt-3"
+          class="mt-4"
           :disabled="isPastDeadline"
           @update:model-value="onDietaryChange(guest)"
         />
@@ -160,36 +175,50 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
             Acompanhantes ({{ companions.length }}<template v-if="payload.maxCompanions !== null">/{{ payload.maxCompanions }}</template>)
           </span>
           <UiButton type="button" size="sm" variant="ghost" :disabled="!canAddCompanion || isPastDeadline" @click="addCompanion">
-            Adicionar acompanhante
+            <Icon name="lucide:plus" class="h-4 w-4" />
+            Adicionar
           </UiButton>
         </div>
         <div
           v-for="(companion, index) in companions"
           :key="index"
-          class="flex flex-col gap-2 rounded-md border border-border p-3"
+          class="flex flex-col gap-3 rounded-lg border border-border bg-surface-elevated p-4"
         >
           <div class="flex items-start gap-2">
             <UiInput v-model="companion.fullName" class="flex-1" label="Nome" :disabled="isPastDeadline" />
-            <UiButton type="button" size="sm" variant="ghost" class="mt-6" :disabled="isPastDeadline" @click="removeCompanion(index)">
-              Remover
+            <UiButton
+              type="button"
+              size="sm"
+              variant="ghost"
+              class="mt-6"
+              :disabled="isPastDeadline"
+              @click="removeCompanion(index)"
+            >
+              <Icon name="lucide:trash-2" class="h-4 w-4" />
             </UiButton>
           </div>
           <UiInput v-model="companion.dietaryRestrictions" label="Restrição alimentar (opcional)" :disabled="isPastDeadline" />
         </div>
       </template>
 
-      <UiButton :disabled="!allAnswered || isPastDeadline" @click="step = 'review'">
+      <UiButton size="lg" :disabled="!allAnswered || isPastDeadline" @click="step = 'review'">
         Revisar e enviar
       </UiButton>
     </template>
 
     <template v-else-if="step === 'review'">
-      <ul class="flex flex-col gap-2">
-        <li v-for="guest in guestStates" :key="guest.guestId" class="flex items-center gap-2 text-sm">
-          <Icon :name="guest.status === 'confirmed' ? 'lucide:check' : 'lucide:x'" class="h-4 w-4" />
-          {{ guest.fullName }} — {{ statusLabel(guest.status) }}
-        </li>
-      </ul>
+      <div class="flex flex-col gap-3 rounded-lg border border-border bg-surface-elevated p-5">
+        <div
+          v-for="guest in guestStates"
+          :key="guest.guestId"
+          class="flex items-center justify-between gap-2 text-sm"
+        >
+          <span class="text-text">{{ guest.fullName }}</span>
+          <UiBadge :tone="guest.status === 'confirmed' ? 'success' : 'danger'">
+            {{ statusLabel(guest.status) }}
+          </UiBadge>
+        </div>
+      </div>
 
       <UiTextarea v-model="message" label="Mensagem para o casal (opcional)" :disabled="isPastDeadline" />
 
@@ -203,12 +232,17 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
 
     <template v-else>
       <div class="flex flex-col items-center gap-4 py-8 text-center">
-        <p class="text-2xl">❤️ Presença confirmada!</p>
-        <p class="text-text-muted">
-          Obrigado por compartilhar este momento conosco. Sua confirmação foi registrada com
-          sucesso.
-        </p>
-        <div class="flex gap-2">
+        <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon name="lucide:heart" class="h-6 w-6" />
+        </span>
+        <div>
+          <p class="font-display text-xl font-semibold text-heading">Presença confirmada!</p>
+          <p class="mt-1 text-text-muted">
+            Obrigado por compartilhar este momento conosco. Sua confirmação foi registrada com
+            sucesso.
+          </p>
+        </div>
+        <div class="flex gap-3">
           <UiButton variant="outline" :disabled="isPastDeadline" @click="step = 'guests'">
             Alterar confirmação
           </UiButton>
