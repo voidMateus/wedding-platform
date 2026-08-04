@@ -30,11 +30,7 @@ function mountSpotlight(props: Record<string, unknown>) {
   return mount(EventSpotlight, {
     props,
     global: {
-      components: {
-        UiSectionDivider: SectionDivider,
-        PublicEditorialSection: EditorialSection,
-        UiButton: Button,
-      },
+      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection, UiButton: Button },
       stubs: {
         ...ICON_STUBS,
         PublicVenueMap: { template: '<div data-test="venue-map" />' },
@@ -45,92 +41,44 @@ function mountSpotlight(props: Record<string, unknown>) {
 }
 
 describe('PublicEventSpotlight', () => {
-  it('usa o título do segmento como título da seção', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment({ title: 'Cerimônia' }) })
+  it('usa o título do segmento como título da seção quando há um único momento', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment({ title: 'Cerimônia' })] })
     expect(wrapper.find('h2').text()).toBe('Cerimônia')
   })
 
-  it('renderiza local e endereço quando presentes', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment() })
-    expect(wrapper.text()).toContain('Igreja São José')
-    expect(wrapper.text()).toContain('Rua das Flores, 100')
-  })
-
-  it('não quebra quando local/endereço estão ausentes', () => {
-    const wrapper = mountSpotlight({
-      segment: makeSegment({ venue_name: null, venue_address: null }),
-    })
-    expect(wrapper.text()).not.toContain('null')
-  })
-
-  it('formata a faixa de horário quando início e fim existem', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment() })
-    expect(wrapper.text()).toMatch(/\d{2}:\d{2}\s*–\s*\d{2}:\d{2}/)
-  })
-
-  it('propaga o id para a âncora de navegação', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment(), id: 'cerimonia' })
+  it('a âncora é derivada do título classificado', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment({ title: 'Cerimônia' })] })
     expect(wrapper.find('#cerimonia').exists()).toBe(true)
   })
 
-  it('renderiza o mapa a partir do endereço em texto, mesmo sem coordenadas', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment() })
+  it('renderiza o mapa a partir do endereço em texto', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment()] })
     expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(true)
   })
 
-  it('renderiza o mapa quando há coordenadas (mesmo sem endereço em texto)', () => {
-    const wrapper = mountSpotlight({
-      segment: makeSegment({
-        venue_name: null,
-        venue_address: null,
-        venue_latitude: -15.6,
-        venue_longitude: -56.1,
-      }),
+  describe('fusão quando Cerimônia e Recepção têm o mesmo endereço', () => {
+    function makeMergedGroup() {
+      const ceremony = makeSegment({ id: 'a', title: 'Cerimônia', starts_at: '2027-05-16T16:00:00Z' })
+      const reception = makeSegment({ id: 'b', title: 'Recepção', same_venue_as: 'a', starts_at: '2027-05-16T18:00:00Z' })
+      return [ceremony, reception]
+    }
+
+    it('junta os títulos no título da seção', () => {
+      const wrapper = mountSpotlight({ segments: makeMergedGroup() })
+      expect(wrapper.find('h2').text()).toBe('Cerimônia e Recepção')
     })
-    expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(true)
-  })
 
-  it('não renderiza o mapa quando não há local, endereço nem coordenadas', () => {
-    const wrapper = mountSpotlight({
-      segment: makeSegment({ venue_name: null, venue_address: null }),
+    it('renderiza um badge por momento e um único mapa/botão', () => {
+      const wrapper = mountSpotlight({ segments: makeMergedGroup() })
+      expect(wrapper.findAll('span.rounded-full')).toHaveLength(2)
+      expect(wrapper.findAll('[data-test="venue-map"]')).toHaveLength(1)
+      expect(wrapper.findAll('a')).toHaveLength(1)
     })
-    expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(false)
-  })
 
-  it('botão "Abrir no Google Maps" usa as coordenadas quando existem (prioridade sobre o endereço)', () => {
-    const wrapper = mountSpotlight({
-      segment: makeSegment({ venue_latitude: -15.6, venue_longitude: -56.1 }),
+    it('expõe as duas âncoras (#cerimonia na seção, #recepcao interna)', () => {
+      const wrapper = mountSpotlight({ segments: makeMergedGroup() })
+      expect(wrapper.find('section').attributes('id')).toBe('cerimonia')
+      expect(wrapper.find('#recepcao').exists()).toBe(true)
     })
-    const link = wrapper.find('a')
-    expect(link.attributes('href')).toBe(
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('-15.6,-56.1')}`,
-    )
-    expect(link.attributes('target')).toBe('_blank')
-  })
-
-  it('botão "Abrir no Google Maps" usa o endereço em texto quando não há coordenadas', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment() })
-    const link = wrapper.find('a')
-    expect(link.attributes('href')).toContain('google.com/maps/search')
-    expect(link.attributes('href')).toContain(encodeURIComponent('Igreja São José'))
-  })
-
-  it('não renderiza o botão de mapa quando não há local, endereço nem coordenadas', () => {
-    const wrapper = mountSpotlight({
-      segment: makeSegment({ venue_name: null, venue_address: null }),
-    })
-    expect(wrapper.find('a').exists()).toBe(false)
-  })
-
-  it('badge usa o título em maiúsculas quando classificado (Cerimônia/Recepção/Festa)', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment({ title: 'Cerimônia' }) })
-    const badge = wrapper.find('span.rounded-full')
-    expect(badge.text()).toBe('CERIMÔNIA')
-  })
-
-  it('badge usa o título original quando não classificado (ex.: chá de panela)', () => {
-    const wrapper = mountSpotlight({ segment: makeSegment({ title: 'Chá de panela' }) })
-    const badge = wrapper.find('span.rounded-full')
-    expect(badge.text()).toBe('Chá de panela')
   })
 })

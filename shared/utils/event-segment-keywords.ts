@@ -25,3 +25,11 @@ export const EVENT_SEGMENT_ICONS: Record<EventSegmentKind, string> = {
   party: 'lucide:party-popper',
   other: 'lucide:calendar',
 }
+
+/** Âncora fixa para deep-link (só cerimônia/recepção têm uma própria). */
+export function anchorForEventSegmentTitle(title: string): string | undefined {
+  const kind = classifyEventSegmentTitle(title)
+  if (kind === 'ceremony') return 'cerimonia'
+  if (kind === 'reception') return 'recepcao'
+  return undefined
+}
