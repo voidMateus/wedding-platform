@@ -7,6 +7,13 @@ const { getPublicEventSegments } = usePublicEventSegments()
 const { data: wedding, status: weddingStatus } = getPublicWedding()
 const { data: segmentsResponse } = getPublicEventSegments()
 
+// Repassado a Hero/GiftsShowcaseSection como prop (em vez de cada um chamar
+// useRoute() diretamente) — mantém os dois testáveis com @vue/test-utils
+// puro, e preserva a autorização de reservar/contribuir na navegação real
+// para /presentes (CLAUDE.md §4.5/14).
+const route = useRoute()
+const code = computed(() => (typeof route.query.code === 'string' ? route.query.code : undefined))
+
 // Cada item do cronograma vira sua própria seção em destaque — substitui a
 // antiga lista "Programação", redundante com estas seções quando só há
 // Cerimônia/Recepção (feedback de produto: ter as duas era duplicar a mesma
@@ -57,7 +64,7 @@ useSeoMeta({
     />
 
     <template v-else>
-      <PublicHero :wedding="wedding" :segments="resolvedSegments" />
+      <PublicHero :wedding="wedding" :segments="resolvedSegments" :code="code" />
       <PublicStorySection :wedding="wedding" />
       <PublicSaveTheDateCard v-if="resolvedSegments.length" :event-date="wedding.event_date" />
       <div id="cronograma">
@@ -72,7 +79,7 @@ useSeoMeta({
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
       <PublicGroomsmenManualSection />
-      <PublicGiftsShowcaseSection />
+      <PublicGiftsShowcaseSection :code="code" />
       <PublicRsvpTeaserSection :wedding="wedding" />
       <PublicGallerySection />
       <PublicFaqSection />

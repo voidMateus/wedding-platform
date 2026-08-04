@@ -8,9 +8,16 @@ import type { Wedding } from '~/types/wedding'
 interface Props {
   wedding: Wedding
   segments?: EventSegment[]
+  /**
+   * Token de acesso do convidado (?code=), se presente na URL atual —
+   * resolvido pela página (que já tem contexto de rota real) em vez de
+   * chamar useRoute() aqui dentro: mantém este componente testável com
+   * @vue/test-utils puro, sem precisar de app Nuxt completo no mount.
+   */
+  code?: string
 }
 
-const { wedding, segments = [] } = defineProps<Props>()
+const { wedding, segments = [], code } = defineProps<Props>()
 
 const theme = computed(() => (wedding.theme_config ?? {}) as Partial<ThemeConfig>)
 
@@ -60,14 +67,17 @@ const coverFocalPosition = computed(
 // aparecem e qual fica em destaque (theme_config.heroButtons/
 // heroFeaturedButton, editável em /admin/configuracoes) — catálogo fixo em
 // shared/hero-buttons.ts, sem seleção salva ainda cai num default sensato.
-// shared/hero-buttons.ts guarda só a âncora ("/#presentes") — precisa do
+// shared/hero-buttons.ts guarda só a âncora ("/#historia" etc.) — precisa do
 // slug do casamento (CLAUDE.md, seção 4.4/33) prefixado aqui para navegar
 // para a home certa em vez de cair na raiz neutra sem casamento nenhum.
 const heroButtons = computed(() =>
-  resolveHeroButtons(theme.value.heroButtons, theme.value.heroFeaturedButton).map((button) => ({
-    ...button,
-    href: `/${wedding.slug}${button.href}`,
-  })),
+  resolveHeroButtons(theme.value.heroButtons, theme.value.heroFeaturedButton).map((button) => {
+    // 'presentes' é o único atalho que navega pra uma página de verdade
+    // (não uma âncora na home) — precisa preservar ?code=, senão o
+    // convidado perde a autorização de reservar/contribuir ao clicar.
+    const suffix = button.id === 'presentes' && code ? `?code=${code}` : ''
+    return { ...button, href: `/${wedding.slug}${button.href}${suffix}` }
+  }),
 )
 </script>
 

@@ -11,7 +11,10 @@ export interface HeroButtonDefinition {
 }
 
 export const HERO_BUTTON_CATALOG: HeroButtonDefinition[] = [
-  { id: 'presentes', label: 'Ver lista de presentes', icon: 'lucide:gift', href: '/#presentes' },
+  // Não é uma âncora como os demais — a lista de presentes tem página
+  // própria dedicada (Hero.vue trata este id como caso especial, para
+  // também preservar ?code= na navegação real de rota).
+  { id: 'presentes', label: 'Ver lista de presentes', icon: 'lucide:gift', href: '/presentes' },
   { id: 'confirmar-presenca', label: 'Confirmar presença', icon: 'lucide:check', href: '/#confirmar-presenca' },
   { id: 'cronograma', label: 'Cerimônia e festa', icon: 'lucide:calendar-clock', href: '/#cronograma' },
   { id: 'manual-convidados', label: 'Manual do convidado', icon: 'lucide:info', href: '/#manual-convidados' },
