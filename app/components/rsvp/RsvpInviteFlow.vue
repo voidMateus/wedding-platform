@@ -135,7 +135,8 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
             type="button"
             class="flex-1"
             rounded="full"
-            :variant="guest.status === 'declined' ? 'secondary' : 'outline'"
+            variant="outline"
+            :class="guest.status === 'declined' ? '!border-text !bg-text !text-surface' : ''"
             :disabled="isPastDeadline"
             @click="setStatus(guest, 'declined')"
           >
