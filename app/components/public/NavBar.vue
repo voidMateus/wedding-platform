@@ -29,9 +29,9 @@ const { coupleNames, slug, code } = defineProps<Props>()
 // pensada para escalar quando a lista crescer bastante (ex.: 100+ itens).
 const NAV_LINKS = computed(() => [
   { to: `/${slug}/#historia`, label: 'Nossa História' },
-  { to: `/${slug}/#cronograma`, label: 'Cronograma' },
+  { to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
   { to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
-  { to: `/${slug}/#galeria`, label: 'Galeria' },
+  { to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
 ])
 
 const homeLink = computed(() => `/${slug}`)

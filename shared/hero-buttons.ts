@@ -16,11 +16,11 @@ export const HERO_BUTTON_CATALOG: HeroButtonDefinition[] = [
   // também preservar ?code= na navegação real de rota).
   { id: 'presentes', label: 'Ver lista de presentes', icon: 'lucide:gift', href: '/presentes' },
   { id: 'confirmar-presenca', label: 'Confirmar presença', icon: 'lucide:check', href: '/#confirmar-presenca' },
-  { id: 'cronograma', label: 'Cerimônia e festa', icon: 'lucide:calendar-clock', href: '/#cronograma' },
+  { id: 'cronograma', label: 'O Grande Dia', icon: 'lucide:calendar-clock', href: '/#grande-dia' },
   { id: 'manual-convidados', label: 'Manual do convidado', icon: 'lucide:info', href: '/#manual-convidados' },
   { id: 'dress-code', label: 'Dress code', icon: 'lucide:shirt', href: '/#dress-code' },
   { id: 'historia', label: 'Nossa história', icon: 'lucide:heart', href: '/#historia' },
-  { id: 'galeria', label: 'Galeria', icon: 'lucide:image', href: '/#galeria' },
+  { id: 'galeria', label: 'Nossos Momentos', icon: 'lucide:image', href: '/#nossos-momentos' },
   { id: 'faq', label: 'Perguntas frequentes', icon: 'lucide:help-circle', href: '/#faq' },
 ]
 

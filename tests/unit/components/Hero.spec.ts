@@ -60,7 +60,7 @@ function mountHero(props: Record<string, unknown>) {
 const QUICK_LINK_HREFS = [
   '/ana-e-joao/presentes',
   '/ana-e-joao/#confirmar-presenca',
-  '/ana-e-joao/#cronograma',
+  '/ana-e-joao/#grande-dia',
   '/ana-e-joao/#manual-convidados',
 ]
 
@@ -146,13 +146,13 @@ describe('PublicHero', () => {
       wedding: makeWedding({ theme_config: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' } }),
     })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain('/ana-e-joao/#galeria')
+    expect(hrefs).toContain('/ana-e-joao/#nossos-momentos')
     expect(hrefs).toContain('/ana-e-joao/#faq')
     expect(hrefs).not.toContain('/ana-e-joao/presentes')
 
     const faqLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#faq')
     expect(faqLink?.classes()).toContain('bg-primary')
-    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#galeria')
+    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#nossos-momentos')
     expect(galeriaLink?.classes()).not.toContain('bg-primary')
   })
 

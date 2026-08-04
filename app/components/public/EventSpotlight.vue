@@ -5,10 +5,9 @@ import type { EventSegment } from '~/types/event-segment'
 interface Props {
   /** Um ou mais segmentos que compartilham local (CLAUDE.md, §12.2) — o primeiro é sempre o dono dos dados de local/mapa. */
   segments: EventSegment[]
-  tone?: 'default' | 'muted'
 }
 
-const { segments, tone = 'default' } = defineProps<Props>()
+const { segments } = defineProps<Props>()
 
 const primary = computed(() => segments[0]!)
 
@@ -31,6 +30,9 @@ function timeRangeFor(segment: EventSegment): string | null {
 
 const sectionTitle = computed(() => segments.map((s) => s.title).join(' e '))
 
+// Âncoras internas (#cerimonia/#recepcao) — mantidas para compatibilidade
+// com links diretos já compartilhados, mesmo que o card não seja mais uma
+// seção própria (agora vive dentro de "O Grande Dia", ver GrandeDiaSection).
 const anchorIds = computed(() => {
   const seen = new Set<string>()
   for (const segment of segments) {
@@ -39,8 +41,6 @@ const anchorIds = computed(() => {
   }
   return [...seen]
 })
-const sectionId = computed(() => anchorIds.value[0])
-const secondaryAnchorIds = computed(() => anchorIds.value.slice(1))
 
 const locationQuery = computed(() => {
   const segment = primary.value
@@ -59,44 +59,41 @@ const externalMapsUrl = computed(() =>
 </script>
 
 <template>
-  <PublicEditorialSection :id="sectionId" :title="sectionTitle" :tone="tone">
-    <span v-for="anchorId in secondaryAnchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
-    <div
-      class="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 shadow-md"
-    >
-      <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">
-        <span
-          class="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
-        >
-          {{ badgeLabelFor(segment) }}
-        </span>
-        <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">{{ timeRangeFor(segment) }}</p>
-      </div>
+  <div class="flex w-full flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 shadow-md">
+    <span v-for="anchorId in anchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
 
-      <div v-if="primary.venue_name || primary.venue_address" class="flex flex-col gap-1">
-        <h3 v-if="primary.venue_name" class="font-display text-2xl font-semibold text-heading">
-          {{ primary.venue_name }}
-        </h3>
-        <p v-if="primary.venue_address" class="flex items-start gap-1.5 text-sm text-text-muted">
-          <Icon name="lucide:map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
-          {{ primary.venue_address }}
-        </p>
-      </div>
-
-      <PublicVenueMap v-if="locationQuery" :query="locationQuery" :label="primary.venue_name || sectionTitle" />
-
-      <UiButton
-        v-if="externalMapsUrl"
-        variant="outline"
-        rounded="full"
-        size="sm"
-        class="self-start"
-        :to="externalMapsUrl"
-        target="_blank"
+    <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">
+      <span
+        class="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
       >
-        <Icon name="lucide:external-link" class="h-4 w-4" />
-        Abrir no Google Maps
-      </UiButton>
+        {{ badgeLabelFor(segment) }}
+      </span>
+      <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">{{ timeRangeFor(segment) }}</p>
     </div>
-  </PublicEditorialSection>
+
+    <div v-if="primary.venue_name || primary.venue_address" class="flex flex-col gap-1">
+      <h3 v-if="primary.venue_name" class="font-display text-2xl font-semibold text-heading">
+        {{ primary.venue_name }}
+      </h3>
+      <p v-if="primary.venue_address" class="flex items-start gap-1.5 text-sm text-text-muted">
+        <Icon name="lucide:map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
+        {{ primary.venue_address }}
+      </p>
+    </div>
+
+    <PublicVenueMap v-if="locationQuery" :query="locationQuery" :label="primary.venue_name || sectionTitle" />
+
+    <UiButton
+      v-if="externalMapsUrl"
+      variant="outline"
+      rounded="full"
+      size="sm"
+      class="self-start"
+      :to="externalMapsUrl"
+      target="_blank"
+    >
+      <Icon name="lucide:external-link" class="h-4 w-4" />
+      Abrir no Google Maps
+    </UiButton>
+  </div>
 </template>

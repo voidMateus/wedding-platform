@@ -1,8 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import EventSpotlight from '~/components/public/EventSpotlight.vue'
-import EditorialSection from '~/components/public/EditorialSection.vue'
-import SectionDivider from '~/components/ui/SectionDivider.vue'
 import Button from '~/components/ui/Button.vue'
 import type { EventSegment } from '~/types/event-segment'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
@@ -30,7 +28,7 @@ function mountSpotlight(props: Record<string, unknown>) {
   return mount(EventSpotlight, {
     props,
     global: {
-      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection, UiButton: Button },
+      components: { UiButton: Button },
       stubs: {
         ...ICON_STUBS,
         PublicVenueMap: { template: '<div data-test="venue-map" />' },
@@ -41,9 +39,10 @@ function mountSpotlight(props: Record<string, unknown>) {
 }
 
 describe('PublicEventSpotlight', () => {
-  it('usa o título do segmento como título da seção quando há um único momento', () => {
+  it('é apenas o cartão (sem seção/título próprios — vive dentro de "O Grande Dia")', () => {
     const wrapper = mountSpotlight({ segments: [makeSegment({ title: 'Cerimônia' })] })
-    expect(wrapper.find('h2').text()).toBe('Cerimônia')
+    expect(wrapper.find('section').exists()).toBe(false)
+    expect(wrapper.find('h2').exists()).toBe(false)
   })
 
   it('a âncora é derivada do título classificado', () => {
@@ -63,11 +62,6 @@ describe('PublicEventSpotlight', () => {
       return [ceremony, reception]
     }
 
-    it('junta os títulos no título da seção', () => {
-      const wrapper = mountSpotlight({ segments: makeMergedGroup() })
-      expect(wrapper.find('h2').text()).toBe('Cerimônia e Recepção')
-    })
-
     it('renderiza um badge por momento e um único mapa/botão', () => {
       const wrapper = mountSpotlight({ segments: makeMergedGroup() })
       expect(wrapper.findAll('span.rounded-full')).toHaveLength(2)
@@ -75,9 +69,9 @@ describe('PublicEventSpotlight', () => {
       expect(wrapper.findAll('a')).toHaveLength(1)
     })
 
-    it('expõe as duas âncoras (#cerimonia na seção, #recepcao interna)', () => {
+    it('expõe as duas âncoras internas (#cerimonia e #recepcao)', () => {
       const wrapper = mountSpotlight({ segments: makeMergedGroup() })
-      expect(wrapper.find('section').attributes('id')).toBe('cerimonia')
+      expect(wrapper.find('#cerimonia').exists()).toBe(true)
       expect(wrapper.find('#recepcao').exists()).toBe(true)
     })
   })

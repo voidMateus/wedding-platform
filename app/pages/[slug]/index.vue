@@ -14,22 +14,21 @@ const { data: segmentsResponse } = getPublicEventSegments()
 const route = useRoute()
 const code = computed(() => (typeof route.query.code === 'string' ? route.query.code : undefined))
 
-// Cada item do cronograma vira sua própria seção em destaque — substitui a
-// antiga lista "Programação", redundante com estas seções quando só há
-// Cerimônia/Recepção (feedback de produto: ter as duas era duplicar a mesma
-// informação). A classificação por palavra-chave
-// (shared/utils/event-segment-keywords.ts) só decide o ícone e, para
-// Cerimônia/Recepção especificamente, uma âncora fixa (compatibilidade com
-// links já compartilhados) — todo segmento aparece aqui, não só os dois
-// classificados, o que também cobre casamentos com mais etapas (ex.: chá de
-// panela, coquetel).
+// Todo item do cronograma alimenta a seção única "O Grande Dia"
+// (GrandeDiaSection) — substitui a antiga lista "Programação" e a versão
+// anterior com uma seção própria por item (feedback de produto: nome fixo
+// e previsível é melhor que título dinâmico por segmento). A classificação
+// por palavra-chave (shared/utils/event-segment-keywords.ts) só decide o
+// ícone/badge de cada card e as âncoras internas de compatibilidade
+// (#cerimonia/#recepcao).
 const resolvedSegments = computed(() => {
   const segments = segmentsResponse.value?.data ?? []
   return segments.map((segment) => resolveEventSegmentVenue(segment, segments))
 })
 
-// Cerimônia/Recepção no mesmo endereço viram uma única seção (CLAUDE.md,
-// §12.2) — sem duplicar mapa/endereço em dois cards.
+// Cerimônia/Recepção no mesmo endereço viram um único card dentro de "O
+// Grande Dia" (CLAUDE.md, §12.2) — sem duplicar mapa/endereço; endereços
+// diferentes viram dois cards lado a lado na mesma seção.
 const eventSegmentGroups = computed(() => groupEventSegmentsByVenue(resolvedSegments.value))
 
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
@@ -64,20 +63,13 @@ useSeoMeta({
       <PublicHero :wedding="wedding" :segments="resolvedSegments" :code="code" />
       <PublicStorySection :wedding="wedding" />
       <PublicSaveTheDateCard v-if="resolvedSegments.length" :event-date="wedding.event_date" />
-      <div id="cronograma">
-        <PublicEventSpotlight
-          v-for="(group, index) in eventSegmentGroups"
-          :key="group[0]!.id"
-          :segments="group"
-          :tone="index % 2 === 0 ? 'default' : 'muted'"
-        />
-      </div>
+      <PublicGrandeDiaSection :groups="eventSegmentGroups" />
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
-      <PublicGiftsShowcaseSection :code="code" />
       <PublicRsvpTeaserSection :wedding="wedding" />
-      <PublicGallerySection />
+      <PublicGiftsShowcaseSection :code="code" />
       <PublicFaqSection />
+      <PublicGallerySection />
     </template>
   </div>
 </template>
