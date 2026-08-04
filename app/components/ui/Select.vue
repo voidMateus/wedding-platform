@@ -40,7 +40,7 @@ const selectId = useId()
       :value="modelValue"
       :aria-invalid="Boolean(error)"
       :aria-describedby="error ? `${selectId}-error` : undefined"
-      class="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
       @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
       <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>

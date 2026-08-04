@@ -25,7 +25,7 @@ const checkboxId = useId()
       type="checkbox"
       :checked="modelValue"
       :disabled="disabled"
-      class="h-4 w-4 rounded border-border text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      class="h-4 w-4 rounded border-border text-primary transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
     />
     <span v-if="label">{{ label }}</span>

@@ -74,13 +74,29 @@
   --radius-lg: 1rem;
   /* --radius-xl/--shadow-xl: tier "premium" reservado para cartões de
      destaque do site público (RSVP, presentes, cronograma) — mesma escala
-     fixa da plataforma, só um degrau a mais (CLAUDE.md, seção 22.1). Nunca
-     usado no admin, que permanece com radius-lg/shadow-sm (§21). */
+     fixa da plataforma, só um degrau a mais (CLAUDE.md, seção 22.1). O admin
+     (Fase Admin Premium) passa a usar os degraus médios (radius-md/shadow-md)
+     em estados de hover/interativo — só o tier xl permanece exclusivo do
+     site público (§21). */
   --radius-xl: 1.75rem;
   --shadow-sm: 0 1px 2px 0 rgb(43 38 34 / 0.05);
   --shadow-md: 0 4px 10px -2px rgb(43 38 34 / 0.08), 0 2px 4px -2px rgb(43 38 34 / 0.05);
   --shadow-lg: 0 12px 24px -4px rgb(43 38 34 / 0.12), 0 4px 8px -4px rgb(43 38 34 / 0.06);
   --shadow-xl: 0 28px 60px -12px rgb(43 38 34 / 0.18), 0 10px 24px -8px rgb(43 38 34 / 0.08);
+
+  /* Tokens de movimento (Fase Admin Premium, CLAUDE.md §22.1) — duração e
+     easing únicos para toda a plataforma, para que ajustar a "sensação" das
+     transições seja uma mudança de 2 variáveis, não de dezenas de
+     componentes. Usados via a utility .transition-brand abaixo. */
+  --transition-duration: 200ms;
+  --transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer utilities {
+  .transition-brand {
+    transition-duration: var(--transition-duration);
+    transition-timing-function: var(--transition-easing);
+  }
 }
 
 /* O drawer mobile (NavBar.vue/admin.vue) fica fora da tela via

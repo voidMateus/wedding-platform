@@ -63,4 +63,22 @@ describe('UiCard', () => {
     expect(wrapper.classes()).toContain('rounded-xl')
     expect(wrapper.classes()).toContain('shadow-xl')
   })
+
+  it('variant "default" (padrão) não aplica hover nem destaque', () => {
+    const wrapper = mount(Card, { slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).not.toContain('cursor-pointer')
+    expect(wrapper.classes().some((c) => c.includes('bg-primary/'))).toBe(false)
+  })
+
+  it('variant "interactive" ganha hover no degrau médio da escala', () => {
+    const wrapper = mount(Card, { props: { variant: 'interactive' }, slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('hover:shadow-md')
+    expect(wrapper.classes()).toContain('cursor-pointer')
+  })
+
+  it('variant "highlight" aplica ênfase visual sutil na cor primária', () => {
+    const wrapper = mount(Card, { props: { variant: 'highlight' }, slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('bg-primary/[0.03]')
+    expect(wrapper.classes()).toContain('!border-primary/20')
+  })
 })

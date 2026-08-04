@@ -28,7 +28,7 @@ const roundedClasses: Record<NonNullable<Props['rounded']>, string> = {
 }
 
 const variantClasses: Record<NonNullable<Props['variant']>, string> = {
-  primary: 'bg-primary text-primary-foreground hover:opacity-90',
+  primary: 'bg-primary text-primary-foreground hover:opacity-90 hover:shadow-md',
   secondary: 'bg-surface-muted text-text hover:bg-border',
   outline: 'border border-primary/25 bg-surface-elevated/70 text-primary backdrop-blur-sm hover:bg-primary/10',
   ghost: 'bg-transparent text-text hover:bg-surface-muted',
@@ -67,7 +67,7 @@ const pillClasses = computed(() =>
     :target="target"
     :rel="target === '_blank' ? 'noopener noreferrer' : undefined"
     :class="[
-      'inline-flex items-center justify-center gap-2 font-medium transition-all [font-family:var(--font-button)]',
+      'inline-flex items-center justify-center gap-2 font-medium transition-all active:scale-[0.98] transition-brand [font-family:var(--font-button)]',
       roundedClasses[rounded],
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
       variantClasses[variant],
@@ -82,9 +82,9 @@ const pillClasses = computed(() =>
     :type="type"
     :disabled="disabled"
     :class="[
-      'inline-flex items-center justify-center gap-2 font-medium transition-all [font-family:var(--font-button)]',
+      'inline-flex items-center justify-center gap-2 font-medium transition-all active:scale-[0.98] transition-brand [font-family:var(--font-button)]',
       roundedClasses[rounded],
-      'disabled:cursor-not-allowed disabled:opacity-50',
+      'disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
       variantClasses[variant],
       sizeClasses[size],
