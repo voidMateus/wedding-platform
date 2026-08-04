@@ -5,10 +5,9 @@ import type { EventSegment } from '~/types/event-segment'
 interface Props {
   /** Um ou mais segmentos que compartilham local (CLAUDE.md, §12.2) — o primeiro é sempre o dono dos dados de local/mapa. */
   segments: EventSegment[]
-  tone?: 'default' | 'muted'
 }
 
-const { segments, tone = 'default' } = defineProps<Props>()
+const { segments } = defineProps<Props>()
 
 const primary = computed(() => segments[0]!)
 
@@ -31,6 +30,9 @@ function timeRangeFor(segment: EventSegment): string | null {
 
 const sectionTitle = computed(() => segments.map((s) => s.title).join(' e '))
 
+// Âncoras internas (#cerimonia/#recepcao) — mantidas para compatibilidade
+// com links diretos já compartilhados, mesmo que o card não seja mais uma
+// seção própria (agora vive dentro de "O Grande Dia", ver GrandeDiaSection).
 const anchorIds = computed(() => {
   const seen = new Set<string>()
   for (const segment of segments) {
@@ -39,8 +41,6 @@ const anchorIds = computed(() => {
   }
   return [...seen]
 })
-const sectionId = computed(() => anchorIds.value[0])
-const secondaryAnchorIds = computed(() => anchorIds.value.slice(1))
 
 const locationQuery = computed(() => {
   const segment = primary.value
@@ -59,11 +59,19 @@ const externalMapsUrl = computed(() =>
 </script>
 
 <template>
-  <PublicEditorialSection :id="sectionId" :title="sectionTitle" :tone="tone">
-    <span v-for="anchorId in secondaryAnchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
-    <div
-      class="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 shadow-md"
-    >
+  <div class="flex w-full flex-col overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl">
+    <span v-for="anchorId in anchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
+
+    <NuxtImg
+      v-if="primary.image_url"
+      :src="primary.image_url"
+      :alt="primary.venue_name || sectionTitle"
+      class="aspect-video w-full object-cover"
+      sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"
+      loading="lazy"
+    />
+
+    <div class="flex flex-col gap-4 p-7">
       <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">
         <span
           class="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
@@ -98,5 +106,5 @@ const externalMapsUrl = computed(() =>
         Abrir no Google Maps
       </UiButton>
     </div>
-  </PublicEditorialSection>
+  </div>
 </template>

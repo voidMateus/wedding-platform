@@ -7,6 +7,16 @@
 // real — é copy genérico de placeholder, do tipo que o casal reescreveria
 // com a própria história assim que o admin de conteúdo existir.
 
+// Boas-vindas logo após o Hero (Fase Linguagem Visual, Rodada 6) —
+// continuação natural do Hero, sem card/caixa, só tipografia.
+export const WELCOME_CONTENT = {
+  title: 'Seja muito bem-vindo!',
+  paragraphs: [
+    'Criamos este espaço com muito carinho para compartilhar todos os detalhes do nosso grande dia e um pouco da nossa história.',
+    'É uma alegria imensa ter você aqui com a gente!',
+  ],
+}
+
 export const STORY_CONTENT = {
   paragraphs: [
     'Cada história de amor tem o seu próprio ritmo — a nossa começou devagar, em conversas que se estendiam sem pressa, e foi crescendo até se tornar a certeza que trazemos até aqui.',
@@ -88,34 +98,3 @@ export const FAQ_CONTENT: FaqItem[] = [
   },
 ]
 
-export const CONTACT_CONTENT = {
-  intro: 'Ficou com alguma dúvida que não respondemos aqui? Fale com a gente.',
-  email: 'contato@anaejoao.com.br',
-  note: 'Prefere WhatsApp? O número está no convite enviado junto com o seu link pessoal de confirmação.',
-}
-
-export const GROOMSMEN_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
-  intro: 'Um guia rápido para quem vai estar ao nosso lado nos bastidores do grande dia.',
-  topics: [
-    {
-      icon: 'lucide:door-open',
-      title: 'Chegada',
-      description: 'Pedimos a chegada com 1h de antecedência, para fotos e os últimos ajustes antes da cerimônia.',
-    },
-    {
-      icon: 'lucide:calendar-check',
-      title: 'Ensaio',
-      description: 'Marcaremos um ensaio nos dias anteriores — a data será combinada diretamente com cada um.',
-    },
-    {
-      icon: 'lucide:shirt',
-      title: 'Traje',
-      description: 'Alinharemos cor e estilo com antecedência, para tudo conversar com a nossa paleta.',
-    },
-    {
-      icon: 'lucide:heart-handshake',
-      title: 'No dia',
-      description: 'Contamos com vocês para ajudar os convidados a se acomodarem e para deixar tudo mais leve.',
-    },
-  ],
-}

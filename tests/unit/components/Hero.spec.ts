@@ -34,6 +34,7 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     venue_latitude: null,
     venue_longitude: null,
     same_venue_as: null,
+    image_url: null,
     starts_at: null,
     ends_at: null,
     display_order: 0,
@@ -52,6 +53,7 @@ function mountHero(props: Record<string, unknown>) {
         ...ICON_STUBS,
         NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
         NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to', 'target'] },
+        PublicHeroFlourish: { template: '<svg data-test="hero-flourish" />' },
       },
     },
   })
@@ -59,8 +61,8 @@ function mountHero(props: Record<string, unknown>) {
 
 const QUICK_LINK_HREFS = [
   '/ana-e-joao/presentes',
-  '/ana-e-joao/#confirmar-presenca',
-  '/ana-e-joao/#cronograma',
+  '/ana-e-joao/rsvp',
+  '/ana-e-joao/#grande-dia',
   '/ana-e-joao/#manual-convidados',
 ]
 
@@ -117,7 +119,7 @@ describe('PublicHero', () => {
     }
   })
 
-  it('renderiza os mesmos 4 atalhos de navegação (com foto de capa)', () => {
+  it('com foto de capa, a foto vira fundo-ambiente sob véu e o texto mantém as cores do tema', () => {
     const wrapper = mountHero({
       wedding: makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
     })
@@ -125,6 +127,10 @@ describe('PublicHero', () => {
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).toContain(href)
     }
+    // Layout único (Rodada 8): nunca mais texto branco flutuando na foto crua.
+    const img = wrapper.find('img')
+    expect(img.classes()).toContain('opacity-20')
+    expect(wrapper.find('h1').classes()).toContain('text-heading')
   })
 
   it('o atalho de presentes é o CTA primário (cor de destaque)', () => {
@@ -133,12 +139,19 @@ describe('PublicHero', () => {
     expect(presentesLink?.classes()).toContain('bg-primary')
   })
 
-  it('preserva ?code= só no atalho de presentes (navegação real), não nas âncoras', () => {
+  it('preserva ?code= só no atalho de presentes (navegação real), não nas âncoras/rotas', () => {
     const wrapper = mountHero({ wedding: makeWedding(), code: 'abc123' })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     expect(hrefs).toContain('/ana-e-joao/presentes?code=abc123')
-    expect(hrefs).toContain('/ana-e-joao/#confirmar-presenca')
-    expect(hrefs).not.toContain('/ana-e-joao/#confirmar-presenca?code=abc123')
+    expect(hrefs).toContain('/ana-e-joao/rsvp')
+    expect(hrefs).not.toContain('/ana-e-joao/rsvp?code=abc123')
+  })
+
+  it('o atalho de confirmar presença vai direto pra busca de RSVP (/rsvp), não pra âncora da home', () => {
+    const wrapper = mountHero({ wedding: makeWedding() })
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    expect(hrefs).toContain('/ana-e-joao/rsvp')
+    expect(hrefs).not.toContain('/ana-e-joao/#confirmar-presenca')
   })
 
   it('respeita a seleção customizada de atalhos do casal (theme_config.heroButtons)', () => {
@@ -146,13 +159,13 @@ describe('PublicHero', () => {
       wedding: makeWedding({ theme_config: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' } }),
     })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain('/ana-e-joao/#galeria')
+    expect(hrefs).toContain('/ana-e-joao/#nossos-momentos')
     expect(hrefs).toContain('/ana-e-joao/#faq')
     expect(hrefs).not.toContain('/ana-e-joao/presentes')
 
     const faqLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#faq')
     expect(faqLink?.classes()).toContain('bg-primary')
-    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#galeria')
+    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#nossos-momentos')
     expect(galeriaLink?.classes()).not.toContain('bg-primary')
   })
 
@@ -162,5 +175,24 @@ describe('PublicHero', () => {
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).not.toContain(href)
     }
+  })
+
+  it('mostra o monograma d\'água com as iniciais quando o nome segue o padrão "Nome & Nome"', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ couple_names: 'Ana & João' }) })
+    const monogram = wrapper.find('[data-test="hero-monogram"]')
+    expect(monogram.exists()).toBe(true)
+    expect(monogram.text()).toContain('A')
+    expect(monogram.text()).toContain('J')
+  })
+
+  it('não mostra monograma quando o nome não segue o padrão "Nome & Nome"', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ couple_names: 'Família Silva' }) })
+    expect(wrapper.find('[data-test="hero-monogram"]').exists()).toBe(false)
+  })
+
+  it('renderiza o ornamento decorativo e a onda de transição', () => {
+    const wrapper = mountHero({ wedding: makeWedding() })
+    expect(wrapper.find('[data-test="hero-flourish"]').exists()).toBe(true)
+    expect(wrapper.find('svg path').exists()).toBe(true)
   })
 })

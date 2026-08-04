@@ -37,6 +37,22 @@ const coupleNameParts = computed(() => {
   return parts.length === 2 ? parts : null
 })
 
+// Monograma d'água ao fundo (iniciais do casal em cascata diagonal, ex.:
+// M / & / R) — "sensação de convite" pedida pelo usuário, opacidade de
+// textura (2–4%, brief da Rodada 6).
+const monogramInitials = computed(() => {
+  if (!coupleNameParts.value) return null
+  const [first, second] = coupleNameParts.value
+  const a = first?.trim().charAt(0)
+  const b = second?.trim().charAt(0)
+  return a && b ? { a, b } : null
+})
+
+// Textura de papel de algodão (ruído SVG inline, sem request externo) —
+// aplicada em opacidade mínima sobre o fundo marfim para o Hero não ser um
+// bloco de cor chapado (brief da Rodada 6: "papel premium para convites").
+const PAPER_TEXTURE = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E")`
+
 // Local em destaque na linha da data — primeiro item do cronograma que tem
 // nome de local cadastrado (normalmente a Cerimônia).
 const primaryVenueName = computed(
@@ -50,9 +66,11 @@ const targetDateTime = computed(() =>
   resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
 )
 
-// Totalmente opcional — casais sem foto de capa não têm um "menos" do
-// layout com foto, têm um segundo layout pensado de propósito (tipografia
-// maior, cor secundária como destaque de fundo), nunca um espaço vazio.
+// Foto de capa opcional — desde a Rodada 8 não existe mais um segundo
+// layout "com foto": o Hero é um só (o convite em marfim), e a foto entra
+// como fundo-ambiente sob um véu (opacidade baixa + leve blur). Motivo
+// real: no layout antigo o texto ficava branco flutuando sobre a foto crua
+// — com uma foto clara, sumia por completo (feedback do usuário).
 const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
 
 // Ponto de foco (enquadramento) escolhido pelo casal no upload — CLAUDE.md,
@@ -83,8 +101,7 @@ const heroButtons = computed(() =>
 
 <template>
   <section
-    v-if="coverImageUrl"
-    class="relative flex min-h-[70vh] items-end justify-center overflow-hidden sm:min-h-[80vh]"
+    class="relative flex min-h-[88vh] flex-col items-center justify-center gap-6 overflow-hidden bg-surface-muted px-4 pb-28 pt-20 text-center sm:pb-36 sm:pt-24"
   >
     <!--
       ATENÇÃO: a prop `sizes` do NuxtImg NÃO aceita o valor cru do atributo
@@ -98,110 +115,104 @@ const heroButtons = computed(() =>
       todos os breakpoints) — nunca um valor solto com "vw".
     -->
     <NuxtImg
+      v-if="coverImageUrl"
       :src="coverImageUrl"
       :alt="`Foto de capa de ${wedding.couple_names}`"
-      class="absolute inset-0 h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full scale-105 object-cover opacity-20 blur-[2px]"
       :style="{ objectPosition: coverFocalPosition }"
       sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
       preload
     />
-    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+    <!-- Profundidade do fundo (brief Rodada 6): textura de papel + luz suave, nunca cor chapada. -->
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-multiply" :style="{ backgroundImage: PAPER_TEXTURE }" />
     <div
-      v-motion
-      :initial="{ opacity: 0, y: 24 }"
-      :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="relative flex flex-col items-center gap-4 px-4 pb-16 pt-20 text-center text-white"
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0)_45%)]"
+    />
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_70%_at_50%_0%,rgba(255,255,255,0.45),transparent_60%)]"
+    />
+
+    <div
+      v-if="monogramInitials"
+      data-test="hero-monogram"
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-y-0 right-0 flex translate-x-[12%] select-none items-center font-display font-medium leading-none text-heading/[0.04]"
     >
-      <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
-      <h1 v-if="coupleNameParts" class="font-display text-4xl font-semibold leading-tight sm:text-5xl">
-        <span class="block">{{ coupleNameParts[0] }}</span>
-        <span class="block">&amp;</span>
-        <span class="block">{{ coupleNameParts[1] }}</span>
-      </h1>
-      <h1 v-else class="font-display text-4xl font-semibold sm:text-5xl">{{ wedding.couple_names }}</h1>
-      <p class="text-lg text-white/90">
-        {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
-      </p>
-
-      <div v-if="showCountdown" class="mt-2 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime">
-          <template #past>
-            <p class="text-lg font-medium text-white">O grande dia chegou!</p>
-          </template>
-        </UiCountdownTimer>
-      </div>
-
-      <div v-if="heroButtons.length" class="mt-2 flex flex-wrap items-center justify-center gap-3">
-        <UiButton
-          v-for="button in heroButtons"
-          :key="button.id"
-          :to="button.href"
-          :variant="button.featured ? 'primary' : 'outline'"
-          rounded="full"
-          size="sm"
-          :class="!button.featured ? '!border-white !text-white hover:!bg-white/10' : ''"
-        >
-          <Icon :name="button.icon" class="h-4 w-4" />
-          {{ button.label }}
-        </UiButton>
-      </div>
-
-      <div class="mt-6 flex flex-col items-center gap-1 text-xs uppercase tracking-widest text-white/70">
-        <span>Role</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
-      </div>
+      <span class="text-[13rem] sm:text-[22rem]">{{ monogramInitials.a }}</span>
+      <span class="translate-y-[4.5rem] text-[10rem] italic sm:translate-y-[8rem] sm:text-[17rem]">&amp;</span>
+      <span class="translate-y-[9rem] text-[13rem] sm:translate-y-[16rem] sm:text-[22rem]">{{ monogramInitials.b }}</span>
     </div>
-  </section>
 
-  <section v-else class="flex flex-col items-center gap-6 bg-surface px-4 py-24 text-center sm:py-32">
     <div
       v-motion
       :initial="{ opacity: 0, y: 24 }"
-      :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="flex flex-col items-center gap-4"
+      :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
+      class="relative flex flex-col items-center gap-5"
     >
-      <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
+      <p class="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-text-muted sm:text-sm">
+        <span class="h-px w-6 bg-secondary/60" aria-hidden="true" />
+        Vamos nos casar
+        <span class="h-px w-6 bg-secondary/60" aria-hidden="true" />
+      </p>
+      <PublicHeroFlourish class="text-secondary" />
       <h1
         v-if="coupleNameParts"
-        class="font-display text-5xl font-semibold leading-tight text-heading sm:text-6xl"
+        class="font-display text-6xl font-semibold leading-[1.05] text-heading sm:text-8xl"
       >
         <span class="block">{{ coupleNameParts[0] }}</span>
-        <span class="block">&amp;</span>
+        <span class="block py-1 text-[0.45em] font-normal italic leading-none text-secondary">&amp;</span>
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
-      <h1 v-else class="font-display text-5xl font-semibold text-heading sm:text-6xl">
+      <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-8xl">
         {{ wedding.couple_names }}
       </h1>
-      <p class="text-lg text-text-muted">
+      <span class="h-px w-14 bg-secondary/80" aria-hidden="true" />
+      <p class="text-xs uppercase tracking-[0.3em] text-text-muted sm:text-sm">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
 
-      <div v-if="showCountdown" class="mt-2 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime">
+      <div v-if="showCountdown" class="mt-3 flex justify-center">
+        <UiCountdownTimer :target-date-time="targetDateTime" variant="inline">
           <template #past>
             <p class="text-lg font-medium text-primary">O grande dia chegou!</p>
           </template>
         </UiCountdownTimer>
       </div>
 
-      <div v-if="heroButtons.length" class="mt-2 flex flex-wrap items-center justify-center gap-3">
+      <div v-if="heroButtons.length" class="mt-4 flex flex-wrap items-center justify-center gap-3">
         <UiButton
           v-for="button in heroButtons"
           :key="button.id"
           :to="button.href"
           :variant="button.featured ? 'primary' : 'outline'"
           rounded="full"
-          size="sm"
+          size="lg"
         >
           <Icon :name="button.icon" class="h-4 w-4" />
           {{ button.label }}
         </UiButton>
       </div>
 
-      <div class="mt-6 flex flex-col items-center gap-1 text-xs uppercase tracking-widest text-text-muted">
-        <span>Role</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
+      <div class="mt-8 flex flex-col items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-text-muted">
+        <span>Role para descobrir</span>
+        <span class="h-5 w-px bg-secondary/50" aria-hidden="true" />
+        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-secondary/50 text-secondary">
+          <Icon name="lucide:arrow-down" class="h-3.5 w-3.5 animate-bounce" />
+        </span>
       </div>
     </div>
+
+    <!-- Mesma curva das costuras de seção (EditorialSection) — uma única linguagem de transição no site inteiro. -->
+    <svg
+      viewBox="0 0 1440 96"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      class="absolute inset-x-0 bottom-0 h-10 w-full text-surface sm:h-14"
+    >
+      <path fill="currentColor" d="M0,96 L0,64 Q720,0 1440,64 L1440,96 Z" />
+    </svg>
   </section>
 </template>

@@ -4,7 +4,9 @@
 // "luxo discreto" pedido). Links usam caminho absoluto com hash ("/#id"),
 // não só "#id", para funcionar também a partir de /presentes e /rsvp/[code]
 // (mesmo layout, CLAUDE.md seção 5), navegando de volta para "/" e rolando
-// até a seção.
+// até a seção. Exceção: "Confirmar Presença" vai direto pra rota /rsvp (a
+// busca por nome), não pra âncora — mesmo racional/menos cliques já
+// aplicado ao atalho equivalente do Hero (shared/hero-buttons.ts).
 interface Props {
   coupleNames?: string | null
   /** Slug do casamento atual (CLAUDE.md, seção 4.4/33) — prefixa todo link interno. */
@@ -16,9 +18,17 @@ interface Props {
    * com @vue/test-utils puro, sem precisar de app Nuxt completo no mount.
    */
   code?: string
+  /**
+   * Id do atalho em destaque do Hero (theme_config.heroFeaturedButton) —
+   * o link correspondente do menu ganha o mesmo destaque visual, pedido
+   * do usuário ("o menu tem o destaque sincronizado com o botão do
+   * hero"). Resolvido pelo layout, não aqui (mesmo racional dos outros
+   * props vindos de useRoute()/dados já carregados).
+   */
+  featuredButtonId?: string
 }
 
-const { coupleNames, slug, code } = defineProps<Props>()
+const { coupleNames, slug, code, featuredButtonId } = defineProps<Props>()
 
 // "/{slug}/presentes" fica de fora da lista de texto — vira um CTA
 // destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
@@ -27,12 +37,19 @@ const { coupleNames, slug, code } = defineProps<Props>()
 // lista de presentes tem página própria dedicada (não fica mais embutida na
 // home como vitrine completa — só um teaser lá, ver GiftsShowcaseSection) —
 // pensada para escalar quando a lista crescer bastante (ex.: 100+ itens).
+// `id` casa com o id do catálogo de atalhos do Hero (shared/hero-buttons.ts)
+// — usado só para sincronizar o destaque, não pra navegação.
+// Ordem casa exatamente com a ordem das seções na home (index.vue) — Hero
+// → Boas-vindas → Nossa História → O Grande Dia → Dress Code → Manual dos
+// Convidados → Confirme sua Presença → Presentes → FAQ → Nossos Momentos.
+// Dress Code/Presentes/FAQ ficam fora do menu por curadoria deliberada
+// (ver comentário abaixo), mas os que entram seguem a sequência real.
 const NAV_LINKS = computed(() => [
-  { to: `/${slug}/#historia`, label: 'Nossa História' },
-  { to: `/${slug}/#cronograma`, label: 'Cronograma' },
-  { to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
-  { to: `/${slug}/#galeria`, label: 'Galeria' },
-  { to: `/${slug}/#contato`, label: 'Contato' },
+  { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
+  { id: 'cronograma', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
+  { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
+  { id: 'confirmar-presenca', to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
+  { id: 'galeria', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
 ])
 
 const homeLink = computed(() => `/${slug}`)
@@ -51,25 +68,34 @@ function closeMobileMenu() {
 
 <template>
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
-    <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 shrink-0 items-center whitespace-nowrap font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
-        {{ coupleNames || 'Wedding Platform' }}
+        {{ coupleNames || 'MeuSiteCasamento' }}
       </NuxtLink>
 
-      <div class="hidden items-center gap-6 text-sm text-text-muted sm:flex">
-        <NuxtLink v-for="link in NAV_LINKS" :key="link.to" :to="link.to" class="hover:text-text">
+      <div class="hidden items-center gap-1 text-sm lg:flex">
+        <NuxtLink
+          v-for="link in NAV_LINKS"
+          :key="link.to"
+          :to="link.to"
+          class="shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 transition-all duration-200 hover:bg-surface-muted hover:text-text"
+          :class="link.id === featuredButtonId ? 'bg-secondary/10 font-semibold text-primary' : 'text-text-muted'"
+        >
           {{ link.label }}
         </NuxtLink>
-        <UiButton :to="giftsLink" rounded="full" size="sm">Presentear</UiButton>
+        <UiButton :to="giftsLink" rounded="full" size="sm" class="ml-2">
+          <Icon name="lucide:gift" class="h-3.5 w-3.5" />
+          Presentear
+        </UiButton>
       </div>
 
       <button
         type="button"
-        class="flex h-11 w-11 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:hidden"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
         :aria-label="isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
         @click="isMobileMenuOpen = !isMobileMenuOpen"
       >
@@ -77,28 +103,41 @@ function closeMobileMenu() {
       </button>
     </nav>
 
+  </header>
+
+  <!--
+    Teleport pro <body>: o header tem backdrop-blur, e backdrop-filter cria
+    um novo "containing block" pra descendentes fixed (mesmo efeito de
+    transform/filter/perspective) — o drawer, como filho do <header>, tinha
+    seu `fixed inset-y-0` resolvido contra a caixa do header (~68px) em vez
+    do viewport inteiro, ficando espremido e "vazando" o conteúdo por trás
+    (achado real, celular). Teleportar escapa completamente desse contexto.
+  -->
+  <Teleport to="body">
     <div
       v-if="isMobileMenuOpen"
-      class="fixed inset-0 z-20 bg-black/40 sm:hidden"
+      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
       aria-hidden="true"
       @click="closeMobileMenu"
     />
     <div
-      class="fixed inset-y-0 right-0 z-30 flex w-64 flex-col gap-1 border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 sm:hidden"
+      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 lg:hidden"
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
     >
       <UiButton :to="giftsLink" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
+        <Icon name="lucide:gift" class="h-4 w-4" />
         Presentear
       </UiButton>
       <NuxtLink
         v-for="link in NAV_LINKS"
         :key="link.to"
         :to="link.to"
-        class="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-surface-muted"
+        class="flex min-h-11 items-center rounded-md px-3 hover:bg-surface-muted"
+        :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text'"
         @click="closeMobileMenu"
       >
         {{ link.label }}
       </NuxtLink>
     </div>
-  </header>
+  </Teleport>
 </template>

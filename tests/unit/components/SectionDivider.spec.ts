@@ -8,9 +8,9 @@ describe('UiSectionDivider', () => {
     expect(wrapper.attributes('aria-hidden')).toBe('true')
   })
 
-  it('renderiza a marca central entre duas linhas', () => {
+  it('renderiza o ornamento linha-ponto-losango-ponto-linha', () => {
     const wrapper = mount(SectionDivider)
     const spans = wrapper.findAll('span')
-    expect(spans).toHaveLength(3)
+    expect(spans).toHaveLength(5)
   })
 })

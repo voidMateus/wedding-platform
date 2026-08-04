@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Mini-cartão "Save the date" logo acima dos cards de local do cronograma
-// (redesign de referência — CLAUDE.md, "Fase Vermelho Clássico"). Puramente
-// decorativo/informativo, sem âncora própria — a data já aparece na linha
-// de subtítulo do Hero.
+// Mini-cartão "Save the date" — vive dentro de GrandeDiaSection, entre a
+// descrição e os cards de local ("Fase Linguagem Visual" — antes era um
+// bloco solto fora da seção, com fundo/padding próprios, desconectado
+// visualmente). Puramente decorativo/informativo, sem âncora própria — a
+// data já aparece na linha de subtítulo do Hero.
 interface Props {
   eventDate: string
 }
@@ -19,13 +20,13 @@ const formattedDate = computed(() =>
 </script>
 
 <template>
-  <div class="flex justify-center bg-surface px-4 py-8">
+  <div class="flex justify-center">
     <div
-      class="flex items-center gap-3 rounded-lg border border-border bg-surface-elevated px-5 py-3 shadow-sm"
+      class="flex items-center gap-3 rounded-xl border border-primary/10 bg-surface-elevated px-6 py-4 shadow-xl"
     >
       <Icon name="lucide:calendar-heart" class="h-5 w-5 text-primary" />
       <div class="text-left">
-        <p class="text-xs uppercase tracking-wide text-text-muted">Save the date</p>
+        <p class="text-xs font-medium tracking-[0.25em] text-primary/60 uppercase">Save the date</p>
         <p class="font-display text-base font-semibold text-heading">{{ formattedDate }}</p>
       </div>
     </div>

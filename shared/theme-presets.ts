@@ -64,6 +64,12 @@ export const FONT_PAIRS: FontPair[] = [
     bodyFontFamily: 'Inter',
     buttonFontFamily: 'Montserrat',
   },
+  {
+    id: 'cormorant-inter',
+    label: 'Cormorant Garamond + Inter',
+    displayFontFamily: 'Cormorant Garamond',
+    bodyFontFamily: 'Inter',
+  },
 ]
 
 export const THEME_PRESETS: ThemePreset[] = [
@@ -115,6 +121,19 @@ export const THEME_PRESETS: ThemePreset[] = [
     primaryColor: '#dc2626',
     secondaryColor: '#7f1d1d',
     fontPairId: 'cinzel-inter-montserrat',
+  },
+  // "Convite de Luxo" (Fase Linguagem Visual, Rodada 6) — borgonha profundo
+  // + dourado fosco sobre marfim, brief explícito do usuário inspirado em
+  // marcas de luxo. O dourado do brief (#C8A56A) não passa no contraste
+  // mínimo (≈2.3:1, seção 22.4) — usa o mesmo dourado fosco escuro já
+  // validado do preset borgonha-editorial; ornamentos decorativos clareiam
+  // via opacidade, sem burlar a validação de texto.
+  {
+    id: 'convite-luxo',
+    label: 'Convite de Luxo',
+    primaryColor: '#7a1f24',
+    secondaryColor: '#8a6a1f',
+    fontPairId: 'cormorant-inter',
   },
 ]
 

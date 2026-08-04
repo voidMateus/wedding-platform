@@ -40,7 +40,7 @@ function submitContribution() {
 </script>
 
 <template>
-  <UiCard padding="none" class="flex h-full flex-col overflow-hidden">
+  <UiCard padding="none" radius="xl" elevation="xl" class="flex h-full flex-col overflow-hidden">
     <div v-if="gift.imageUrl" class="relative">
       <NuxtImg :src="gift.imageUrl" :alt="gift.title" class="h-48 w-full object-cover" sizes="400px" />
       <span

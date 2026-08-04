@@ -1,8 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import EventSpotlight from '~/components/public/EventSpotlight.vue'
-import EditorialSection from '~/components/public/EditorialSection.vue'
-import SectionDivider from '~/components/ui/SectionDivider.vue'
 import Button from '~/components/ui/Button.vue'
 import type { EventSegment } from '~/types/event-segment'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
@@ -20,6 +18,7 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     venue_latitude: null,
     venue_longitude: null,
     same_venue_as: null,
+    image_url: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -30,20 +29,22 @@ function mountSpotlight(props: Record<string, unknown>) {
   return mount(EventSpotlight, {
     props,
     global: {
-      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection, UiButton: Button },
+      components: { UiButton: Button },
       stubs: {
         ...ICON_STUBS,
         PublicVenueMap: { template: '<div data-test="venue-map" />' },
         NuxtLink: { template: '<a :href="to" :target="target"><slot /></a>', props: ['to', 'target'] },
+        NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
       },
     },
   })
 }
 
 describe('PublicEventSpotlight', () => {
-  it('usa o título do segmento como título da seção quando há um único momento', () => {
+  it('é apenas o cartão (sem seção/título próprios — vive dentro de "O Grande Dia")', () => {
     const wrapper = mountSpotlight({ segments: [makeSegment({ title: 'Cerimônia' })] })
-    expect(wrapper.find('h2').text()).toBe('Cerimônia')
+    expect(wrapper.find('section').exists()).toBe(false)
+    expect(wrapper.find('h2').exists()).toBe(false)
   })
 
   it('a âncora é derivada do título classificado', () => {
@@ -56,17 +57,22 @@ describe('PublicEventSpotlight', () => {
     expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(true)
   })
 
+  it('renderiza a foto do local quando cadastrada', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment({ image_url: 'https://example.com/foto.jpg' })] })
+    expect(wrapper.find('img').attributes('src')).toBe('https://example.com/foto.jpg')
+  })
+
+  it('não renderiza nenhuma imagem quando o local não tem foto', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment({ image_url: null })] })
+    expect(wrapper.find('img').exists()).toBe(false)
+  })
+
   describe('fusão quando Cerimônia e Recepção têm o mesmo endereço', () => {
     function makeMergedGroup() {
       const ceremony = makeSegment({ id: 'a', title: 'Cerimônia', starts_at: '2027-05-16T16:00:00Z' })
       const reception = makeSegment({ id: 'b', title: 'Recepção', same_venue_as: 'a', starts_at: '2027-05-16T18:00:00Z' })
       return [ceremony, reception]
     }
-
-    it('junta os títulos no título da seção', () => {
-      const wrapper = mountSpotlight({ segments: makeMergedGroup() })
-      expect(wrapper.find('h2').text()).toBe('Cerimônia e Recepção')
-    })
 
     it('renderiza um badge por momento e um único mapa/botão', () => {
       const wrapper = mountSpotlight({ segments: makeMergedGroup() })
@@ -75,9 +81,9 @@ describe('PublicEventSpotlight', () => {
       expect(wrapper.findAll('a')).toHaveLength(1)
     })
 
-    it('expõe as duas âncoras (#cerimonia na seção, #recepcao interna)', () => {
+    it('expõe as duas âncoras internas (#cerimonia e #recepcao)', () => {
       const wrapper = mountSpotlight({ segments: makeMergedGroup() })
-      expect(wrapper.find('section').attributes('id')).toBe('cerimonia')
+      expect(wrapper.find('#cerimonia').exists()).toBe(true)
       expect(wrapper.find('#recepcao').exists()).toBe(true)
     })
   })

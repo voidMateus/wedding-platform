@@ -1,10 +1,19 @@
 <script setup lang="ts">
+// "Nossos Momentos" — pequena prévia de fotos ao final da home (pedido do
+// usuário), não a galeria completa. Ideia registrada para uma fase futura:
+// em vez de upload direto (Supabase Storage, como hoje), sincronizar com um
+// link de álbum do Google Drive — fotógrafos costumam entregar o material
+// assim. Não implementado nesta fase (escolha explícita do usuário) — a
+// prévia continua lendo de `photos` normalmente.
 import type { PhotoWithUrl } from '~/types/photo'
+
+const PREVIEW_PHOTO_LIMIT = 8
 
 const { getPublicPhotos } = usePublicPhotos()
 const { data } = getPublicPhotos()
 
 const photos = computed(() => data.value?.data ?? [])
+const previewPhotos = computed(() => photos.value.slice(0, PREVIEW_PHOTO_LIMIT))
 
 const selectedPhoto = ref<PhotoWithUrl | null>(null)
 const isLightboxOpen = ref(false)
@@ -16,13 +25,13 @@ function openLightbox(photo: PhotoWithUrl) {
 </script>
 
 <template>
-  <PublicEditorialSection v-if="photos.length" id="galeria" title="Galeria" tone="muted">
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+  <PublicEditorialSection v-if="photos.length" id="nossos-momentos" eyebrow="Registros" title="Nossos Momentos">
+    <div class="mx-auto grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
       <button
-        v-for="photo in photos"
+        v-for="photo in previewPhotos"
         :key="photo.id"
         type="button"
-        class="group overflow-hidden rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        class="group overflow-hidden rounded-xl shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         @click="openLightbox(photo)"
       >
         <NuxtImg

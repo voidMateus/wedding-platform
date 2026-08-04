@@ -3,9 +3,11 @@ import { useNow } from '@vueuse/core'
 
 interface Props {
   targetDateTime: string
+  /** 'cards' (default, usado no dashboard admin) = caixas com borda/sombra; 'inline' = números soltos com separador, sensação de convite (Hero público). */
+  variant?: 'cards' | 'inline'
 }
 
-const { targetDateTime } = defineProps<Props>()
+const { targetDateTime, variant = 'cards' } = defineProps<Props>()
 
 const now = useNow({ interval: 1000 })
 
@@ -21,8 +23,8 @@ const seconds = computed(() => Math.floor((diffMs.value / 1000) % 60))
 const units = computed(() => [
   { label: 'dias', value: days.value },
   { label: 'horas', value: hours.value },
-  { label: 'min', value: minutes.value },
-  { label: 'seg', value: seconds.value },
+  { label: 'minutos', value: minutes.value },
+  { label: 'segundos', value: seconds.value },
 ])
 </script>
 
@@ -32,6 +34,24 @@ const units = computed(() => [
       <p class="text-text-muted">O grande dia chegou!</p>
     </slot>
   </div>
+  <div
+    v-else-if="variant === 'inline'"
+    v-motion
+    :initial="{ opacity: 0, y: 16 }"
+    :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
+    class="flex items-stretch gap-4 sm:gap-8"
+  >
+    <template v-for="(unit, index) in units" :key="unit.label">
+      <span v-if="index > 0" data-test="countdown-separator" class="w-px self-stretch bg-secondary/30" aria-hidden="true" />
+      <div class="flex flex-col items-center gap-1">
+        <span class="font-display text-4xl font-semibold text-heading tabular-nums sm:text-5xl">
+          {{ String(unit.value).padStart(2, '0') }}
+        </span>
+        <span class="text-[10px] uppercase tracking-[0.25em] text-text-muted">{{ unit.label }}</span>
+      </div>
+    </template>
+  </div>
+
   <div
     v-else
     v-motion

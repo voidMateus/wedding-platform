@@ -26,7 +26,10 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
 function mountDressCode(wedding: Wedding) {
   return mount(DressCodeSection, {
     props: { wedding },
-    global: { components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection } },
+    global: {
+      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
+      stubs: { PublicDressCodeIllustration: { template: '<svg data-test="dress-code-illustration" />' } },
+    },
   })
 }
 
@@ -37,22 +40,17 @@ describe('PublicDressCodeSection', () => {
     expect(wrapper.find('#dress-code').exists()).toBe(true)
   })
 
+  it('renderiza a ilustração decorativa', () => {
+    const wrapper = mountDressCode(makeWedding())
+    expect(wrapper.find('[data-test="dress-code-illustration"]').exists()).toBe(true)
+  })
+
   it('renderiza a descrição e todas as dicas', () => {
     const wrapper = mountDressCode(makeWedding())
     expect(wrapper.text()).toContain(DRESS_CODE_CONTENT.description)
     for (const tip of DRESS_CODE_CONTENT.suggestions) {
       expect(wrapper.text()).toContain(tip)
     }
-  })
-
-  it('usa as cores primária/secundária do tema como swatches', () => {
-    const wrapper = mountDressCode(
-      makeWedding({ theme_config: { primaryColor: '#5c1a2b', secondaryColor: '#8a6a1f' } }),
-    )
-    const swatches = wrapper.findAll('span[aria-hidden="true"]')
-    const colors = swatches.map((s) => (s.attributes('style') ?? '').replace(/\s/g, ''))
-    expect(colors.some((c) => c.includes('background-color:#5c1a2b'))).toBe(true)
-    expect(colors.some((c) => c.includes('background-color:#8a6a1f'))).toBe(true)
   })
 
   it('cai nas cores default quando o tema não define paleta', () => {

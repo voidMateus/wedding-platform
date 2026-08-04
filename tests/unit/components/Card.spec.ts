@@ -51,4 +51,16 @@ describe('UiCard', () => {
     expect(wrapper.classes()).not.toContain('p-4')
     expect(wrapper.classes()).not.toContain('p-3')
   })
+
+  it('usa rounded-lg/shadow-sm por padrão', () => {
+    const wrapper = mount(Card, { slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('rounded-lg')
+    expect(wrapper.classes()).toContain('shadow-sm')
+  })
+
+  it('aplica o tratamento premium (radius/elevation "xl") quando pedido', () => {
+    const wrapper = mount(Card, { props: { radius: 'xl', elevation: 'xl' }, slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('rounded-xl')
+    expect(wrapper.classes()).toContain('shadow-xl')
+  })
 })

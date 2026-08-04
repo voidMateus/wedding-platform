@@ -4,10 +4,11 @@ import { themeConfigSchema } from '#shared/schemas/theme'
 /**
  * Aparência do site (CLAUDE.md, seção 22.3) — endpoint próprio, separado de
  * PATCH /api/wedding (dados de negócio do evento). Só mexe nas chaves de
- * theme_config de sua responsabilidade (presetId, primaryColor,
- * secondaryColor, titleColor, bodyColor, fontPairId, showCountdown,
- * heroButtons, heroFeaturedButton) — nunca toca coverImageUrl/storyImageUrl,
- * geridos à parte pelos endpoints de upload.
+ * theme_config de sua responsabilidade (as do themeConfigSchema) — nunca
+ * toca coverImageUrl/storyImageUrl, geridos à parte pelos endpoints de
+ * upload. ATENÇÃO: todo campo novo do schema precisa ser adicionado à lista
+ * explícita abaixo, senão é silenciosamente descartado (classe de bug já
+ * ocorrida duas vezes neste endpoint).
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)

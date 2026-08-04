@@ -9,7 +9,7 @@ const items = FAQ_CONTENT.map((faq, index) => ({
 </script>
 
 <template>
-  <PublicEditorialSection id="faq" title="Perguntas Frequentes">
+  <PublicEditorialSection id="faq" eyebrow="Dúvidas comuns" title="Perguntas Frequentes" tone="muted">
     <div class="mx-auto w-full max-w-2xl">
       <UiAccordion :items="items" />
     </div>
