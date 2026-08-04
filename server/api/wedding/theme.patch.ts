@@ -7,9 +7,8 @@ import { themeConfigSchema } from '#shared/schemas/theme'
  * theme_config de sua responsabilidade (as do themeConfigSchema) — nunca
  * toca coverImageUrl/storyImageUrl, geridos à parte pelos endpoints de
  * upload. ATENÇÃO: todo campo novo do schema precisa ser adicionado à lista
- * explícita abaixo, senão é silenciosamente descartado (bug já ocorrido
- * duas vezes — countdownStyle na fase revertida, showHeroBotanicals na
- * Rodada 6).
+ * explícita abaixo, senão é silenciosamente descartado (classe de bug já
+ * ocorrida duas vezes neste endpoint).
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -36,7 +35,6 @@ export default defineEventHandler(async (event) => {
     bodyColor: input.bodyColor,
     fontPairId: input.fontPairId,
     showCountdown: input.showCountdown,
-    showHeroBotanicals: input.showHeroBotanicals,
     heroButtons: input.heroButtons,
     heroFeaturedButton: input.heroFeaturedButton,
   }

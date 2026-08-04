@@ -119,7 +119,6 @@ const [titleColor] = defineThemeField('titleColor')
 const [bodyColor] = defineThemeField('bodyColor')
 const [fontPairId] = defineThemeField('fontPairId')
 const [showCountdown] = defineThemeField('showCountdown')
-const [showHeroBotanicals] = defineThemeField('showHeroBotanicals')
 const [heroButtons] = defineThemeField('heroButtons')
 const [heroFeaturedButton] = defineThemeField('heroFeaturedButton')
 
@@ -177,7 +176,6 @@ watch(
         bodyColor: theme.bodyColor ?? '',
         fontPairId: theme.fontPairId ?? DEFAULT_FONT_PAIR_ID,
         showCountdown: theme.showCountdown ?? true,
-        showHeroBotanicals: theme.showHeroBotanicals ?? true,
         heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
         heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
       },
@@ -466,10 +464,6 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
           </div>
 
           <UiCheckbox v-model="showCountdown" label="Mostrar contagem regressiva no site" />
-          <UiCheckbox
-            v-model="showHeroBotanicals"
-            label="Mostrar ilustrações florais (topo do site e boas-vindas)"
-          />
 
           <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
             <span class="text-sm font-medium text-text">Atalhos do Hero</span>

@@ -54,8 +54,6 @@ function mountHero(props: Record<string, unknown>) {
         NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
         NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to', 'target'] },
         PublicHeroFlourish: { template: '<svg data-test="hero-flourish" />' },
-        PublicBotanicalSpray: { template: '<svg data-test="hero-botanical-stub" />' },
-        PublicBotanicalBranch: { template: '<svg data-test="hero-botanical-stub" />' },
       },
     },
   })
@@ -181,15 +179,9 @@ describe('PublicHero', () => {
     expect(wrapper.find('[data-test="hero-monogram"]').exists()).toBe(false)
   })
 
-  it('renderiza o ornamento decorativo, as ilustrações botânicas e a onda de transição', () => {
+  it('renderiza o ornamento decorativo e a onda de transição', () => {
     const wrapper = mountHero({ wedding: makeWedding() })
     expect(wrapper.find('[data-test="hero-flourish"]').exists()).toBe(true)
-    expect(wrapper.findAll('[data-test="hero-botanical"]')).toHaveLength(2)
     expect(wrapper.find('svg path').exists()).toBe(true)
-  })
-
-  it('esconde as ilustrações botânicas quando showHeroBotanicals=false', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ theme_config: { showHeroBotanicals: false } }) })
-    expect(wrapper.findAll('[data-test="hero-botanical"]')).toHaveLength(0)
   })
 })

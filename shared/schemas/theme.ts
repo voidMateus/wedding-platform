@@ -53,10 +53,6 @@ export const themeConfigSchema = z.object({
   bodyColor: optionalHexColorSchema,
   fontPairId: z.string().trim().min(1, 'Selecione um par tipográfico.'),
   showCountdown: z.boolean(),
-  // Ilustrações botânicas em traço fino no Hero e na seção de boas-vindas
-  // (Fase Linguagem Visual, Rodada 6) — opcionais por casamento, pedido do
-  // usuário ("tem que ter opção também de ter os lírios ou não").
-  showHeroBotanicals: z.boolean().default(true),
   // Atalhos do Hero (CLAUDE.md, seção 21 — "Fase Vermelho Clássico"): o
   // casal escolhe quais botões aparecem e qual fica em destaque (cor
   // preenchida); os demais ficam em outline. Catálogo fixo em
@@ -104,8 +100,6 @@ export interface ThemeConfig {
   storyFocalX?: number
   storyFocalY?: number
   showCountdown: boolean
-  /** Ilustrações botânicas decorativas no Hero/boas-vindas (default true). */
-  showHeroBotanicals?: boolean
   /** Atalhos selecionados para o Hero — ids do catálogo em shared/hero-buttons.ts. */
   heroButtons?: string[]
   /** Id do atalho em destaque (cor preenchida) — os demais ficam em outline. */

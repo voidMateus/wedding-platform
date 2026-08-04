@@ -49,10 +49,6 @@ const monogramInitials = computed(() => {
   return a && b ? { a, b } : null
 })
 
-// Ilustrações botânicas em traço fino (laterais/cantos) — opcionais por
-// casamento (theme_config.showHeroBotanicals, toggle em /admin/configuracoes).
-const showBotanicals = computed(() => theme.value.showHeroBotanicals ?? true)
-
 // Textura de papel de algodão (ruído SVG inline, sem request externo) —
 // aplicada em opacidade mínima sobre o fundo marfim para o Hero não ser um
 // bloco de cor chapado (brief da Rodada 6: "papel premium para convites").
@@ -201,17 +197,6 @@ const heroButtons = computed(() =>
       aria-hidden="true"
       class="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_70%_at_50%_0%,rgba(255,255,255,0.45),transparent_60%)]"
     />
-
-    <template v-if="showBotanicals">
-      <PublicBotanicalSpray
-        data-test="hero-botanical"
-        class="pointer-events-none absolute -left-10 bottom-16 h-80 w-auto text-secondary/40 sm:left-0 sm:h-[26rem]"
-      />
-      <PublicBotanicalBranch
-        data-test="hero-botanical"
-        class="pointer-events-none absolute -right-8 -top-8 h-40 w-auto rotate-[150deg] text-secondary/35 sm:h-56"
-      />
-    </template>
 
     <div
       v-if="monogramInitials"
