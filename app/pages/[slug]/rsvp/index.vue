@@ -12,6 +12,23 @@ const { searchGuests, selectGuest, confirmGuest } = useRsvp()
 const slug = useWeddingSlug()
 const backToSiteLink = computed(() => `/${slug}`)
 
+// Dados públicos do casamento (já usados na home, mesma chave de cache —
+// CLAUDE.md §26) só para dar contexto no painel esquerdo do cartão de
+// busca (nome do casal/data). Nada sensível: a mesma informação já é
+// visível pra qualquer pessoa com o link do site.
+const { getPublicWedding } = usePublicWedding()
+const { data: wedding } = getPublicWedding()
+
+const formattedDate = computed(() =>
+  wedding.value
+    ? new Date(`${wedding.value.event_date}T00:00:00`).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null,
+)
+
 type Step = 'search' | 'light-confirm' | 'invite'
 const step = ref<Step>('search')
 
@@ -73,7 +90,10 @@ async function handleConfirmIdentity() {
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-4 py-16">
+  <div
+    class="mx-auto flex min-h-[70vh] flex-col justify-center px-4 py-16"
+    :class="step === 'search' ? 'max-w-3xl' : 'max-w-xl'"
+  >
     <!--
       Só a etapa 'search' não tem uma "etapa anterior" real dentro do
       próprio fluxo de RSVP — por isso é a única que volta direto pro site.
@@ -90,41 +110,58 @@ async function handleConfirmIdentity() {
     </NuxtLink>
 
     <template v-if="step === 'search'">
+      <!--
+        Cartão em duas colunas (referência de estilo: mimodocasal.com.br) —
+        painel esquerdo dá contexto emocional (casal/data), painel direito é
+        a busca de verdade. Em telas estreitas empilha (painel de contexto
+        vira um cabeçalho compacto acima do formulário).
+      -->
       <div
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="flex flex-col gap-6 rounded-lg border border-border bg-surface-elevated p-8 shadow-md sm:p-10"
+        class="grid overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl lg:grid-cols-[0.85fr_1.15fr]"
       >
-        <div class="flex flex-col items-center gap-3 text-center">
+        <div
+          class="flex flex-col justify-center gap-4 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-8 sm:p-10"
+        >
           <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Icon name="lucide:mail-check" class="h-5 w-5" />
           </span>
+          <div v-if="wedding">
+            <p class="font-display text-xl font-semibold text-heading">{{ wedding.couple_names }}</p>
+            <p class="text-sm text-text-muted">{{ formattedDate }}</p>
+          </div>
           <div>
             <h1 class="font-display text-2xl font-semibold text-heading">Confirmação de Presença</h1>
-            <p class="mt-1 text-sm text-text-muted">Digite seu nome para localizar seu convite.</p>
+            <p class="mt-1 text-sm leading-relaxed text-text-muted">
+              Digite seu nome para localizar seu convite e confirmar presença, restrições alimentares e
+              acompanhantes.
+            </p>
           </div>
         </div>
 
-        <UiInput v-model="query" placeholder="Seu nome completo" autofocus />
+        <div class="flex flex-col gap-4 p-8 sm:p-10">
+          <UiInput v-model="query" placeholder="Seu nome completo" autofocus />
 
-        <p v-if="searchError" class="text-sm text-red-600" role="alert">{{ searchError }}</p>
+          <p v-if="searchError" class="text-sm text-red-600" role="alert">{{ searchError }}</p>
 
-        <ul v-if="results.length" class="flex flex-col gap-2">
-          <li v-for="result in results" :key="result.guestId">
-            <button
-              type="button"
-              class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-colors hover:border-primary/40 hover:bg-primary/5"
-              @click="handleSelectResult(result)"
-            >
-              {{ result.fullName }}
-              <Icon name="lucide:chevron-right" class="h-4 w-4 text-text-muted" />
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="query.trim().length >= 3 && !isSearching" class="text-center text-sm text-text-muted">
-          Nenhum convidado encontrado com esse nome.
-        </p>
+          <ul v-if="results.length" class="flex flex-col gap-2">
+            <li v-for="result in results" :key="result.guestId">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-colors hover:border-primary/40 hover:bg-primary/5"
+                @click="handleSelectResult(result)"
+              >
+                {{ result.fullName }}
+                <Icon name="lucide:chevron-right" class="h-4 w-4 text-text-muted" />
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="query.trim().length >= 3 && !isSearching" class="text-center text-sm text-text-muted">
+            Nenhum convidado encontrado com esse nome.
+          </p>
+        </div>
       </div>
     </template>
 
@@ -133,7 +170,7 @@ async function handleConfirmIdentity() {
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface-elevated p-8 text-center shadow-md sm:p-10"
+        class="flex flex-col items-center gap-4 rounded-xl border border-primary/10 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
       >
         <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Icon name="lucide:party-popper" class="h-5 w-5" />

@@ -42,6 +42,6 @@ useHead({
     <main class="flex-1">
       <slot />
     </main>
-    <PublicFooter :couple-names="wedding?.couple_names" />
+    <PublicFooter :couple-names="wedding?.couple_names" :event-date="wedding?.event_date" />
   </div>
 </template>

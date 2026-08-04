@@ -19,14 +19,23 @@ describe('UiButton', () => {
     expect(wrapper.classes()).toContain('bg-primary')
   })
 
-  it('aplica a classe da variante outline (borda, sem preenchimento)', () => {
+  it('aplica a classe da variante outline (borda sutil, fundo translúcido)', () => {
     const wrapper = mount(Button, {
       props: { variant: 'outline' },
       slots: { default: 'Confirmar presença' },
     })
 
     expect(wrapper.classes()).toContain('border')
-    expect(wrapper.classes()).toContain('bg-transparent')
+    expect(wrapper.classes()).toContain('border-primary/25')
+  })
+
+  it('CTA em pill (rounded="full") ganha lift no hover; pill + primary ganha glow colorido', () => {
+    const pill = mount(Button, { props: { rounded: 'full' }, slots: { default: 'Confirmar' } })
+    expect(pill.classes()).toContain('hover:scale-[1.03]')
+    expect(pill.classes().some((c) => c.startsWith('shadow-['))).toBe(true)
+
+    const mdButton = mount(Button, { slots: { default: 'Salvar' } })
+    expect(mdButton.classes()).not.toContain('hover:scale-[1.03]')
   })
 
   it('fica desabilitado quando a prop disabled é verdadeira', () => {

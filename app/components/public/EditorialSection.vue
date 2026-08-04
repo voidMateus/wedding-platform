@@ -6,12 +6,14 @@
 // mesmo padrão usado nas demais seções públicas.
 interface Props {
   title?: string
+  /** Rótulo curto acima do título (ex.: "R.S.V.P", "Com carinho") — mesmo padrão de cabeçalho em toda seção pública (referência de estilo: mimodocasal.com.br). */
+  eyebrow?: string
   tone?: 'default' | 'muted' | 'accent'
   divider?: boolean
   id?: string
 }
 
-const { title, tone = 'default', divider = true, id } = defineProps<Props>()
+const { title, eyebrow, tone = 'default', divider = true, id } = defineProps<Props>()
 
 const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
   default: 'bg-surface',
@@ -32,8 +34,9 @@ const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
       class="mx-auto flex max-w-5xl flex-col gap-10"
     >
       <div v-if="title" class="flex flex-col items-center gap-3 text-center">
-        <UiSectionDivider v-if="divider" />
+        <p v-if="eyebrow" class="text-xs font-medium tracking-[0.3em] text-primary/60 uppercase">{{ eyebrow }}</p>
         <h2 class="font-display text-3xl font-semibold text-heading sm:text-4xl">{{ title }}</h2>
+        <UiSectionDivider v-if="divider" />
       </div>
       <slot />
     </div>

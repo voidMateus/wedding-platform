@@ -28,7 +28,7 @@ const storyFocalPosition = computed(() => {
 </script>
 
 <template>
-  <PublicEditorialSection id="historia" title="Nossa História">
+  <PublicEditorialSection id="historia" eyebrow="Como tudo começou" title="Nossa História">
     <div v-if="storyImageUrl" class="grid gap-10 sm:grid-cols-2 sm:items-center">
       <NuxtImg
         :src="storyImageUrl"

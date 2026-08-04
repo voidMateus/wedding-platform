@@ -25,7 +25,7 @@ function openLightbox(photo: PhotoWithUrl) {
 </script>
 
 <template>
-  <PublicEditorialSection v-if="photos.length" id="nossos-momentos" title="Nossos Momentos" tone="muted">
+  <PublicEditorialSection v-if="photos.length" id="nossos-momentos" eyebrow="Registros" title="Nossos Momentos">
     <div class="mx-auto grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
       <button
         v-for="photo in previewPhotos"

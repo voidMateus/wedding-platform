@@ -56,7 +56,7 @@ function closeMobileMenu() {
         class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
-        {{ coupleNames || 'Wedding Platform' }}
+        {{ coupleNames || 'MeuSiteCasamento' }}
       </NuxtLink>
 
       <div class="hidden items-center gap-6 text-sm text-text-muted sm:flex">

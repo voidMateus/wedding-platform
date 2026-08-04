@@ -59,7 +59,7 @@ const externalMapsUrl = computed(() =>
 </script>
 
 <template>
-  <div class="flex w-full flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 shadow-md">
+  <div class="flex w-full flex-col gap-4 rounded-xl border border-primary/10 bg-surface-elevated p-7 shadow-xl">
     <span v-for="anchorId in anchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
 
     <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">

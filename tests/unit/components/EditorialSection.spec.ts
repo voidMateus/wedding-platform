@@ -52,4 +52,15 @@ describe('PublicEditorialSection', () => {
     const wrapper = mountSection({ id: 'historia' })
     expect(wrapper.attributes('id')).toBe('historia')
   })
+
+  it('renderiza o eyebrow acima do título quando informado', () => {
+    const wrapper = mountSection({ title: 'Confirme sua Presença', eyebrow: 'R.S.V.P' })
+    expect(wrapper.text()).toContain('R.S.V.P')
+  })
+
+  it('não renderiza eyebrow quando não informado', () => {
+    const wrapper = mountSection({ title: 'Dress Code' })
+    expect(wrapper.text()).not.toContain('undefined')
+    expect(wrapper.findAll('p').some((p) => p.classes().includes('tracking-[0.3em]'))).toBe(false)
+  })
 })

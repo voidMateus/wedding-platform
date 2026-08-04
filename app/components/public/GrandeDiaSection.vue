@@ -16,7 +16,13 @@ const { groups } = defineProps<Props>()
 </script>
 
 <template>
-  <PublicEditorialSection v-if="groups.length" id="grande-dia" title="O Grande Dia">
+  <PublicEditorialSection
+    v-if="groups.length"
+    id="grande-dia"
+    eyebrow="Cerimônia &amp; Recepção"
+    title="O Grande Dia"
+    tone="muted"
+  >
     <div class="mx-auto grid w-full gap-6" :class="groups.length > 1 ? 'max-w-4xl sm:grid-cols-2' : 'max-w-xl'">
       <PublicEventSpotlight v-for="group in groups" :key="group[0]!.id" :segments="group" />
     </div>

@@ -22,9 +22,9 @@ describe('PublicNavBar', () => {
     expect(wrapper.text()).toContain('Ana & João')
   })
 
-  it('usa "Wedding Platform" como fallback quando coupleNames é null/ausente', () => {
+  it('usa "MeuSiteCasamento" como fallback quando coupleNames é null/ausente', () => {
     const wrapper = mountNavBar({ coupleNames: null })
-    expect(wrapper.text()).toContain('Wedding Platform')
+    expect(wrapper.text()).toContain('MeuSiteCasamento')
   })
 
   it('links de âncora usam caminho absoluto com o slug do casamento ("/{slug}/#id")', () => {

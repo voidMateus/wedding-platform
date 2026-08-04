@@ -22,7 +22,7 @@ const paletteSwatches = computed(() => [
 </script>
 
 <template>
-  <PublicEditorialSection id="dress-code" title="Dress Code">
+  <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code">
     <div class="mx-auto flex max-w-xl flex-col items-center gap-8 text-center">
       <p class="leading-relaxed text-body">{{ DRESS_CODE_CONTENT.description }}</p>
 

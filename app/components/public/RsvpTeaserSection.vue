@@ -24,9 +24,9 @@ const formattedDate = computed(() =>
 </script>
 
 <template>
-  <PublicEditorialSection id="confirmar-presenca" title="Confirme sua Presença" tone="accent">
+  <PublicEditorialSection id="confirmar-presenca" eyebrow="R.S.V.P" title="Confirme sua Presença" tone="accent">
     <div
-      class="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-lg border border-primary/20 bg-surface-elevated p-8 text-center shadow-lg sm:p-10"
+      class="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-primary/15 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
     >
       <span class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
         <Icon name="lucide:party-popper" class="h-7 w-7" />

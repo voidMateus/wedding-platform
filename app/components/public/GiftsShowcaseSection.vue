@@ -15,7 +15,7 @@ const giftsLink = computed(() => `/${slug}/presentes${code ? `?code=${code}` : '
 </script>
 
 <template>
-  <PublicEditorialSection id="presentes" title="Lista de Presentes">
+  <PublicEditorialSection id="presentes" eyebrow="Para essa nova fase" title="Lista de Presentes">
     <div class="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
       <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
         <Icon name="lucide:gift" class="h-6 w-6" />
