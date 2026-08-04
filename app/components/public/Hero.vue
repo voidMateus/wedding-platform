@@ -42,6 +42,10 @@ const showCountdown = computed(() => theme.value.showCountdown ?? true)
 const targetDateTime = computed(() =>
   resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
 )
+// Estilo configurável pelo casal (/admin/configuracoes, CLAUDE.md — Fase
+// Premium Experience/PR2); 'inline' precisa saber se está sobre foto de capa
+// para inverter a cor do texto (ver CountdownTimer.vue, prop `inverted`).
+const countdownStyle = computed(() => theme.value.countdownStyle ?? 'cards')
 
 // Totalmente opcional — casais sem foto de capa não têm um "menos" do
 // layout com foto, têm um segundo layout pensado de propósito (tipografia
@@ -114,7 +118,7 @@ const heroButtons = computed(() =>
       </p>
 
       <div v-if="showCountdown" class="mt-2 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime">
+        <UiCountdownTimer :target-date-time="targetDateTime" :variant="countdownStyle" inverted>
           <template #past>
             <p class="text-lg font-medium text-white">O grande dia chegou!</p>
           </template>
@@ -167,7 +171,7 @@ const heroButtons = computed(() =>
       </p>
 
       <div v-if="showCountdown" class="mt-2 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime">
+        <UiCountdownTimer :target-date-time="targetDateTime" :variant="countdownStyle">
           <template #past>
             <p class="text-lg font-medium text-primary">O grande dia chegou!</p>
           </template>
