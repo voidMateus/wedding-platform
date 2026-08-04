@@ -61,26 +61,26 @@ function closeMobileMenu() {
 
 <template>
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
-    <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 shrink-0 items-center whitespace-nowrap font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
         {{ coupleNames || 'MeuSiteCasamento' }}
       </NuxtLink>
 
-      <div class="hidden items-center gap-6 text-sm sm:flex">
+      <div class="hidden items-center gap-1 text-sm lg:flex">
         <NuxtLink
           v-for="link in NAV_LINKS"
           :key="link.to"
           :to="link.to"
-          class="hover:text-text"
-          :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text-muted'"
+          class="shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 transition-all duration-200 hover:bg-surface-muted hover:text-text"
+          :class="link.id === featuredButtonId ? 'bg-secondary/10 font-semibold text-primary' : 'text-text-muted'"
         >
           {{ link.label }}
         </NuxtLink>
-        <UiButton :to="giftsLink" rounded="full" size="sm">
+        <UiButton :to="giftsLink" rounded="full" size="sm" class="ml-2">
           <Icon name="lucide:gift" class="h-3.5 w-3.5" />
           Presentear
         </UiButton>
@@ -88,7 +88,7 @@ function closeMobileMenu() {
 
       <button
         type="button"
-        class="flex h-11 w-11 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:hidden"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
         :aria-label="isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
         @click="isMobileMenuOpen = !isMobileMenuOpen"
       >
@@ -98,12 +98,12 @@ function closeMobileMenu() {
 
     <div
       v-if="isMobileMenuOpen"
-      class="fixed inset-0 z-20 bg-black/40 sm:hidden"
+      class="fixed inset-0 z-20 bg-black/40 lg:hidden"
       aria-hidden="true"
       @click="closeMobileMenu"
     />
     <div
-      class="fixed inset-y-0 right-0 z-30 flex w-64 flex-col gap-1 border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 sm:hidden"
+      class="fixed inset-y-0 right-0 z-30 flex w-64 flex-col gap-1 border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 lg:hidden"
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
     >
       <UiButton :to="giftsLink" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
