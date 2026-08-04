@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
+import { groupEventSegmentsByVenue } from '~/utils/group-event-segments-by-venue'
 
 const { getPublicWedding } = usePublicWedding()
 const { getPublicEventSegments } = usePublicEventSegments()
@@ -28,12 +28,9 @@ const resolvedSegments = computed(() => {
   return segments.map((segment) => resolveEventSegmentVenue(segment, segments))
 })
 
-function anchorFor(title: string): string | undefined {
-  const type = classifyEventSegmentTitle(title)
-  if (type === 'ceremony') return 'cerimonia'
-  if (type === 'reception') return 'recepcao'
-  return undefined
-}
+// Cerimônia/Recepção no mesmo endereço viram uma única seção (CLAUDE.md,
+// §12.2) — sem duplicar mapa/endereço em dois cards.
+const eventSegmentGroups = computed(() => groupEventSegmentsByVenue(resolvedSegments.value))
 
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
 // preview correto ao compartilhar o link no WhatsApp. Slug inexistente
@@ -69,10 +66,9 @@ useSeoMeta({
       <PublicSaveTheDateCard v-if="resolvedSegments.length" :event-date="wedding.event_date" />
       <div id="cronograma">
         <PublicEventSpotlight
-          v-for="(segment, index) in resolvedSegments"
-          :id="anchorFor(segment.title)"
-          :key="segment.id"
-          :segment="segment"
+          v-for="(group, index) in eventSegmentGroups"
+          :key="group[0]!.id"
+          :segments="group"
           :tone="index % 2 === 0 ? 'default' : 'muted'"
         />
       </div>
