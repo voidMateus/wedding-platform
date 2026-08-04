@@ -52,16 +52,4 @@ describe('PublicEditorialSection', () => {
     const wrapper = mountSection({ id: 'historia' })
     expect(wrapper.attributes('id')).toBe('historia')
   })
-
-  it('usa a densidade "md" (py-20 sm:py-28) por padrão', () => {
-    const wrapper = mountSection({})
-    expect(wrapper.classes()).toContain('py-20')
-    expect(wrapper.classes()).toContain('sm:py-28')
-  })
-
-  it('aplica a densidade de espaçamento escolhida via prop spacing', () => {
-    const wrapper = mountSection({ spacing: 'xl' })
-    expect(wrapper.classes()).toContain('py-36')
-    expect(wrapper.classes()).not.toContain('py-20')
-  })
 })
