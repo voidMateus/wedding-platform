@@ -25,3 +25,13 @@ export const EVENT_SEGMENT_ICONS: Record<EventSegmentKind, string> = {
   party: 'lucide:party-popper',
   other: 'lucide:calendar',
 }
+
+// Âncora fixa usada por PublicNavBar (compatibilidade com links já
+// compartilhados) — só Cerimônia/Recepção têm âncora própria; os demais
+// segmentos (chá de panela, coquetel...) não são linkáveis diretamente.
+export function anchorForEventSegmentTitle(title: string): string | undefined {
+  const kind = classifyEventSegmentTitle(title)
+  if (kind === 'ceremony') return 'cerimonia'
+  if (kind === 'reception') return 'recepcao'
+  return undefined
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import RsvpTeaserSection from '~/components/public/RsvpTeaserSection.vue'
 import EditorialSection from '~/components/public/EditorialSection.vue'
 import SectionDivider from '~/components/ui/SectionDivider.vue'
+import Button from '~/components/ui/Button.vue'
 import type { Wedding } from '~/types/wedding'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
 
@@ -27,8 +28,8 @@ function mountSection(wedding: Wedding = makeWedding()) {
   return mount(RsvpTeaserSection, {
     props: { wedding },
     global: {
-      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
-      stubs: ICON_STUBS,
+      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection, UiButton: Button },
+      stubs: { ...ICON_STUBS, NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to', 'target'] } },
     },
   })
 }
@@ -46,9 +47,16 @@ describe('PublicRsvpTeaserSection', () => {
     expect(wrapper.text()).toContain('16 de maio de 2027')
   })
 
-  it('não renderiza nenhum formulário funcional (só texto explicativo)', () => {
+  it('não renderiza nenhum form/input cru (a busca vive em /{slug}/rsvp)', () => {
     const wrapper = mountSection()
     expect(wrapper.find('form').exists()).toBe(false)
     expect(wrapper.find('input').exists()).toBe(false)
+  })
+
+  it('CTA "Buscar meu convite" leva à busca real por nome (/{slug}/rsvp)', () => {
+    const wrapper = mountSection(makeWedding({ slug: 'ana-e-joao' }))
+    const link = wrapper.find('a')
+    expect(link.attributes('href')).toBe('/ana-e-joao/rsvp')
+    expect(link.text()).toContain('Buscar meu convite')
   })
 })
