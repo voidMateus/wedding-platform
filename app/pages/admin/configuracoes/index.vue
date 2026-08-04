@@ -34,6 +34,28 @@ function isoToDatetimeLocal(iso: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+const toast = useToast()
+
+const settingsTabs = [
+  { id: 'geral', label: 'Geral' },
+  { id: 'aparencia', label: 'Aparência' },
+]
+const activeTab = ref('geral')
+
+const brandingItems = [
+  { id: 'cover', trigger: 'Foto de capa' },
+  { id: 'story', trigger: 'Foto da seção "Nossa História"' },
+]
+const temaItems = [
+  { id: 'preset', trigger: 'Preset de tema' },
+  { id: 'tipografia', trigger: 'Tipografia' },
+  { id: 'cores', trigger: 'Cores' },
+]
+const experienciaItems = [
+  { id: 'countdown', trigger: 'Contagem regressiva' },
+  { id: 'hero-buttons', trigger: 'Atalhos do Hero' },
+]
+
 const { getWedding, updateWedding, updateWeddingTheme } = useWedding()
 // Aguardado (não apenas destructuring de useFetch): sem isso, o formulário de
 // Aparência é populado por um watcher assíncrono que roda DEPOIS do walk de
@@ -87,19 +109,16 @@ const childMaxAgeText = computed({
   },
 })
 
-const eventFormErrorMessage = ref<string | null>(null)
-const eventSuccessMessage = ref<string | null>(null)
-
 const onEventSubmit = handleEventSubmit(async (values) => {
-  eventFormErrorMessage.value = null
-  eventSuccessMessage.value = null
   try {
     await updateWedding(values)
-    eventSuccessMessage.value = 'Configurações salvas.'
+    toast.success('Configurações salvas.')
   } catch (err) {
-    eventFormErrorMessage.value = isApiError(err)
-      ? (err.data?.message ?? 'Não foi possível salvar as configurações.')
-      : 'Não foi possível salvar as configurações.'
+    toast.error(
+      isApiError(err)
+        ? (err.data?.message ?? 'Não foi possível salvar as configurações.')
+        : 'Não foi possível salvar as configurações.',
+    )
   }
 })
 
@@ -236,273 +255,288 @@ watch(advancedColorEnabled, (enabled) => {
   }
 })
 
-const themeFormErrorMessage = ref<string | null>(null)
-const themeSuccessMessage = ref<string | null>(null)
-
 const onThemeSubmit = handleThemeSubmit(async (values) => {
-  themeFormErrorMessage.value = null
-  themeSuccessMessage.value = null
   try {
     await updateWeddingTheme(values)
     // Atualiza o cache compartilhado (chave 'wedding') para que o layout
     // admin reflita a cor nova imediatamente, sem reload completo.
     await refresh()
-    themeSuccessMessage.value = 'Aparência salva.'
+    toast.success('Aparência salva.')
   } catch (err) {
-    themeFormErrorMessage.value = isApiError(err)
-      ? (err.data?.message ?? 'Não foi possível salvar a aparência.')
-      : 'Não foi possível salvar a aparência.'
+    toast.error(
+      isApiError(err)
+        ? (err.data?.message ?? 'Não foi possível salvar a aparência.')
+        : 'Não foi possível salvar a aparência.',
+    )
   }
 })
 </script>
 
 <template>
-  <div class="flex max-w-2xl flex-col gap-8">
-    <div>
-      <h1 class="text-xl font-semibold text-text">Configurações</h1>
-      <p class="mt-1 text-sm text-text-muted">Dados do evento e aparência visual do site.</p>
-    </div>
-
-    <div v-if="status === 'pending'" class="flex flex-col gap-2">
+  <AdminSection title="Configurações" description="Dados do evento e aparência visual do site.">
+    <div v-if="status === 'pending'" class="flex max-w-2xl flex-col gap-2">
       <UiSkeleton class="h-10 w-full" />
       <UiSkeleton class="h-10 w-full" />
       <UiSkeleton class="h-10 w-full" />
     </div>
 
-    <template v-else>
-      <UiCard>
-        <template #header>
-          <h2 class="text-base font-semibold text-text">Dados do evento</h2>
-        </template>
-
-        <form class="flex flex-col gap-4" @submit="onEventSubmit">
-          <UiInput v-model="coupleNames" label="Nome do casal" :error="eventErrors.coupleNames" />
-          <div class="flex gap-3">
-            <UiInput
-              v-model="eventDate"
-              type="date"
-              label="Data do casamento"
-              class="flex-1"
-              :error="eventErrors.eventDate"
-            />
-            <UiInput
-              v-model="eventTime"
-              type="time"
-              label="Horário (opcional)"
-              class="flex-1"
-              :error="eventErrors.eventTime"
-            />
-          </div>
-          <p class="-mt-2 text-xs text-text-muted">
-            Usado na contagem regressiva do site. Sem horário definido, a contagem mira meia-noite
-            do dia do evento.
-          </p>
-          <UiInput
-            v-model="rsvpDeadline"
-            type="datetime-local"
-            label="Prazo final de RSVP (opcional)"
-            :error="eventErrors.rsvpDeadline"
-          />
-          <UiInput
-            v-model="childMaxAgeText"
-            type="number"
-            label="Idade máxima considerada criança"
-            :error="eventErrors.childMaxAge"
-          />
-          <UiSelect
-            v-model="guestListMode"
-            label="Lista de convidados"
-            :options="[
-              { value: 'closed', label: 'Fechada (só convidados pré-cadastrados)' },
-              { value: 'open', label: 'Aberta (permite acompanhante avulso no RSVP)' },
-            ]"
-            :error="eventErrors.guestListMode"
-          />
-
-          <p v-if="eventFormErrorMessage" class="text-sm text-red-600" role="alert">
-            {{ eventFormErrorMessage }}
-          </p>
-          <p v-if="eventSuccessMessage" class="text-sm text-green-700" role="status">
-            {{ eventSuccessMessage }}
-          </p>
-
-          <div class="flex justify-end">
-            <UiButton type="submit" :disabled="isEventSubmitting">Salvar dados do evento</UiButton>
-          </div>
-        </form>
-      </UiCard>
-
-      <UiCard>
-        <template #header>
-          <h2 class="text-base font-semibold text-text">Aparência</h2>
-        </template>
-
-        <form class="flex flex-col gap-6" @submit="onThemeSubmit">
-          <AdminCoverImageUploader
-            :model-value="coverImageUrl"
-            :focal-point="coverFocalPoint"
-            @update:model-value="() => refresh()"
-            @update:focal-point="() => refresh()"
-          />
-
-          <AdminStoryImageUploader
-            :model-value="storyImageUrl"
-            :focal-point="storyFocalPoint"
-            @update:model-value="() => refresh()"
-            @update:focal-point="() => refresh()"
-          />
-
-          <AdminThemePresetPicker :model-value="activePresetId" @update:model-value="applyPreset" />
-
-          <AdminFontPairPicker v-model="fontPairId" :sample-text="coupleNames || 'Ana & João'" />
-
-          <div class="flex flex-col gap-4 sm:flex-row">
-            <div class="flex flex-1 flex-col gap-1">
-              <label class="text-sm font-medium text-text" for="primary-color">Cor primária</label>
-              <div class="flex items-center gap-3">
-                <input
-                  id="primary-color"
-                  v-model="primaryColor"
-                  type="color"
-                  class="h-10 w-14 cursor-pointer rounded-md border border-border"
-                />
-                <UiInput v-model="primaryColor" class="flex-1" :error="themeErrors.primaryColor" />
-              </div>
-              <p
-                v-if="primaryContrastPreview"
-                class="text-xs"
-                :class="primaryContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
-              >
-                Contraste: {{ primaryContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
-                {{ WCAG_AA_MIN_CONTRAST }}:1 —
-                {{ primaryContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
-              </p>
-            </div>
-
-            <div class="flex flex-1 flex-col gap-1">
-              <label class="text-sm font-medium text-text" for="secondary-color">Cor secundária</label>
-              <div class="flex items-center gap-3">
-                <input
-                  id="secondary-color"
-                  v-model="secondaryColor"
-                  type="color"
-                  class="h-10 w-14 cursor-pointer rounded-md border border-border"
-                />
-                <UiInput
-                  v-model="secondaryColor"
-                  class="flex-1"
-                  :error="themeErrors.secondaryColor"
-                />
-              </div>
-              <p
-                v-if="secondaryContrastPreview"
-                class="text-xs"
-                :class="secondaryContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
-              >
-                Contraste: {{ secondaryContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
-                {{ WCAG_AA_MIN_CONTRAST }}:1 —
-                {{ secondaryContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
-              </p>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
-            <UiCheckbox
-              v-model="advancedColorEnabled"
-              label="Personalização avançada (cor de título e de corpo de texto)"
-            />
-            <p class="text-xs text-text-muted">
-              Opcional — sem isso, títulos e textos usam a cor neutra padrão da plataforma. Cada
-              cor continua validada por contraste, como a primária e a secundária.
-            </p>
-
-            <div v-if="advancedColorEnabled" class="flex flex-col gap-4 sm:flex-row">
-              <div class="flex flex-1 flex-col gap-1">
-                <label class="text-sm font-medium text-text" for="title-color">Cor de título</label>
-                <div class="flex items-center gap-3">
-                  <input
-                    id="title-color"
-                    v-model="titleColor"
-                    type="color"
-                    class="h-10 w-14 cursor-pointer rounded-md border border-border"
-                  />
-                  <UiInput v-model="titleColor" class="flex-1" :error="themeErrors.titleColor" />
-                </div>
-                <p
-                  v-if="titleContrastPreview"
-                  class="text-xs"
-                  :class="titleContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
-                >
-                  Contraste: {{ titleContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
-                  {{ WCAG_AA_MIN_CONTRAST }}:1 —
-                  {{ titleContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
-                </p>
-              </div>
-
-              <div class="flex flex-1 flex-col gap-1">
-                <label class="text-sm font-medium text-text" for="body-color">Cor de corpo de texto</label>
-                <div class="flex items-center gap-3">
-                  <input
-                    id="body-color"
-                    v-model="bodyColor"
-                    type="color"
-                    class="h-10 w-14 cursor-pointer rounded-md border border-border"
-                  />
-                  <UiInput v-model="bodyColor" class="flex-1" :error="themeErrors.bodyColor" />
-                </div>
-                <p
-                  v-if="bodyContrastPreview"
-                  class="text-xs"
-                  :class="bodyContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
-                >
-                  Contraste: {{ bodyContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
-                  {{ WCAG_AA_MIN_CONTRAST }}:1 —
-                  {{ bodyContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <UiCheckbox v-model="showCountdown" label="Mostrar contagem regressiva no site" />
-
-          <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
-            <span class="text-sm font-medium text-text">Atalhos do Hero</span>
-            <p class="text-xs text-text-muted">
-              Escolha quais botões aparecem logo abaixo da contagem regressiva no topo do site e
-              qual fica em destaque (cor preenchida) — os demais aparecem em contorno.
-            </p>
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <UiCheckbox
-                v-for="button in HERO_BUTTON_CATALOG"
-                :key="button.id"
-                :model-value="isHeroButtonSelected(button.id)"
-                :label="button.label"
-                @update:model-value="(checked) => toggleHeroButton(button.id, checked)"
+    <UiTabs v-else v-model="activeTab" :tabs="settingsTabs" class="max-w-2xl">
+      <template #geral>
+        <UiCard>
+          <form class="flex flex-col gap-4" @submit="onEventSubmit">
+            <UiInput v-model="coupleNames" label="Nome do casal" :error="eventErrors.coupleNames" />
+            <div class="flex gap-3">
+              <UiInput
+                v-model="eventDate"
+                type="date"
+                label="Data do casamento"
+                class="flex-1"
+                :error="eventErrors.eventDate"
+              />
+              <UiInput
+                v-model="eventTime"
+                type="time"
+                label="Horário (opcional)"
+                class="flex-1"
+                :error="eventErrors.eventTime"
               />
             </div>
-            <UiSelect
-              v-if="heroFeaturedButtonOptions.length"
-              v-model="heroFeaturedButton"
-              label="Atalho em destaque"
-              :options="heroFeaturedButtonOptions"
-            />
-            <p v-else class="text-xs text-text-muted">
-              Selecione ao menos um atalho acima para escolher qual fica em destaque.
+            <p class="-mt-2 text-xs text-text-muted">
+              Usado na contagem regressiva do site. Sem horário definido, a contagem mira meia-noite
+              do dia do evento.
             </p>
-          </div>
+            <UiInput
+              v-model="rsvpDeadline"
+              type="datetime-local"
+              label="Prazo final de RSVP (opcional)"
+              :error="eventErrors.rsvpDeadline"
+            />
+            <UiInput
+              v-model="childMaxAgeText"
+              type="number"
+              label="Idade máxima considerada criança"
+              :error="eventErrors.childMaxAge"
+            />
+            <UiSelect
+              v-model="guestListMode"
+              label="Lista de convidados"
+              :options="[
+                { value: 'closed', label: 'Fechada (só convidados pré-cadastrados)' },
+                { value: 'open', label: 'Aberta (permite acompanhante avulso no RSVP)' },
+              ]"
+              :error="eventErrors.guestListMode"
+            />
 
-          <p v-if="themeFormErrorMessage" class="text-sm text-red-600" role="alert">
-            {{ themeFormErrorMessage }}
-          </p>
-          <p v-if="themeSuccessMessage" class="text-sm text-green-700" role="status">
-            {{ themeSuccessMessage }}
-          </p>
+            <div class="flex justify-end">
+              <UiButton type="submit" :disabled="isEventSubmitting">Salvar dados do evento</UiButton>
+            </div>
+          </form>
+        </UiCard>
+      </template>
 
-          <div class="flex justify-end">
-            <UiButton type="submit" :disabled="isThemeSubmitting">Salvar aparência</UiButton>
-          </div>
-        </form>
-      </UiCard>
-    </template>
-  </div>
+      <template #aparencia>
+        <UiCard>
+          <form class="flex flex-col gap-8" @submit="onThemeSubmit">
+            <section class="flex flex-col gap-3">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-text-muted">Branding</h3>
+              <UiAccordion :items="brandingItems">
+                <template #content="{ item }">
+                  <div class="px-5 pb-5">
+                    <AdminCoverImageUploader
+                      v-if="item.id === 'cover'"
+                      :model-value="coverImageUrl"
+                      :focal-point="coverFocalPoint"
+                      @update:model-value="() => refresh()"
+                      @update:focal-point="() => refresh()"
+                    />
+                    <AdminStoryImageUploader
+                      v-if="item.id === 'story'"
+                      :model-value="storyImageUrl"
+                      :focal-point="storyFocalPoint"
+                      @update:model-value="() => refresh()"
+                      @update:focal-point="() => refresh()"
+                    />
+                  </div>
+                </template>
+              </UiAccordion>
+            </section>
+
+            <section class="flex flex-col gap-3">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-text-muted">Tema</h3>
+              <UiAccordion :items="temaItems">
+                <template #content="{ item }">
+                  <div class="px-5 pb-5">
+                    <AdminThemePresetPicker
+                      v-if="item.id === 'preset'"
+                      :model-value="activePresetId"
+                      @update:model-value="applyPreset"
+                    />
+
+                    <AdminFontPairPicker
+                      v-if="item.id === 'tipografia'"
+                      v-model="fontPairId"
+                      :sample-text="coupleNames || 'Ana & João'"
+                    />
+
+                    <div v-if="item.id === 'cores'" class="flex flex-col gap-4">
+                      <div class="flex flex-col gap-4 sm:flex-row">
+                        <div class="flex flex-1 flex-col gap-1">
+                          <label class="text-sm font-medium text-text" for="primary-color">Cor primária</label>
+                          <div class="flex items-center gap-3">
+                            <input
+                              id="primary-color"
+                              v-model="primaryColor"
+                              type="color"
+                              class="h-10 w-14 cursor-pointer rounded-md border border-border"
+                            />
+                            <UiInput v-model="primaryColor" class="flex-1" :error="themeErrors.primaryColor" />
+                          </div>
+                          <p
+                            v-if="primaryContrastPreview"
+                            class="text-xs"
+                            :class="primaryContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+                          >
+                            Contraste: {{ primaryContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
+                            {{ WCAG_AA_MIN_CONTRAST }}:1 —
+                            {{ primaryContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+                          </p>
+                        </div>
+
+                        <div class="flex flex-1 flex-col gap-1">
+                          <label class="text-sm font-medium text-text" for="secondary-color">Cor secundária</label>
+                          <div class="flex items-center gap-3">
+                            <input
+                              id="secondary-color"
+                              v-model="secondaryColor"
+                              type="color"
+                              class="h-10 w-14 cursor-pointer rounded-md border border-border"
+                            />
+                            <UiInput
+                              v-model="secondaryColor"
+                              class="flex-1"
+                              :error="themeErrors.secondaryColor"
+                            />
+                          </div>
+                          <p
+                            v-if="secondaryContrastPreview"
+                            class="text-xs"
+                            :class="secondaryContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+                          >
+                            Contraste: {{ secondaryContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
+                            {{ WCAG_AA_MIN_CONTRAST }}:1 —
+                            {{ secondaryContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
+                        <UiCheckbox
+                          v-model="advancedColorEnabled"
+                          label="Personalização avançada (cor de título e de corpo de texto)"
+                        />
+                        <p class="text-xs text-text-muted">
+                          Opcional — sem isso, títulos e textos usam a cor neutra padrão da plataforma. Cada
+                          cor continua validada por contraste, como a primária e a secundária.
+                        </p>
+
+                        <div v-if="advancedColorEnabled" class="flex flex-col gap-4 sm:flex-row">
+                          <div class="flex flex-1 flex-col gap-1">
+                            <label class="text-sm font-medium text-text" for="title-color">Cor de título</label>
+                            <div class="flex items-center gap-3">
+                              <input
+                                id="title-color"
+                                v-model="titleColor"
+                                type="color"
+                                class="h-10 w-14 cursor-pointer rounded-md border border-border"
+                              />
+                              <UiInput v-model="titleColor" class="flex-1" :error="themeErrors.titleColor" />
+                            </div>
+                            <p
+                              v-if="titleContrastPreview"
+                              class="text-xs"
+                              :class="titleContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+                            >
+                              Contraste: {{ titleContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
+                              {{ WCAG_AA_MIN_CONTRAST }}:1 —
+                              {{ titleContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+                            </p>
+                          </div>
+
+                          <div class="flex flex-1 flex-col gap-1">
+                            <label class="text-sm font-medium text-text" for="body-color">Cor de corpo de texto</label>
+                            <div class="flex items-center gap-3">
+                              <input
+                                id="body-color"
+                                v-model="bodyColor"
+                                type="color"
+                                class="h-10 w-14 cursor-pointer rounded-md border border-border"
+                              />
+                              <UiInput v-model="bodyColor" class="flex-1" :error="themeErrors.bodyColor" />
+                            </div>
+                            <p
+                              v-if="bodyContrastPreview"
+                              class="text-xs"
+                              :class="bodyContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+                            >
+                              Contraste: {{ bodyContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
+                              {{ WCAG_AA_MIN_CONTRAST }}:1 —
+                              {{ bodyContrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </UiAccordion>
+            </section>
+
+            <section class="flex flex-col gap-3">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-text-muted">Experiência</h3>
+              <UiAccordion :items="experienciaItems">
+                <template #content="{ item }">
+                  <div class="px-5 pb-5">
+                    <UiCheckbox
+                      v-if="item.id === 'countdown'"
+                      v-model="showCountdown"
+                      label="Mostrar contagem regressiva no site"
+                    />
+
+                    <div v-if="item.id === 'hero-buttons'" class="flex flex-col gap-3">
+                      <p class="text-xs text-text-muted">
+                        Escolha quais botões aparecem logo abaixo da contagem regressiva no topo do site e
+                        qual fica em destaque (cor preenchida) — os demais aparecem em contorno.
+                      </p>
+                      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <UiCheckbox
+                          v-for="button in HERO_BUTTON_CATALOG"
+                          :key="button.id"
+                          :model-value="isHeroButtonSelected(button.id)"
+                          :label="button.label"
+                          @update:model-value="(checked) => toggleHeroButton(button.id, checked)"
+                        />
+                      </div>
+                      <UiSelect
+                        v-if="heroFeaturedButtonOptions.length"
+                        v-model="heroFeaturedButton"
+                        label="Atalho em destaque"
+                        :options="heroFeaturedButtonOptions"
+                      />
+                      <p v-else class="text-xs text-text-muted">
+                        Selecione ao menos um atalho acima para escolher qual fica em destaque.
+                      </p>
+                    </div>
+                  </div>
+                </template>
+              </UiAccordion>
+            </section>
+
+            <div class="flex justify-end">
+              <UiButton type="submit" :disabled="isThemeSubmitting">Salvar aparência</UiButton>
+            </div>
+          </form>
+        </UiCard>
+      </template>
+    </UiTabs>
+  </AdminSection>
 </template>
