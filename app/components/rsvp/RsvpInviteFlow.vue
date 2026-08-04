@@ -119,10 +119,10 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
         class="rounded-lg border border-border bg-surface-elevated p-5 shadow-sm"
       >
         <p class="mb-4 font-display text-lg font-semibold text-heading">{{ guest.fullName }}</p>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row">
           <UiButton
             type="button"
-            class="flex-1"
+            class="flex-1 whitespace-nowrap"
             rounded="full"
             :variant="guest.status === 'confirmed' ? 'primary' : 'outline'"
             :disabled="isPastDeadline"
@@ -133,7 +133,7 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
           </UiButton>
           <UiButton
             type="button"
-            class="flex-1"
+            class="flex-1 whitespace-nowrap"
             rounded="full"
             variant="outline"
             :class="guest.status === 'declined' ? '!border-text !bg-text !text-surface' : ''"
