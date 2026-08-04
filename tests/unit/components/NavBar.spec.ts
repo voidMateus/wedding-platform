@@ -48,24 +48,21 @@ describe('PublicNavBar', () => {
     expect(wrapper.text()).toContain('MeuSiteCasamento')
   })
 
-  it('links de âncora usam caminho absoluto com o slug do casamento ("/{slug}/#id")', () => {
+  it('links usam caminho absoluto com o slug do casamento — âncoras ou rota real (/rsvp)', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     expect(hrefs).toContain(`/${SLUG}/#historia`)
     expect(hrefs).toContain(`/${SLUG}/#grande-dia`)
-    expect(hrefs).toContain(`/${SLUG}/#confirmar-presenca`)
+    expect(hrefs).toContain(`/${SLUG}/rsvp`)
     expect(hrefs).toContain(`/${SLUG}/#nossos-momentos`)
     expect(hrefs).toContain(`/${SLUG}/#manual-convidados`)
   })
 
   it('a ordem dos links casa com a ordem das seções na home', () => {
     const wrapper = mountNavBar()
-    const hrefs = wrapper
-      .findAll('a')
-      .map((a) => a.attributes('href'))
-      .filter((href) => href?.includes('#'))
-    const order = ['#historia', '#grande-dia', '#manual-convidados', '#confirmar-presenca', '#nossos-momentos']
-    const filtered = order.filter((anchor) => hrefs.some((href) => href?.endsWith(anchor)))
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    const order = [`/${SLUG}/#historia`, `/${SLUG}/#grande-dia`, `/${SLUG}/#manual-convidados`, `/${SLUG}/rsvp`, `/${SLUG}/#nossos-momentos`]
+    const filtered = order.filter((href) => hrefs.includes(href))
     expect(filtered).toEqual(order)
   })
 
@@ -101,15 +98,23 @@ describe('PublicNavBar', () => {
   it('destaca o link do menu que casa com o atalho em destaque do Hero', () => {
     const wrapper = mountNavBar({ featuredButtonId: 'confirmar-presenca' })
     const links = wrapper.findAll('a')
-    const confirmarLink = links.find((a) => a.attributes('href') === `/${SLUG}/#confirmar-presenca`)
+    const confirmarLink = links.find((a) => a.attributes('href') === `/${SLUG}/rsvp`)
     const historiaLink = links.find((a) => a.attributes('href') === `/${SLUG}/#historia`)
     expect(confirmarLink?.classes()).toContain('text-primary')
     expect(historiaLink?.classes()).not.toContain('text-primary')
   })
 
-  it('sem featuredButtonId, nenhum link de âncora fica destacado', () => {
+  it('sem featuredButtonId, nenhum link do menu fica destacado', () => {
     const wrapper = mountNavBar()
-    const links = wrapper.findAll('a').filter((a) => a.attributes('href')?.includes('#'))
+    const navHrefs = [
+      `/${SLUG}/#historia`,
+      `/${SLUG}/#grande-dia`,
+      `/${SLUG}/#manual-convidados`,
+      `/${SLUG}/rsvp`,
+      `/${SLUG}/#nossos-momentos`,
+    ]
+    const links = wrapper.findAll('a').filter((a) => navHrefs.includes(a.attributes('href') ?? ''))
+    expect(links).toHaveLength(navHrefs.length)
     for (const link of links) {
       expect(link.classes()).not.toContain('text-primary')
     }

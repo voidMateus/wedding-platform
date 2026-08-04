@@ -1277,6 +1277,8 @@ Refinamento visual pedido pelo usuário — "acho no site com muitos espaços em
 
 **Rodada 12**: o atalho "Confirmar presença" do Hero (`shared/hero-buttons.ts`) passou de âncora (`/#confirmar-presenca`, rolava até o card informativo da home) para rota real (`/rsvp`, a busca por nome) — um clique a menos pro convidado (pedido do usuário), mesmo racional já usado pelo atalho "presentes". Só o botão do Hero muda; a `NavBar` ("Confirmar Presença" no menu) e `RsvpTeaserSection` (`id="confirmar-presenca"`, o card na home) continuam apontando pro card informativo — o menu ainda faz sentido como "me leve até essa seção da página", diferente do Hero, que é a primeira tela e não tem motivo pra não ir direto ao fluxo.
 
+**Rodada 13**: mesmo direcionamento aplicado ao link "Confirmar Presença" do menu superior (`NavBar.vue`) — de âncora (`/#confirmar-presenca`) pra rota real (`/rsvp`), pedido do usuário logo depois da Rodada 12 ter feito isso só no botão do Hero. `RsvpTeaserSection` (o card informativo na home, `id="confirmar-presenca"`) continua existindo — só deixou de ser o alvo do menu.
+
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
 - [ ] Observabilidade completa (Sentry + métricas de uso).

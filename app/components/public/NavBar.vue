@@ -4,7 +4,9 @@
 // "luxo discreto" pedido). Links usam caminho absoluto com hash ("/#id"),
 // não só "#id", para funcionar também a partir de /presentes e /rsvp/[code]
 // (mesmo layout, CLAUDE.md seção 5), navegando de volta para "/" e rolando
-// até a seção.
+// até a seção. Exceção: "Confirmar Presença" vai direto pra rota /rsvp (a
+// busca por nome), não pra âncora — mesmo racional/menos cliques já
+// aplicado ao atalho equivalente do Hero (shared/hero-buttons.ts).
 interface Props {
   coupleNames?: string | null
   /** Slug do casamento atual (CLAUDE.md, seção 4.4/33) — prefixa todo link interno. */
@@ -46,7 +48,7 @@ const NAV_LINKS = computed(() => [
   { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
   { id: 'cronograma', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
   { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
-  { id: 'confirmar-presenca', to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
+  { id: 'confirmar-presenca', to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
   { id: 'galeria', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
 ])
 
