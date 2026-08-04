@@ -3,11 +3,17 @@ import { themeConfigSchema } from '#shared/schemas/theme'
 
 /**
  * Aparência do site (CLAUDE.md, seção 22.3) — endpoint próprio, separado de
- * PATCH /api/wedding (dados de negócio do evento). Só mexe nas chaves de
- * theme_config de sua responsabilidade (presetId, primaryColor,
- * secondaryColor, titleColor, bodyColor, fontPairId, showCountdown,
- * heroButtons, heroFeaturedButton) — nunca toca coverImageUrl/storyImageUrl,
- * geridos à parte pelos endpoints de upload.
+ * PATCH /api/wedding (dados de negócio do evento). Mescla todo o `input`
+ * validado por `themeConfigSchema` por cima do `theme_config` já salvo —
+ * nunca lista os campos um a um aqui: um campo novo no schema (ex.:
+ * `countdownStyle`, `heroQuote`/`heroQuoteAttribution`) já é persistido
+ * automaticamente, sem precisar lembrar de atualizar este handler também
+ * (achado real: `countdownStyle` e `heroQuote`/`heroQuoteAttribution`
+ * ficaram órfãos por um tempo justamente por causa da lista manual antiga —
+ * CLAUDE.md, Fase Premium Experience). `coverImageUrl`/`storyImageUrl` (e
+ * campos de foco) nunca fazem parte de `input` — ficam de fora do schema de
+ * propósito, geridos à parte pelos endpoints de upload — então o spread de
+ * `current.theme_config` primeiro é o que os preserva aqui.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -27,15 +33,10 @@ export default defineEventHandler(async (event) => {
 
   const themeConfig = {
     ...(current.theme_config as Record<string, unknown>),
+    ...input,
+    // Único campo com normalização própria fora do que o schema já resolve
+    // (string vazia → "nenhum preset selecionado", não um id real).
     presetId: input.presetId || undefined,
-    primaryColor: input.primaryColor,
-    secondaryColor: input.secondaryColor,
-    titleColor: input.titleColor,
-    bodyColor: input.bodyColor,
-    fontPairId: input.fontPairId,
-    showCountdown: input.showCountdown,
-    heroButtons: input.heroButtons,
-    heroFeaturedButton: input.heroFeaturedButton,
   }
 
   const { data, error } = await client
