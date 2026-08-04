@@ -96,17 +96,13 @@ function formatDate(value: string | null): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-text">Convites</h1>
-        <p class="mt-1 text-sm text-text-muted">
-          Quem recebeu o mesmo convite — gere o link/QR, acompanhe respostas e o responsável por
-          cada um.
-        </p>
-      </div>
+  <AdminSection
+    title="Convites"
+    description="Quem recebeu o mesmo convite — gere o link/QR, acompanhe respostas e o responsável por cada um."
+  >
+    <template #actions>
       <UiButton @click="openCreateModal">Novo convite</UiButton>
-    </div>
+    </template>
 
     <UiInput v-model="search" placeholder="Buscar por nome do convite" class="max-w-xs" />
 
@@ -116,6 +112,7 @@ function formatDate(value: string | null): string {
 
     <UiEmptyState
       v-else-if="!data?.data.length"
+      icon="lucide:mail"
       title="Nenhum convite cadastrado ainda"
       description="Convites nascem automaticamente ao cadastrar convidados com acompanhantes, ou crie um manualmente."
     >
@@ -132,7 +129,11 @@ function formatDate(value: string | null): string {
           <th class="px-4 py-2 font-medium">Enviado em</th>
           <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
         </template>
-        <tr v-for="invite in data?.data" :key="invite.id" class="border-t border-border">
+        <tr
+          v-for="invite in data?.data"
+          :key="invite.id"
+          class="border-t border-border transition-brand hover:bg-surface-muted/60"
+        >
           <td class="px-4 py-2 text-text">
             <NuxtLink :to="`/admin/convites/${invite.id}`" class="font-medium hover:underline">
               {{ invite.name }}
@@ -230,5 +231,5 @@ function formatDate(value: string | null): string {
         </UiButton>
       </template>
     </UiModal>
-  </div>
+  </AdminSection>
 </template>

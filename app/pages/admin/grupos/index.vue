@@ -95,17 +95,13 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-text">Grupos</h1>
-        <p class="mt-1 text-sm text-text-muted">
-          Etiquetas livres para organizar convidados (Família da Noiva, Amigos, Trabalho...) —
-          use em filtros e no dashboard.
-        </p>
-      </div>
+  <AdminSection
+    title="Grupos"
+    description="Etiquetas livres para organizar convidados (Família da Noiva, Amigos, Trabalho...) — use em filtros e no dashboard."
+  >
+    <template #actions>
       <UiButton @click="openCreateModal">Novo grupo</UiButton>
-    </div>
+    </template>
 
     <div v-if="status === 'pending'" class="flex flex-col gap-2">
       <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
@@ -113,6 +109,7 @@ async function confirmDelete() {
 
     <UiEmptyState
       v-else-if="!data?.data.length"
+      icon="lucide:users-round"
       title="Nenhum grupo cadastrado ainda"
       description="Crie o primeiro grupo para começar a organizar os convidados."
     >
@@ -124,7 +121,11 @@ async function confirmDelete() {
         <th class="px-4 py-2 font-medium">Nome</th>
         <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
       </template>
-      <tr v-for="group in data?.data" :key="group.id" class="border-t border-border">
+      <tr
+        v-for="group in data?.data"
+        :key="group.id"
+        class="border-t border-border transition-brand hover:bg-surface-muted/60"
+      >
         <td class="px-4 py-2 text-text">
           <span class="inline-flex items-center gap-2">
             <span
@@ -205,5 +206,5 @@ async function confirmDelete() {
         </UiButton>
       </template>
     </UiModal>
-  </div>
+  </AdminSection>
 </template>

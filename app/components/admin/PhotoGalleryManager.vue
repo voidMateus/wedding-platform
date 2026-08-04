@@ -125,12 +125,8 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-text">Galeria</h1>
-        <p class="mt-1 text-sm text-text-muted">Fotos exibidas na seção Galeria do site público.</p>
-      </div>
+  <AdminSection title="Galeria" description="Fotos exibidas na seção Galeria do site público.">
+    <template #actions>
       <input
         ref="fileInput"
         type="file"
@@ -141,7 +137,7 @@ async function confirmDelete() {
       <UiButton :disabled="isUploading" @click="openFilePicker">
         {{ isUploading ? 'Enviando...' : 'Adicionar foto' }}
       </UiButton>
-    </div>
+    </template>
 
     <div v-if="status === 'pending'" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       <UiSkeleton v-for="n in 4" :key="n" class="aspect-square w-full" />
@@ -149,6 +145,7 @@ async function confirmDelete() {
 
     <UiEmptyState
       v-else-if="!data?.data.length"
+      icon="lucide:image"
       title="Nenhuma foto na galeria ainda"
       description="Envie fotos do casal para exibir na seção Galeria do site."
     >
@@ -208,5 +205,5 @@ async function confirmDelete() {
         <UiButton variant="destructive" :disabled="isDeleting" @click="confirmDelete">Excluir</UiButton>
       </template>
     </UiModal>
-  </div>
+  </AdminSection>
 </template>

@@ -280,16 +280,10 @@ function formatPrice(cents: number | null): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-text">Presentes</h1>
-        <p class="mt-1 text-sm text-text-muted">
-          Lista de presentes, incluindo cotas para itens de maior valor.
-        </p>
-      </div>
+  <AdminSection title="Presentes" description="Lista de presentes, incluindo cotas para itens de maior valor.">
+    <template #actions>
       <UiButton @click="openGiftModal">Novo presente</UiButton>
-    </div>
+    </template>
 
     <section class="flex flex-col gap-3">
       <div class="flex items-center justify-between">
@@ -297,29 +291,24 @@ function formatPrice(cents: number | null): string {
         <UiButton size="sm" variant="ghost" @click="openCategoryModal">Nova categoria</UiButton>
       </div>
       <div v-if="categoriesData?.data.length" class="flex flex-wrap gap-2">
-        <span
+        <UiChip
           v-for="category in categoriesData.data"
           :key="category.id"
-          class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-sm text-text"
+          :label="category.name"
+          removable
+          @remove="handleDeleteCategory(category)"
         >
-          {{ category.name }}
-          <button
-            type="button"
-            class="text-text-muted hover:text-text"
-            aria-label="Editar categoria"
-            @click="openEditCategoryModal(category)"
-          >
-            ✎
-          </button>
-          <button
-            type="button"
-            class="text-text-muted hover:text-red-600"
-            aria-label="Excluir categoria"
-            @click="handleDeleteCategory(category)"
-          >
-            ✕
-          </button>
-        </span>
+          <template #actions>
+            <button
+              type="button"
+              class="text-text-muted transition-brand hover:text-text"
+              aria-label="Editar categoria"
+              @click="openEditCategoryModal(category)"
+            >
+              <Icon name="lucide:pencil" class="h-3 w-3" />
+            </button>
+          </template>
+        </UiChip>
       </div>
       <p v-else class="text-sm text-text-muted">Nenhuma categoria cadastrada (opcional).</p>
     </section>
@@ -331,6 +320,7 @@ function formatPrice(cents: number | null): string {
 
       <UiEmptyState
         v-else-if="!giftsData?.data.length"
+        icon="lucide:gift"
         title="Nenhum presente cadastrado ainda"
         description="Adicione itens à lista de presentes do casamento."
       >
@@ -346,7 +336,11 @@ function formatPrice(cents: number | null): string {
           <th class="px-4 py-2 font-medium">Status</th>
           <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
         </template>
-        <tr v-for="gift in giftsData?.data" :key="gift.id" class="border-t border-border">
+        <tr
+          v-for="gift in giftsData?.data"
+          :key="gift.id"
+          class="border-t border-border transition-brand hover:bg-surface-muted/60"
+        >
           <td class="px-4 py-2 text-text">{{ gift.title }}</td>
           <td class="px-4 py-2 text-text-muted">{{ categoryName(gift.category_id) }}</td>
           <td class="px-4 py-2 text-text-muted">
@@ -510,5 +504,5 @@ function formatPrice(cents: number | null): string {
         </div>
       </div>
     </UiModal>
-  </div>
+  </AdminSection>
 </template>

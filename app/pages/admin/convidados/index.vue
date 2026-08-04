@@ -83,16 +83,10 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-text">Convidados</h1>
-        <p class="mt-1 text-sm text-text-muted">
-          Cadastre convidados e seus acompanhantes em um único fluxo.
-        </p>
-      </div>
+  <AdminSection title="Convidados" description="Cadastre convidados e seus acompanhantes em um único fluxo.">
+    <template #actions>
       <UiButton to="/admin/convidados/novo">Novo convidado</UiButton>
-    </div>
+    </template>
 
     <div class="flex flex-wrap gap-3">
       <UiInput v-model="search" placeholder="Buscar por nome" class="max-w-xs" @keyup.enter="page = 1" />
@@ -110,6 +104,7 @@ async function confirmDelete() {
 
     <UiEmptyState
       v-else-if="!data?.data.length"
+      icon="lucide:users"
       title="Nenhum convidado encontrado"
       description="Ajuste os filtros ou cadastre o primeiro convidado."
     >
@@ -126,7 +121,7 @@ async function confirmDelete() {
           <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
         </template>
         <template v-for="guest in data?.data" :key="guest.id">
-          <tr class="border-t border-border">
+          <tr class="border-t border-border transition-brand hover:bg-surface-muted/60">
             <td class="px-4 py-2 text-text">
               {{ guest.full_name }}
               <UiBadge v-if="computeIsChild(guest.birth_date, childMaxAge)" tone="neutral" class="ml-2">
@@ -221,5 +216,5 @@ async function confirmDelete() {
         </UiButton>
       </template>
     </UiModal>
-  </div>
+  </AdminSection>
 </template>
