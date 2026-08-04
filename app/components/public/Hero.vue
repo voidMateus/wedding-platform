@@ -93,7 +93,7 @@ const heroButtons = computed(() =>
   <section class="relative overflow-hidden bg-surface">
     <div
       class="relative flex flex-col"
-      :class="coverImageUrl ? 'lg:grid lg:grid-cols-2 lg:items-stretch' : ''"
+      :class="coverImageUrl ? 'lg:grid lg:grid-cols-[55%_45%] lg:items-stretch' : ''"
     >
       <div v-if="coverImageUrl" class="relative h-[42vh] w-full lg:order-2 lg:h-auto lg:min-h-[85vh]">
         <UiTreatedImage
@@ -113,20 +113,20 @@ const heroButtons = computed(() =>
       </div>
 
       <div
-        class="relative flex flex-col items-center gap-4 px-6 text-center"
-        :class="coverImageUrl ? 'py-16 lg:order-1 lg:justify-center lg:px-16 lg:py-24' : 'py-24 sm:py-32'"
+        class="relative flex flex-col items-center gap-4 overflow-hidden px-6 text-center"
+        :class="coverImageUrl ? 'py-16 lg:order-1 lg:justify-center lg:px-12 lg:py-24' : 'py-24 sm:py-32'"
       >
         <UiTexture v-if="!coverImageUrl" class="text-secondary" />
         <UiBotanicalSprig
           aria-hidden="true"
-          class="absolute -left-4 -top-2 hidden h-32 w-32 text-secondary/40 lg:block"
+          class="pointer-events-none absolute -left-10 -top-10 hidden h-56 w-56 text-secondary/50 lg:block"
         />
 
         <div
           v-motion
           :initial="{ opacity: 0, y: 24 }"
           :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-          class="relative flex flex-col items-center gap-4"
+          class="relative flex flex-col items-center gap-6"
         >
           <PublicCoupleMonogram :couple-names="wedding.couple_names" />
           <p class="text-sm uppercase tracking-widest text-secondary">Vamos nos casar!</p>
@@ -149,18 +149,25 @@ const heroButtons = computed(() =>
             </blockquote>
           </div>
 
-          <div
-            v-if="showCountdown"
-            class="rounded-lg border border-border bg-surface-elevated px-6 py-5 shadow-md"
-          >
-            <p class="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
+          <div v-if="showCountdown" class="flex flex-col items-center gap-3">
+            <p class="text-center text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
               Faltam
             </p>
-            <UiCountdownTimer :target-date-time="targetDateTime" :variant="countdownStyle">
-              <template #past>
-                <p class="text-sm font-medium text-primary">O grande dia chegou!</p>
-              </template>
-            </UiCountdownTimer>
+            <!--
+              O estilo 'cards' já desenha sua própria caixa por unidade — outra
+              caixa por fora ficaria "caixa dentro de caixa" (achado de revisão
+              visual contra a referência do usuário). Só 'inline' (números
+              soltos) ganha o cartão elevado ao redor.
+            -->
+            <div
+              :class="countdownStyle === 'inline' ? 'rounded-lg bg-surface-elevated px-8 py-6 shadow-lg' : ''"
+            >
+              <UiCountdownTimer :target-date-time="targetDateTime" :variant="countdownStyle">
+                <template #past>
+                  <p class="text-sm font-medium text-primary">O grande dia chegou!</p>
+                </template>
+              </UiCountdownTimer>
+            </div>
           </div>
 
           <div v-if="heroButtons.length" class="flex flex-wrap items-center justify-center gap-3">

@@ -55,14 +55,14 @@ describe('UiCountdownTimer', () => {
     expect(wrapper.findAll('.border-border.bg-surface')).toHaveLength(4)
   })
 
-  it('variant="inline" não renderiza caixas, e separa as unidades com um divisor', () => {
+  it('variant="inline" não renderiza caixas nem separador — só números e rótulos espaçados', () => {
     vi.setSystemTime(new Date('2026-12-10T00:00:00'))
     const wrapper = mount(CountdownTimer, {
       props: { targetDateTime: new Date('2026-12-12T06:01:02').toISOString(), variant: 'inline' },
     })
 
     expect(wrapper.find('.border-border.bg-surface').exists()).toBe(false)
-    expect(wrapper.text()).toContain('·')
+    expect(wrapper.text()).not.toContain('·')
     expect(wrapper.text()).toContain('dias')
   })
 
@@ -77,16 +77,17 @@ describe('UiCountdownTimer', () => {
     })
 
     expect(wrapper.find('.text-white').exists()).toBe(true)
-    expect(wrapper.find('.text-heading').exists()).toBe(false)
+    expect(wrapper.find('.text-primary').exists()).toBe(false)
   })
 
-  it('variant="inline" usa a cor de heading padrão quando não invertido', () => {
+  it('variant="inline" usa as cores do tema (números em primary, rótulos em secondary) quando não invertido', () => {
     vi.setSystemTime(new Date('2026-12-10T00:00:00'))
     const wrapper = mount(CountdownTimer, {
       props: { targetDateTime: new Date('2026-12-12T06:01:02').toISOString(), variant: 'inline' },
     })
 
-    expect(wrapper.find('.text-heading').exists()).toBe(true)
+    expect(wrapper.find('.text-primary').exists()).toBe(true)
+    expect(wrapper.find('.text-secondary').exists()).toBe(true)
     expect(wrapper.find('.text-white').exists()).toBe(false)
   })
 })

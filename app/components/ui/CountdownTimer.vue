@@ -49,29 +49,22 @@ const units = computed(() => [
     v-motion
     :initial="{ opacity: 0, y: 16 }"
     :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-    class="flex items-baseline justify-center gap-3 sm:gap-4"
+    class="flex items-start justify-center gap-5 sm:gap-8"
   >
-    <template v-for="(unit, index) in units" :key="unit.label">
-      <div class="flex items-baseline gap-1.5">
-        <span
-          class="font-display text-3xl font-semibold tabular-nums sm:text-4xl"
-          :class="inverted ? 'text-white' : 'text-heading'"
-        >
-          {{ String(unit.value).padStart(2, '0') }}
-        </span>
-        <span class="text-xs uppercase tracking-wide" :class="inverted ? 'text-white/70' : 'text-text-muted'">
-          {{ unit.label }}
-        </span>
-      </div>
+    <div v-for="unit in units" :key="unit.label" class="flex flex-col items-center gap-1">
       <span
-        v-if="index < units.length - 1"
-        aria-hidden="true"
-        class="text-xl sm:text-2xl"
-        :class="inverted ? 'text-white/40' : 'text-border'"
+        class="font-display text-3xl font-semibold tabular-nums sm:text-4xl"
+        :class="inverted ? 'text-white' : 'text-primary'"
       >
-        ·
+        {{ String(unit.value).padStart(2, '0') }}
       </span>
-    </template>
+      <span
+        class="text-[11px] uppercase tracking-wide"
+        :class="inverted ? 'text-white/70' : 'text-secondary'"
+      >
+        {{ unit.label }}
+      </span>
+    </div>
   </div>
 
   <div
