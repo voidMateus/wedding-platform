@@ -3,20 +3,9 @@ import { useNow } from '@vueuse/core'
 
 interface Props {
   targetDateTime: string
-  /**
-   * Estilo visual (configurável via `theme_config.countdownStyle`, CLAUDE.md
-   * Fase Premium Experience/PR2): 'cards' é o padrão histórico (caixas com
-   * borda, autocontidas — sempre usa as próprias cores `text-primary`/
-   * `text-text-muted`, funciona sobre qualquer fundo); 'inline' é tipográfico,
-   * sem caixas, e por isso precisa herdar a cor de texto do contexto (ver
-   * prop `inverted`).
-   */
-  variant?: 'cards' | 'inline'
-  /** Só relevante para variant="inline" — usado sobre foto de capa (Hero), onde o texto precisa ser branco em vez da cor de heading padrão. */
-  inverted?: boolean
 }
 
-const { targetDateTime, variant = 'cards', inverted = false } = defineProps<Props>()
+const { targetDateTime } = defineProps<Props>()
 
 const now = useNow({ interval: 1000 })
 
@@ -43,37 +32,6 @@ const units = computed(() => [
       <p class="text-text-muted">O grande dia chegou!</p>
     </slot>
   </div>
-
-  <div
-    v-else-if="variant === 'inline'"
-    v-motion
-    :initial="{ opacity: 0, y: 16 }"
-    :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-    class="flex items-baseline justify-center gap-3 sm:gap-4"
-  >
-    <template v-for="(unit, index) in units" :key="unit.label">
-      <div class="flex items-baseline gap-1.5">
-        <span
-          class="font-display text-3xl font-semibold tabular-nums sm:text-4xl"
-          :class="inverted ? 'text-white' : 'text-heading'"
-        >
-          {{ String(unit.value).padStart(2, '0') }}
-        </span>
-        <span class="text-xs uppercase tracking-wide" :class="inverted ? 'text-white/70' : 'text-text-muted'">
-          {{ unit.label }}
-        </span>
-      </div>
-      <span
-        v-if="index < units.length - 1"
-        aria-hidden="true"
-        class="text-xl sm:text-2xl"
-        :class="inverted ? 'text-white/40' : 'text-border'"
-      >
-        ·
-      </span>
-    </template>
-  </div>
-
   <div
     v-else
     v-motion

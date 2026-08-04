@@ -88,25 +88,4 @@ describe('themeConfigSchema', () => {
       expect(result.data.heroFeaturedButton).toBeUndefined()
     }
   })
-
-  it('usa o default "cards" de countdownStyle quando ausente', () => {
-    const result = themeConfigSchema.safeParse(BASE)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.countdownStyle).toBe('cards')
-    }
-  })
-
-  it('aceita countdownStyle "inline"', () => {
-    const result = themeConfigSchema.safeParse({ ...BASE, countdownStyle: 'inline' })
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.countdownStyle).toBe('inline')
-    }
-  })
-
-  it('rejeita um countdownStyle desconhecido', () => {
-    const result = themeConfigSchema.safeParse({ ...BASE, countdownStyle: 'balões' })
-    expect(result.success).toBe(false)
-  })
 })

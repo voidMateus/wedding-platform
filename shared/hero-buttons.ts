@@ -20,6 +20,7 @@ export const HERO_BUTTON_CATALOG: HeroButtonDefinition[] = [
   { id: 'historia', label: 'Nossa história', icon: 'lucide:heart', href: '/#historia' },
   { id: 'galeria', label: 'Galeria', icon: 'lucide:image', href: '/#galeria' },
   { id: 'faq', label: 'Perguntas frequentes', icon: 'lucide:help-circle', href: '/#faq' },
+  { id: 'contato', label: 'Contato', icon: 'lucide:mail', href: '/#contato' },
 ]
 
 export const HERO_BUTTON_IDS = HERO_BUTTON_CATALOG.map((button) => button.id) as [string, ...string[]]

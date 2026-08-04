@@ -109,16 +109,6 @@ describe('PublicHero', () => {
     expect(wrapper.text()).not.toContain('dias')
   })
 
-  it('repassa theme_config.countdownStyle para o CountdownTimer (sem foto de capa)', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ theme_config: { countdownStyle: 'inline' } }) })
-    expect(wrapper.findComponent(CountdownTimer).props('variant')).toBe('inline')
-  })
-
-  it('countdown sem foto de capa não é invertido (herda text-heading)', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ theme_config: {} }) })
-    expect(wrapper.findComponent(CountdownTimer).props('inverted')).toBeFalsy()
-  })
-
   it('renderiza os 4 atalhos de navegação (sem foto de capa)', () => {
     const wrapper = mountHero({ wedding: makeWedding({ theme_config: {} }) })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
@@ -135,13 +125,6 @@ describe('PublicHero', () => {
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).toContain(href)
     }
-  })
-
-  it('countdown sobre foto de capa é invertido (texto branco)', () => {
-    const wrapper = mountHero({
-      wedding: makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
-    })
-    expect(wrapper.findComponent(CountdownTimer).props('inverted')).toBeTruthy()
   })
 
   it('o atalho de presentes é o CTA primário (cor de destaque)', () => {

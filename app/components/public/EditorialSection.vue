@@ -4,18 +4,14 @@
 // do slot default fica livre para o próprio layout de cada seção (texto
 // corrido, cards, grade de fotos...). Reveal-on-scroll consistente com o
 // mesmo padrão usado nas demais seções públicas.
-import { DEFAULT_SECTION_SPACING, SECTION_SPACING_CLASSES, type SectionSpacing } from '#shared/section-spacing'
-
 interface Props {
   title?: string
   tone?: 'default' | 'muted' | 'accent'
   divider?: boolean
   id?: string
-  /** Ritmo vertical da seção (CLAUDE.md, Fase Premium Experience) — default 'md' reproduz o padding usado desde a Fase Editorial. */
-  spacing?: SectionSpacing
 }
 
-const { title, tone = 'default', divider = true, id, spacing = DEFAULT_SECTION_SPACING } = defineProps<Props>()
+const { title, tone = 'default', divider = true, id } = defineProps<Props>()
 
 const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
   default: 'bg-surface',
@@ -28,7 +24,7 @@ const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
 </script>
 
 <template>
-  <section :id="id" class="px-4" :class="[TONE_CLASSES[tone], SECTION_SPACING_CLASSES[spacing]]">
+  <section :id="id" class="px-4 py-20 sm:py-28" :class="TONE_CLASSES[tone]">
     <div
       v-motion
       :initial="{ opacity: 0, y: 24 }"

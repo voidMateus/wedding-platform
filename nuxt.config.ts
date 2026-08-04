@@ -110,7 +110,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'MeuSiteCasamento',
+      title: 'Wedding Platform',
       htmlAttrs: {
         lang: 'pt-BR',
       },
