@@ -933,6 +933,48 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 Ao salvar `theme_config`, `primaryColor`, `secondaryColor` e, quando definidas, `titleColor`/`bodyColor` são validadas independentemente contra `--color-surface`/`--color-text` calculando a razão de contraste (fórmula de luminância relativa do WCAG, `shared/utils/contrast.ts#checkColorContrast`). Se qualquer uma ficar abaixo de 4.5:1, a interface administrativa bloqueia o salvamento — evitando que a customização visual quebre a acessibilidade prometida na seção 25. Todo preset de `shared/theme-presets.ts` é coberto por teste de guarda garantindo que as duas cores de cada entrada passam nesse mínimo.
 
+### 22.5 Fase Premium Experience — Manifesto de Design
+
+Adendo de produto/design (motivado por feedback direto do usuário — o site do convidado "ainda parece muito ruim" mesmo após as fases Editorial e Vermelho Clássico) que passa a valer para **toda** seção pública nova a partir daqui, não só para as seções redesenhadas nos PRs desta fase (ver roadmap, seção 32).
+
+**Experiência Emocional** — o porquê antes do como. Todo componente da home pública existe para reforçar a sensação de que o visitante está participando de um momento importante da vida do casal; o objetivo não é só informar data/horário/endereço, é gerar expectativa, emoção e encantamento. Toda decisão visual responde à pergunta: *"isso aproxima o visitante da história do casal?"* — se a resposta é não, a decisão é revista.
+
+**Princípios de Design** (critério para qualquer decisão futura, não só desta fase):
+- Elegância acima de excesso
+- Movimento acima de decoração
+- Hierarquia acima de quantidade
+- Emoção acima de funcionalidade
+- Espaço em branco acima de preenchimento
+- Fotografia acima de ilustrações
+- Tipografia acima de ornamentos
+- Consistência acima de criatividade isolada
+
+**Anti-padrões** (nunca fazer no site público, para o produto não regredir em alterações futuras): cards genéricos repetidos; grids simétricos em todas as seções; excesso de bordas; excesso de sombras; excesso de animações; gradientes chamativos; ícones coloridos; mais de um elemento competindo pela atenção; mais de dois botões principais por seção; textos centralizados em blocos muito longos; aparência de dashboard/painel administrativo.
+
+**Ritmo de leitura (narrativa)** — a ordem dos "beats" da página, não só o layout de cada seção isolada: momento emocional → informação prática → imagem → respiro → próxima história. O visitante nunca deve passar por três seções informativas consecutivas seguidas — quando o mapeamento seção-a-seção resultar nisso, uma das seções vira um momento mais visual/emocional (foto full-bleed, citação, pausa) em vez de mais texto+card.
+
+**Assinatura Visual** (identidade exclusiva da plataforma, não só de um casamento específico): monograma do casal + sistema de ornamentos próprios + tipografia editorial + hierarquia tipográfica exclusiva + motion característico + hero cinematográfico + espaçamento generoso + componentes exclusivos. É o conjunto, não uma peça isolada, que torna o site reconhecível — o critério de sucesso é alguém reconhecer um print de qualquer seção como "feito no MeuSiteCasamento" sem precisar ver a marca.
+
+**Critério de Excelência** (perguntas de aceite para qualquer seção pública nova ou redesenhada — se qualquer resposta for negativa, a implementação não está concluída):
+- O Hero seria digno da página inicial do produto?
+- Cada seção possui identidade própria?
+- Existe uma hierarquia visual clara?
+- O visitante entende imediatamente onde olhar?
+- A página transmite luxo mesmo usando outra paleta (testar com pelo menos 2 presets de cor diferentes, já que o tema é customizável por casal)?
+- O site continua bonito sem animações (`prefers-reduced-motion`)?
+- Uma captura de tela isolada de qualquer seção parece um template comum ou um produto autoral?
+
+#### Peças de fundação (PR3)
+
+Antes de qualquer seção visível ser redesenhada, a Fase Premium Experience começou construindo as peças reutilizáveis que a Assinatura Visual e o sistema de espaçamento exigem — nenhuma seção pública decide mais seu próprio ornamento ou padding solto:
+
+- **Sistema de espaçamento** — `shared/section-spacing.ts` (`SECTION_SPACING_CLASSES`, 5 densidades `xs`/`sm`/`md`/`lg`/`xl`, cada uma só uma combinação nomeada de classes já dentro da escala padrão do Tailwind, seção 22.1 — não é uma escala numérica nova). `PublicEditorialSection` (`app/components/public/EditorialSection.vue`) ganhou a prop `spacing` (default `'md'`, reproduz exatamente o padding usado desde a Fase Editorial — nenhuma seção existente muda de aparência até adotar outra densidade deliberadamente).
+- **Sistema de ornamentos** (`components/ui/`, todos puramente decorativos — `aria-hidden`, sem acoplamento a dado de negócio): `Filete.vue` (traço fino, horizontal ou vertical, para separar elementos inline — diferente de `SectionDivider.vue`, que sempre inclui a marca central e serve para separar capítulos), `Frame.vue` (moldura de filetes concêntricos ao redor de um slot, linguagem de papelaria fina), `Texture.vue` (grão discreto via `radial-gradient` em `currentColor`, absolutamente posicionado sobre o pai), `OrnamentMark.vue` (losango vazado standalone, respiro entre dois momentos visuais fortes onde um divisor de capítulo completo seria pesado demais).
+- **`UiTreatedImage.vue`** (`components/ui/`) — wrapper padrão para toda foto do site (capa, história, galeria, presentes): proporção de corte (`ratio`), overlay de gradiente para texto sobreposto (`overlay: 'none' | 'bottom' | 'full'`), ponto de foco (`objectPosition`, mesmo formato `'<x>% <y>%'` já usado pela Ferramenta de enquadramento, seção 22.3), `fullBleed` (sangra até a borda, sem `rounded-lg`), placeholder em blur e `loading="lazy"` por padrão (`priority` troca para `preload`, equivalente ao usado hoje no Hero). Ainda não substituiu nenhum uso existente de `NuxtImg` nas seções — adoção incremental nos PRs seguintes desta fase, mesmo padrão já usado para `text-heading`/`text-body` (seção 22.3).
+- **`CoupleMonogram.vue`** (`app/components/public/`) — o selo do casal: iniciais derivadas de `couple_names` via `shared/utils/couple-initials.ts#getCoupleInitials` (mesma convenção de split por `"&"` já usada em `Hero.vue#coupleNameParts`, com fallback para nomes fora do padrão `"Nome & Nome"`) dentro de um anel duplo, SVG puro. Puramente decorativo (`aria-hidden`) — o nome completo do casal sempre aparece como texto em algum outro lugar da página, o monograma nunca é a única forma de identificar o casal.
+
+Nenhuma seção visível muda de aparência neste PR — são só as peças que os próximos PRs desta fase (Hero cinematográfico, ritmo das seções, cards, presentes, motion) vão consumir.
+
 ---
 
 ## 23. Componentes Reutilizáveis
@@ -1196,7 +1238,17 @@ Redesign visual da home pública para "casar" com um site de referência de um c
 - **PR 3 — Vitrine de presentes embutida na home** ([x] concluído): lógica de `pages/presentes/index.vue` extraída para `components/gifts/GiftsShowcase.vue` (fetch via `usePublicGifts`, filtros, grid, handlers de reservar/cancelar/contribuir) — reutilizada pela página dedicada (que passa a só delegar) e pela nova `components/public/GiftsShowcaseSection.vue`, que substitui o antigo `GiftsTeaserSection.vue` na home. Filtro por faixa de preço (item já cogitado numa fase anterior e não implementado até então) calculado dinamicamente a partir do preço real dos presentes de cada casamento (`shared/utils/gift-price-brackets.ts#computeGiftPriceBrackets` — nunca hardcoded, no máximo 4 faixas em incrementos redondos de reais; presente de cota usa o valor-alvo como "preço efetivo") + `UiSelect` "Ordenar por" (Ordem do casal/Menor preço/Maior preço) + contador "Mostrando X de Y presentes". Filtro de categoria + faixa de preço + ordenação encadeados numa função pura testável (`shared/utils/filter-gifts.ts#filterAndSortGifts`), não inline no componente. `GiftCard.vue` reestilizado (badge de preço sobreposto na foto, botão "Presentear" em pill com ícone) sem alterar nenhuma lógica/estado existente (reservar, cancelar, contribuir, badges de status). `/presentes` continua existindo como página própria (link direto/compartilhável) — só deixou de ser o alvo principal do menu (CLAUDE.md, PR 1 desta fase).
 - **PR 4 — RSVP informativo + polimento** ([x] concluído): `RsvpTeaserSection.vue` reestilizado como cartão único (`rounded-lg border bg-surface-elevated shadow-md`) — ícone + nome do casal + data no topo, texto explicativo abaixo, mesma linguagem visual do card de Cerimônia (PR 2 desta fase). Sem formulário funcional (ver restrição de escopo acima); passa a receber `wedding` como prop (antes não recebia nenhuma). Passada de QA mobile real (viewport 375×812): sem overflow horizontal em toda a home, screenshots comparados à referência.
 
-**Restrições de escopo "front only" (deliberadas, não lacunas)**: (1) o card de Cerimônia do site de referência tem uma foto real do local — como `event_segments` não tem coluna de imagem e adicionar uma seria mudança de schema, o card não terá foto nesta fase; (2) o RSVP do site de referência busca o convidado por telefone digitado na própria home, sem link único — isso contraria o modelo de segurança já documentado (§4.5/§14, acesso do convidado é só via token opaco na URL, nunca busca aberta) e exigiria um endpoint público novo, então a seção RSVP da home continua sendo só informativa, orientando o uso do link único recebido; (3) a ilustração floral decorativa do Hero do site de referência não foi recriada (decisão do usuário — já existe upload de foto de capa personalizada); (4) botões de compartilhar (WhatsApp/copiar link) do rodapé do site de referência não foram adicionados (decisão já tomada antes desta fase, mantida).
+**Restrições de escopo "front only" (deliberadas, não lacunas)**: (1) o card de Cerimônia do site de referência tem uma foto real do local — como `event_segments` não tem coluna de imagem e adicionar uma seria mudança de schema, o card não terá foto nesta fase; (2) o RSVP do site de referência busca o convidado por telefone digitado na própria home, sem link único — isso contraria o modelo de segurança já documentado (§4.5/§14, acesso do convidado é só via token opaco na URL, nunca busca aberta) e exigiria um endpoint público novo, então a seção RSVP da home continua sendo só informativa, orientando o uso do link único recebido *(superada depois: busca tolerante por nome implementada em `/rsvp` por um PR posterior, fora desta fase — ver Fase Premium Experience/PR1 abaixo, que conecta a home a ela)*; (3) a ilustração floral decorativa do Hero do site de referência não foi recriada (decisão do usuário — já existe upload de foto de capa personalizada); (4) botões de compartilhar (WhatsApp/copiar link) do rodapé do site de referência não foram adicionados (decisão já tomada antes desta fase, mantida).
+
+### Fase Premium Experience (em andamento, fora da sequência numerada)
+
+Revisão geral do front-end/visual do site do convidado, motivada por feedback direto do usuário: percepção de que o visual "ainda está muito ruim" mesmo após as fases Editorial e Vermelho Clássico, mais 5 problemas pontuais identificados na revisão. Manifesto de design completo (Experiência Emocional, Princípios, Anti-padrões, Ritmo de leitura, Assinatura Visual, Critério de Excelência) documentado na seção 22.5.
+
+- **PR1 — Limpeza estrutural e correções funcionais** (aberto, PR #57): "Manual dos Padrinhos" removido da renderização da home (componente/conteúdo mantidos no repo); seção "Contato" removida por completo; `RsvpTeaserSection.vue`/`PublicNavBar` reconectados à busca real por nome (`/{slug}/rsvp`, PR #55); Cerimônia/Recepção no mesmo endereço passam a fundir num único card. Rebrand parcial "Wedding Platform" → "MeuSiteCasamento" nas strings visíveis ao convidado.
+- **PR2 — Countdown: redesign + configurável** (aberto, PR #58): `CountdownTimer.vue` ganha a variante `inline` (tipográfica, sem caixas) configurável via `theme_config.countdownStyle`, com controle em `/admin/configuracoes`.
+- **PR3 — Fundação** ([x] concluído): peças de fundação da Assinatura Visual (sistema de espaçamento, sistema de ornamentos, `UiTreatedImage.vue`, `CoupleMonogram.vue`) — detalhado na seção 22.5. Nenhuma seção visível mudou de aparência ainda.
+- **PR4 — Hero cinematográfico** (planejado): reconstrução completa do `Hero.vue`, primeiro consumidor real das peças do PR3.
+- **PR5+ — Ritmo das seções, Cards, Presentes, Motion, Visual Polish, Design Review** (planejado): ver definição completa na seção 22.5 e critério de aceite de cada PR.
 
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
