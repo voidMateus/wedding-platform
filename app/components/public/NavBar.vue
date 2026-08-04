@@ -32,7 +32,6 @@ const NAV_LINKS = computed(() => [
   { to: `/${slug}/#cronograma`, label: 'Cronograma' },
   { to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
   { to: `/${slug}/#galeria`, label: 'Galeria' },
-  { to: `/${slug}/#contato`, label: 'Contato' },
 ])
 
 const homeLink = computed(() => `/${slug}`)

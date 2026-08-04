@@ -74,12 +74,10 @@ useSeoMeta({
       </div>
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
-      <PublicGroomsmenManualSection />
       <PublicGiftsShowcaseSection :code="code" />
       <PublicRsvpTeaserSection :wedding="wedding" />
       <PublicGallerySection />
       <PublicFaqSection />
-      <PublicContactSection />
     </template>
   </div>
 </template>

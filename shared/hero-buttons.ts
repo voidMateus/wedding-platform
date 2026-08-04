@@ -18,12 +18,10 @@ export const HERO_BUTTON_CATALOG: HeroButtonDefinition[] = [
   { id: 'confirmar-presenca', label: 'Confirmar presença', icon: 'lucide:check', href: '/#confirmar-presenca' },
   { id: 'cronograma', label: 'Cerimônia e festa', icon: 'lucide:calendar-clock', href: '/#cronograma' },
   { id: 'manual-convidados', label: 'Manual do convidado', icon: 'lucide:info', href: '/#manual-convidados' },
-  { id: 'manual-padrinhos', label: 'Manual dos padrinhos', icon: 'lucide:users-round', href: '/#manual-padrinhos' },
   { id: 'dress-code', label: 'Dress code', icon: 'lucide:shirt', href: '/#dress-code' },
   { id: 'historia', label: 'Nossa história', icon: 'lucide:heart', href: '/#historia' },
   { id: 'galeria', label: 'Galeria', icon: 'lucide:image', href: '/#galeria' },
   { id: 'faq', label: 'Perguntas frequentes', icon: 'lucide:help-circle', href: '/#faq' },
-  { id: 'contato', label: 'Contato', icon: 'lucide:mail', href: '/#contato' },
 ]
 
 export const HERO_BUTTON_IDS = HERO_BUTTON_CATALOG.map((button) => button.id) as [string, ...string[]]
