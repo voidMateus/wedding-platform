@@ -933,6 +933,48 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 Ao salvar `theme_config`, `primaryColor`, `secondaryColor` e, quando definidas, `titleColor`/`bodyColor` são validadas independentemente contra `--color-surface`/`--color-text` calculando a razão de contraste (fórmula de luminância relativa do WCAG, `shared/utils/contrast.ts#checkColorContrast`). Se qualquer uma ficar abaixo de 4.5:1, a interface administrativa bloqueia o salvamento — evitando que a customização visual quebre a acessibilidade prometida na seção 25. Todo preset de `shared/theme-presets.ts` é coberto por teste de guarda garantindo que as duas cores de cada entrada passam nesse mínimo.
 
+### 22.5 Fase Premium Experience — Manifesto de Design
+
+Adendo de produto/design (motivado por feedback direto do usuário — o site do convidado "ainda parece muito ruim" mesmo após as fases Editorial e Vermelho Clássico) que passa a valer para **toda** seção pública nova a partir daqui, não só para as seções redesenhadas nos PRs desta fase (ver roadmap, seção 32).
+
+**Experiência Emocional** — o porquê antes do como. Todo componente da home pública existe para reforçar a sensação de que o visitante está participando de um momento importante da vida do casal; o objetivo não é só informar data/horário/endereço, é gerar expectativa, emoção e encantamento. Toda decisão visual responde à pergunta: *"isso aproxima o visitante da história do casal?"* — se a resposta é não, a decisão é revista.
+
+**Princípios de Design** (critério para qualquer decisão futura, não só desta fase):
+- Elegância acima de excesso
+- Movimento acima de decoração
+- Hierarquia acima de quantidade
+- Emoção acima de funcionalidade
+- Espaço em branco acima de preenchimento
+- Fotografia acima de ilustrações
+- Tipografia acima de ornamentos
+- Consistência acima de criatividade isolada
+
+**Anti-padrões** (nunca fazer no site público, para o produto não regredir em alterações futuras): cards genéricos repetidos; grids simétricos em todas as seções; excesso de bordas; excesso de sombras; excesso de animações; gradientes chamativos; ícones coloridos; mais de um elemento competindo pela atenção; mais de dois botões principais por seção; textos centralizados em blocos muito longos; aparência de dashboard/painel administrativo.
+
+**Ritmo de leitura (narrativa)** — a ordem dos "beats" da página, não só o layout de cada seção isolada: momento emocional → informação prática → imagem → respiro → próxima história. O visitante nunca deve passar por três seções informativas consecutivas seguidas — quando o mapeamento seção-a-seção resultar nisso, uma das seções vira um momento mais visual/emocional (foto full-bleed, citação, pausa) em vez de mais texto+card.
+
+**Assinatura Visual** (identidade exclusiva da plataforma, não só de um casamento específico): monograma do casal + sistema de ornamentos próprios + tipografia editorial + hierarquia tipográfica exclusiva + motion característico + hero cinematográfico + espaçamento generoso + componentes exclusivos. É o conjunto, não uma peça isolada, que torna o site reconhecível — o critério de sucesso é alguém reconhecer um print de qualquer seção como "feito no MeuSiteCasamento" sem precisar ver a marca.
+
+**Critério de Excelência** (perguntas de aceite para qualquer seção pública nova ou redesenhada — se qualquer resposta for negativa, a implementação não está concluída):
+- O Hero seria digno da página inicial do produto?
+- Cada seção possui identidade própria?
+- Existe uma hierarquia visual clara?
+- O visitante entende imediatamente onde olhar?
+- A página transmite luxo mesmo usando outra paleta (testar com pelo menos 2 presets de cor diferentes, já que o tema é customizável por casal)?
+- O site continua bonito sem animações (`prefers-reduced-motion`)?
+- Uma captura de tela isolada de qualquer seção parece um template comum ou um produto autoral?
+
+#### Peças de fundação (PR3)
+
+Antes de qualquer seção visível ser redesenhada, a Fase Premium Experience começou construindo as peças reutilizáveis que a Assinatura Visual e o sistema de espaçamento exigem — nenhuma seção pública decide mais seu próprio ornamento ou padding solto:
+
+- **Sistema de espaçamento** — `shared/section-spacing.ts` (`SECTION_SPACING_CLASSES`, 5 densidades `xs`/`sm`/`md`/`lg`/`xl`, cada uma só uma combinação nomeada de classes já dentro da escala padrão do Tailwind, seção 22.1 — não é uma escala numérica nova). `PublicEditorialSection` (`app/components/public/EditorialSection.vue`) ganhou a prop `spacing` (default `'md'`, reproduz exatamente o padding usado desde a Fase Editorial — nenhuma seção existente muda de aparência até adotar outra densidade deliberadamente).
+- **Sistema de ornamentos** (`components/ui/`, todos puramente decorativos — `aria-hidden`, sem acoplamento a dado de negócio): `Filete.vue` (traço fino, horizontal ou vertical, para separar elementos inline — diferente de `SectionDivider.vue`, que sempre inclui a marca central e serve para separar capítulos), `Frame.vue` (moldura de filetes concêntricos ao redor de um slot, linguagem de papelaria fina), `Texture.vue` (grão discreto via `radial-gradient` em `currentColor`, absolutamente posicionado sobre o pai), `OrnamentMark.vue` (losango vazado standalone, respiro entre dois momentos visuais fortes onde um divisor de capítulo completo seria pesado demais).
+- **`UiTreatedImage.vue`** (`components/ui/`) — wrapper padrão para toda foto do site (capa, história, galeria, presentes): proporção de corte (`ratio`), overlay de gradiente para texto sobreposto (`overlay: 'none' | 'bottom' | 'full'`), ponto de foco (`objectPosition`, mesmo formato `'<x>% <y>%'` já usado pela Ferramenta de enquadramento, seção 22.3), `fullBleed` (sangra até a borda, sem `rounded-lg`), placeholder em blur e `loading="lazy"` por padrão (`priority` troca para `preload`, equivalente ao usado hoje no Hero). Ainda não substituiu nenhum uso existente de `NuxtImg` nas seções — adoção incremental nos PRs seguintes desta fase, mesmo padrão já usado para `text-heading`/`text-body` (seção 22.3).
+- **`CoupleMonogram.vue`** (`app/components/public/`) — o selo do casal: iniciais derivadas de `couple_names` via `shared/utils/couple-initials.ts#getCoupleInitials` (mesma convenção de split por `"&"` já usada em `Hero.vue#coupleNameParts`, com fallback para nomes fora do padrão `"Nome & Nome"`) dentro de um anel duplo, SVG puro. Puramente decorativo (`aria-hidden`) — o nome completo do casal sempre aparece como texto em algum outro lugar da página, o monograma nunca é a única forma de identificar o casal.
+
+Nenhuma seção visível muda de aparência neste PR — são só as peças que os próximos PRs desta fase (Hero cinematográfico, ritmo das seções, cards, presentes, motion) vão consumir.
+
 ---
 
 ## 23. Componentes Reutilizáveis
@@ -1200,7 +1242,7 @@ Redesign visual da home pública para "casar" com um site de referência de um c
 
 ### Fase Premium Experience (em andamento, fora da sequência numerada)
 
-Revisão geral do front-end/visual do site do convidado, motivada por feedback direto do usuário: percepção de que o visual "ainda está muito ruim" mesmo após as fases Editorial e Vermelho Clássico, mais 5 problemas pontuais identificados na revisão. Ver plano completo (definição de Experiência Emocional, Princípios de Design, Anti-padrões, Ritmo de leitura e Critério de Excelência) a ser incorporado à seção 22 (Design System) conforme os PRs de redesign amplo (PR3+) avançarem.
+Revisão geral do front-end/visual do site do convidado, motivada por feedback direto do usuário: percepção de que o visual "ainda está muito ruim" mesmo após as fases Editorial e Vermelho Clássico, mais 5 problemas pontuais identificados na revisão. Manifesto de design completo (Experiência Emocional, Princípios, Anti-padrões, Ritmo de leitura, Assinatura Visual, Critério de Excelência) documentado na seção 22.5.
 
 - **PR1 — Limpeza estrutural e correções funcionais** ([x] concluído, PR #57): "Manual dos Padrinhos" removido da renderização da home (`GroomsmenManualSection.vue`/`GROOMSMEN_MANUAL_CONTENT` mantidos no repo para eventual reativação); seção "Contato" removida por completo (componente, `CONTACT_CONTENT`, link no menu e entrada no catálogo de atalhos do Hero — sem necessidade futura sinalizada, ao contrário do Manual dos Padrinhos); `RsvpTeaserSection.vue`/`PublicNavBar` reconectados à busca real por nome (`/{slug}/rsvp`, PR #55) — a seção/menu apontavam para o modelo antigo de "só link direto por token", desatualizado desde que a busca foi implementada; Cerimônia/Recepção no mesmo endereço (`same_venue_as`) passam a fundir num único card (`app/utils/group-event-segments-by-venue.ts`, `EventSpotlight.vue` recebe `segments: EventSegment[]` em vez de um único segmento) em vez de duplicar mapa/endereço. Rebrand parcial "Wedding Platform" → "MeuSiteCasamento" aplicado só nas strings visíveis ao convidado (Footer, NavBar, landing `/`, `nuxt.config.ts`); rebrand completo (`package.json`, README, este documento, `docs/ARCHITECTURE.md`, `supabase/config.toml`, painel admin) fica para um PR à parte.
 - **PR2 — Countdown: redesign + configurável** ([x] concluído, PR #58): `CountdownTimer.vue` ganha a prop `variant` (`'cards'` default, mantém o visual em caixas; `'inline'` é o estilo tipográfico novo, números separados por um traço fino "·", sem caixas) e a prop `inverted` (texto branco sobre a foto de capa do Hero, em vez da cor de heading padrão — só se aplica a `variant="inline"`, já que `'cards'` sempre foi uma caixa autocontida). Configurável via `theme_config.countdownStyle` (`shared/schemas/theme.ts`, default `'cards'` — registros antigos sem o campo caem no mesmo default na leitura), com um `UiSelect` novo em `/admin/configuracoes` (Aparência), visível só quando "Mostrar contagem regressiva" está ligado. `Hero.vue` repassa `theme.countdownStyle` para as duas variantes do Hero (com/sem foto de capa), cada uma já sabendo se deve inverter a cor do texto.
