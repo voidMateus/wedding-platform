@@ -6,6 +6,10 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+// 'back' — volta para a etapa anterior do fluxo (busca), não para o site: só
+// a etapa 'guests' (primeira deste componente) emite, o parent (rsvp/
+// index.vue) decide o que "etapa anterior" significa ali.
+const emit = defineEmits<{ back: [] }>()
 const { autosaveGuestStatus, finalizeInvite } = useRsvp()
 const toast = useToast()
 const slug = useWeddingSlug()
@@ -104,14 +108,15 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
 
 <template>
   <div class="flex flex-col gap-6">
-    <NuxtLink
-      v-if="step !== 'success'"
-      :to="backToSiteLink"
+    <button
+      v-if="step === 'guests'"
+      type="button"
       class="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+      @click="emit('back')"
     >
       <Icon name="lucide:arrow-left" class="h-4 w-4" />
-      Voltar ao site
-    </NuxtLink>
+      Voltar à busca
+    </button>
 
     <p
       v-if="isPastDeadline"

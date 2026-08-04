@@ -74,8 +74,14 @@ async function handleConfirmIdentity() {
 
 <template>
   <div class="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-4 py-16">
+    <!--
+      Só a etapa 'search' não tem uma "etapa anterior" real dentro do
+      próprio fluxo de RSVP — por isso é a única que volta direto pro site.
+      'light-confirm' já tem "Buscar de novo" (volta pra busca) e 'invite'
+      tem seu próprio botão "Voltar à busca" (RsvpInviteFlow, evento @back).
+    -->
     <NuxtLink
-      v-if="step !== 'invite'"
+      v-if="step === 'search'"
       :to="backToSiteLink"
       class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
     >
@@ -153,7 +159,7 @@ async function handleConfirmIdentity() {
           </p>
           <h1 class="mt-1 font-display text-2xl font-semibold text-heading">Confirmação de Presença</h1>
         </div>
-        <RsvpInviteFlow :payload="invitePayload" />
+        <RsvpInviteFlow :payload="invitePayload" @back="backToSearch" />
       </div>
     </template>
   </div>
