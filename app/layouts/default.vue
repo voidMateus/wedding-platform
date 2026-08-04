@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ThemeConfig } from '#shared/schemas/theme'
+
 // Layout do site público (CLAUDE.md, seção 5) — busca o tema uma vez aqui
 // para que /, /presentes e /rsvp/[code] herdem a mesma personalização
 // visual sem precisar buscar theme_config individualmente (CLAUDE.md,
@@ -14,6 +16,13 @@ const { data: wedding } = await getPublicWedding()
 // diretamente) — mantém o NavBar testável com @vue/test-utils puro.
 const route = useRoute()
 const code = computed(() => (typeof route.query.code === 'string' ? route.query.code : undefined))
+
+// Sincroniza o destaque do menu com o atalho em destaque do Hero
+// (theme_config.heroFeaturedButton) — pedido do usuário.
+const heroFeaturedButton = computed(() => {
+  const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
+  return theme.heroFeaturedButton
+})
 
 watch(
   wedding,
@@ -38,7 +47,12 @@ useHead({
 
 <template>
   <div class="flex min-h-screen flex-col bg-surface text-text">
-    <PublicNavBar :couple-names="wedding?.couple_names" :slug="slug" :code="code" />
+    <PublicNavBar
+      :couple-names="wedding?.couple_names"
+      :slug="slug"
+      :code="code"
+      :featured-button-id="heroFeaturedButton"
+    />
     <main class="flex-1">
       <slot />
     </main>

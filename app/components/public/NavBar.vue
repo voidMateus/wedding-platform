@@ -16,9 +16,17 @@ interface Props {
    * com @vue/test-utils puro, sem precisar de app Nuxt completo no mount.
    */
   code?: string
+  /**
+   * Id do atalho em destaque do Hero (theme_config.heroFeaturedButton) —
+   * o link correspondente do menu ganha o mesmo destaque visual, pedido
+   * do usuário ("o menu tem o destaque sincronizado com o botão do
+   * hero"). Resolvido pelo layout, não aqui (mesmo racional dos outros
+   * props vindos de useRoute()/dados já carregados).
+   */
+  featuredButtonId?: string
 }
 
-const { coupleNames, slug, code } = defineProps<Props>()
+const { coupleNames, slug, code, featuredButtonId } = defineProps<Props>()
 
 // "/{slug}/presentes" fica de fora da lista de texto — vira um CTA
 // destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
@@ -27,11 +35,13 @@ const { coupleNames, slug, code } = defineProps<Props>()
 // lista de presentes tem página própria dedicada (não fica mais embutida na
 // home como vitrine completa — só um teaser lá, ver GiftsShowcaseSection) —
 // pensada para escalar quando a lista crescer bastante (ex.: 100+ itens).
+// `id` casa com o id do catálogo de atalhos do Hero (shared/hero-buttons.ts)
+// — usado só para sincronizar o destaque, não pra navegação.
 const NAV_LINKS = computed(() => [
-  { to: `/${slug}/#historia`, label: 'Nossa História' },
-  { to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
-  { to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
-  { to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
+  { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
+  { id: 'cronograma', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
+  { id: 'confirmar-presenca', to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
+  { id: 'galeria', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
 ])
 
 const homeLink = computed(() => `/${slug}`)
@@ -59,8 +69,14 @@ function closeMobileMenu() {
         {{ coupleNames || 'MeuSiteCasamento' }}
       </NuxtLink>
 
-      <div class="hidden items-center gap-6 text-sm text-text-muted sm:flex">
-        <NuxtLink v-for="link in NAV_LINKS" :key="link.to" :to="link.to" class="hover:text-text">
+      <div class="hidden items-center gap-6 text-sm sm:flex">
+        <NuxtLink
+          v-for="link in NAV_LINKS"
+          :key="link.to"
+          :to="link.to"
+          class="hover:text-text"
+          :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text-muted'"
+        >
           {{ link.label }}
         </NuxtLink>
         <UiButton :to="giftsLink" rounded="full" size="sm">Presentear</UiButton>
@@ -93,7 +109,8 @@ function closeMobileMenu() {
         v-for="link in NAV_LINKS"
         :key="link.to"
         :to="link.to"
-        class="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-surface-muted"
+        class="flex min-h-11 items-center rounded-md px-3 hover:bg-surface-muted"
+        :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text'"
         @click="closeMobileMenu"
       >
         {{ link.label }}

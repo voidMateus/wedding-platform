@@ -37,6 +37,18 @@ const coupleNameParts = computed(() => {
   return parts.length === 2 ? parts : null
 })
 
+// Monograma d'água ao fundo (iniciais do casal, ex.: "M & R") — "sensação
+// de convite" pedida pelo usuário, referência de estilo real. Só na
+// variante sem foto de capa: sobre uma foto ficaria pouco legível/
+// concorreria com a imagem.
+const monogramInitials = computed(() => {
+  if (!coupleNameParts.value) return null
+  const [first, second] = coupleNameParts.value
+  const a = first?.trim().charAt(0)
+  const b = second?.trim().charAt(0)
+  return a && b ? `${a} & ${b}` : null
+})
+
 // Local em destaque na linha da data — primeiro item do cronograma que tem
 // nome de local cadastrado (normalmente a Cerimônia).
 const primaryVenueName = computed(
@@ -113,12 +125,14 @@ const heroButtons = computed(() =>
       class="relative flex flex-col items-center gap-4 px-4 pb-16 pt-20 text-center text-white"
     >
       <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
+      <PublicHeroFlourish class="text-white/60" />
       <h1 v-if="coupleNameParts" class="font-display text-5xl font-semibold leading-tight sm:text-6xl">
         <span class="block">{{ coupleNameParts[0] }}</span>
         <span class="block">&amp;</span>
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
       <h1 v-else class="font-display text-5xl font-semibold sm:text-6xl">{{ wedding.couple_names }}</h1>
+      <span class="h-px w-12 bg-white/40" aria-hidden="true" />
       <p class="text-lg text-white/90">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
@@ -146,21 +160,41 @@ const heroButtons = computed(() =>
         </UiButton>
       </div>
 
-      <div class="mt-6 flex flex-col items-center gap-1 text-xs uppercase tracking-widest text-white/70">
-        <span>Role</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
+      <div class="mt-6 flex flex-col items-center gap-2 text-xs uppercase tracking-widest text-white/70">
+        <span>Role para descobrir</span>
+        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-white/30">
+          <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
+        </span>
       </div>
     </div>
+
+    <svg
+      viewBox="0 0 1440 120"
+      preserve-aspect-ratio="none"
+      aria-hidden="true"
+      class="absolute inset-x-0 bottom-0 h-16 w-full text-surface sm:h-24"
+    >
+      <path fill="currentColor" d="M0,120 L0,70 Q720,-10 1440,70 L1440,120 Z" />
+    </svg>
   </section>
 
-  <section v-else class="flex flex-col items-center gap-6 bg-surface px-4 py-24 text-center sm:py-32">
+  <section v-else class="relative flex flex-col items-center gap-6 overflow-hidden bg-surface-muted px-4 py-24 text-center sm:py-32">
+    <p
+      v-if="monogramInitials"
+      aria-hidden="true"
+      class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 select-none font-display text-[12rem] font-semibold leading-none text-heading/[0.05] sm:text-[18rem]"
+    >
+      {{ monogramInitials }}
+    </p>
+
     <div
       v-motion
       :initial="{ opacity: 0, y: 24 }"
       :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="flex flex-col items-center gap-4"
+      class="relative flex flex-col items-center gap-4"
     >
       <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
+      <PublicHeroFlourish class="text-secondary/70" />
       <h1
         v-if="coupleNameParts"
         class="font-display text-6xl font-semibold leading-tight text-heading sm:text-7xl"
@@ -172,12 +206,13 @@ const heroButtons = computed(() =>
       <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-7xl">
         {{ wedding.couple_names }}
       </h1>
+      <span class="h-px w-12 bg-secondary/50" aria-hidden="true" />
       <p class="text-lg text-text-muted">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
 
       <div v-if="showCountdown" class="mt-2 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime">
+        <UiCountdownTimer :target-date-time="targetDateTime" variant="inline">
           <template #past>
             <p class="text-lg font-medium text-primary">O grande dia chegou!</p>
           </template>
@@ -198,10 +233,21 @@ const heroButtons = computed(() =>
         </UiButton>
       </div>
 
-      <div class="mt-6 flex flex-col items-center gap-1 text-xs uppercase tracking-widest text-text-muted">
-        <span>Role</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
+      <div class="mt-6 flex flex-col items-center gap-2 text-xs uppercase tracking-widest text-text-muted">
+        <span>Role para descobrir</span>
+        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-current/30">
+          <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
+        </span>
       </div>
     </div>
+
+    <svg
+      viewBox="0 0 1440 120"
+      preserve-aspect-ratio="none"
+      aria-hidden="true"
+      class="absolute inset-x-0 bottom-0 h-16 w-full text-surface sm:h-24"
+    >
+      <path fill="currentColor" d="M0,120 L0,70 Q720,-10 1440,70 L1440,120 Z" />
+    </svg>
   </section>
 </template>

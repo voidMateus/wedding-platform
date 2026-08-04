@@ -53,6 +53,7 @@ function mountHero(props: Record<string, unknown>) {
         ...ICON_STUBS,
         NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
         NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to', 'target'] },
+        PublicHeroFlourish: { template: '<svg data-test="hero-flourish" />' },
       },
     },
   })
@@ -163,5 +164,21 @@ describe('PublicHero', () => {
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).not.toContain(href)
     }
+  })
+
+  it('mostra o monograma d\'água com as iniciais quando o nome segue o padrão "Nome & Nome"', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ couple_names: 'Ana & João' }) })
+    expect(wrapper.text()).toContain('A & J')
+  })
+
+  it('não mostra monograma quando o nome não segue o padrão "Nome & Nome"', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ couple_names: 'Família Silva' }) })
+    expect(wrapper.text()).not.toContain('F & S')
+  })
+
+  it('renderiza o ornamento decorativo e a onda de transição', () => {
+    const wrapper = mountHero({ wedding: makeWedding() })
+    expect(wrapper.find('[data-test="hero-flourish"]').exists()).toBe(true)
+    expect(wrapper.find('svg path').exists()).toBe(true)
   })
 })

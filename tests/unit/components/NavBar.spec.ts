@@ -63,6 +63,23 @@ describe('PublicNavBar', () => {
     expect(hrefs).toContain(`/${SLUG}/presentes?code=abc123`)
   })
 
+  it('destaca o link do menu que casa com o atalho em destaque do Hero', () => {
+    const wrapper = mountNavBar({ featuredButtonId: 'confirmar-presenca' })
+    const links = wrapper.findAll('a')
+    const confirmarLink = links.find((a) => a.attributes('href') === `/${SLUG}/#confirmar-presenca`)
+    const historiaLink = links.find((a) => a.attributes('href') === `/${SLUG}/#historia`)
+    expect(confirmarLink?.classes()).toContain('text-primary')
+    expect(historiaLink?.classes()).not.toContain('text-primary')
+  })
+
+  it('sem featuredButtonId, nenhum link de âncora fica destacado', () => {
+    const wrapper = mountNavBar()
+    const links = wrapper.findAll('a').filter((a) => a.attributes('href')?.includes('#'))
+    for (const link of links) {
+      expect(link.classes()).not.toContain('text-primary')
+    }
+  })
+
   it('menu mobile começa fechado (drawer fora da tela)', () => {
     const wrapper = mountNavBar()
     const drawer = wrapper.findAll('div').find((d) => d.classes().includes('translate-x-full'))

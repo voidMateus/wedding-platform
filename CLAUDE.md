@@ -916,7 +916,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | `EmptyState` | Estado vazio ilustrado e padronizado |
 | `SectionDivider` | Ornamento linha–ponto–losango–ponto–linha, tingido na cor primária do tema (`primary/30`–`primary/60`); puramente decorativo (`aria-hidden`), sem conhecimento de domínio — usado por `PublicEditorialSection`, sempre abaixo do título (não mais acima, "Fase Linguagem Visual") |
 | `Accordion` | Headless via Reka UI (`AccordionRoot`/`Item`/`Header`/`Trigger`/`Content`), `type="single" collapsible`; navegação por teclado e `aria-expanded` nativos do primitive — usado pela seção de FAQ pública |
-| `CountdownTimer` | Contagem regressiva até a data/hora do evento (dias/horas/min/seg); sem conhecimento de domínio (props `targetDateTime`, slot `past` para a mensagem de "já aconteceu") — usado no Hero público (condicionado a `theme_config.showCountdown`) e no dashboard admin (sempre visível, é uso interno do casal) |
+| `CountdownTimer` | Contagem regressiva até a data/hora do evento (dias/horas/minutos/segundos); sem conhecimento de domínio (props `targetDateTime`, `variant` — `'cards'` default/caixas, `'inline'` números soltos com separador —, slot `past` para a mensagem de "já aconteceu") — usado no Hero público (`variant="inline"`, condicionado a `theme_config.showCountdown`) e no dashboard admin (`variant="cards"` default, sempre visível, é uso interno do casal) |
 
 ### 22.3 Regras de governança
 
@@ -1230,6 +1230,16 @@ Refinamento visual pedido pelo usuário — "acho no site com muitos espaços em
 - **Manual dos Convidados** (`TopicGrid.vue`): cartões de tópico também sobem para `rounded-xl`/`shadow-md` com ícone tingido em `primary` (era `secondary`) — consistência com o resto dos cartões da fase.
 
 **Rodada 3**: `PublicScrollToTopButton.vue` — botão circular flutuante (`fixed bottom-6 right-6`), aparece só depois de rolar além de 480px e some perto do topo; `window.scrollTo({ behavior: 'smooth' })`. Pedido do usuário para a home longa (9 seções) — deliberadamente pequeno/discreto, não uma sidebar fixa de navegação. Montado uma vez em `layouts/default.vue` (mesmo nível de `NavBar`/`Footer`), cobre todas as páginas do site público.
+
+**Rodada 4 — Hero "sensação de convite"** (reconstrução do `Hero.vue`, variante sem foto de capa, pedido do usuário com referência visual real):
+
+- **Monograma d'água**: iniciais do casal (`"M & R"`, derivadas de `coupleNameParts`) em `font-display`, enorme (`text-[12rem] sm:text-[18rem]`) e quase transparente (`text-heading/[0.05]`), posicionado à direita do Hero — `aria-hidden`, `pointer-events-none`. Só na variante sem foto de capa (sobre uma foto ficaria ilegível/competiria com a imagem); sem fallback de nome fora do padrão `"Nome & Nome"`, simplesmente não aparece.
+- **`PublicHeroFlourish.vue`**: pequeno ornamento em line-art (galho duplo + ponto central) entre o eyebrow e o nome do casal — mesma família visual de `SectionDivider`/`DressCodeIllustration`, mas exclusivo do Hero (é o primeiro momento da página, "hero cinematográfico"). Traço fino em `currentColor`, herda a cor do contexto (`secondary/70` sem foto, `white/60` com foto).
+- **Linha fina sob o nome**: `<span class="h-px w-12 bg-secondary/50">` entre o `<h1>` e a linha de data/local.
+- **Countdown "inline"**: `UiCountdownTimer` ganhou a prop `variant` (`'cards'` default — mantido no dashboard admin; `'inline'` — números soltos, sem caixa, separados por `·`, usado só no Hero). Rótulos completos (`dias/horas/minutos/segundos`, antes abreviados `min/seg`) nas duas variantes.
+- **Indicador de scroll em círculo**: "Role para descobrir" + ícone dentro de um círculo com borda (`h-8 w-8 rounded-full border`), no lugar do ícone solto.
+- **Onda de transição**: SVG (`viewBox 0 0 1440 120`, `preserveAspectRatio="none"`) no rodapé do Hero, curva suave preenchida com `text-surface` (a cor da seção seguinte) — cria a sensação de página de convite entre o Hero e `Nossa História`. Presente nas duas variantes (com/sem foto). A variante sem foto também mudou de `bg-surface` para `bg-surface-muted`, criando o contraste necessário pra onda aparecer.
+- **Destaque do menu sincronizado**: `NavBar.vue` ganhou a prop `featuredButtonId` (repassada por `layouts/default.vue` a partir de `theme_config.heroFeaturedButton`) — o link de âncora correspondente (quando o atalho em destaque do Hero também existe como item do menu: `historia`/`cronograma`/`confirmar-presenca`/`galeria`) ganha `font-semibold text-primary`. O CTA "Presentear" continua sempre destacado por padrão (é um botão pill sólido, não depende dessa sincronização) — o comportamento cobre o caso em que o casal muda `heroFeaturedButton` para outro atalho via `/admin/configuracoes`.
 
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
