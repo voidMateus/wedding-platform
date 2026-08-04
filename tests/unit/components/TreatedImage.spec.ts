@@ -55,7 +55,7 @@ describe('UiTreatedImage', () => {
 
   it('renderiza a camada de overlay="full"', () => {
     const wrapper = mountImage({ src: '/foto.jpg', alt: 'Foto', overlay: 'full' })
-    expect(wrapper.find('[aria-hidden="true"]').classes()).toContain('bg-black/40')
+    expect(wrapper.find('[aria-hidden="true"]').classes()).toContain('bg-black/50')
   })
 
   it('repassa objectPosition como object-position inline no NuxtImg', () => {

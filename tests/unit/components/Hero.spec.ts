@@ -172,4 +172,30 @@ describe('PublicHero', () => {
       expect(hrefs).not.toContain(href)
     }
   })
+
+  it('renderiza o selo do casal (sem foto de capa)', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ theme_config: {} }) })
+    expect(wrapper.text()).toContain('AJ')
+  })
+
+  it('renderiza o selo do casal (com foto de capa)', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
+    })
+    expect(wrapper.text()).toContain('AJ')
+  })
+
+  it('a faixa "Quando & onde" mostra data e local, mesmo com showCountdown=false', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({ theme_config: { showCountdown: false } }),
+      segments: [makeSegment({ venue_name: 'Buffet Casa das Pedras' })],
+    })
+    expect(wrapper.text()).toContain('Quando & onde')
+    expect(wrapper.text()).toContain('Buffet Casa das Pedras')
+  })
+
+  it('não renderiza o divisor da faixa quando showCountdown=false', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ theme_config: { showCountdown: false } }) })
+    expect(wrapper.findComponent(CountdownTimer).exists()).toBe(false)
+  })
 })

@@ -10,9 +10,11 @@ import { getCoupleInitials } from '#shared/utils/couple-initials'
 interface Props {
   coupleNames: string
   size?: 'sm' | 'md' | 'lg'
+  /** Sobre foto de capa (Hero) — troca o traço/preenchimento para branco em vez das cores primária/secundária do tema, que podem não ter contraste suficiente contra uma foto arbitrária. */
+  inverted?: boolean
 }
 
-const { coupleNames, size = 'md' } = defineProps<Props>()
+const { coupleNames, size = 'md', inverted = false } = defineProps<Props>()
 
 const initials = computed(() => getCoupleInitials(coupleNames))
 
@@ -32,14 +34,15 @@ const SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
     class="shrink-0"
     :class="SIZE_CLASSES[size]"
   >
-    <circle cx="50" cy="50" r="46" fill="none" class="stroke-secondary/50" stroke-width="1" />
-    <circle cx="50" cy="50" r="40" fill="none" class="stroke-secondary/50" stroke-width="1" />
+    <circle cx="50" cy="50" r="46" fill="none" :class="inverted ? 'stroke-white/50' : 'stroke-secondary/50'" stroke-width="1" />
+    <circle cx="50" cy="50" r="40" fill="none" :class="inverted ? 'stroke-white/50' : 'stroke-secondary/50'" stroke-width="1" />
     <text
       x="50"
       y="52"
       text-anchor="middle"
       dominant-baseline="middle"
-      class="fill-primary font-display"
+      class="font-display"
+      :class="inverted ? 'fill-white' : 'fill-primary'"
       font-size="30"
       letter-spacing="2"
     >

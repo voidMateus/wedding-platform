@@ -37,7 +37,9 @@ const {
 const OVERLAY_CLASSES: Record<NonNullable<Props['overlay']>, string> = {
   none: '',
   bottom: 'bg-gradient-to-t from-black/70 via-black/10 to-transparent',
-  full: 'bg-black/40',
+  // Uniforme (não só na base) — para composições com conteúdo espalhado por
+  // toda a foto, não só ancorado embaixo (ex.: Hero.vue).
+  full: 'bg-black/50',
 }
 </script>
 

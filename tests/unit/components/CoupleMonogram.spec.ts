@@ -28,4 +28,15 @@ describe('PublicCoupleMonogram', () => {
     const wrapper = mount(CoupleMonogram, { props: { coupleNames: 'Família Silva' } })
     expect(wrapper.text()).toBe('FS')
   })
+
+  it('usa as cores do tema (fill-primary) por padrão', () => {
+    const wrapper = mount(CoupleMonogram, { props: { coupleNames: 'Ana & João' } })
+    expect(wrapper.find('text').classes()).toContain('fill-primary')
+  })
+
+  it('usa branco (fill-white) quando inverted, para funcionar sobre foto de capa', () => {
+    const wrapper = mount(CoupleMonogram, { props: { coupleNames: 'Ana & João', inverted: true } })
+    expect(wrapper.find('text').classes()).toContain('fill-white')
+    expect(wrapper.find('text').classes()).not.toContain('fill-primary')
+  })
 })
