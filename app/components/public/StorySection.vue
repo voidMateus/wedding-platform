@@ -33,7 +33,7 @@ const storyFocalPosition = computed(() => {
       <NuxtImg
         :src="storyImageUrl"
         :alt="`Foto de ${wedding.couple_names}`"
-        class="aspect-[4/5] w-full rounded-lg object-cover shadow-md"
+        class="aspect-[4/5] w-full rounded-xl object-cover shadow-xl"
         :style="{ objectPosition: storyFocalPosition }"
         sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"
         loading="lazy"

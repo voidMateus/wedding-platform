@@ -31,7 +31,7 @@ function openLightbox(photo: PhotoWithUrl) {
         v-for="photo in previewPhotos"
         :key="photo.id"
         type="button"
-        class="group overflow-hidden rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        class="group overflow-hidden rounded-xl shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         @click="openLightbox(photo)"
       >
         <NuxtImg

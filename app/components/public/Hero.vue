@@ -189,7 +189,7 @@ const heroButtons = computed(() =>
           :to="button.href"
           :variant="button.featured ? 'primary' : 'outline'"
           rounded="full"
-          class="!h-11 !px-6 !text-xs uppercase tracking-[0.18em]"
+          size="lg"
         >
           <Icon :name="button.icon" class="h-4 w-4" />
           {{ button.label }}
@@ -205,13 +205,14 @@ const heroButtons = computed(() =>
       </div>
     </div>
 
+    <!-- Mesma curva das costuras de seção (EditorialSection) — uma única linguagem de transição no site inteiro. -->
     <svg
-      viewBox="0 0 1440 120"
-      preserve-aspect-ratio="none"
+      viewBox="0 0 1440 96"
+      preserveAspectRatio="none"
       aria-hidden="true"
-      class="absolute inset-x-0 bottom-0 h-16 w-full text-surface sm:h-24"
+      class="absolute inset-x-0 bottom-0 h-10 w-full text-surface sm:h-14"
     >
-      <path fill="currentColor" d="M0,120 L0,70 Q720,-10 1440,70 L1440,120 Z" />
+      <path fill="currentColor" d="M0,96 L0,64 Q720,0 1440,64 L1440,96 Z" />
     </svg>
   </section>
 </template>

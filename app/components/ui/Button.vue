@@ -41,15 +41,16 @@ const sizeClasses: Record<NonNullable<Props['size']>, string> = {
   lg: 'h-12 px-6 text-base',
 }
 
-// CTAs em pill (rounded="full") — convenção do site público — ganham um
-// leve "lift" no hover/active e, quando também primary, uma sombra
-// colorida (glow) na cor do tema, para a sensação de destaque premium
-// pedida pelo usuário (referência: mimodocasal.com.br). Botões `rounded=
-// "md"` (padrão do admin/formulários) ficam de fora — o admin prioriza
-// escaneabilidade sobre decoração (CLAUDE.md, seção 21).
+// CTAs em pill (rounded="full") — convenção do site público — têm uma
+// identidade única de "convite de luxo": rótulo uppercase tracked pequeno
+// (mesma linguagem em todo o site, Fase Linguagem Visual), leve "lift" no
+// hover/active e, quando também primary, uma sombra colorida (glow) na cor
+// do tema. Botões `rounded="md"` (padrão do admin/formulários) ficam de
+// fora — o admin prioriza escaneabilidade sobre decoração (CLAUDE.md, §21).
 const pillClasses = computed(() =>
   rounded === 'full'
     ? [
+        '!text-xs font-semibold uppercase tracking-[0.16em]',
         'hover:scale-[1.03] active:scale-95',
         variant === 'primary'
           ? 'shadow-[0_10px_28px_-8px_color-mix(in_srgb,var(--color-primary)_55%,transparent)]'
