@@ -104,6 +104,15 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
 
 <template>
   <div class="flex flex-col gap-6">
+    <NuxtLink
+      v-if="step !== 'success'"
+      :to="backToSiteLink"
+      class="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+    >
+      <Icon name="lucide:arrow-left" class="h-4 w-4" />
+      Voltar ao site
+    </NuxtLink>
+
     <p
       v-if="isPastDeadline"
       class="rounded-md border border-border bg-surface-muted p-4 text-sm text-text-muted"

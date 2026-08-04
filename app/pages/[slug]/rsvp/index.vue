@@ -9,6 +9,8 @@ useSeoMeta({
 })
 
 const { searchGuests, selectGuest, confirmGuest } = useRsvp()
+const slug = useWeddingSlug()
+const backToSiteLink = computed(() => `/${slug}`)
 
 type Step = 'search' | 'light-confirm' | 'invite'
 const step = ref<Step>('search')
@@ -72,6 +74,15 @@ async function handleConfirmIdentity() {
 
 <template>
   <div class="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-4 py-16">
+    <NuxtLink
+      v-if="step !== 'invite'"
+      :to="backToSiteLink"
+      class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+    >
+      <Icon name="lucide:arrow-left" class="h-4 w-4" />
+      Voltar ao site
+    </NuxtLink>
+
     <template v-if="step === 'search'">
       <div
         v-motion
