@@ -53,6 +53,11 @@ export const themeConfigSchema = z.object({
   bodyColor: optionalHexColorSchema,
   fontPairId: z.string().trim().min(1, 'Selecione um par tipográfico.'),
   showCountdown: z.boolean(),
+  // Estilo visual da contagem regressiva (CLAUDE.md, Fase Premium Experience
+  // — PR2): 'cards' é o padrão histórico (caixas com borda); 'inline' é o
+  // estilo tipográfico novo, sem caixas, pensado para casar com o restante
+  // do redesign editorial.
+  countdownStyle: z.enum(['cards', 'inline']).default('cards'),
   // Atalhos do Hero (CLAUDE.md, seção 21 — "Fase Vermelho Clássico"): o
   // casal escolhe quais botões aparecem e qual fica em destaque (cor
   // preenchida); os demais ficam em outline. Catálogo fixo em
@@ -100,6 +105,8 @@ export interface ThemeConfig {
   storyFocalX?: number
   storyFocalY?: number
   showCountdown: boolean
+  /** Estilo visual da contagem regressiva — 'cards' (default) ou 'inline'. Ausente em registros anteriores à Fase Premium Experience/PR2 (cai no default 'cards' na leitura). */
+  countdownStyle?: 'cards' | 'inline'
   /** Atalhos selecionados para o Hero — ids do catálogo em shared/hero-buttons.ts. */
   heroButtons?: string[]
   /** Id do atalho em destaque (cor preenchida) — os demais ficam em outline. */

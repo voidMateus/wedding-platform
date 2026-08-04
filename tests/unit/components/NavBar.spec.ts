@@ -22,18 +22,22 @@ describe('PublicNavBar', () => {
     expect(wrapper.text()).toContain('Ana & João')
   })
 
-  it('usa "Wedding Platform" como fallback quando coupleNames é null/ausente', () => {
+  it('usa "MeuSiteCasamento" como fallback quando coupleNames é null/ausente', () => {
     const wrapper = mountNavBar({ coupleNames: null })
-    expect(wrapper.text()).toContain('Wedding Platform')
+    expect(wrapper.text()).toContain('MeuSiteCasamento')
   })
 
   it('links de âncora usam caminho absoluto com o slug do casamento ("/{slug}/#id")', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     expect(hrefs).toContain(`/${SLUG}/#historia`)
-    expect(hrefs).toContain(`/${SLUG}/#confirmar-presenca`)
     expect(hrefs).toContain(`/${SLUG}/#galeria`)
-    expect(hrefs).toContain(`/${SLUG}/#contato`)
+  })
+
+  it('"Confirmar Presença" leva à busca real por nome (/{slug}/rsvp), não a uma âncora', () => {
+    const wrapper = mountNavBar()
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    expect(hrefs).toContain(`/${SLUG}/rsvp`)
   })
 
   it('o CTA "Presentear" aponta para /{slug}/#presentes (vitrine embutida na home)', () => {

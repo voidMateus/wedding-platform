@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
+import { groupEventSegmentsByVenue } from '~/utils/group-event-segments-by-venue'
 
 const { getPublicWedding } = usePublicWedding()
 const { getPublicEventSegments } = usePublicEventSegments()
@@ -10,23 +10,16 @@ const { data: segmentsResponse } = getPublicEventSegments()
 // Cada item do cronograma vira sua própria seção em destaque — substitui a
 // antiga lista "Programação", redundante com estas seções quando só há
 // Cerimônia/Recepção (feedback de produto: ter as duas era duplicar a mesma
-// informação). A classificação por palavra-chave
-// (shared/utils/event-segment-keywords.ts) só decide o ícone e, para
-// Cerimônia/Recepção especificamente, uma âncora fixa (compatibilidade com
-// links já compartilhados) — todo segmento aparece aqui, não só os dois
-// classificados, o que também cobre casamentos com mais etapas (ex.: chá de
-// panela, coquetel).
+// informação).
 const resolvedSegments = computed(() => {
   const segments = segmentsResponse.value?.data ?? []
   return segments.map((segment) => resolveEventSegmentVenue(segment, segments))
 })
 
-function anchorFor(title: string): string | undefined {
-  const type = classifyEventSegmentTitle(title)
-  if (type === 'ceremony') return 'cerimonia'
-  if (type === 'reception') return 'recepcao'
-  return undefined
-}
+// Segmentos que compartilham local via `same_venue_as` (ex.: Cerimônia e
+// Recepção no mesmo endereço) viram um único card em vez de duas seções
+// duplicadas mostrando o mesmo mapa/endereço (CLAUDE.md, §12.2).
+const eventSegmentGroups = computed(() => groupEventSegmentsByVenue(resolvedSegments.value))
 
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
 // preview correto ao compartilhar o link no WhatsApp. Slug inexistente
@@ -62,21 +55,18 @@ useSeoMeta({
       <PublicSaveTheDateCard v-if="resolvedSegments.length" :event-date="wedding.event_date" />
       <div id="cronograma">
         <PublicEventSpotlight
-          v-for="(segment, index) in resolvedSegments"
-          :id="anchorFor(segment.title)"
-          :key="segment.id"
-          :segment="segment"
+          v-for="(group, index) in eventSegmentGroups"
+          :key="group[0]!.id"
+          :segments="group"
           :tone="index % 2 === 0 ? 'default' : 'muted'"
         />
       </div>
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
-      <PublicGroomsmenManualSection />
       <PublicGiftsShowcaseSection />
       <PublicRsvpTeaserSection :wedding="wedding" />
       <PublicGallerySection />
       <PublicFaqSection />
-      <PublicContactSection />
     </template>
   </div>
 </template>
