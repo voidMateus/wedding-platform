@@ -24,10 +24,9 @@ const { coupleNames, slug } = defineProps<Props>()
 const NAV_LINKS = computed(() => [
   { to: `/${slug}/#historia`, label: 'Nossa História' },
   { to: `/${slug}/#cronograma`, label: 'Cronograma' },
-  // Busca real por nome (PR #55) — não a âncora informativa da home, que é
-  // só um atalho de rolagem (CLAUDE.md, §14.3).
-  { to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
+  { to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
   { to: `/${slug}/#galeria`, label: 'Galeria' },
+  { to: `/${slug}/#contato`, label: 'Contato' },
 ])
 
 const homeLink = computed(() => `/${slug}`)
@@ -48,7 +47,7 @@ function closeMobileMenu() {
         class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
-        {{ coupleNames || 'MeuSiteCasamento' }}
+        {{ coupleNames || 'Wedding Platform' }}
       </NuxtLink>
 
       <div class="hidden items-center gap-6 text-sm text-text-muted sm:flex">
