@@ -34,6 +34,7 @@ describe('PublicNavBar', () => {
     expect(hrefs).toContain(`/${SLUG}/#grande-dia`)
     expect(hrefs).toContain(`/${SLUG}/#confirmar-presenca`)
     expect(hrefs).toContain(`/${SLUG}/#nossos-momentos`)
+    expect(hrefs).toContain(`/${SLUG}/#manual-convidados`)
   })
 
   it('o CTA "Presentear" aponta para a página dedicada /{slug}/presentes', () => {

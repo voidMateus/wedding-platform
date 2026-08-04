@@ -26,14 +26,14 @@ describe('UiCountdownTimer', () => {
     expect(text).toContain('min')
   })
 
-  it('variant="inline" mostra números soltos com separador, sem caixas', () => {
+  it('variant="inline" mostra números soltos com separadores verticais, sem caixas', () => {
     vi.setSystemTime(new Date('2026-12-10T00:00:00'))
     const wrapper = mount(CountdownTimer, {
       props: { targetDateTime: new Date('2026-12-12T06:01:02').toISOString(), variant: 'inline' },
     })
 
     expect(wrapper.find('.rounded-lg.border').exists()).toBe(false)
-    expect(wrapper.text()).toContain('·')
+    expect(wrapper.findAll('[data-test="countdown-separator"]')).toHaveLength(3)
     expect(wrapper.text()).toContain('dias')
   })
 

@@ -42,6 +42,7 @@ const NAV_LINKS = computed(() => [
   { id: 'cronograma', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
   { id: 'confirmar-presenca', to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
   { id: 'galeria', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
+  { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
 ])
 
 const homeLink = computed(() => `/${slug}`)
@@ -79,7 +80,10 @@ function closeMobileMenu() {
         >
           {{ link.label }}
         </NuxtLink>
-        <UiButton :to="giftsLink" rounded="full" size="sm">Presentear</UiButton>
+        <UiButton :to="giftsLink" rounded="full" size="sm">
+          <Icon name="lucide:gift" class="h-3.5 w-3.5" />
+          Presentear
+        </UiButton>
       </div>
 
       <button
@@ -103,6 +107,7 @@ function closeMobileMenu() {
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
     >
       <UiButton :to="giftsLink" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
+        <Icon name="lucide:gift" class="h-4 w-4" />
         Presentear
       </UiButton>
       <NuxtLink

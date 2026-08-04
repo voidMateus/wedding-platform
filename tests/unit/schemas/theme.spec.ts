@@ -55,6 +55,20 @@ describe('themeConfigSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('showHeroBotanicals ausente cai no default true; false explícito é respeitado', () => {
+    const withDefault = themeConfigSchema.safeParse(BASE)
+    expect(withDefault.success).toBe(true)
+    if (withDefault.success) {
+      expect(withDefault.data.showHeroBotanicals).toBe(true)
+    }
+
+    const disabled = themeConfigSchema.safeParse({ ...BASE, showHeroBotanicals: false })
+    expect(disabled.success).toBe(true)
+    if (disabled.success) {
+      expect(disabled.data.showHeroBotanicals).toBe(false)
+    }
+  })
+
   it('usa o default de heroButtons quando ausente', () => {
     const result = themeConfigSchema.safeParse(BASE)
     expect(result.success).toBe(true)

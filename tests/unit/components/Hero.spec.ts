@@ -54,7 +54,8 @@ function mountHero(props: Record<string, unknown>) {
         NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
         NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to', 'target'] },
         PublicHeroFlourish: { template: '<svg data-test="hero-flourish" />' },
-        PublicHeroCornerBranch: { template: '<svg data-test="hero-corner-branch" />' },
+        PublicBotanicalSpray: { template: '<svg data-test="hero-botanical-stub" />' },
+        PublicBotanicalBranch: { template: '<svg data-test="hero-botanical-stub" />' },
       },
     },
   })
@@ -169,18 +170,26 @@ describe('PublicHero', () => {
 
   it('mostra o monograma d\'água com as iniciais quando o nome segue o padrão "Nome & Nome"', () => {
     const wrapper = mountHero({ wedding: makeWedding({ couple_names: 'Ana & João' }) })
-    expect(wrapper.text()).toContain('A & J')
+    const monogram = wrapper.find('[data-test="hero-monogram"]')
+    expect(monogram.exists()).toBe(true)
+    expect(monogram.text()).toContain('A')
+    expect(monogram.text()).toContain('J')
   })
 
   it('não mostra monograma quando o nome não segue o padrão "Nome & Nome"', () => {
     const wrapper = mountHero({ wedding: makeWedding({ couple_names: 'Família Silva' }) })
-    expect(wrapper.text()).not.toContain('F & S')
+    expect(wrapper.find('[data-test="hero-monogram"]').exists()).toBe(false)
   })
 
-  it('renderiza o ornamento decorativo, os ramos de canto e a onda de transição', () => {
+  it('renderiza o ornamento decorativo, as ilustrações botânicas e a onda de transição', () => {
     const wrapper = mountHero({ wedding: makeWedding() })
     expect(wrapper.find('[data-test="hero-flourish"]').exists()).toBe(true)
-    expect(wrapper.findAll('[data-test="hero-corner-branch"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-test="hero-botanical"]')).toHaveLength(2)
     expect(wrapper.find('svg path').exists()).toBe(true)
+  })
+
+  it('esconde as ilustrações botânicas quando showHeroBotanicals=false', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ theme_config: { showHeroBotanicals: false } }) })
+    expect(wrapper.findAll('[data-test="hero-botanical"]')).toHaveLength(0)
   })
 })

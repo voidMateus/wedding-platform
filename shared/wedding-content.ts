@@ -7,6 +7,16 @@
 // real — é copy genérico de placeholder, do tipo que o casal reescreveria
 // com a própria história assim que o admin de conteúdo existir.
 
+// Boas-vindas logo após o Hero (Fase Linguagem Visual, Rodada 6) —
+// continuação natural do Hero, sem card/caixa, só tipografia.
+export const WELCOME_CONTENT = {
+  title: 'Seja muito bem-vindo!',
+  paragraphs: [
+    'Criamos este espaço com muito carinho para compartilhar todos os detalhes do nosso grande dia e um pouco da nossa história.',
+    'É uma alegria imensa ter você aqui com a gente!',
+  ],
+}
+
 export const STORY_CONTENT = {
   paragraphs: [
     'Cada história de amor tem o seu próprio ritmo — a nossa começou devagar, em conversas que se estendiam sem pressa, e foi crescendo até se tornar a certeza que trazemos até aqui.',

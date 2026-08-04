@@ -61,6 +61,7 @@ useSeoMeta({
 
     <template v-else>
       <PublicHero :wedding="wedding" :segments="resolvedSegments" :code="code" />
+      <PublicWelcomeSection :wedding="wedding" />
       <PublicStorySection :wedding="wedding" />
       <PublicGrandeDiaSection :groups="eventSegmentGroups" :event-date="wedding.event_date" />
       <PublicDressCodeSection :wedding="wedding" />

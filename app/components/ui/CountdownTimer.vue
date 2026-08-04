@@ -39,15 +39,15 @@ const units = computed(() => [
     v-motion
     :initial="{ opacity: 0, y: 16 }"
     :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-    class="flex items-start gap-3 sm:gap-5"
+    class="flex items-stretch gap-4 sm:gap-8"
   >
     <template v-for="(unit, index) in units" :key="unit.label">
-      <span v-if="index > 0" class="pt-1 text-lg text-secondary sm:pt-2">·</span>
-      <div class="flex flex-col items-center gap-0.5">
-        <span class="font-display text-3xl font-semibold text-heading tabular-nums sm:text-4xl">
+      <span v-if="index > 0" data-test="countdown-separator" class="w-px self-stretch bg-secondary/30" aria-hidden="true" />
+      <div class="flex flex-col items-center gap-1">
+        <span class="font-display text-4xl font-semibold text-heading tabular-nums sm:text-5xl">
           {{ String(unit.value).padStart(2, '0') }}
         </span>
-        <span class="text-[11px] uppercase tracking-wide text-text-muted">{{ unit.label }}</span>
+        <span class="text-[10px] uppercase tracking-[0.25em] text-text-muted">{{ unit.label }}</span>
       </div>
     </template>
   </div>
