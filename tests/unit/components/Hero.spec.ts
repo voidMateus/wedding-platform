@@ -61,7 +61,7 @@ function mountHero(props: Record<string, unknown>) {
 
 const QUICK_LINK_HREFS = [
   '/ana-e-joao/presentes',
-  '/ana-e-joao/#confirmar-presenca',
+  '/ana-e-joao/rsvp',
   '/ana-e-joao/#grande-dia',
   '/ana-e-joao/#manual-convidados',
 ]
@@ -139,12 +139,19 @@ describe('PublicHero', () => {
     expect(presentesLink?.classes()).toContain('bg-primary')
   })
 
-  it('preserva ?code= só no atalho de presentes (navegação real), não nas âncoras', () => {
+  it('preserva ?code= só no atalho de presentes (navegação real), não nas âncoras/rotas', () => {
     const wrapper = mountHero({ wedding: makeWedding(), code: 'abc123' })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     expect(hrefs).toContain('/ana-e-joao/presentes?code=abc123')
-    expect(hrefs).toContain('/ana-e-joao/#confirmar-presenca')
-    expect(hrefs).not.toContain('/ana-e-joao/#confirmar-presenca?code=abc123')
+    expect(hrefs).toContain('/ana-e-joao/rsvp')
+    expect(hrefs).not.toContain('/ana-e-joao/rsvp?code=abc123')
+  })
+
+  it('o atalho de confirmar presença vai direto pra busca de RSVP (/rsvp), não pra âncora da home', () => {
+    const wrapper = mountHero({ wedding: makeWedding() })
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    expect(hrefs).toContain('/ana-e-joao/rsvp')
+    expect(hrefs).not.toContain('/ana-e-joao/#confirmar-presenca')
   })
 
   it('respeita a seleção customizada de atalhos do casal (theme_config.heroButtons)', () => {

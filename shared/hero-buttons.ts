@@ -11,11 +11,15 @@ export interface HeroButtonDefinition {
 }
 
 export const HERO_BUTTON_CATALOG: HeroButtonDefinition[] = [
-  // Não é uma âncora como os demais — a lista de presentes tem página
-  // própria dedicada (Hero.vue trata este id como caso especial, para
-  // também preservar ?code= na navegação real de rota).
+  // Não são âncoras como os demais — vão direto pra página/fluxo dedicado,
+  // menos um clique pro convidado (feedback do usuário). 'presentes' tem
+  // página própria; 'confirmar-presenca' vai direto pra busca de RSVP
+  // (/rsvp), pulando o card informativo da home (RsvpTeaserSection, que
+  // continua existindo — a NavBar ainda aponta pra lá). Hero.vue trata só
+  // 'presentes' como caso especial de preservar ?code= na navegação real
+  // (a busca de /rsvp não usa token na URL, não precisa do suffix).
   { id: 'presentes', label: 'Ver lista de presentes', icon: 'lucide:gift', href: '/presentes' },
-  { id: 'confirmar-presenca', label: 'Confirmar presença', icon: 'lucide:check', href: '/#confirmar-presenca' },
+  { id: 'confirmar-presenca', label: 'Confirmar presença', icon: 'lucide:check', href: '/rsvp' },
   { id: 'cronograma', label: 'O Grande Dia', icon: 'lucide:calendar-clock', href: '/#grande-dia' },
   { id: 'manual-convidados', label: 'Manual do convidado', icon: 'lucide:info', href: '/#manual-convidados' },
   { id: 'dress-code', label: 'Dress code', icon: 'lucide:shirt', href: '/#dress-code' },
