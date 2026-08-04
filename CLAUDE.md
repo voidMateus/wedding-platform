@@ -1229,6 +1229,8 @@ Refinamento visual pedido pelo usuário — "acho no site com muitos espaços em
 - **Ilustração no Dress Code**: `PublicDressCodeIllustration.vue` — SVG em line-art autoral (vestido + terno em cabides, traço fino na cor primária/secundária do tema), substitui o vazio entre o divisor e o texto. Decorativa (`aria-hidden`), sem dependência de upload/dado externo.
 - **Manual dos Convidados** (`TopicGrid.vue`): cartões de tópico também sobem para `rounded-xl`/`shadow-md` com ícone tingido em `primary` (era `secondary`) — consistência com o resto dos cartões da fase.
 
+**Rodada 3**: `PublicScrollToTopButton.vue` — botão circular flutuante (`fixed bottom-6 right-6`), aparece só depois de rolar além de 480px e some perto do topo; `window.scrollTo({ behavior: 'smooth' })`. Pedido do usuário para a home longa (9 seções) — deliberadamente pequeno/discreto, não uma sidebar fixa de navegação. Montado uma vez em `layouts/default.vue` (mesmo nível de `NavBar`/`Footer`), cobre todas as páginas do site público.
+
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
 - [ ] Observabilidade completa (Sentry + métricas de uso).

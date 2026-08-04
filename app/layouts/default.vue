@@ -43,5 +43,6 @@ useHead({
       <slot />
     </main>
     <PublicFooter :couple-names="wedding?.couple_names" :event-date="wedding?.event_date" />
+    <PublicScrollToTopButton />
   </div>
 </template>
