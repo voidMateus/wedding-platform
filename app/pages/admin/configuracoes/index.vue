@@ -119,7 +119,6 @@ const [titleColor] = defineThemeField('titleColor')
 const [bodyColor] = defineThemeField('bodyColor')
 const [fontPairId] = defineThemeField('fontPairId')
 const [showCountdown] = defineThemeField('showCountdown')
-const [countdownStyle] = defineThemeField('countdownStyle')
 const [heroButtons] = defineThemeField('heroButtons')
 const [heroFeaturedButton] = defineThemeField('heroFeaturedButton')
 
@@ -177,7 +176,6 @@ watch(
         bodyColor: theme.bodyColor ?? '',
         fontPairId: theme.fontPairId ?? DEFAULT_FONT_PAIR_ID,
         showCountdown: theme.showCountdown ?? true,
-        countdownStyle: theme.countdownStyle ?? 'cards',
         heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
         heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
       },
@@ -466,17 +464,6 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
           </div>
 
           <UiCheckbox v-model="showCountdown" label="Mostrar contagem regressiva no site" />
-
-          <UiSelect
-            v-if="showCountdown"
-            v-model="countdownStyle"
-            label="Estilo da contagem regressiva"
-            :options="[
-              { value: 'cards', label: 'Caixas (padrão)' },
-              { value: 'inline', label: 'Tipográfico (sem caixas)' },
-            ]"
-            :error="themeErrors.countdownStyle"
-          />
 
           <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
             <span class="text-sm font-medium text-text">Atalhos do Hero</span>
