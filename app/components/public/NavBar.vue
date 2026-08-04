@@ -9,18 +9,24 @@ interface Props {
   coupleNames?: string | null
   /** Slug do casamento atual (CLAUDE.md, seção 4.4/33) — prefixa todo link interno. */
   slug: string
+  /**
+   * Token de acesso do convidado (?code=, CLAUDE.md §4.5/14), se presente na
+   * URL atual — resolvido pelo layout (que já tem contexto de rota real) em
+   * vez de chamar useRoute() aqui dentro: mantém este componente testável
+   * com @vue/test-utils puro, sem precisar de app Nuxt completo no mount.
+   */
+  code?: string
 }
 
-const { coupleNames, slug } = defineProps<Props>()
+const { coupleNames, slug, code } = defineProps<Props>()
 
-// "/{slug}/#presentes" fica de fora da lista de texto — vira um CTA
+// "/{slug}/presentes" fica de fora da lista de texto — vira um CTA
 // destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
 // do drawer mobile, mesmo papel do botão "Presentear" do concorrente:
 // sempre visível, sempre a ação com mais destaque visual da navegação. A
-// vitrine completa de presentes agora vive embutida na home
-// (`/{slug}/#presentes`, PublicEditorialSection id="presentes");
-// `/{slug}/presentes` continua existindo como página própria (link direto/
-// compartilhável), só deixou de ser o alvo do menu.
+// lista de presentes tem página própria dedicada (não fica mais embutida na
+// home como vitrine completa — só um teaser lá, ver GiftsShowcaseSection) —
+// pensada para escalar quando a lista crescer bastante (ex.: 100+ itens).
 const NAV_LINKS = computed(() => [
   { to: `/${slug}/#historia`, label: 'Nossa História' },
   { to: `/${slug}/#cronograma`, label: 'Cronograma' },
@@ -30,7 +36,11 @@ const NAV_LINKS = computed(() => [
 ])
 
 const homeLink = computed(() => `/${slug}`)
-const giftsLink = computed(() => `/${slug}/#presentes`)
+
+// Preserva ?code= na navegação real para /presentes — diferente de uma
+// âncora na mesma página, trocar de rota sem isso perderia a autorização de
+// reservar/contribuir.
+const giftsLink = computed(() => `/${slug}/presentes${code ? `?code=${code}` : ''}`)
 
 const isMobileMenuOpen = ref(false)
 

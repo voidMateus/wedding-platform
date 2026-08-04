@@ -36,15 +36,15 @@ describe('PublicNavBar', () => {
     expect(hrefs).toContain(`/${SLUG}/#contato`)
   })
 
-  it('o CTA "Presentear" aponta para /{slug}/#presentes (vitrine embutida na home)', () => {
+  it('o CTA "Presentear" aponta para a página dedicada /{slug}/presentes', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain(`/${SLUG}/#presentes`)
+    expect(hrefs).toContain(`/${SLUG}/presentes`)
   })
 
-  it('o CTA de /{slug}/#presentes é um botão destacado em pill (cor primária), não um link de texto', () => {
+  it('o CTA de /{slug}/presentes é um botão destacado em pill (cor primária), não um link de texto', () => {
     const wrapper = mountNavBar()
-    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === `/${SLUG}/#presentes`)
+    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === `/${SLUG}/presentes`)
     expect(presentesLink?.classes()).toContain('bg-primary')
     expect(presentesLink?.classes()).toContain('rounded-full')
   })
@@ -53,8 +53,14 @@ describe('PublicNavBar', () => {
     const wrapper = mountNavBar()
     const presentesLinks = wrapper
       .findAll('a')
-      .filter((a) => a.attributes('href') === `/${SLUG}/#presentes`)
+      .filter((a) => a.attributes('href') === `/${SLUG}/presentes`)
     expect(presentesLinks).toHaveLength(2)
+  })
+
+  it('preserva ?code= no link de presentes quando a prop code é informada', () => {
+    const wrapper = mountNavBar({ code: 'abc123' })
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    expect(hrefs).toContain(`/${SLUG}/presentes?code=abc123`)
   })
 
   it('menu mobile começa fechado (drawer fora da tela)', () => {

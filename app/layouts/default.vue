@@ -10,6 +10,11 @@ const slug = useWeddingSlug()
 const { getPublicWedding } = usePublicWedding()
 const { data: wedding } = await getPublicWedding()
 
+// Repassado ao NavBar como prop (em vez do componente chamar useRoute()
+// diretamente) — mantém o NavBar testável com @vue/test-utils puro.
+const route = useRoute()
+const code = computed(() => (typeof route.query.code === 'string' ? route.query.code : undefined))
+
 watch(
   wedding,
   (value) => {
@@ -33,7 +38,7 @@ useHead({
 
 <template>
   <div class="flex min-h-screen flex-col bg-surface text-text">
-    <PublicNavBar :couple-names="wedding?.couple_names" :slug="slug" />
+    <PublicNavBar :couple-names="wedding?.couple_names" :slug="slug" :code="code" />
     <main class="flex-1">
       <slot />
     </main>

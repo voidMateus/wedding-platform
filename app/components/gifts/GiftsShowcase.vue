@@ -90,8 +90,8 @@ async function handleContribute(giftId: string, amountCents: number) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <div v-if="status === 'pending'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <UiSkeleton v-for="n in 6" :key="n" class="h-64 w-full" />
+    <div v-if="status === 'pending'" class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <UiSkeleton v-for="n in 6" :key="n" class="h-72 w-full" />
     </div>
 
     <UiEmptyState
@@ -181,7 +181,7 @@ async function handleContribute(giftId: string, amountCents: number) {
         title="Nenhum presente nesse filtro"
         description="Escolha outro filtro ou veja todos os presentes."
       />
-      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <GiftsGiftCard
           v-for="gift in filteredGifts"
           :key="gift.id"
