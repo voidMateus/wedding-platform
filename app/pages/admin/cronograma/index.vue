@@ -187,6 +187,13 @@ async function saveAll() {
               <UiInput v-model="ceremonyLngText" type="number" step="any" label="Longitude" class="flex-1" />
             </div>
           </details>
+          <AdminEventSegmentImageUploader
+            v-if="ceremony"
+            :model-value="ceremony.image_url"
+            :segment-id="ceremony.id"
+            @update:model-value="() => refresh()"
+          />
+          <p v-else class="text-sm text-text-muted">Salve o cronograma pela primeira vez para poder adicionar uma foto do local.</p>
         </div>
       </UiCard>
 
@@ -213,6 +220,13 @@ async function saveAll() {
             <UiInput v-model="receptionStartsAt" type="datetime-local" label="Início" class="flex-1" />
             <UiInput v-model="receptionEndsAt" type="datetime-local" label="Término (opcional)" class="flex-1" />
           </div>
+          <AdminEventSegmentImageUploader
+            v-if="reception"
+            :model-value="reception.image_url"
+            :segment-id="reception.id"
+            @update:model-value="() => refresh()"
+          />
+          <p v-else class="text-sm text-text-muted">Salve o cronograma pela primeira vez para poder adicionar uma foto do local.</p>
         </div>
       </UiCard>
 

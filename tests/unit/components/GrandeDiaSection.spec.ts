@@ -19,6 +19,7 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     venue_latitude: null,
     venue_longitude: null,
     same_venue_as: null,
+    image_url: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -27,12 +28,13 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
 
 function mountSection(groups: EventSegment[][]) {
   return mount(GrandeDiaSection, {
-    props: { groups },
+    props: { groups, eventDate: '2027-05-16' },
     global: {
       components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
       stubs: {
         ...ICON_STUBS,
         PublicEventSpotlight: { template: '<div data-test="spotlight-card" />' },
+        PublicSaveTheDateCard: { template: '<div data-test="save-the-date" />' },
       },
     },
   })
@@ -56,6 +58,11 @@ describe('PublicGrandeDiaSection', () => {
       [makeSegment({ id: 'b', title: 'Recepção' })],
     ])
     expect(wrapper.findAll('[data-test="spotlight-card"]')).toHaveLength(2)
+  })
+
+  it('renderiza o cartão "save the date" dentro da própria seção', () => {
+    const wrapper = mountSection([[makeSegment({ id: 'a', title: 'Cerimônia' })]])
+    expect(wrapper.find('[data-test="save-the-date"]').exists()).toBe(true)
   })
 
   it('renderiza um único cartão quando os segmentos já vêm fundidos no mesmo grupo', () => {

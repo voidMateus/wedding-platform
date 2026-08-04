@@ -35,7 +35,7 @@ const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
     >
       <div v-if="title" class="flex flex-col items-center gap-3 text-center">
         <p v-if="eyebrow" class="text-xs font-medium tracking-[0.3em] text-primary/60 uppercase">{{ eyebrow }}</p>
-        <h2 class="font-display text-3xl font-semibold text-heading sm:text-4xl">{{ title }}</h2>
+        <h2 class="font-display text-4xl font-semibold text-heading sm:text-5xl">{{ title }}</h2>
         <UiSectionDivider v-if="divider" />
       </div>
       <slot />

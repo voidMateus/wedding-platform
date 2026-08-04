@@ -12,6 +12,7 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     venue_latitude: -15.6,
     venue_longitude: -56.1,
     same_venue_as: null,
+    image_url: null,
     starts_at: null,
     ends_at: null,
     display_order: 0,

@@ -25,6 +25,6 @@ describe('PublicTopicGrid', () => {
       props: { topics: TOPICS },
       global: { stubs: ICON_STUBS },
     })
-    expect(wrapper.findAll('.rounded-lg.border')).toHaveLength(2)
+    expect(wrapper.findAll('.rounded-xl.border')).toHaveLength(2)
   })
 })

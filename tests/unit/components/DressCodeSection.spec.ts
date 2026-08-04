@@ -26,7 +26,10 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
 function mountDressCode(wedding: Wedding) {
   return mount(DressCodeSection, {
     props: { wedding },
-    global: { components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection } },
+    global: {
+      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
+      stubs: { PublicDressCodeIllustration: { template: '<svg data-test="dress-code-illustration" />' } },
+    },
   })
 }
 
@@ -35,6 +38,11 @@ describe('PublicDressCodeSection', () => {
     const wrapper = mountDressCode(makeWedding())
     expect(wrapper.find('h2').text()).toBe('Dress Code')
     expect(wrapper.find('#dress-code').exists()).toBe(true)
+  })
+
+  it('renderiza a ilustração decorativa', () => {
+    const wrapper = mountDressCode(makeWedding())
+    expect(wrapper.find('[data-test="dress-code-illustration"]').exists()).toBe(true)
   })
 
   it('renderiza a descrição e todas as dicas', () => {

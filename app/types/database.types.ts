@@ -233,6 +233,7 @@ export type Database = {
           display_order: number
           ends_at: string | null
           id: string
+          image_url: string | null
           same_venue_as: string | null
           starts_at: string | null
           title: string
@@ -248,6 +249,7 @@ export type Database = {
           display_order?: number
           ends_at?: string | null
           id?: string
+          image_url?: string | null
           same_venue_as?: string | null
           starts_at?: string | null
           title: string
@@ -263,6 +265,7 @@ export type Database = {
           display_order?: number
           ends_at?: string | null
           id?: string
+          image_url?: string | null
           same_venue_as?: string | null
           starts_at?: string | null
           title?: string

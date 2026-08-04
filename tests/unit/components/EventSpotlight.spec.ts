@@ -18,6 +18,7 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     venue_latitude: null,
     venue_longitude: null,
     same_venue_as: null,
+    image_url: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -33,6 +34,7 @@ function mountSpotlight(props: Record<string, unknown>) {
         ...ICON_STUBS,
         PublicVenueMap: { template: '<div data-test="venue-map" />' },
         NuxtLink: { template: '<a :href="to" :target="target"><slot /></a>', props: ['to', 'target'] },
+        NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
       },
     },
   })
@@ -53,6 +55,16 @@ describe('PublicEventSpotlight', () => {
   it('renderiza o mapa a partir do endereço em texto', () => {
     const wrapper = mountSpotlight({ segments: [makeSegment()] })
     expect(wrapper.find('[data-test="venue-map"]').exists()).toBe(true)
+  })
+
+  it('renderiza a foto do local quando cadastrada', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment({ image_url: 'https://example.com/foto.jpg' })] })
+    expect(wrapper.find('img').attributes('src')).toBe('https://example.com/foto.jpg')
+  })
+
+  it('não renderiza nenhuma imagem quando o local não tem foto', () => {
+    const wrapper = mountSpotlight({ segments: [makeSegment({ image_url: null })] })
+    expect(wrapper.find('img').exists()).toBe(false)
   })
 
   describe('fusão quando Cerimônia e Recepção têm o mesmo endereço', () => {

@@ -24,6 +24,7 @@ const paletteSwatches = computed(() => [
 <template>
   <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code">
     <div class="mx-auto flex max-w-xl flex-col items-center gap-8 text-center">
+      <PublicDressCodeIllustration />
       <p class="leading-relaxed text-body">{{ DRESS_CODE_CONTENT.description }}</p>
 
       <ul class="flex flex-col gap-2 self-start text-left text-body">

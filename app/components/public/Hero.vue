@@ -113,12 +113,12 @@ const heroButtons = computed(() =>
       class="relative flex flex-col items-center gap-4 px-4 pb-16 pt-20 text-center text-white"
     >
       <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
-      <h1 v-if="coupleNameParts" class="font-display text-4xl font-semibold leading-tight sm:text-5xl">
+      <h1 v-if="coupleNameParts" class="font-display text-5xl font-semibold leading-tight sm:text-6xl">
         <span class="block">{{ coupleNameParts[0] }}</span>
         <span class="block">&amp;</span>
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
-      <h1 v-else class="font-display text-4xl font-semibold sm:text-5xl">{{ wedding.couple_names }}</h1>
+      <h1 v-else class="font-display text-5xl font-semibold sm:text-6xl">{{ wedding.couple_names }}</h1>
       <p class="text-lg text-white/90">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
@@ -163,13 +163,13 @@ const heroButtons = computed(() =>
       <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
       <h1
         v-if="coupleNameParts"
-        class="font-display text-5xl font-semibold leading-tight text-heading sm:text-6xl"
+        class="font-display text-6xl font-semibold leading-tight text-heading sm:text-7xl"
       >
         <span class="block">{{ coupleNameParts[0] }}</span>
         <span class="block">&amp;</span>
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
-      <h1 v-else class="font-display text-5xl font-semibold text-heading sm:text-6xl">
+      <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-7xl">
         {{ wedding.couple_names }}
       </h1>
       <p class="text-lg text-text-muted">

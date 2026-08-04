@@ -10,6 +10,7 @@ import type { EventSegment } from '~/types/event-segment'
 
 interface Props {
   groups: EventSegment[][]
+  eventDate: string
 }
 
 const { groups } = defineProps<Props>()
@@ -23,6 +24,12 @@ const { groups } = defineProps<Props>()
     title="O Grande Dia"
     tone="muted"
   >
+    <p class="mx-auto -mt-4 max-w-md text-center leading-relaxed text-body">
+      Guarde esse dia com carinho — mal podemos esperar para celebrar ao lado de vocês.
+    </p>
+
+    <PublicSaveTheDateCard :event-date="eventDate" />
+
     <div class="mx-auto grid w-full gap-6" :class="groups.length > 1 ? 'max-w-4xl sm:grid-cols-2' : 'max-w-xl'">
       <PublicEventSpotlight v-for="group in groups" :key="group[0]!.id" :segments="group" />
     </div>

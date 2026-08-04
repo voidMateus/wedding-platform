@@ -59,41 +59,52 @@ const externalMapsUrl = computed(() =>
 </script>
 
 <template>
-  <div class="flex w-full flex-col gap-4 rounded-xl border border-primary/10 bg-surface-elevated p-7 shadow-xl">
+  <div class="flex w-full flex-col overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl">
     <span v-for="anchorId in anchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
 
-    <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">
-      <span
-        class="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
+    <NuxtImg
+      v-if="primary.image_url"
+      :src="primary.image_url"
+      :alt="primary.venue_name || sectionTitle"
+      class="aspect-video w-full object-cover"
+      sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"
+      loading="lazy"
+    />
+
+    <div class="flex flex-col gap-4 p-7">
+      <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">
+        <span
+          class="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
+        >
+          {{ badgeLabelFor(segment) }}
+        </span>
+        <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">{{ timeRangeFor(segment) }}</p>
+      </div>
+
+      <div v-if="primary.venue_name || primary.venue_address" class="flex flex-col gap-1">
+        <h3 v-if="primary.venue_name" class="font-display text-2xl font-semibold text-heading">
+          {{ primary.venue_name }}
+        </h3>
+        <p v-if="primary.venue_address" class="flex items-start gap-1.5 text-sm text-text-muted">
+          <Icon name="lucide:map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
+          {{ primary.venue_address }}
+        </p>
+      </div>
+
+      <PublicVenueMap v-if="locationQuery" :query="locationQuery" :label="primary.venue_name || sectionTitle" />
+
+      <UiButton
+        v-if="externalMapsUrl"
+        variant="outline"
+        rounded="full"
+        size="sm"
+        class="self-start"
+        :to="externalMapsUrl"
+        target="_blank"
       >
-        {{ badgeLabelFor(segment) }}
-      </span>
-      <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">{{ timeRangeFor(segment) }}</p>
+        <Icon name="lucide:external-link" class="h-4 w-4" />
+        Abrir no Google Maps
+      </UiButton>
     </div>
-
-    <div v-if="primary.venue_name || primary.venue_address" class="flex flex-col gap-1">
-      <h3 v-if="primary.venue_name" class="font-display text-2xl font-semibold text-heading">
-        {{ primary.venue_name }}
-      </h3>
-      <p v-if="primary.venue_address" class="flex items-start gap-1.5 text-sm text-text-muted">
-        <Icon name="lucide:map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
-        {{ primary.venue_address }}
-      </p>
-    </div>
-
-    <PublicVenueMap v-if="locationQuery" :query="locationQuery" :label="primary.venue_name || sectionTitle" />
-
-    <UiButton
-      v-if="externalMapsUrl"
-      variant="outline"
-      rounded="full"
-      size="sm"
-      class="self-start"
-      :to="externalMapsUrl"
-      target="_blank"
-    >
-      <Icon name="lucide:external-link" class="h-4 w-4" />
-      Abrir no Google Maps
-    </UiButton>
   </div>
 </template>
