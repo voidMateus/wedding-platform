@@ -42,7 +42,7 @@ const units = computed(() => [
     class="flex items-start gap-3 sm:gap-5"
   >
     <template v-for="(unit, index) in units" :key="unit.label">
-      <span v-if="index > 0" class="pt-1 text-lg text-heading/30 sm:pt-2">·</span>
+      <span v-if="index > 0" class="pt-1 text-lg text-secondary sm:pt-2">·</span>
       <div class="flex flex-col items-center gap-0.5">
         <span class="font-display text-3xl font-semibold text-heading tabular-nums sm:text-4xl">
           {{ String(unit.value).padStart(2, '0') }}

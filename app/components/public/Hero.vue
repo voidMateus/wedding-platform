@@ -125,14 +125,14 @@ const heroButtons = computed(() =>
       class="relative flex flex-col items-center gap-4 px-4 pb-16 pt-20 text-center text-white"
     >
       <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
-      <PublicHeroFlourish class="text-white/60" />
+      <PublicHeroFlourish class="text-white/85" />
       <h1 v-if="coupleNameParts" class="font-display text-5xl font-semibold leading-tight sm:text-6xl">
         <span class="block">{{ coupleNameParts[0] }}</span>
         <span class="block">&amp;</span>
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
       <h1 v-else class="font-display text-5xl font-semibold sm:text-6xl">{{ wedding.couple_names }}</h1>
-      <span class="h-px w-12 bg-white/40" aria-hidden="true" />
+      <span class="h-px w-12 bg-white/70" aria-hidden="true" />
       <p class="text-lg text-white/90">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
@@ -162,7 +162,7 @@ const heroButtons = computed(() =>
 
       <div class="mt-6 flex flex-col items-center gap-2 text-xs uppercase tracking-widest text-white/70">
         <span>Role para descobrir</span>
-        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-white/30">
+        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-white/60">
           <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
         </span>
       </div>
@@ -179,10 +179,21 @@ const heroButtons = computed(() =>
   </section>
 
   <section v-else class="relative flex flex-col items-center gap-6 overflow-hidden bg-surface-muted px-4 py-24 text-center sm:py-32">
+    <!-- Luz diagonal suave, mesma sensação de convite impresso da referência. -->
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0)_45%)]"
+    />
+
+    <PublicHeroCornerBranch class="pointer-events-none absolute left-4 top-4 text-secondary/50 sm:left-8 sm:top-8" />
+    <PublicHeroCornerBranch
+      class="pointer-events-none absolute right-4 top-4 -scale-x-100 text-secondary/50 sm:right-8 sm:top-8"
+    />
+
     <p
       v-if="monogramInitials"
       aria-hidden="true"
-      class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 select-none font-display text-[12rem] font-semibold leading-none text-heading/[0.05] sm:text-[18rem]"
+      class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 select-none font-display text-[12rem] font-semibold leading-none text-secondary/[0.09] sm:text-[18rem]"
     >
       {{ monogramInitials }}
     </p>
@@ -194,7 +205,7 @@ const heroButtons = computed(() =>
       class="relative flex flex-col items-center gap-4"
     >
       <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
-      <PublicHeroFlourish class="text-secondary/70" />
+      <PublicHeroFlourish class="text-secondary" />
       <h1
         v-if="coupleNameParts"
         class="font-display text-6xl font-semibold leading-tight text-heading sm:text-7xl"
@@ -206,7 +217,7 @@ const heroButtons = computed(() =>
       <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-7xl">
         {{ wedding.couple_names }}
       </h1>
-      <span class="h-px w-12 bg-secondary/50" aria-hidden="true" />
+      <span class="h-px w-12 bg-secondary" aria-hidden="true" />
       <p class="text-lg text-text-muted">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
@@ -235,7 +246,7 @@ const heroButtons = computed(() =>
 
       <div class="mt-6 flex flex-col items-center gap-2 text-xs uppercase tracking-widest text-text-muted">
         <span>Role para descobrir</span>
-        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-current/30">
+        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-secondary/50 text-secondary">
           <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
         </span>
       </div>
