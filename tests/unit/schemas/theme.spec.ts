@@ -109,4 +109,40 @@ describe('themeConfigSchema', () => {
     const result = themeConfigSchema.safeParse({ ...BASE, countdownStyle: 'balões' })
     expect(result.success).toBe(false)
   })
+
+  it('aceita heroQuote/heroQuoteAttribution quando definidos', () => {
+    const result = themeConfigSchema.safeParse({
+      ...BASE,
+      heroQuote: 'Assim, eles já não são dois, mas sim uma só carne.',
+      heroQuoteAttribution: 'Mateus 19:6',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroQuote).toBe('Assim, eles já não são dois, mas sim uma só carne.')
+      expect(result.data.heroQuoteAttribution).toBe('Mateus 19:6')
+    }
+  })
+
+  it('trata heroQuote/heroQuoteAttribution como string vazia = não definido', () => {
+    const result = themeConfigSchema.safeParse({ ...BASE, heroQuote: '', heroQuoteAttribution: '' })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroQuote).toBeUndefined()
+      expect(result.data.heroQuoteAttribution).toBeUndefined()
+    }
+  })
+
+  it('rejeita heroQuote acima de 280 caracteres', () => {
+    const result = themeConfigSchema.safeParse({ ...BASE, heroQuote: 'a'.repeat(281) })
+    expect(result.success).toBe(false)
+  })
+
+  it('é válido sem heroQuote/heroQuoteAttribution (ambos opcionais)', () => {
+    const result = themeConfigSchema.safeParse(BASE)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroQuote).toBeUndefined()
+      expect(result.data.heroQuoteAttribution).toBeUndefined()
+    }
+  })
 })

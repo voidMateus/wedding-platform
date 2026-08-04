@@ -68,6 +68,23 @@ export const themeConfigSchema = z.object({
     .optional()
     .transform((value) => (value ? value : undefined))
     .refine((id) => id === undefined || HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.'),
+  // Citação opcional no Hero (CLAUDE.md, Fase Premium Experience/PR4) — nem
+  // todo casal quer uma frase/versículo; string vazia = não definido, mesmo
+  // tratamento de titleColor/bodyColor. Sem atribuição sem citação (não faz
+  // sentido isolada) é bloqueado só no client (ver admin/configuracoes),
+  // não aqui — o schema aceita a atribuição sozinha sem julgar a intenção.
+  heroQuote: z
+    .string()
+    .trim()
+    .max(280, 'Máximo de 280 caracteres.')
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+  heroQuoteAttribution: z
+    .string()
+    .trim()
+    .max(80, 'Máximo de 80 caracteres.')
+    .optional()
+    .transform((value) => (value ? value : undefined)),
 })
 
 export type ThemeConfigInput = z.infer<typeof themeConfigSchema>
@@ -111,4 +128,8 @@ export interface ThemeConfig {
   heroButtons?: string[]
   /** Id do atalho em destaque (cor preenchida) — os demais ficam em outline. */
   heroFeaturedButton?: string
+  /** Citação opcional exibida no Hero (ex.: um versículo) — sem valor, o bloco de citação não renderiza. */
+  heroQuote?: string
+  /** Atribuição da citação (ex.: "Mateus 19:6") — só faz sentido junto de heroQuote. */
+  heroQuoteAttribution?: string
 }

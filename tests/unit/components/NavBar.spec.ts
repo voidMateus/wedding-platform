@@ -27,6 +27,17 @@ describe('PublicNavBar', () => {
     expect(wrapper.text()).toContain('MeuSiteCasamento')
   })
 
+  it('renderiza o selo do casal junto da marca quando coupleNames é informado', () => {
+    const wrapper = mountNavBar({ coupleNames: 'Ana & João' })
+    expect(wrapper.find('svg').exists()).toBe(true)
+    expect(wrapper.text()).toContain('AJ')
+  })
+
+  it('não renderiza o selo quando coupleNames é null/ausente (fallback sem iniciais reais)', () => {
+    const wrapper = mountNavBar({ coupleNames: null })
+    expect(wrapper.find('svg').exists()).toBe(false)
+  })
+
   it('links de âncora usam caminho absoluto com o slug do casamento ("/{slug}/#id")', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))

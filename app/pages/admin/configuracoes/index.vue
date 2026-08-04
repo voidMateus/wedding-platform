@@ -122,6 +122,8 @@ const [showCountdown] = defineThemeField('showCountdown')
 const [countdownStyle] = defineThemeField('countdownStyle')
 const [heroButtons] = defineThemeField('heroButtons')
 const [heroFeaturedButton] = defineThemeField('heroFeaturedButton')
+const [heroQuote] = defineThemeField('heroQuote')
+const [heroQuoteAttribution] = defineThemeField('heroQuoteAttribution')
 
 function isHeroButtonSelected(id: string): boolean {
   return (heroButtons.value ?? []).includes(id)
@@ -180,6 +182,8 @@ watch(
         countdownStyle: theme.countdownStyle ?? 'cards',
         heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
         heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
+        heroQuote: theme.heroQuote ?? '',
+        heroQuoteAttribution: theme.heroQuoteAttribution ?? '',
       },
     })
     advancedColorEnabled.value = Boolean(theme.titleColor || theme.bodyColor)
@@ -477,6 +481,27 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
             ]"
             :error="themeErrors.countdownStyle"
           />
+
+          <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <span class="text-sm font-medium text-text">Citação no Hero (opcional)</span>
+            <p class="text-xs text-text-muted">
+              Uma frase ou versículo, exibido logo abaixo dos nomes do casal. Deixe em branco para
+              não mostrar nenhuma citação.
+            </p>
+            <UiTextarea
+              v-model="heroQuote"
+              label="Citação"
+              placeholder="Assim, eles já não são dois, mas sim uma só carne."
+              :rows="2"
+              :error="themeErrors.heroQuote"
+            />
+            <UiInput
+              v-model="heroQuoteAttribution"
+              label="Atribuição (opcional)"
+              placeholder="Mateus 19:6"
+              :error="themeErrors.heroQuoteAttribution"
+            />
+          </div>
 
           <div class="flex flex-col gap-3 rounded-lg border border-border p-4">
             <span class="text-sm font-medium text-text">Atalhos do Hero</span>

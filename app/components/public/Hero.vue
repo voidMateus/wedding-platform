@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // Hero cinematográfico (CLAUDE.md, Fase Premium Experience/PR4) —
-// reconstrução completa: primeiro lugar onde a Assinatura Visual (selo do
-// casal, tipografia editorial, espaçamento) aparece por inteiro. Duas
-// variantes (com/sem foto de capa) continuam existindo — a segunda nunca é
-// "a versão sem recurso", é uma composição própria, pensada para não deixar
-// espaço vazio.
+// reconstrução completa a partir de uma referência visual trazida pelo
+// usuário (imagem de exemplo, sem site real associado): split assimétrico
+// foto/conteúdo no desktop (foto empilhada acima do conteúdo no mobile,
+// nunca sobreposta a texto — evita todo o problema de contraste
+// texto-sobre-foto arbitrária), selo do casal, citação opcional, cartão de
+// contagem regressiva com rótulo "Faltam", e a data/local numa linha
+// própria, mais discreta.
 import type { ThemeConfig } from '#shared/schemas/theme'
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import { resolveHeroButtons } from '#shared/hero-buttons'
@@ -36,8 +38,8 @@ const coupleNameParts = computed(() => {
   return parts.length === 2 ? parts : null
 })
 
-// Local em destaque na faixa de "quando & onde" — primeiro item do
-// cronograma que tem nome de local cadastrado (normalmente a Cerimônia).
+// Local em destaque na linha de data/local — primeiro item do cronograma
+// que tem nome de local cadastrado (normalmente a Cerimônia).
 const primaryVenueName = computed(
   () => segments.find((segment) => segment.venue_name)?.venue_name ?? null,
 )
@@ -49,9 +51,15 @@ const targetDateTime = computed(() =>
   resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
 )
 // Estilo configurável pelo casal (/admin/configuracoes, CLAUDE.md — Fase
-// Premium Experience/PR2); 'inline' precisa saber se está sobre foto de capa
-// para inverter a cor do texto (ver CountdownTimer.vue, prop `inverted`).
+// Premium Experience/PR2) — sempre sobre o cartão "Faltam" (bg-surface-
+// elevated), nunca sobre a foto no layout em split, então nunca precisa de
+// `inverted` aqui.
 const countdownStyle = computed(() => theme.value.countdownStyle ?? 'cards')
+
+// Citação opcional (ex.: um versículo) — Fase Premium Experience/PR4.
+// Atribuição só aparece se a citação também estiver definida.
+const heroQuote = computed(() => theme.value.heroQuote ?? null)
+const heroQuoteAttribution = computed(() => theme.value.heroQuoteAttribution ?? null)
 
 // Totalmente opcional — casais sem foto de capa não têm um "menos" do
 // layout com foto, têm um segundo layout pensado de propósito (tipografia
@@ -65,10 +73,9 @@ const coverFocalPosition = computed(
   () => `${theme.value.coverFocalX ?? 50}% ${theme.value.coverFocalY ?? 50}%`,
 )
 
-// Atalhos de navegação logo abaixo da faixa de "quando & onde" (gap vs.
-// concorrente — CLAUDE.md, comparativo com mimodocasal.com.br). O casal
-// escolhe quais aparecem e qual fica em destaque
-// (theme_config.heroButtons/heroFeaturedButton, editável em
+// Atalhos de navegação (gap vs. concorrente — CLAUDE.md, comparativo com
+// mimodocasal.com.br). O casal escolhe quais aparecem e qual fica em
+// destaque (theme_config.heroButtons/heroFeaturedButton, editável em
 // /admin/configuracoes) — catálogo fixo em shared/hero-buttons.ts, sem
 // seleção salva ainda cai num default sensato. shared/hero-buttons.ts
 // guarda só a âncora ("/#presentes") — precisa do slug do casamento
@@ -83,154 +90,103 @@ const heroButtons = computed(() =>
 </script>
 
 <template>
-  <section
-    v-if="coverImageUrl"
-    class="relative flex min-h-[75vh] items-end justify-center overflow-hidden sm:min-h-[85vh]"
-  >
-    <div class="absolute inset-0 h-full w-full">
-      <!--
-        ATENÇÃO: a prop `sizes` do NuxtImg (repassada por UiTreatedImage) NÃO
-        aceita o valor cru do atributo HTML `sizes` (ex.: "100vw"). Ver
-        comentário original em UiTreatedImage.vue / CLAUDE.md seção 27.2 —
-        sempre "sm:X md:X lg:X xl:X 2xl:X", nunca um valor solto com "vw".
-      -->
-      <UiTreatedImage
-        :src="coverImageUrl"
-        :alt="`Foto de capa de ${wedding.couple_names}`"
-        full-bleed
-        overlay="full"
-        :object-position="coverFocalPosition"
-        sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
-        priority
-        class="h-full w-full"
-      />
-    </div>
+  <section class="relative overflow-hidden bg-surface">
     <div
-      v-motion
-      :initial="{ opacity: 0, y: 24 }"
-      :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="relative flex w-full flex-col items-center gap-4 px-4 pb-14 pt-20 text-center text-white"
+      class="relative flex flex-col"
+      :class="coverImageUrl ? 'lg:grid lg:grid-cols-2 lg:items-stretch' : ''"
     >
-      <PublicCoupleMonogram :couple-names="wedding.couple_names" inverted />
-      <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
-      <h1 v-if="coupleNameParts" class="font-display text-5xl font-semibold leading-none sm:text-6xl">
-        <span class="block">{{ coupleNameParts[0] }}</span>
-        <span class="block">&amp;</span>
-        <span class="block">{{ coupleNameParts[1] }}</span>
-      </h1>
-      <h1 v-else class="font-display text-5xl font-semibold sm:text-6xl">{{ wedding.couple_names }}</h1>
-
-      <div
-        class="mt-1 flex w-full max-w-md flex-col gap-3 rounded-lg border border-white/25 px-5 py-4 sm:flex-row sm:items-center sm:gap-0"
-      >
-        <div class="flex flex-1 flex-col gap-0.5 text-left">
-          <span class="text-[11px] uppercase tracking-widest text-white/60">Quando &amp; onde</span>
-          <span class="text-sm font-medium text-white">
-            {{ formattedDate }}<template v-if="primaryVenueName"> · {{ primaryVenueName }}</template>
-          </span>
-        </div>
-
-        <template v-if="showCountdown">
-          <span aria-hidden="true" class="hidden h-10 w-px bg-white/25 sm:mx-5 sm:block" />
-          <span aria-hidden="true" class="h-px w-full bg-white/25 sm:hidden" />
-          <div class="sm:flex-1">
-            <UiCountdownTimer :target-date-time="targetDateTime" :variant="countdownStyle" inverted>
-              <template #past>
-                <p class="text-sm font-medium text-white">O grande dia chegou!</p>
-              </template>
-            </UiCountdownTimer>
-          </div>
-        </template>
+      <div v-if="coverImageUrl" class="relative h-[42vh] w-full lg:order-2 lg:h-auto lg:min-h-[85vh]">
+        <UiTreatedImage
+          :src="coverImageUrl"
+          :alt="`Foto de ${wedding.couple_names}`"
+          full-bleed
+          overlay="none"
+          :object-position="coverFocalPosition"
+          sizes="sm:100vw md:100vw lg:50vw xl:50vw 2xl:50vw"
+          priority
+          class="h-full w-full"
+        />
+        <div
+          aria-hidden="true"
+          class="pointer-events-none absolute inset-y-0 left-0 hidden w-24 bg-gradient-to-r from-surface to-transparent lg:block"
+        />
       </div>
 
-      <div v-if="heroButtons.length" class="mt-1 flex flex-wrap items-center justify-center gap-3">
-        <UiButton
-          v-for="button in heroButtons"
-          :key="button.id"
-          :to="button.href"
-          :variant="button.featured ? 'primary' : 'outline'"
-          rounded="full"
-          size="sm"
-          :class="!button.featured ? '!border-white !text-white hover:!bg-white/10' : ''"
+      <div
+        class="relative flex flex-col items-center gap-4 px-6 text-center"
+        :class="coverImageUrl ? 'py-16 lg:order-1 lg:justify-center lg:px-16 lg:py-24' : 'py-24 sm:py-32'"
+      >
+        <UiTexture v-if="!coverImageUrl" class="text-secondary" />
+        <UiBotanicalSprig
+          aria-hidden="true"
+          class="absolute -left-4 -top-2 hidden h-32 w-32 text-secondary/40 lg:block"
+        />
+
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 24 }"
+          :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
+          class="relative flex flex-col items-center gap-4"
         >
-          <Icon :name="button.icon" class="h-4 w-4" />
-          {{ button.label }}
-        </UiButton>
-      </div>
+          <PublicCoupleMonogram :couple-names="wedding.couple_names" />
+          <p class="text-sm uppercase tracking-widest text-secondary">Vamos nos casar!</p>
+          <h1 v-if="coupleNameParts" class="font-display leading-none text-heading">
+            <span class="block text-5xl font-semibold sm:text-6xl">{{ coupleNameParts[0] }}</span>
+            <span class="block py-1 text-3xl font-normal text-secondary sm:text-4xl">&amp;</span>
+            <span class="block text-5xl font-semibold sm:text-6xl">{{ coupleNameParts[1] }}</span>
+          </h1>
+          <h1 v-else class="font-display text-5xl font-semibold text-heading sm:text-6xl">
+            {{ wedding.couple_names }}
+          </h1>
 
-      <div class="mt-4 flex flex-col items-center gap-1 text-xs uppercase tracking-widest text-white/70">
-        <span>Role</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
-      </div>
-    </div>
-  </section>
+          <div v-if="heroQuote" class="flex flex-col items-center gap-3">
+            <UiSectionDivider />
+            <blockquote class="max-w-xs text-sm italic leading-relaxed text-text-muted sm:max-w-sm">
+              “{{ heroQuote }}”
+              <footer v-if="heroQuoteAttribution" class="mt-1 text-xs not-italic tracking-wide text-text-muted">
+                {{ heroQuoteAttribution }}
+              </footer>
+            </blockquote>
+          </div>
 
-  <section v-else class="relative overflow-hidden px-4 py-24 text-center sm:py-32">
-    <div
-      aria-hidden="true"
-      class="pointer-events-none absolute inset-0 bg-gradient-to-b from-secondary/[0.06] via-transparent to-transparent"
-    />
-    <UiTexture class="text-secondary" />
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 24 }"
-      :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="relative flex flex-col items-center gap-4"
-    >
-      <PublicCoupleMonogram :couple-names="wedding.couple_names" size="lg" />
-      <p class="text-sm uppercase tracking-widest text-text-muted">Vamos nos casar</p>
-      <h1
-        v-if="coupleNameParts"
-        class="font-display text-6xl font-semibold leading-none text-heading sm:text-7xl"
-      >
-        <span class="block">{{ coupleNameParts[0] }}</span>
-        <span class="block">&amp;</span>
-        <span class="block">{{ coupleNameParts[1] }}</span>
-      </h1>
-      <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-7xl">
-        {{ wedding.couple_names }}
-      </h1>
-
-      <div
-        class="mt-1 flex w-full max-w-md flex-col gap-3 rounded-lg border border-border bg-surface-elevated px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:gap-0"
-      >
-        <div class="flex flex-1 flex-col gap-0.5 text-left">
-          <span class="text-[11px] uppercase tracking-widest text-text-muted">Quando &amp; onde</span>
-          <span class="text-sm font-medium text-text">
-            {{ formattedDate }}<template v-if="primaryVenueName"> · {{ primaryVenueName }}</template>
-          </span>
-        </div>
-
-        <template v-if="showCountdown">
-          <span aria-hidden="true" class="hidden h-10 w-px bg-border sm:mx-5 sm:block" />
-          <span aria-hidden="true" class="h-px w-full bg-border sm:hidden" />
-          <div class="sm:flex-1">
+          <div
+            v-if="showCountdown"
+            class="rounded-lg border border-border bg-surface-elevated px-6 py-5 shadow-md"
+          >
+            <p class="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
+              Faltam
+            </p>
             <UiCountdownTimer :target-date-time="targetDateTime" :variant="countdownStyle">
               <template #past>
                 <p class="text-sm font-medium text-primary">O grande dia chegou!</p>
               </template>
             </UiCountdownTimer>
           </div>
-        </template>
-      </div>
 
-      <div v-if="heroButtons.length" class="mt-1 flex flex-wrap items-center justify-center gap-3">
-        <UiButton
-          v-for="button in heroButtons"
-          :key="button.id"
-          :to="button.href"
-          :variant="button.featured ? 'primary' : 'outline'"
-          rounded="full"
-          size="sm"
-        >
-          <Icon :name="button.icon" class="h-4 w-4" />
-          {{ button.label }}
-        </UiButton>
-      </div>
+          <div v-if="heroButtons.length" class="flex flex-wrap items-center justify-center gap-3">
+            <UiButton
+              v-for="button in heroButtons"
+              :key="button.id"
+              :to="button.href"
+              :variant="button.featured ? 'primary' : 'outline'"
+              rounded="full"
+              size="sm"
+            >
+              <Icon :name="button.icon" class="h-4 w-4" />
+              {{ button.label }}
+            </UiButton>
+          </div>
 
-      <div class="mt-4 flex flex-col items-center gap-1 text-xs uppercase tracking-widest text-text-muted">
-        <span>Role</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
+          <div class="flex flex-col items-center gap-1">
+            <Icon name="lucide:calendar" class="h-4 w-4 text-secondary" />
+            <span class="text-sm font-medium uppercase tracking-wide text-text">{{ formattedDate }}</span>
+            <span v-if="primaryVenueName" class="text-xs uppercase tracking-widest text-text-muted">
+              {{ primaryVenueName }}
+            </span>
+          </div>
+
+          <Icon name="lucide:chevron-down" class="mt-1 h-5 w-5 animate-bounce text-text-muted" />
+        </div>
       </div>
     </div>
   </section>

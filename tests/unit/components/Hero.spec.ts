@@ -114,9 +114,9 @@ describe('PublicHero', () => {
     expect(wrapper.findComponent(CountdownTimer).props('variant')).toBe('inline')
   })
 
-  it('countdown sem foto de capa não é invertido (herda text-heading)', () => {
+  it('mostra o rótulo "Faltam" acima da contagem regressiva', () => {
     const wrapper = mountHero({ wedding: makeWedding({ theme_config: {} }) })
-    expect(wrapper.findComponent(CountdownTimer).props('inverted')).toBeFalsy()
+    expect(wrapper.text()).toContain('Faltam')
   })
 
   it('renderiza os 4 atalhos de navegação (sem foto de capa)', () => {
@@ -137,11 +137,13 @@ describe('PublicHero', () => {
     }
   })
 
-  it('countdown sobre foto de capa é invertido (texto branco)', () => {
+  it('com foto de capa, a foto nunca fica atrás do texto (layout em split, não overlay)', () => {
     const wrapper = mountHero({
       wedding: makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
     })
-    expect(wrapper.findComponent(CountdownTimer).props('inverted')).toBeTruthy()
+    // A contagem nunca precisa de `inverted` neste layout — o conteúdo
+    // sempre fica sobre bg-surface-elevated/bg-surface, nunca sobre a foto.
+    expect(wrapper.findComponent(CountdownTimer).props('inverted')).toBeFalsy()
   })
 
   it('o atalho de presentes é o CTA primário (cor de destaque)', () => {
@@ -185,17 +187,38 @@ describe('PublicHero', () => {
     expect(wrapper.text()).toContain('AJ')
   })
 
-  it('a faixa "Quando & onde" mostra data e local, mesmo com showCountdown=false', () => {
+  it('a linha de data/local aparece mesmo com showCountdown=false', () => {
     const wrapper = mountHero({
       wedding: makeWedding({ theme_config: { showCountdown: false } }),
       segments: [makeSegment({ venue_name: 'Buffet Casa das Pedras' })],
     })
-    expect(wrapper.text()).toContain('Quando & onde')
     expect(wrapper.text()).toContain('Buffet Casa das Pedras')
+    expect(wrapper.findComponent(CountdownTimer).exists()).toBe(false)
   })
 
-  it('não renderiza o divisor da faixa quando showCountdown=false', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ theme_config: { showCountdown: false } }) })
-    expect(wrapper.findComponent(CountdownTimer).exists()).toBe(false)
+  it('não renderiza citação por padrão (theme_config.heroQuote ausente)', () => {
+    const wrapper = mountHero({ wedding: makeWedding({ theme_config: {} }) })
+    expect(wrapper.find('blockquote').exists()).toBe(false)
+  })
+
+  it('renderiza a citação e a atribuição quando definidas', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({
+        theme_config: {
+          heroQuote: 'Assim, eles já não são dois, mas sim uma só carne.',
+          heroQuoteAttribution: 'Mateus 19:6',
+        },
+      }),
+    })
+    expect(wrapper.text()).toContain('Assim, eles já não são dois, mas sim uma só carne.')
+    expect(wrapper.text()).toContain('Mateus 19:6')
+  })
+
+  it('não renderiza a atribuição sem a citação', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({ theme_config: { heroQuoteAttribution: 'Mateus 19:6' } }),
+    })
+    expect(wrapper.find('blockquote').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Mateus 19:6')
   })
 })

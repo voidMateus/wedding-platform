@@ -45,9 +45,10 @@ function closeMobileMenu() {
     <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 items-center font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 items-center gap-2 font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
+        <PublicCoupleMonogram v-if="coupleNames" :couple-names="coupleNames" size="sm" />
         {{ coupleNames || 'MeuSiteCasamento' }}
       </NuxtLink>
 
