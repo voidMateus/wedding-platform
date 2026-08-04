@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { EVENT_SEGMENT_ICONS, classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
+import {
+  EVENT_SEGMENT_ICONS,
+  anchorForEventSegmentTitle,
+  classifyEventSegmentTitle,
+} from '#shared/utils/event-segment-keywords'
 
 describe('classifyEventSegmentTitle', () => {
   it('classifica títulos de cerimônia (com e sem acento)', () => {
@@ -25,5 +29,20 @@ describe('classifyEventSegmentTitle', () => {
     expect(EVENT_SEGMENT_ICONS.reception).toBe('lucide:glass-water')
     expect(EVENT_SEGMENT_ICONS.party).toBe('lucide:party-popper')
     expect(EVENT_SEGMENT_ICONS.other).toBe('lucide:calendar')
+  })
+})
+
+describe('anchorForEventSegmentTitle', () => {
+  it('retorna "cerimonia" para títulos de cerimônia', () => {
+    expect(anchorForEventSegmentTitle('Cerimônia')).toBe('cerimonia')
+  })
+
+  it('retorna "recepcao" para títulos de recepção', () => {
+    expect(anchorForEventSegmentTitle('Recepção')).toBe('recepcao')
+  })
+
+  it('retorna undefined para festa e títulos livres', () => {
+    expect(anchorForEventSegmentTitle('Festa')).toBeUndefined()
+    expect(anchorForEventSegmentTitle('Chá de panela')).toBeUndefined()
   })
 })

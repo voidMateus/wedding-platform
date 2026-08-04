@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Cartão informativo (redesign de referência — CLAUDE.md, "Fase Vermelho
-// Clássico"). O site de referência tem um formulário de RSVP por telefone
-// direto na home; o nosso modelo de segurança exige o link único por
-// convidado (CLAUDE.md, seção 4.5/14) — sem busca pública aberta, então
-// esta seção continua só informativa, sem formulário funcional.
+// Clássico") com CTA para a busca real por nome (`/{slug}/rsvp`, PR #55 —
+// busca tolerante → confirmação leve mascarada → convite completo). O link
+// direto por token (`/{slug}/rsvp/[code]`) continua funcionando como atalho
+// para quem já recebeu, mas deixou de ser a única porta de entrada.
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -19,6 +19,8 @@ const formattedDate = computed(() =>
     year: 'numeric',
   }),
 )
+
+const rsvpSearchLink = computed(() => `/${wedding.slug}/rsvp`)
 </script>
 
 <template>
@@ -34,10 +36,14 @@ const formattedDate = computed(() =>
         <p class="text-sm text-text-muted">{{ formattedDate }}</p>
       </div>
       <p class="leading-relaxed text-body">
-        Cada convidado recebe um link pessoal de confirmação, enviado por e-mail ou WhatsApp. Use
-        esse link para confirmar presença, informar restrições alimentares e acompanhantes.
+        Digite seu nome para localizar seu convite e confirmar presença, restrições alimentares e
+        acompanhantes. Se você já recebeu um link pessoal por e-mail ou WhatsApp, pode usá-lo
+        diretamente também.
       </p>
-      <p class="text-sm text-text-muted">Não encontrou o seu link? Entre em contato com a gente.</p>
+      <UiButton :to="rsvpSearchLink" rounded="full">
+        <Icon name="lucide:search" class="h-4 w-4" />
+        Buscar meu convite
+      </UiButton>
     </div>
   </PublicEditorialSection>
 </template>
