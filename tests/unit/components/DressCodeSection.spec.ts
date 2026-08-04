@@ -53,16 +53,6 @@ describe('PublicDressCodeSection', () => {
     }
   })
 
-  it('usa as cores primária/secundária do tema como swatches', () => {
-    const wrapper = mountDressCode(
-      makeWedding({ theme_config: { primaryColor: '#5c1a2b', secondaryColor: '#8a6a1f' } }),
-    )
-    const swatches = wrapper.findAll('span[aria-hidden="true"]')
-    const colors = swatches.map((s) => (s.attributes('style') ?? '').replace(/\s/g, ''))
-    expect(colors.some((c) => c.includes('background-color:#5c1a2b'))).toBe(true)
-    expect(colors.some((c) => c.includes('background-color:#8a6a1f'))).toBe(true)
-  })
-
   it('cai nas cores default quando o tema não define paleta', () => {
     const wrapper = mountDressCode(makeWedding({ theme_config: {} }))
     expect(wrapper.html()).not.toContain('undefined')

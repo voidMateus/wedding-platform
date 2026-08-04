@@ -37,12 +37,17 @@ const { coupleNames, slug, code, featuredButtonId } = defineProps<Props>()
 // pensada para escalar quando a lista crescer bastante (ex.: 100+ itens).
 // `id` casa com o id do catálogo de atalhos do Hero (shared/hero-buttons.ts)
 // — usado só para sincronizar o destaque, não pra navegação.
+// Ordem casa exatamente com a ordem das seções na home (index.vue) — Hero
+// → Boas-vindas → Nossa História → O Grande Dia → Dress Code → Manual dos
+// Convidados → Confirme sua Presença → Presentes → FAQ → Nossos Momentos.
+// Dress Code/Presentes/FAQ ficam fora do menu por curadoria deliberada
+// (ver comentário abaixo), mas os que entram seguem a sequência real.
 const NAV_LINKS = computed(() => [
   { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
   { id: 'cronograma', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
+  { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
   { id: 'confirmar-presenca', to: `/${slug}/#confirmar-presenca`, label: 'Confirmar Presença' },
   { id: 'galeria', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
-  { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
 ])
 
 const homeLink = computed(() => `/${slug}`)
@@ -96,14 +101,25 @@ function closeMobileMenu() {
       </button>
     </nav>
 
+  </header>
+
+  <!--
+    Teleport pro <body>: o header tem backdrop-blur, e backdrop-filter cria
+    um novo "containing block" pra descendentes fixed (mesmo efeito de
+    transform/filter/perspective) — o drawer, como filho do <header>, tinha
+    seu `fixed inset-y-0` resolvido contra a caixa do header (~68px) em vez
+    do viewport inteiro, ficando espremido e "vazando" o conteúdo por trás
+    (achado real, celular). Teleportar escapa completamente desse contexto.
+  -->
+  <Teleport to="body">
     <div
       v-if="isMobileMenuOpen"
-      class="fixed inset-0 z-20 bg-black/40 lg:hidden"
+      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
       aria-hidden="true"
       @click="closeMobileMenu"
     />
     <div
-      class="fixed inset-y-0 right-0 z-30 flex w-64 flex-col gap-1 border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 lg:hidden"
+      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 lg:hidden"
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
     >
       <UiButton :to="giftsLink" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
@@ -121,5 +137,5 @@ function closeMobileMenu() {
         {{ link.label }}
       </NuxtLink>
     </div>
-  </header>
+  </Teleport>
 </template>
