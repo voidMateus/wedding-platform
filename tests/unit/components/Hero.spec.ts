@@ -119,7 +119,7 @@ describe('PublicHero', () => {
     }
   })
 
-  it('renderiza os mesmos 4 atalhos de navegação (com foto de capa)', () => {
+  it('com foto de capa, a foto vira fundo-ambiente sob véu e o texto mantém as cores do tema', () => {
     const wrapper = mountHero({
       wedding: makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
     })
@@ -127,6 +127,10 @@ describe('PublicHero', () => {
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).toContain(href)
     }
+    // Layout único (Rodada 8): nunca mais texto branco flutuando na foto crua.
+    const img = wrapper.find('img')
+    expect(img.classes()).toContain('opacity-20')
+    expect(wrapper.find('h1').classes()).toContain('text-heading')
   })
 
   it('o atalho de presentes é o CTA primário (cor de destaque)', () => {

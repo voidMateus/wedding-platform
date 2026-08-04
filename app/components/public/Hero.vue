@@ -39,8 +39,7 @@ const coupleNameParts = computed(() => {
 
 // Monograma d'água ao fundo (iniciais do casal em cascata diagonal, ex.:
 // M / & / R) — "sensação de convite" pedida pelo usuário, opacidade de
-// textura (2–4%, brief da Rodada 6). Só na variante sem foto de capa: sobre
-// uma foto ficaria pouco legível/concorreria com a imagem.
+// textura (2–4%, brief da Rodada 6).
 const monogramInitials = computed(() => {
   if (!coupleNameParts.value) return null
   const [first, second] = coupleNameParts.value
@@ -67,9 +66,11 @@ const targetDateTime = computed(() =>
   resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
 )
 
-// Totalmente opcional — casais sem foto de capa não têm um "menos" do
-// layout com foto, têm um segundo layout pensado de propósito (tipografia
-// maior, cor secundária como destaque de fundo), nunca um espaço vazio.
+// Foto de capa opcional — desde a Rodada 8 não existe mais um segundo
+// layout "com foto": o Hero é um só (o convite em marfim), e a foto entra
+// como fundo-ambiente sob um véu (opacidade baixa + leve blur). Motivo
+// real: no layout antigo o texto ficava branco flutuando sobre a foto crua
+// — com uma foto clara, sumia por completo (feedback do usuário).
 const coverImageUrl = computed(() => theme.value.coverImageUrl ?? null)
 
 // Ponto de foco (enquadramento) escolhido pelo casal no upload — CLAUDE.md,
@@ -100,8 +101,7 @@ const heroButtons = computed(() =>
 
 <template>
   <section
-    v-if="coverImageUrl"
-    class="relative flex min-h-[70vh] items-end justify-center overflow-hidden sm:min-h-[80vh]"
+    class="relative flex min-h-[88vh] flex-col items-center justify-center gap-6 overflow-hidden bg-surface-muted px-4 pb-28 pt-20 text-center sm:pb-36 sm:pt-24"
   >
     <!--
       ATENÇÃO: a prop `sizes` do NuxtImg NÃO aceita o valor cru do atributo
@@ -115,78 +115,15 @@ const heroButtons = computed(() =>
       todos os breakpoints) — nunca um valor solto com "vw".
     -->
     <NuxtImg
+      v-if="coverImageUrl"
       :src="coverImageUrl"
       :alt="`Foto de capa de ${wedding.couple_names}`"
-      class="absolute inset-0 h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full scale-105 object-cover opacity-20 blur-[2px]"
       :style="{ objectPosition: coverFocalPosition }"
       sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
       preload
     />
-    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 24 }"
-      :enter="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="relative flex flex-col items-center gap-4 px-4 pb-16 pt-20 text-center text-white"
-    >
-      <p class="text-sm uppercase tracking-widest text-white/80">Vamos nos casar</p>
-      <PublicHeroFlourish class="text-white/85" />
-      <h1 v-if="coupleNameParts" class="font-display text-5xl font-semibold leading-tight sm:text-6xl">
-        <span class="block">{{ coupleNameParts[0] }}</span>
-        <span class="block">&amp;</span>
-        <span class="block">{{ coupleNameParts[1] }}</span>
-      </h1>
-      <h1 v-else class="font-display text-5xl font-semibold sm:text-6xl">{{ wedding.couple_names }}</h1>
-      <span class="h-px w-12 bg-white/70" aria-hidden="true" />
-      <p class="text-lg text-white/90">
-        {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
-      </p>
 
-      <div v-if="showCountdown" class="mt-2 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime">
-          <template #past>
-            <p class="text-lg font-medium text-white">O grande dia chegou!</p>
-          </template>
-        </UiCountdownTimer>
-      </div>
-
-      <div v-if="heroButtons.length" class="mt-2 flex flex-wrap items-center justify-center gap-3">
-        <UiButton
-          v-for="button in heroButtons"
-          :key="button.id"
-          :to="button.href"
-          :variant="button.featured ? 'primary' : 'outline'"
-          rounded="full"
-          size="sm"
-          :class="!button.featured ? '!border-white !text-white hover:!bg-white/10' : ''"
-        >
-          <Icon :name="button.icon" class="h-4 w-4" />
-          {{ button.label }}
-        </UiButton>
-      </div>
-
-      <div class="mt-6 flex flex-col items-center gap-2 text-xs uppercase tracking-widest text-white/70">
-        <span>Role para descobrir</span>
-        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-white/60">
-          <Icon name="lucide:chevron-down" class="h-4 w-4 animate-bounce" />
-        </span>
-      </div>
-    </div>
-
-    <svg
-      viewBox="0 0 1440 120"
-      preserve-aspect-ratio="none"
-      aria-hidden="true"
-      class="absolute inset-x-0 bottom-0 h-16 w-full text-surface sm:h-24"
-    >
-      <path fill="currentColor" d="M0,120 L0,70 Q720,-10 1440,70 L1440,120 Z" />
-    </svg>
-  </section>
-
-  <section
-    v-else
-    class="relative flex min-h-[88vh] flex-col items-center justify-center gap-6 overflow-hidden bg-surface-muted px-4 pb-28 pt-20 text-center sm:pb-36 sm:pt-24"
-  >
     <!-- Profundidade do fundo (brief Rodada 6): textura de papel + luz suave, nunca cor chapada. -->
     <div aria-hidden="true" class="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-multiply" :style="{ backgroundImage: PAPER_TEXTURE }" />
     <div

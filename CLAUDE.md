@@ -1253,6 +1253,8 @@ Refinamento visual pedido pelo usuário — "acho no site com muitos espaços em
 - **NavBar**: + link "Manual do Convidado" e ícone de presente no CTA "Presentear" (paridade com a referência).
 - **Fix real de bug**: `theme.patch.ts` descartava silenciosamente `showHeroBotanicals` (endpoint enumera chaves manualmente — segunda ocorrência dessa classe de bug; aviso adicionado no §22.3 e no próprio arquivo). Nenhuma dependência nova: fontes via `@nuxt/fonts` (Cormorant Garamond já registrada em `nuxt.config.ts`), ornamentos/textura em SVG próprio inline.
 
+**Rodada 8 — Hero unificado (fim do layout "com foto")**: o `Hero.vue` tinha dois layouts (com foto de capa = texto branco flutuando sobre a foto crua; sem foto = o convite em marfim da Rodada 6). Feedback do usuário ao subir uma capa clara: "o texto fica flutuando na imagem e as cores das fontes mudaram para a mesma cor do fundo" — o branco sumia. Agora existe **um único layout** (o convite em marfim): a foto de capa, quando existe, entra como **fundo-ambiente sob um véu** (`opacity-20` + `blur-[2px]` + `scale-105` sobre o `bg-surface-muted`, ponto de foco preservado), e toda a tipografia mantém as cores do tema em qualquer situação. O monograma d'água passou a renderizar sempre (antes era exclusivo da variante sem foto). Nunca mais texto branco automático sobre foto no Hero.
+
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
 - [ ] Observabilidade completa (Sentry + métricas de uso).
