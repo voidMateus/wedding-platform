@@ -66,6 +66,15 @@ export const GUEST_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
   ],
 }
 
+// Mensagem introdutória da página de presentes ("Presentes 2.0", CLAUDE.md
+// seção 18) — explica ao convidado, sem rodeio, que existem duas formas de
+// presentear um item físico (comprar por fora ou pagar pelo link de
+// pagamento), já que ele pode não saber o que fazer sem essa explicação.
+export const GIFTS_INTRO_CONTENT = {
+  message:
+    'Sua presença já é o presente mais importante. Se quiser nos ajudar a começar essa nova fase, preparamos esta lista com carinho — de itens do dia a dia a uma contribuição para a lua de mel. Em cada presente físico, você escolhe como prefere: comprar e entregar por fora, ou enviar o valor pelo link de pagamento para o casal comprar.',
+}
+
 export interface FaqItem {
   question: string
   answer: string

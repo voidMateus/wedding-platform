@@ -9,14 +9,8 @@ export interface FilterableGift {
   targetAmountCents: number | null
 }
 
-export interface GiftPriceRange {
-  min?: number
-  max?: number
-}
-
 export interface GiftFilterOptions {
   category: string | null
-  priceRange: GiftPriceRange | null
   sortBy: string
 }
 
@@ -26,22 +20,43 @@ export function effectiveGiftPriceCents(gift: FilterableGift): number | null {
   return gift.priceCents ?? gift.targetAmountCents ?? null
 }
 
+export interface SegmentableGift {
+  isGroupGift: boolean
+  displayStyle: 'standard' | 'emotional'
+}
+
+export interface GiftSegments<T> {
+  physical: T[]
+  contributions: T[]
+  emotional: T[]
+}
+
+// Separa a vitrine em Lista de Presentes / Contribuições / Presentes
+// Emocionais ("Presentes 2.0", CLAUDE.md seção 18) — presente emocional não
+// é uma entidade nova, é um presente de cota com displayStyle='emotional'.
+export function segmentGifts<T extends SegmentableGift>(gifts: T[]): GiftSegments<T> {
+  const physical: T[] = []
+  const contributions: T[] = []
+  const emotional: T[] = []
+
+  for (const gift of gifts) {
+    if (!gift.isGroupGift) {
+      physical.push(gift)
+    } else if (gift.displayStyle === 'emotional') {
+      emotional.push(gift)
+    } else {
+      contributions.push(gift)
+    }
+  }
+
+  return { physical, contributions, emotional }
+}
+
 export function filterAndSortGifts<T extends FilterableGift>(gifts: T[], options: GiftFilterOptions): T[] {
   let result = gifts
 
   if (options.category) {
     result = result.filter((gift) => gift.categoryName === options.category)
-  }
-
-  if (options.priceRange) {
-    const { min, max } = options.priceRange
-    result = result.filter((gift) => {
-      const price = effectiveGiftPriceCents(gift)
-      if (price === null) return false
-      if (min !== undefined && price < min) return false
-      if (max !== undefined && price >= max) return false
-      return true
-    })
   }
 
   if (options.sortBy === 'price-asc' || options.sortBy === 'price-desc') {

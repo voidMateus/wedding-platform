@@ -52,15 +52,33 @@ describe('UiCard', () => {
     expect(wrapper.classes()).not.toContain('p-3')
   })
 
-  it('usa rounded-lg/shadow-sm por padrão', () => {
+  it('usa rounded-xl/shadow-xl por padrão (tratamento premium, plataforma inteira)', () => {
     const wrapper = mount(Card, { slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('rounded-xl')
+    expect(wrapper.classes()).toContain('shadow-xl')
+  })
+
+  it('aplica o degrau reduzido (radius/elevation "lg"/"sm") quando pedido', () => {
+    const wrapper = mount(Card, { props: { radius: 'lg', elevation: 'sm' }, slots: { default: 'Conteúdo' } })
     expect(wrapper.classes()).toContain('rounded-lg')
     expect(wrapper.classes()).toContain('shadow-sm')
   })
 
-  it('aplica o tratamento premium (radius/elevation "xl") quando pedido', () => {
-    const wrapper = mount(Card, { props: { radius: 'xl', elevation: 'xl' }, slots: { default: 'Conteúdo' } })
-    expect(wrapper.classes()).toContain('rounded-xl')
-    expect(wrapper.classes()).toContain('shadow-xl')
+  it('variant "default" (padrão) não aplica hover nem destaque', () => {
+    const wrapper = mount(Card, { slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).not.toContain('cursor-pointer')
+    expect(wrapper.classes().some((c) => c.includes('bg-primary/'))).toBe(false)
+  })
+
+  it('variant "interactive" ganha hover no degrau médio da escala', () => {
+    const wrapper = mount(Card, { props: { variant: 'interactive' }, slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('hover:shadow-md')
+    expect(wrapper.classes()).toContain('cursor-pointer')
+  })
+
+  it('variant "highlight" aplica ênfase visual sutil na cor primária', () => {
+    const wrapper = mount(Card, { props: { variant: 'highlight' }, slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('bg-primary/[0.03]')
+    expect(wrapper.classes()).toContain('!border-primary/20')
   })
 })

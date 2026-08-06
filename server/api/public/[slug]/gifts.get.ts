@@ -1,20 +1,18 @@
 /**
  * Vitrine pública de presentes (CLAUDE.md, seção 18.2) — sem autenticação,
- * sem token obrigatório. Se um `code` for informado na query, a resposta é
- * personalizada com o que o próprio convidado já reservou/contribuiu, sem
- * nunca expor quem reservou o quê para os demais (CLAUDE.md, seção 18.2).
+ * sem token de convite: a página é acessível a qualquer momento pelo link
+ * público do casamento, sem exigir um link personalizado por convite (CLAUDE.md,
+ * seção 18.2/4.5). Nunca expõe quem reservou/contribuiu o quê para os demais.
  * Resolvido por slug (CLAUDE.md, seção 4.4/33).
  */
 export default defineEventHandler(async (event) => {
   const slug = getWeddingSlugParam(event)
-  const query = getQuery(event)
-  const code = typeof query.code === 'string' ? query.code : undefined
 
   const client = supabaseAdmin(event)
 
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
-    .select('id')
+    .select('id, infinitepay_handle, physical_gift_delivery_mode')
     .eq('slug', slug)
     .single()
 
@@ -66,43 +64,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  let token = null
-  if (code) {
-    token = await resolveGuestToken(client, code)
-  }
-
-  const reservedGiftIds = new Set<string>()
-  const contributedByGiftId = new Map<string, number>()
-
-  if (token) {
-    const identifierColumn = 'group_id'
-    const identifierValue = token.inviteId
-
-    const { data: myReservations, error: myReservationsError } = await client
-      .from('gift_reservations')
-      .select('gift_id')
-      .eq(identifierColumn, identifierValue)
-    if (myReservationsError) {
-      throw badRequestError(myReservationsError.message)
-    }
-    for (const reservation of myReservations ?? []) {
-      reservedGiftIds.add(reservation.gift_id)
-    }
-
-    const { data: myContributions, error: myContributionsError } = await client
-      .from('gift_contributions')
-      .select('gift_id, amount_cents')
-      .eq(identifierColumn, identifierValue)
-    if (myContributionsError) {
-      throw badRequestError(myContributionsError.message)
-    }
-    for (const contribution of myContributions ?? []) {
-      contributedByGiftId.set(
-        contribution.gift_id,
-        (contributedByGiftId.get(contribution.gift_id) ?? 0) + contribution.amount_cents,
-      )
-    }
-  }
+  const hasPixOption = Boolean(wedding.infinitepay_handle)
+  const physicalDeliveryMode = wedding.physical_gift_delivery_mode as
+    | 'both'
+    | 'self_purchase_only'
+    | 'payment_only'
 
   const data = gifts.map((gift) => ({
     id: gift.id,
@@ -115,9 +81,12 @@ export default defineEventHandler(async (event) => {
     isGroupGift: gift.is_group_gift,
     quantityAvailable: gift.quantity_available,
     targetAmountCents: gift.target_amount_cents,
+    quotaAmountCents: gift.quota_amount_cents,
+    displayStyle: gift.display_style as 'standard' | 'emotional',
+    emotionalIcon: gift.emotional_icon,
     collectedAmountCents: gift.is_group_gift ? (collectedByGiftId.get(gift.id) ?? 0) : null,
-    reservedByMe: reservedGiftIds.has(gift.id),
-    contributedByMeCents: gift.is_group_gift ? (contributedByGiftId.get(gift.id) ?? 0) : null,
+    hasPixOption,
+    physicalDeliveryMode,
   }))
 
   return { data }

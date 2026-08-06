@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
       rsvp_deadline: input.rsvpDeadline || null,
       child_max_age: input.childMaxAge,
       guest_list_mode: input.guestListMode,
+      infinitepay_handle: input.infinitepayHandle || null,
+      physical_gift_delivery_mode: input.physicalGiftDeliveryMode,
     })
     .eq('id', weddingId)
     .select()

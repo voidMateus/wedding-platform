@@ -87,6 +87,14 @@ const showInviteStep = computed(() => companions.value.length > 0 && !hasExistin
 const currentStepIndex = ref(0)
 const currentStepId = computed(() => steps.value[currentStepIndex.value]?.id)
 
+// Rola o topo do wizard para a viewport a cada troca de step — em telas
+// longas (ex.: Acompanhantes com vários itens), sem isso o usuário fica
+// "preso" no meio da página depois de avançar.
+const wizardRoot = ref<HTMLElement | null>(null)
+watch(currentStepIndex, () => {
+  wizardRoot.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
+
 const primaryNameError = ref<string | null>(null)
 
 function goNext() {
@@ -266,26 +274,50 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <ol class="flex flex-wrap gap-2 text-sm">
-      <li
-        v-for="(step, index) in steps"
-        :key="step.id"
-        class="rounded-full px-3 py-1"
-        :class="
-          index === currentStepIndex
-            ? 'bg-primary text-primary-foreground'
-            : index < currentStepIndex
-              ? 'bg-surface-muted text-text'
-              : 'bg-surface-muted text-text-muted'
-        "
-      >
-        {{ index + 1 }}. {{ step.label }}
-      </li>
+  <div ref="wizardRoot" class="flex flex-col gap-6">
+    <ol class="flex items-center gap-2 text-sm">
+      <template v-for="(step, index) in steps" :key="step.id">
+        <li class="flex items-center gap-2">
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-brand"
+            :class="
+              index === currentStepIndex
+                ? 'bg-primary text-primary-foreground'
+                : index < currentStepIndex
+                  ? 'bg-primary/15 text-primary'
+                  : 'bg-surface-muted text-text-muted'
+            "
+          >
+            <Icon v-if="index < currentStepIndex" name="lucide:check" class="h-3.5 w-3.5" />
+            <span v-else>{{ index + 1 }}</span>
+          </span>
+          <span
+            class="hidden transition-brand sm:inline"
+            :class="index === currentStepIndex ? 'font-medium text-text' : 'text-text-muted'"
+          >
+            {{ step.label }}
+          </span>
+        </li>
+        <li
+          v-if="index < steps.length - 1"
+          class="h-px flex-1 transition-brand"
+          :class="index < currentStepIndex ? 'bg-primary/40' : 'bg-border'"
+          aria-hidden="true"
+        />
+      </template>
     </ol>
 
+    <Transition
+      enter-active-class="transition-brand"
+      enter-from-class="opacity-0 translate-x-2"
+      enter-to-class="opacity-100 translate-x-0"
+      leave-active-class="transition-brand"
+      leave-from-class="opacity-100 translate-x-0"
+      leave-to-class="opacity-0 -translate-x-2"
+      mode="out-in"
+    >
     <!-- Passo: Dados do Convidado -->
-    <UiCard v-if="currentStepId === 'dados'">
+    <UiCard v-if="currentStepId === 'dados'" key="dados">
       <h2 class="mb-4 text-lg font-medium text-text">Dados do Convidado</h2>
       <AdminGuestsGuestPersonFields
         v-model="primary"
@@ -296,7 +328,7 @@ async function handleSubmit() {
     </UiCard>
 
     <!-- Passo: Acompanhantes -->
-    <UiCard v-else-if="currentStepId === 'acompanhantes'">
+    <UiCard v-else-if="currentStepId === 'acompanhantes'" key="acompanhantes">
       <h2 class="mb-1 text-lg font-medium text-text">Acompanhantes</h2>
       <p class="mb-4 text-sm text-text-muted">
         Casal, pais e filhos, mesma residência, amigos inseparáveis — qualquer conjunto que
@@ -369,7 +401,7 @@ async function handleSubmit() {
     </UiCard>
 
     <!-- Passo: Convite -->
-    <UiCard v-else-if="currentStepId === 'convite'">
+    <UiCard v-else-if="currentStepId === 'convite'" key="convite">
       <h2 class="mb-1 text-lg font-medium text-text">Convite</h2>
       <p class="mb-4 text-sm text-text-muted">
         Este grupo possui {{ companions.length + 1 }} pessoas. Deseja criar um convite para elas
@@ -391,20 +423,14 @@ async function handleSubmit() {
         <div class="flex flex-col gap-2">
           <span class="text-sm font-medium text-text">Etiquetas (opcional)</span>
           <div class="flex flex-wrap gap-2">
-            <button
+            <UiChip
               v-for="tag in tagsData?.data ?? []"
               :key="tag.id"
-              type="button"
-              class="rounded-full border px-3 py-1 text-xs"
-              :class="
-                selectedTagIds.includes(tag.id)
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-text-muted'
-              "
+              :label="tag.name"
+              :selected="selectedTagIds.includes(tag.id)"
+              clickable
               @click="toggleTag(tag.id)"
-            >
-              {{ tag.name }}
-            </button>
+            />
           </div>
           <div class="flex items-center gap-2">
             <UiInput v-model="newTagName" placeholder="Nova etiqueta" class="max-w-xs" />
@@ -415,7 +441,7 @@ async function handleSubmit() {
     </UiCard>
 
     <!-- Passo: Revisão -->
-    <UiCard v-else-if="currentStepId === 'revisao'">
+    <UiCard v-else-if="currentStepId === 'revisao'" key="revisao">
       <h2 class="mb-4 text-lg font-medium text-text">Revisão</h2>
       <ul class="flex flex-col gap-2 text-sm">
         <li class="flex items-center gap-2">
@@ -432,6 +458,7 @@ async function handleSubmit() {
       </p>
       <p v-if="errorMessage" class="mt-4 text-sm text-red-600" role="alert">{{ errorMessage }}</p>
     </UiCard>
+    </Transition>
 
     <div class="flex justify-between">
       <UiButton variant="ghost" :disabled="currentStepIndex === 0" @click="goBack">Voltar</UiButton>

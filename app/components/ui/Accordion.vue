@@ -4,7 +4,8 @@ import { AccordionContent, AccordionHeader, AccordionItem, AccordionRoot, Accord
 export interface AccordionItemData {
   id: string
   trigger: string
-  content: string
+  /** Ignorado quando o slot com escopo #content é usado (conteúdo rico, ex.: formulários). */
+  content?: string
 }
 
 interface Props {
@@ -35,7 +36,9 @@ defineProps<Props>()
         </AccordionTrigger>
       </AccordionHeader>
       <AccordionContent class="overflow-hidden text-sm text-body">
-        <p class="px-5 pb-5 leading-relaxed">{{ item.content }}</p>
+        <slot name="content" :item="item">
+          <p class="px-5 pb-5 leading-relaxed">{{ item.content }}</p>
+        </slot>
       </AccordionContent>
     </AccordionItem>
   </AccordionRoot>

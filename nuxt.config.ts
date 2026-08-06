@@ -46,6 +46,11 @@ export default defineNuxtConfig({
   runtimeConfig: {
     upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL,
     upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
+    // URL pública estável do site, usada para montar redirect_url/webhook_url
+    // absolutos no checkout Pix da InfinitePay (CLAUDE.md, seção 18/28) — não
+    // dá pra depender de getRequestURL em produção (URLs de preview não
+    // devem virar webhook_url permanente por engano).
+    siteUrl: process.env.NUXT_SITE_URL,
   },
 
   // Ícones vêm do pacote local @iconify-json/lucide (devDependency), não da

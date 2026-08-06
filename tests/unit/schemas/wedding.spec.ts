@@ -60,6 +60,67 @@ describe('weddingSettingsSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('aceita infinitepayHandle opcional', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      childMaxAge: 11,
+      guestListMode: 'closed',
+      infinitepayHandle: 'anaejoao',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('aceita ausência de infinitepayHandle (Pix desativado)', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      childMaxAge: 11,
+      guestListMode: 'closed',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('physicalGiftDeliveryMode tem "both" como default', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      childMaxAge: 11,
+      guestListMode: 'closed',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.physicalGiftDeliveryMode).toBe('both')
+    }
+  })
+
+  it('aceita physicalGiftDeliveryMode explícito', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      childMaxAge: 11,
+      guestListMode: 'closed',
+      physicalGiftDeliveryMode: 'payment_only',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejeita physicalGiftDeliveryMode fora do enum', () => {
+    const result = weddingSettingsSchema.safeParse({
+      coupleNames: 'Ana & João',
+      eventDate: '2026-12-12',
+      childMaxAge: 11,
+      guestListMode: 'closed',
+      physicalGiftDeliveryMode: 'qualquer-coisa',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
   it('rejeita nome do casal vazio', () => {
     const result = weddingSettingsSchema.safeParse({
       coupleNames: '  ',

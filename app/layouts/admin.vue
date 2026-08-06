@@ -2,6 +2,8 @@
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
 // preserva --font-sans fixo — nunca troca de fonte por casamento, mesmo que
 // o casal tenha escolhido um fontPairId diferente (CLAUDE.md, seção 21).
+provide(ADMIN_UI_CONTEXT_KEY, true)
+
 const { signOut } = useAuth()
 const uiStore = useUiStore()
 const { getWedding } = useWedding()
@@ -66,21 +68,30 @@ onMounted(() => {
 
 <template>
   <div class="flex min-h-screen bg-surface-muted">
-    <div
-      v-if="uiStore.sidebarOpen"
-      class="fixed inset-0 z-30 bg-black/40 sm:hidden"
-      @click="uiStore.sidebarOpen = false"
-    />
+    <Transition
+      enter-active-class="transition-brand"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-brand"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="uiStore.sidebarOpen"
+        class="fixed inset-0 z-30 bg-black/40 sm:hidden"
+        @click="uiStore.sidebarOpen = false"
+      />
+    </Transition>
 
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r border-border bg-surface transition-transform duration-200 sm:static sm:z-auto sm:translate-x-0 sm:transition-[width]"
+      class="fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r border-border bg-surface transition-transform transition-brand sm:static sm:z-auto sm:translate-x-0 sm:transition-[width]"
       :class="[
         uiStore.sidebarOpen ? 'translate-x-0 sm:w-56' : '-translate-x-full sm:w-16',
       ]"
     >
       <div class="flex items-center justify-between gap-2 border-b border-border px-3 py-4">
         <span v-if="uiStore.sidebarOpen" class="truncate text-sm font-medium text-text">
-          Wedding Platform
+          MeuSiteCasamento
         </span>
         <button
           type="button"
@@ -100,7 +111,7 @@ onMounted(() => {
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
+          class="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-brand"
           :class="[
             isActive(item.to)
               ? 'bg-primary/10 font-medium text-primary'
@@ -109,6 +120,10 @@ onMounted(() => {
           ]"
           @click="handleNavClick"
         >
+          <span
+            class="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary transition-brand"
+            :class="isActive(item.to) ? 'opacity-100' : 'opacity-0'"
+          />
           <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
           <span v-if="uiStore.sidebarOpen">{{ item.label }}</span>
         </NuxtLink>
@@ -138,7 +153,7 @@ onMounted(() => {
         >
           <Icon name="lucide:menu" class="h-5 w-5" />
         </button>
-        <span class="text-sm font-medium text-text">Wedding Platform</span>
+        <span class="text-sm font-medium text-text">MeuSiteCasamento</span>
       </header>
       <header class="hidden items-center border-b border-border bg-surface px-6 py-3 sm:flex">
         <AdminGlobalSearch />

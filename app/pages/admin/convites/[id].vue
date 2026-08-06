@@ -284,25 +284,21 @@ function formatDateTime(value: string): string {
 </script>
 
 <template>
-  <div v-if="invite" class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-text">{{ invite.name }}</h1>
-        <div class="mt-1 flex items-center gap-2">
-          <UiBadge :tone="statusTone[invite.responseStatus]">{{ statusLabel[invite.responseStatus] }}</UiBadge>
-          <UiBadge v-if="invite.archived_at" tone="neutral">arquivado</UiBadge>
-          <UiBadge v-if="invite.status === 'sent'" tone="success">enviado</UiBadge>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <UiButton variant="outline" @click="openAccessLinkModal">Link de acesso</UiButton>
-        <UiButton v-if="invite.status !== 'sent'" variant="outline" @click="handleMarkSent">
-          Marcar como enviado
-        </UiButton>
-        <UiButton variant="ghost" @click="handleToggleArchive">
-          {{ invite.archived_at ? 'Desarquivar' : 'Arquivar' }}
-        </UiButton>
-      </div>
+  <AdminSection v-if="invite" :title="invite.name">
+    <template #actions>
+      <UiButton variant="outline" @click="openAccessLinkModal">Link de acesso</UiButton>
+      <UiButton v-if="invite.status !== 'sent'" variant="outline" @click="handleMarkSent">
+        Marcar como enviado
+      </UiButton>
+      <UiButton variant="ghost" @click="handleToggleArchive">
+        {{ invite.archived_at ? 'Desarquivar' : 'Arquivar' }}
+      </UiButton>
+    </template>
+
+    <div class="-mt-2 flex items-center gap-2">
+      <UiBadge :tone="statusTone[invite.responseStatus]">{{ statusLabel[invite.responseStatus] }}</UiBadge>
+      <UiBadge v-if="invite.archived_at" tone="neutral">arquivado</UiBadge>
+      <UiBadge v-if="invite.status === 'sent'" tone="success">enviado</UiBadge>
     </div>
 
     <UiCard>
@@ -360,26 +356,16 @@ function formatDateTime(value: string): string {
         <h2 class="text-lg font-medium text-text">Etiquetas</h2>
       </template>
       <div class="flex flex-wrap gap-2">
-        <span
+        <UiChip
           v-for="tag in tagsData?.data ?? []"
           :key="tag.id"
-          class="inline-flex items-center gap-1 rounded-full border pl-3 pr-1 text-xs"
-          :class="
-            isTagSelected(tag.id)
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border text-text-muted'
-          "
-        >
-          <button type="button" class="py-1" @click="toggleTag(tag.id)">{{ tag.name }}</button>
-          <button
-            type="button"
-            class="rounded-full p-0.5 opacity-70 hover:opacity-100"
-            :aria-label="`Excluir etiqueta ${tag.name}`"
-            @click="openDeleteTagModal(tag)"
-          >
-            <Icon name="lucide:x" class="h-3 w-3" />
-          </button>
-        </span>
+          :label="tag.name"
+          :selected="isTagSelected(tag.id)"
+          clickable
+          removable
+          @click="toggleTag(tag.id)"
+          @remove="openDeleteTagModal(tag)"
+        />
       </div>
       <div class="mt-3 flex items-center gap-2">
         <UiInput v-model="newTagName" placeholder="Nova etiqueta" class="max-w-xs" />
@@ -428,22 +414,15 @@ function formatDateTime(value: string): string {
             Encontramos {{ suggestedSiblings.length }} acompanhante(s) vinculado(s) — adicionar
             também?
           </p>
-          <label
+          <UiCheckbox
             v-for="sibling in suggestedSiblings"
             :key="sibling.id"
-            class="flex items-center gap-2 text-sm text-text"
-          >
-            <input
-              type="checkbox"
-              :checked="checkedSiblingIds.has(sibling.id)"
-              @change="
-                ($event.target as HTMLInputElement).checked
-                  ? checkedSiblingIds.add(sibling.id)
-                  : checkedSiblingIds.delete(sibling.id)
-              "
-            />
-            {{ sibling.full_name }}
-          </label>
+            :model-value="checkedSiblingIds.has(sibling.id)"
+            :label="sibling.full_name"
+            @update:model-value="
+              (checked) => (checked ? checkedSiblingIds.add(sibling.id) : checkedSiblingIds.delete(sibling.id))
+            "
+          />
         </div>
       </div>
       <template #footer>
@@ -510,5 +489,5 @@ function formatDateTime(value: string): string {
         </UiButton>
       </template>
     </UiModal>
-  </div>
+  </AdminSection>
 </template>

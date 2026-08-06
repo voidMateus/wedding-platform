@@ -1,61 +1,56 @@
 <script setup lang="ts">
-import { computeGiftPriceBrackets } from '#shared/utils/gift-price-brackets'
-import { effectiveGiftPriceCents, filterAndSortGifts } from '#shared/utils/filter-gifts'
+import { filterAndSortGifts, segmentGifts } from '#shared/utils/filter-gifts'
 
-interface Props {
-  code?: string
-}
-
-const { code } = defineProps<Props>()
-
-const { getPublicGifts, reserveGift, contributeToGift, cancelGift } = usePublicGifts(code)
+const { getPublicGifts, reserveGift, createCheckout } = usePublicGifts()
 const { data, status, refresh } = getPublicGifts()
 const toast = useToast()
+const identity = useGiftGiverIdentity()
 
 interface ApiError {
   statusCode?: number
+  data?: { message?: string }
 }
 
 function isConflict(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as ApiError).statusCode === 409
 }
 
-// Filtro por categoria (Fase Visual) — client-side, sem novo request: a
-// vitrine já retorna categoryName por presente. null = "Todas".
+function errorMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null) {
+    const message = (err as ApiError).data?.message
+    if (message) return message
+  }
+  return fallback
+}
+
+const segments = computed(() => segmentGifts(data.value?.data ?? []))
+const hasPixOption = computed(() => data.value?.data[0]?.hasPixOption ?? false)
+
+// Filtro por categoria só se aplica à Lista de Presentes física (CLAUDE.md,
+// "Presentes 2.0") — Contribuições/Emocionais são listas curtas por
+// natureza, sem necessidade de filtro. Filtro por faixa de preço foi
+// removido (pedido do usuário) — só a ordenação por preço permanece.
 const selectedCategory = ref<string | null>(null)
-const selectedPriceBracket = ref<string | null>(null)
 const sortBy = ref<string>('default')
 
 const categories = computed(() => {
   const names = new Set<string>()
-  for (const gift of data.value?.data ?? []) {
+  for (const gift of segments.value.physical) {
     if (gift.categoryName) names.add(gift.categoryName)
   }
   return [...names].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 })
 
-const priceBrackets = computed(() => {
-  const prices = (data.value?.data ?? [])
-    .map((gift) => effectiveGiftPriceCents(gift))
-    .filter((price): price is number => price !== null)
-  return computeGiftPriceBrackets(prices)
-})
-
-const filteredGifts = computed(() => {
-  const bracket = selectedPriceBracket.value
-    ? (priceBrackets.value.find((b) => b.id === selectedPriceBracket.value) ?? null)
-    : null
-
-  return filterAndSortGifts(data.value?.data ?? [], {
+const filteredPhysicalGifts = computed(() =>
+  filterAndSortGifts(segments.value.physical, {
     category: selectedCategory.value,
-    priceRange: bracket ? { min: bracket.min, max: bracket.max } : null,
     sortBy: sortBy.value,
-  })
-})
+  }),
+)
 
-async function handleReserve(giftId: string) {
+async function handleReserve(giftId: string, message: string) {
   try {
-    await reserveGift(giftId)
+    await reserveGift(giftId, { name: identity.value.name, phone: identity.value.phone }, message)
     toast.success('Presente reservado! Obrigado.')
     await refresh()
   } catch (err) {
@@ -67,23 +62,23 @@ async function handleReserve(giftId: string) {
   }
 }
 
-async function handleCancel(giftId: string) {
+async function handleCheckout(
+  giftId: string,
+  payload: { amountCents?: number; quotaCount?: number; message: string },
+) {
   try {
-    await cancelGift(giftId)
-    toast.success('Cancelado.')
-    await refresh()
-  } catch {
-    toast.error('Não foi possível cancelar. Tente novamente.')
-  }
-}
-
-async function handleContribute(giftId: string, amountCents: number) {
-  try {
-    await contributeToGift(giftId, amountCents)
-    toast.success('Contribuição registrada! Obrigado.')
-    await refresh()
-  } catch {
-    toast.error('Não foi possível registrar a contribuição. Tente novamente.')
+    const { checkoutUrl } = await createCheckout(
+      giftId,
+      { name: identity.value.name, phone: identity.value.phone },
+      payload,
+    )
+    window.location.href = checkoutUrl
+  } catch (err) {
+    toast.error(
+      isConflict(err)
+        ? 'Esse presente acabou de ser reservado por outra pessoa.'
+        : errorMessage(err, 'Não foi possível iniciar o pagamento. Tente novamente.'),
+    )
   }
 }
 </script>
@@ -101,97 +96,102 @@ async function handleContribute(giftId: string, amountCents: number) {
     />
 
     <template v-else>
-      <div class="flex flex-col gap-3">
-        <div v-if="categories.length" class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="rounded-full border px-3 py-1 text-sm transition-colors"
-            :class="
-              selectedCategory === null
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border text-text-muted hover:border-primary/50'
-            "
-            @click="selectedCategory = null"
-          >
-            Todas
-          </button>
-          <button
-            v-for="category in categories"
-            :key="category"
-            type="button"
-            class="rounded-full border px-3 py-1 text-sm transition-colors"
-            :class="
-              selectedCategory === category
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border text-text-muted hover:border-primary/50'
-            "
-            @click="selectedCategory = category"
-          >
-            {{ category }}
-          </button>
+      <section id="presentes-fisicos" class="flex flex-col gap-4">
+        <h2 class="font-display text-xl font-semibold text-heading">Lista de Presentes</h2>
+
+        <div v-if="!filteredPhysicalGifts.length && !categories.length" class="text-sm text-text-muted">
+          Nenhum presente físico cadastrado ainda.
         </div>
+        <template v-else>
+          <div class="flex flex-col gap-3">
+            <div v-if="categories.length" class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="rounded-full border px-3 py-1 text-sm transition-colors"
+                :class="
+                  selectedCategory === null
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border text-text-muted hover:border-primary/50'
+                "
+                @click="selectedCategory = null"
+              >
+                Todas
+              </button>
+              <button
+                v-for="category in categories"
+                :key="category"
+                type="button"
+                class="rounded-full border px-3 py-1 text-sm transition-colors"
+                :class="
+                  selectedCategory === category
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border text-text-muted hover:border-primary/50'
+                "
+                @click="selectedCategory = category"
+              >
+                {{ category }}
+              </button>
+            </div>
 
-        <div v-if="priceBrackets.length" class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="rounded-full border px-3 py-1 text-sm transition-colors"
-            :class="
-              selectedPriceBracket === null
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border text-text-muted hover:border-primary/50'
-            "
-            @click="selectedPriceBracket = null"
-          >
-            Todos
-          </button>
-          <button
-            v-for="bracket in priceBrackets"
-            :key="bracket.id"
-            type="button"
-            class="rounded-full border px-3 py-1 text-sm transition-colors"
-            :class="
-              selectedPriceBracket === bracket.id
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border text-text-muted hover:border-primary/50'
-            "
-            @click="selectedPriceBracket = bracket.id"
-          >
-            {{ bracket.label }}
-          </button>
+            <UiSelect
+              v-model="sortBy"
+              label="Ordenar por"
+              class="max-w-xs"
+              :options="[
+                { value: 'default', label: 'Ordem do casal' },
+                { value: 'price-asc', label: 'Menor preço' },
+                { value: 'price-desc', label: 'Maior preço' },
+              ]"
+            />
+          </div>
+
+          <p class="text-sm text-text-muted">
+            Mostrando {{ filteredPhysicalGifts.length }} de {{ segments.physical.length }} presentes
+          </p>
+
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <GiftsGiftCard
+              v-for="gift in filteredPhysicalGifts"
+              :key="gift.id"
+              :gift="gift"
+              @reserve="(message) => handleReserve(gift.id, message)"
+              @checkout="(payload) => handleCheckout(gift.id, payload)"
+            />
+          </div>
+        </template>
+      </section>
+
+      <section v-if="segments.contributions.length" id="presentes-contribuicoes" class="flex flex-col gap-4">
+        <h2 class="font-display text-xl font-semibold text-heading">Contribuições</h2>
+        <p v-if="!hasPixOption" class="text-sm text-text-muted">
+          O casal ainda não ativou pagamento online — contribuições ficam disponíveis assim que
+          isso for configurado.
+        </p>
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <GiftsGiftCard
+            v-for="gift in segments.contributions"
+            :key="gift.id"
+            :gift="gift"
+            @checkout="(payload) => handleCheckout(gift.id, payload)"
+          />
         </div>
+      </section>
 
-        <UiSelect
-          v-model="sortBy"
-          label="Ordenar por"
-          class="max-w-xs"
-          :options="[
-            { value: 'default', label: 'Ordem do casal' },
-            { value: 'price-asc', label: 'Menor preço' },
-            { value: 'price-desc', label: 'Maior preço' },
-          ]"
-        />
-      </div>
-
-      <p class="text-sm text-text-muted">
-        Mostrando {{ filteredGifts.length }} de {{ data.data.length }} presentes
-      </p>
-
-      <UiEmptyState
-        v-if="!filteredGifts.length"
-        title="Nenhum presente nesse filtro"
-        description="Escolha outro filtro ou veja todos os presentes."
-      />
-      <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <GiftsGiftCard
-          v-for="gift in filteredGifts"
-          :key="gift.id"
-          :gift="gift"
-          :has-code="Boolean(code)"
-          @reserve="handleReserve(gift.id)"
-          @cancel="handleCancel(gift.id)"
-          @contribute="(amountCents) => handleContribute(gift.id, amountCents)"
-        />
-      </div>
+      <section v-if="segments.emotional.length" id="presentes-emocionais" class="flex flex-col gap-4">
+        <h2 class="font-display text-xl font-semibold text-heading">Presentes Emocionais</h2>
+        <p v-if="!hasPixOption" class="text-sm text-text-muted">
+          O casal ainda não ativou pagamento online — esses presentes ficam disponíveis assim que
+          isso for configurado.
+        </p>
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <GiftsGiftCard
+            v-for="gift in segments.emotional"
+            :key="gift.id"
+            :gift="gift"
+            @checkout="(payload) => handleCheckout(gift.id, payload)"
+          />
+        </div>
+      </section>
     </template>
   </div>
 </template>

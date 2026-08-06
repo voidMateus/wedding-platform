@@ -1,8 +1,29 @@
 import type { GiftInput } from '#shared/schemas/gifts'
 import type { Gift } from '~/types/gift'
 
+export interface GiftPaymentsSummary {
+  confirmedTotalCents: number
+  failedCount: number
+}
+
+export interface GiftActivityEntry {
+  id: string
+  type: 'reservation' | 'contribution'
+  giftId: string
+  giftTitle: string
+  name: string
+  phone: string | null
+  amountCents: number | null
+  quotaCount: number | null
+  message: string | null
+  isPaid: boolean
+  at: string
+}
+
 interface GiftListResponse {
   data: Gift[]
+  paymentsSummary: GiftPaymentsSummary
+  activity: GiftActivityEntry[]
 }
 
 /**

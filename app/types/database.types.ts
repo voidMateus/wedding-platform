@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       audit_logs: {
@@ -349,9 +374,12 @@ export type Database = {
           contributor_name: string | null
           created_at: string
           gift_id: string
+          giver_phone: string | null
           group_id: string | null
           guest_id: string | null
           id: string
+          message: string | null
+          quota_count: number | null
           updated_at: string
           wedding_id: string
         }
@@ -361,9 +389,12 @@ export type Database = {
           contributor_name?: string | null
           created_at?: string
           gift_id: string
+          giver_phone?: string | null
           group_id?: string | null
           guest_id?: string | null
           id?: string
+          message?: string | null
+          quota_count?: number | null
           updated_at?: string
           wedding_id: string
         }
@@ -373,9 +404,12 @@ export type Database = {
           contributor_name?: string | null
           created_at?: string
           gift_id?: string
+          giver_phone?: string | null
           group_id?: string | null
           guest_id?: string | null
           id?: string
+          message?: string | null
+          quota_count?: number | null
           updated_at?: string
           wedding_id?: string
         }
@@ -417,14 +451,134 @@ export type Database = {
           },
         ]
       }
+      gift_payments: {
+        Row: {
+          amount_cents: number
+          confirmed_at: string | null
+          created_at: string
+          failure_reason: string | null
+          gift_id: string
+          giver_name: string
+          giver_phone: string | null
+          guest_message: string | null
+          id: string
+          invite_id: string | null
+          kind: string
+          last_provider_response: Json | null
+          provider_checkout_url: string | null
+          provider_invoice_slug: string | null
+          provider_order_nsu: string
+          provider_transaction_nsu: string | null
+          quota_count: number | null
+          resulting_contribution_id: string | null
+          resulting_reservation_id: string | null
+          status: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          amount_cents: number
+          confirmed_at?: string | null
+          created_at?: string
+          failure_reason?: string | null
+          gift_id: string
+          giver_name: string
+          giver_phone?: string | null
+          guest_message?: string | null
+          id?: string
+          invite_id?: string | null
+          kind: string
+          last_provider_response?: Json | null
+          provider_checkout_url?: string | null
+          provider_invoice_slug?: string | null
+          provider_order_nsu: string
+          provider_transaction_nsu?: string | null
+          quota_count?: number | null
+          resulting_contribution_id?: string | null
+          resulting_reservation_id?: string | null
+          status?: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          amount_cents?: number
+          confirmed_at?: string | null
+          created_at?: string
+          failure_reason?: string | null
+          gift_id?: string
+          giver_name?: string
+          giver_phone?: string | null
+          guest_message?: string | null
+          id?: string
+          invite_id?: string | null
+          kind?: string
+          last_provider_response?: Json | null
+          provider_checkout_url?: string | null
+          provider_invoice_slug?: string | null
+          provider_order_nsu?: string
+          provider_transaction_nsu?: string | null
+          quota_count?: number | null
+          resulting_contribution_id?: string | null
+          resulting_reservation_id?: string | null
+          status?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_payments_gift_id_fkey"
+            columns: ["gift_id"]
+            isOneToOne: false
+            referencedRelation: "gifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_payments_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_payments_resulting_contribution_id_fkey"
+            columns: ["resulting_contribution_id"]
+            isOneToOne: false
+            referencedRelation: "gift_contributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_payments_resulting_reservation_id_fkey"
+            columns: ["resulting_reservation_id"]
+            isOneToOne: false
+            referencedRelation: "gift_reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_payments_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "gift_payments_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gift_reservations: {
         Row: {
           contributor_name: string | null
           created_at: string
           gift_id: string
+          giver_phone: string | null
           group_id: string | null
           guest_id: string | null
           id: string
+          message: string | null
           reserved_at: string
           updated_at: string
           wedding_id: string
@@ -433,9 +587,11 @@ export type Database = {
           contributor_name?: string | null
           created_at?: string
           gift_id: string
+          giver_phone?: string | null
           group_id?: string | null
           guest_id?: string | null
           id?: string
+          message?: string | null
           reserved_at?: string
           updated_at?: string
           wedding_id: string
@@ -444,9 +600,11 @@ export type Database = {
           contributor_name?: string | null
           created_at?: string
           gift_id?: string
+          giver_phone?: string | null
           group_id?: string | null
           guest_id?: string | null
           id?: string
+          message?: string | null
           reserved_at?: string
           updated_at?: string
           wedding_id?: string
@@ -495,12 +653,15 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           description: string | null
+          display_style: string
+          emotional_icon: string | null
           id: string
           image_url: string | null
           is_active: boolean
           is_group_gift: boolean
           price_cents: number | null
           quantity_available: number | null
+          quota_amount_cents: number | null
           target_amount_cents: number | null
           title: string
           updated_at: string
@@ -511,12 +672,15 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string | null
+          display_style?: string
+          emotional_icon?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           is_group_gift?: boolean
           price_cents?: number | null
           quantity_available?: number | null
+          quota_amount_cents?: number | null
           target_amount_cents?: number | null
           title: string
           updated_at?: string
@@ -527,12 +691,15 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string | null
+          display_style?: string
+          emotional_icon?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           is_group_gift?: boolean
           price_cents?: number | null
           quantity_available?: number | null
+          quota_amount_cents?: number | null
           target_amount_cents?: number | null
           title?: string
           updated_at?: string
@@ -1337,6 +1504,8 @@ export type Database = {
           event_time: string | null
           guest_list_mode: string
           id: string
+          infinitepay_handle: string | null
+          physical_gift_delivery_mode: string
           rsvp_deadline: string | null
           slug: string
           theme_config: Json
@@ -1350,6 +1519,8 @@ export type Database = {
           event_time?: string | null
           guest_list_mode?: string
           id?: string
+          infinitepay_handle?: string | null
+          physical_gift_delivery_mode?: string
           rsvp_deadline?: string | null
           slug: string
           theme_config?: Json
@@ -1363,6 +1534,8 @@ export type Database = {
           event_time?: string | null
           guest_list_mode?: string
           id?: string
+          infinitepay_handle?: string | null
+          physical_gift_delivery_mode?: string
           rsvp_deadline?: string | null
           slug?: string
           theme_config?: Json
@@ -1410,6 +1583,39 @@ export type Database = {
         }
         Returns: undefined
       }
+      confirm_gift_payment: {
+        Args: { p_payment_id: string }
+        Returns: {
+          amount_cents: number
+          confirmed_at: string | null
+          created_at: string
+          failure_reason: string | null
+          gift_id: string
+          giver_name: string
+          giver_phone: string | null
+          guest_message: string | null
+          id: string
+          invite_id: string | null
+          kind: string
+          last_provider_response: Json | null
+          provider_checkout_url: string | null
+          provider_invoice_slug: string | null
+          provider_order_nsu: string
+          provider_transaction_nsu: string | null
+          quota_count: number | null
+          resulting_contribution_id: string | null
+          resulting_reservation_id: string | null
+          status: string
+          updated_at: string
+          wedding_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gift_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       finalize_invite_rsvp: {
         Args: {
           p_companions?: Json
@@ -1452,31 +1658,91 @@ export type Database = {
       }
       is_wedding_member: { Args: { p_wedding_id: string }; Returns: boolean }
       is_wedding_owner: { Args: { p_wedding_id: string }; Returns: boolean }
-      reserve_gift: {
-        Args: {
-          p_contributor_name?: string
-          p_gift_id: string
-          p_group_id?: string
-          p_guest_id?: string
-        }
-        Returns: {
-          contributor_name: string | null
-          created_at: string
-          gift_id: string
-          group_id: string | null
-          guest_id: string | null
-          id: string
-          reserved_at: string
-          updated_at: string
-          wedding_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "gift_reservations"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      reserve_gift:
+        | {
+            Args: {
+              p_contributor_name?: string
+              p_gift_id: string
+              p_group_id?: string
+              p_guest_id?: string
+            }
+            Returns: {
+              contributor_name: string | null
+              created_at: string
+              gift_id: string
+              giver_phone: string | null
+              group_id: string | null
+              guest_id: string | null
+              id: string
+              message: string | null
+              reserved_at: string
+              updated_at: string
+              wedding_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "gift_reservations"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_contributor_name?: string
+              p_gift_id: string
+              p_group_id?: string
+              p_guest_id?: string
+              p_message?: string
+            }
+            Returns: {
+              contributor_name: string | null
+              created_at: string
+              gift_id: string
+              giver_phone: string | null
+              group_id: string | null
+              guest_id: string | null
+              id: string
+              message: string | null
+              reserved_at: string
+              updated_at: string
+              wedding_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "gift_reservations"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_contributor_name?: string
+              p_gift_id: string
+              p_giver_phone?: string
+              p_group_id?: string
+              p_guest_id?: string
+              p_message?: string
+            }
+            Returns: {
+              contributor_name: string | null
+              created_at: string
+              gift_id: string
+              giver_phone: string | null
+              group_id: string | null
+              guest_id: string | null
+              id: string
+              message: string | null
+              reserved_at: string
+              updated_at: string
+              wedding_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "gift_reservations"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       search_guests_by_name: {
         Args: { p_limit?: number; p_query: string; p_wedding_id: string }
         Returns: {
@@ -1651,6 +1917,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

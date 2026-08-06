@@ -154,88 +154,89 @@ async function saveAll() {
 </script>
 
 <template>
-  <div class="flex max-w-2xl flex-col gap-8">
-    <div>
-      <h1 class="text-xl font-semibold text-text">Cerimônia e Recepção</h1>
-      <p class="mt-1 text-sm text-text-muted">
-        Local e horário dos dois momentos do dia — no site, viram uma única seção quando são no
-        mesmo endereço.
-      </p>
-    </div>
-
-    <div v-if="status === 'pending'" class="flex flex-col gap-2">
-      <UiSkeleton class="h-40 w-full" />
-      <UiSkeleton class="h-40 w-full" />
-    </div>
-
-    <template v-else>
-      <UiCard>
-        <template #header>
-          <h2 class="text-base font-semibold text-text">Cerimônia</h2>
-        </template>
-        <div class="flex flex-col gap-4">
-          <UiInput v-model="ceremonyVenueName" label="Local" placeholder="Ex.: Igreja São José" />
-          <UiInput v-model="ceremonyVenueAddress" label="Endereço" placeholder="Ex.: Rua das Flores, 100" />
-          <div class="flex gap-3">
-            <UiInput v-model="ceremonyStartsAt" type="datetime-local" label="Início" class="flex-1" />
-            <UiInput v-model="ceremonyEndsAt" type="datetime-local" label="Término (opcional)" class="flex-1" />
-          </div>
-          <details class="text-sm text-text-muted">
-            <summary class="cursor-pointer select-none">Coordenadas (opcional)</summary>
-            <div class="mt-3 flex gap-3">
-              <UiInput v-model="ceremonyLatText" type="number" step="any" label="Latitude" class="flex-1" />
-              <UiInput v-model="ceremonyLngText" type="number" step="any" label="Longitude" class="flex-1" />
-            </div>
-          </details>
-          <AdminEventSegmentImageUploader
-            v-if="ceremony"
-            :model-value="ceremony.image_url"
-            :segment-id="ceremony.id"
-            @update:model-value="() => refresh()"
-          />
-          <p v-else class="text-sm text-text-muted">Salve o cronograma pela primeira vez para poder adicionar uma foto do local.</p>
-        </div>
-      </UiCard>
-
-      <UiCard>
-        <template #header>
-          <h2 class="text-base font-semibold text-text">Recepção / Festa</h2>
-        </template>
-        <div class="flex flex-col gap-4">
-          <UiCheckbox v-model="sameAddress" label="Mesmo endereço da cerimônia" />
-
-          <template v-if="!sameAddress">
-            <UiInput v-model="receptionVenueName" label="Local" placeholder="Ex.: Espaço Jardim" />
-            <UiInput v-model="receptionVenueAddress" label="Endereço" placeholder="Ex.: Av. Central, 500" />
-            <details class="text-sm text-text-muted">
-              <summary class="cursor-pointer select-none">Coordenadas (opcional)</summary>
-              <div class="mt-3 flex gap-3">
-                <UiInput v-model="receptionLatText" type="number" step="any" label="Latitude" class="flex-1" />
-                <UiInput v-model="receptionLngText" type="number" step="any" label="Longitude" class="flex-1" />
-              </div>
-            </details>
-          </template>
-
-          <div class="flex gap-3">
-            <UiInput v-model="receptionStartsAt" type="datetime-local" label="Início" class="flex-1" />
-            <UiInput v-model="receptionEndsAt" type="datetime-local" label="Término (opcional)" class="flex-1" />
-          </div>
-          <AdminEventSegmentImageUploader
-            v-if="reception"
-            :model-value="reception.image_url"
-            :segment-id="reception.id"
-            @update:model-value="() => refresh()"
-          />
-          <p v-else class="text-sm text-text-muted">Salve o cronograma pela primeira vez para poder adicionar uma foto do local.</p>
-        </div>
-      </UiCard>
-
-      <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="text-sm text-green-700" role="status">{{ successMessage }}</p>
-
-      <div class="flex justify-end">
-        <UiButton :disabled="isSaving" @click="saveAll">Salvar cronograma</UiButton>
+  <AdminSection
+    title="Cerimônia e Recepção"
+    description="Local e horário dos dois momentos do dia — no site, viram uma única seção quando são no mesmo endereço."
+  >
+    <div class="flex flex-col gap-8">
+      <div v-if="status === 'pending'" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <UiSkeleton class="h-40 w-full" />
+        <UiSkeleton class="h-40 w-full" />
       </div>
-    </template>
-  </div>
+
+      <template v-else>
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <UiCard>
+            <template #header>
+              <h2 class="text-base font-semibold text-text">Cerimônia</h2>
+            </template>
+            <div class="flex flex-col gap-4">
+              <UiInput v-model="ceremonyVenueName" label="Local" placeholder="Ex.: Igreja São José" />
+              <UiInput v-model="ceremonyVenueAddress" label="Endereço" placeholder="Ex.: Rua das Flores, 100" />
+              <div class="flex gap-3">
+                <UiInput v-model="ceremonyStartsAt" type="datetime-local" label="Início" class="flex-1" />
+                <UiInput v-model="ceremonyEndsAt" type="datetime-local" label="Término (opcional)" class="flex-1" />
+              </div>
+              <UiAccordion :items="[{ id: 'ceremony-coords', trigger: 'Coordenadas (opcional)' }]">
+                <template #content>
+                  <div class="flex gap-3 px-5 pb-5">
+                    <UiInput v-model="ceremonyLatText" type="number" step="any" label="Latitude" class="flex-1" />
+                    <UiInput v-model="ceremonyLngText" type="number" step="any" label="Longitude" class="flex-1" />
+                  </div>
+                </template>
+              </UiAccordion>
+              <AdminEventSegmentImageUploader
+                v-if="ceremony"
+                :model-value="ceremony.image_url"
+                :segment-id="ceremony.id"
+                @update:model-value="() => refresh()"
+              />
+              <p v-else class="text-sm text-text-muted">Salve o cronograma pela primeira vez para poder adicionar uma foto do local.</p>
+            </div>
+          </UiCard>
+
+          <UiCard>
+            <template #header>
+              <h2 class="text-base font-semibold text-text">Recepção / Festa</h2>
+            </template>
+            <div class="flex flex-col gap-4">
+              <UiCheckbox v-model="sameAddress" label="Mesmo endereço da cerimônia" />
+
+              <template v-if="!sameAddress">
+                <UiInput v-model="receptionVenueName" label="Local" placeholder="Ex.: Espaço Jardim" />
+                <UiInput v-model="receptionVenueAddress" label="Endereço" placeholder="Ex.: Av. Central, 500" />
+                <UiAccordion :items="[{ id: 'reception-coords', trigger: 'Coordenadas (opcional)' }]">
+                  <template #content>
+                    <div class="flex gap-3 px-5 pb-5">
+                      <UiInput v-model="receptionLatText" type="number" step="any" label="Latitude" class="flex-1" />
+                      <UiInput v-model="receptionLngText" type="number" step="any" label="Longitude" class="flex-1" />
+                    </div>
+                  </template>
+                </UiAccordion>
+              </template>
+
+              <div class="flex gap-3">
+                <UiInput v-model="receptionStartsAt" type="datetime-local" label="Início" class="flex-1" />
+                <UiInput v-model="receptionEndsAt" type="datetime-local" label="Término (opcional)" class="flex-1" />
+              </div>
+              <AdminEventSegmentImageUploader
+                v-if="reception"
+                :model-value="reception.image_url"
+                :segment-id="reception.id"
+                @update:model-value="() => refresh()"
+              />
+              <p v-else class="text-sm text-text-muted">Salve o cronograma pela primeira vez para poder adicionar uma foto do local.</p>
+            </div>
+          </UiCard>
+        </div>
+
+        <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
+        <p v-if="successMessage" class="text-sm text-green-700" role="status">{{ successMessage }}</p>
+
+        <div class="flex justify-end">
+          <UiButton :disabled="isSaving" @click="saveAll">Salvar cronograma</UiButton>
+        </div>
+      </template>
+    </div>
+  </AdminSection>
 </template>

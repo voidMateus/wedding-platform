@@ -7,13 +7,10 @@ async function handleDone() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div>
-      <h1 class="text-xl font-semibold text-text">Novo convidado</h1>
-      <p class="mt-1 text-sm text-text-muted">
-        Cadastre o convidado e, se houver, os acompanhantes — tudo em um único fluxo.
-      </p>
-    </div>
+  <AdminSection
+    title="Novo convidado"
+    description="Cadastre o convidado e, se houver, os acompanhantes — tudo em um único fluxo."
+  >
     <AdminGuestsGuestPartyWizard @done="handleDone" />
-  </div>
+  </AdminSection>
 </template>

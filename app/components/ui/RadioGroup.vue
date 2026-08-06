@@ -28,8 +28,8 @@ const groupName = useId()
     <label
       v-for="option in options"
       :key="option.value"
-      class="flex items-start gap-2 rounded-md border border-border p-3 text-sm text-text"
-      :class="disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-muted'"
+      class="flex items-start gap-2 rounded-md border border-border p-3 text-sm text-text transition-brand"
+      :class="disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-muted hover:border-primary/30'"
     >
       <input
         type="radio"

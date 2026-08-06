@@ -13,15 +13,11 @@ async function handleDone() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <div>
-      <h1 class="text-xl font-semibold text-text">Editar convidado</h1>
-    </div>
-
+  <AdminSection title="Editar convidado">
     <div v-if="status === 'pending'" class="flex flex-col gap-2">
       <UiSkeleton class="h-64 w-full" />
     </div>
 
     <AdminGuestsGuestPartyWizard v-else-if="guest" :initial-guest="guest" @done="handleDone" />
-  </div>
+  </AdminSection>
 </template>

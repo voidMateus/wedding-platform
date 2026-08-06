@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: reservations, error: reservationsError } = await client
     .from('gift_reservations')
-    .select('id, guest_id, group_id, contributor_name, reserved_at')
+    .select('id, guest_id, group_id, contributor_name, giver_phone, reserved_at, message')
     .eq('gift_id', id)
     .order('reserved_at', { ascending: true })
   if (reservationsError) {
@@ -37,12 +37,25 @@ export default defineEventHandler(async (event) => {
 
   const { data: contributions, error: contributionsError } = await client
     .from('gift_contributions')
-    .select('id, guest_id, group_id, contributor_name, amount_cents, contributed_at')
+    .select('id, guest_id, group_id, contributor_name, giver_phone, amount_cents, contributed_at, message, quota_count')
     .eq('gift_id', id)
     .order('contributed_at', { ascending: true })
   if (contributionsError) {
     throw badRequestError(contributionsError.message)
   }
+
+  const { data: confirmedPayments } = await client
+    .from('gift_payments')
+    .select('resulting_reservation_id, resulting_contribution_id')
+    .eq('gift_id', id)
+    .eq('status', 'confirmed')
+
+  const paidReservationIds = new Set(
+    (confirmedPayments ?? []).map((p) => p.resulting_reservation_id).filter((v): v is string => Boolean(v)),
+  )
+  const paidContributionIds = new Set(
+    (confirmedPayments ?? []).map((p) => p.resulting_contribution_id).filter((v): v is string => Boolean(v)),
+  )
 
   const guestIds = [
     ...(reservations ?? []).map((r) => r.guest_id),
@@ -65,23 +78,45 @@ export default defineEventHandler(async (event) => {
     for (const g of data ?? []) groupNames.set(g.id, g.name)
   }
 
-  function resolveName(guestId: string | null, groupId: string | null, contributorName: string | null) {
+  // contributor_name é o nome da pessoa específica que presenteou (coletada
+  // no passo de identificação, CLAUDE.md seção 18) — sempre preferido sobre
+  // o nome do convidado/convite, que hoje é só o rótulo do grupo (ex.:
+  // "Família Silva"), não da pessoa. inviteName fica como contexto adicional.
+  function resolveName(
+    guestId: string | null,
+    groupId: string | null,
+    contributorName: string | null,
+  ) {
+    if (contributorName) return contributorName
     if (guestId) return guestNames.get(guestId) ?? 'Convidado removido'
     if (groupId) return groupNames.get(groupId) ?? 'Convite removido'
-    return contributorName ?? 'Anônimo'
+    return 'Anônimo'
+  }
+
+  function resolveInviteName(groupId: string | null) {
+    return groupId ? (groupNames.get(groupId) ?? 'Convite removido') : null
   }
 
   return {
     reservations: (reservations ?? []).map((r) => ({
       id: r.id,
       name: resolveName(r.guest_id, r.group_id, r.contributor_name),
+      inviteName: resolveInviteName(r.group_id),
+      phone: r.giver_phone,
       reservedAt: r.reserved_at,
+      message: r.message,
+      isPaid: paidReservationIds.has(r.id),
     })),
     contributions: (contributions ?? []).map((c) => ({
       id: c.id,
       name: resolveName(c.guest_id, c.group_id, c.contributor_name),
+      inviteName: resolveInviteName(c.group_id),
+      phone: c.giver_phone,
       amountCents: c.amount_cents,
       contributedAt: c.contributed_at,
+      message: c.message,
+      quotaCount: c.quota_count,
+      isPaid: paidContributionIds.has(c.id),
     })),
   }
 })

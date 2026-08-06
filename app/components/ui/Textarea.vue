@@ -37,7 +37,7 @@ const textareaId = useId()
       :value="modelValue"
       :aria-invalid="Boolean(error)"
       :aria-describedby="error ? `${textareaId}-error` : undefined"
-      class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
     <p v-if="error" :id="`${textareaId}-error`" class="text-sm text-red-600" role="alert">
