@@ -1,20 +1,26 @@
 <script setup lang="ts">
-// noindex quando personalizado por código (CLAUDE.md, seção 26) — a versão
-// sem código continua pública/indexável, como a home (ARCHITECTURE.md 2.2).
-// Página dedicada, não mais um teaser embutido na home — pensada pra
-// escalar bem quando a lista crescer (ex.: 100+ itens).
+import { GIFTS_INTRO_CONTENT } from '#shared/wedding-content'
+
+// Página pública, sempre indexável — sem token de convite (CLAUDE.md, seção
+// 18.2/4.5): acessível a qualquer momento a partir do site do casamento,
+// sem exigir um link personalizado por convite. Identificação de quem
+// presenteia acontece no modal (nome/telefone), não na URL.
 definePageMeta({ layout: 'default' })
 
-const route = useRoute()
 const slug = useWeddingSlug()
-const code = typeof route.query.code === 'string' ? route.query.code : undefined
 
-useSeoMeta({
-  title: 'Lista de presentes',
-  robots: code ? 'noindex, nofollow' : undefined,
-})
+const { getPublicWedding } = usePublicWedding()
+const { data: wedding } = await getPublicWedding()
 
-const backToSiteLink = computed(() => `/${slug}${code ? `?code=${code}` : ''}`)
+useSeoMeta({ title: 'Presentes' })
+
+const backToSiteLink = computed(() => `/${slug}`)
+
+const SECTION_LINKS = [
+  { id: 'presentes-fisicos', label: 'Lista de Presentes' },
+  { id: 'presentes-contribuicoes', label: 'Contribuições' },
+  { id: 'presentes-emocionais', label: 'Presentes Emocionais' },
+]
 </script>
 
 <template>
@@ -32,17 +38,26 @@ const backToSiteLink = computed(() => `/${slug}${code ? `?code=${code}` : ''}`)
         <Icon name="lucide:gift" class="h-6 w-6" />
       </span>
       <div>
-        <h1 class="font-display text-3xl font-semibold text-heading">Lista de Presentes</h1>
-        <p v-if="!code" class="mt-2 text-sm text-text-muted">
-          Acesse pelo link enviado a você para poder reservar ou contribuir.
-        </p>
-        <p v-else class="mt-2 max-w-md text-sm leading-relaxed text-text-muted">
-          Sua presença já é o presente mais importante — mas se quiser nos ajudar a começar essa
-          nova fase, preparamos esta lista com carinho.
+        <h1 class="font-display text-3xl font-semibold text-heading">
+          Presentear{{ wedding?.couple_names ? ` ${wedding.couple_names}` : '' }}
+        </h1>
+        <p class="mt-2 max-w-xl text-sm leading-relaxed text-text-muted">
+          {{ GIFTS_INTRO_CONTENT.message }}
         </p>
       </div>
+
+      <nav class="flex flex-wrap justify-center gap-2 pt-2">
+        <a
+          v-for="link in SECTION_LINKS"
+          :key="link.id"
+          :href="`#${link.id}`"
+          class="rounded-full border border-border px-3 py-1.5 text-sm text-text-muted transition-brand hover:border-primary/50 hover:text-text"
+        >
+          {{ link.label }}
+        </a>
+      </nav>
     </div>
 
-    <GiftsShowcase :code="code" />
+    <GiftsShowcase />
   </div>
 </template>

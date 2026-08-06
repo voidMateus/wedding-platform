@@ -4,39 +4,65 @@ interface PublicGiftListResponse {
   data: PublicGift[]
 }
 
+interface GiftCheckoutResponse {
+  checkoutUrl: string
+  paymentId: string
+}
+
+export interface GiftPaymentStatus {
+  status: 'pending' | 'confirmed' | 'failed' | 'expired'
+  giftTitle: string | null
+  amountCents: number
+  quotaCount: number | null
+  confirmedAt: string | null
+}
+
 /**
- * Vitrine pública de presentes (CLAUDE.md, seção 18.2). Sem autenticação —
- * `code`, quando informado, personaliza a resposta com o que o próprio
- * convidado já reservou/contribuiu. Resolvido pelo slug da rota atual
- * (`/{slug}`) — mutações (reserve/contribute/cancel) resolvem o casamento
- * pelo próprio `code` (token), não precisam do slug.
+ * Vitrine pública de presentes (CLAUDE.md, seção 18.2) — sem token de
+ * convite: a página é pública, sem link personalizado. Identificação de
+ * quem presenteia é só nome/telefone (ver useGiftGiverIdentity), coletados
+ * no modal antes de reservar/pagar. Resolvido pelo slug da rota atual
+ * (`/{slug}`); mutações resolvem o wedding pelo próprio `giftId`.
  */
-export function usePublicGifts(code?: string) {
+export function usePublicGifts() {
   function getPublicGifts() {
     const slug = useWeddingSlug()
     return useFetch<PublicGiftListResponse>(`/api/public/${slug}/gifts`, {
-      key: `public-gifts-${slug}-${code ?? 'anon'}`,
-      query: code ? { code } : undefined,
+      key: `public-gifts-${slug}`,
     })
   }
 
-  async function reserveGift(giftId: string): Promise<unknown> {
-    if (!code) throw new Error('Código de acesso não informado.')
-    return $fetch(`/api/public/gifts/${giftId}/reserve`, { method: 'POST', body: { code } })
-  }
-
-  async function contributeToGift(giftId: string, amountCents: number): Promise<unknown> {
-    if (!code) throw new Error('Código de acesso não informado.')
-    return $fetch(`/api/public/gifts/${giftId}/contribute`, {
+  async function reserveGift(
+    giftId: string,
+    giver: { name: string; phone?: string },
+    message?: string,
+  ): Promise<unknown> {
+    return $fetch(`/api/public/gifts/${giftId}/reserve`, {
       method: 'POST',
-      body: { code, amountCents },
+      body: { giverName: giver.name, giverPhone: giver.phone, message },
     })
   }
 
-  async function cancelGift(giftId: string): Promise<unknown> {
-    if (!code) throw new Error('Código de acesso não informado.')
-    return $fetch(`/api/public/gifts/${giftId}/cancel`, { method: 'POST', body: { code } })
+  /** Cria uma tentativa de pagamento online via InfinitePay (reserva paga ou contribuição) — devolve a URL de checkout hospedado, pra onde o browser deve navegar. */
+  async function createCheckout(
+    giftId: string,
+    giver: { name: string; phone?: string },
+    options: { message?: string; amountCents?: number; quotaCount?: number },
+  ): Promise<GiftCheckoutResponse> {
+    return $fetch<GiftCheckoutResponse>(`/api/public/gifts/${giftId}/checkout`, {
+      method: 'POST',
+      body: { giverName: giver.name, giverPhone: giver.phone, ...options },
+    })
   }
 
-  return { getPublicGifts, reserveGift, contributeToGift, cancelGift }
+  async function getPaymentStatus(
+    paymentId: string,
+    hints?: { transactionNsu?: string; slug?: string },
+  ): Promise<GiftPaymentStatus> {
+    return $fetch<GiftPaymentStatus>(`/api/public/gifts/payments/${paymentId}/status`, {
+      query: { transactionNsu: hints?.transactionNsu, slug: hints?.slug },
+    })
+  }
+
+  return { getPublicGifts, reserveGift, createCheckout, getPaymentStatus }
 }

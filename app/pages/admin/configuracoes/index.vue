@@ -98,6 +98,8 @@ const [eventTime] = defineEventField('eventTime')
 const [rsvpDeadline] = defineEventField('rsvpDeadline')
 const [childMaxAge] = defineEventField('childMaxAge')
 const [guestListMode] = defineEventField('guestListMode')
+const [infinitepayHandle] = defineEventField('infinitepayHandle')
+const [physicalGiftDeliveryMode] = defineEventField('physicalGiftDeliveryMode')
 
 // UiInput só trabalha com string — childMaxAge no form é number (schema com
 // z.coerce.number()), daí o proxy de string aqui (mesmo padrão de
@@ -182,6 +184,11 @@ watch(
         rsvpDeadline: value.rsvp_deadline ? isoToDatetimeLocal(value.rsvp_deadline) : '',
         childMaxAge: value.child_max_age,
         guestListMode: value.guest_list_mode as 'closed' | 'open',
+        infinitepayHandle: value.infinitepay_handle ?? '',
+        physicalGiftDeliveryMode: value.physical_gift_delivery_mode as
+          | 'both'
+          | 'self_purchase_only'
+          | 'payment_only',
       },
     })
 
@@ -274,13 +281,13 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
 
 <template>
   <AdminSection title="Configurações" description="Dados do evento e aparência visual do site.">
-    <div v-if="status === 'pending'" class="flex max-w-2xl flex-col gap-2">
+    <div v-if="status === 'pending'" class="mx-auto flex max-w-2xl flex-col gap-2">
       <UiSkeleton class="h-10 w-full" />
       <UiSkeleton class="h-10 w-full" />
       <UiSkeleton class="h-10 w-full" />
     </div>
 
-    <UiTabs v-else v-model="activeTab" :tabs="settingsTabs" class="max-w-2xl">
+    <UiTabs v-else v-model="activeTab" :tabs="settingsTabs" class="mx-auto max-w-2xl">
       <template #geral>
         <UiCard>
           <form class="flex flex-col gap-4" @submit="onEventSubmit">
@@ -325,6 +332,29 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
                 { value: 'open', label: 'Aberta (permite acompanhante avulso no RSVP)' },
               ]"
               :error="eventErrors.guestListMode"
+            />
+            <UiInput
+              v-model="infinitepayHandle"
+              label="InfiniteTag da InfinitePay (opcional)"
+              placeholder="seuhandle"
+              :error="eventErrors.infinitepayHandle"
+            />
+            <p class="-mt-2 text-xs text-text-muted">
+              Ativa o pagamento online na lista de presentes (Contribuições, Presentes Emocionais e
+              a opção de presentear a lista física pagando o valor). Sem isso preenchido, os
+              convidados só podem reservar presentes físicos gratuitamente. Informe sua InfiniteTag
+              pública, sem o "$" — os métodos de pagamento aceitos (Pix, cartão) são definidos
+              diretamente na sua conta InfinitePay, não aqui.
+            </p>
+            <UiSelect
+              v-model="physicalGiftDeliveryMode"
+              label="Como presentear a Lista de Presentes física"
+              :options="[
+                { value: 'both', label: 'Convidado escolhe: comprar e entregar, ou pagar online' },
+                { value: 'self_purchase_only', label: 'Só comprar e entregar (sem pagamento online)' },
+                { value: 'payment_only', label: 'Só pagamento online (sem opção de entregar)' },
+              ]"
+              :error="eventErrors.physicalGiftDeliveryMode"
             />
 
             <div class="flex justify-end">

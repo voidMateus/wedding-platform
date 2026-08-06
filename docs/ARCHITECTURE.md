@@ -194,7 +194,7 @@ Definido via `routeRules` no `nuxt.config.ts`, mantendo a decisão centralizada 
 
 - `auth.global.ts` — se a rota estiver sob `/admin/**`, verifica sessão Supabase; sem sessão válida, redireciona para `/login` preservando a rota de destino.
 
-**Correção sobre `guest-access.global.ts`**: o desenho original desta seção propunha um middleware global que resolveria o token do convidado em `/rsvp/[code]` e `/presentes`. Na implementação real (CLAUDE.md, seção 14.3, PR do fluxo de RSVP), isso não existe como middleware — cada página resolve o próprio código via composable (`useRsvp(code).getRsvp()`) dentro do `<script setup>`, do mesmo jeito que o caminho administrativo resolve `wedding_id` via função explícita (`wedding-context.ts`, não middleware — ver correção equivalente em 1.1). Um middleware global rodaria em toda navegação, inclusive `/admin/**`, sem necessidade; a resolução por página é mais simples de auditar e não risca vazar lógica de convidado para rotas que não precisam dela.
+**Correção sobre `guest-access.global.ts`**: o desenho original desta seção propunha um middleware global que resolveria o token do convidado em `/rsvp/[code]` e `/presentes`. Na implementação real (CLAUDE.md, seção 14.3, PR do fluxo de RSVP), isso não existe como middleware — cada página resolve o próprio código via composable (`useRsvp(code).getRsvp()`) dentro do `<script setup>`, do mesmo jeito que o caminho administrativo resolve `wedding_id` via função explícita (`wedding-context.ts`, não middleware — ver correção equivalente em 1.1). Um middleware global rodaria em toda navegação, inclusive `/admin/**`, sem necessidade; a resolução por página é mais simples de auditar e não risca vazar lógica de convidado para rotas que não precisam dela. Desde a "Rodada 4" da Fase Presentes 2.0 (CLAUDE.md, seção 32), `/presentes` não resolve token nenhum — a menção acima já não se aplica a esse caminho, só a `/rsvp/[code]`.
 
 ### 2.5 Módulos Nuxt esperados
 
@@ -293,6 +293,8 @@ Um terceiro ambiente (`staging`, entre `dev` e `prod`) é uma extensão natural 
 
 Operações com controle de concorrência explícito (CLAUDE.md 13/18.3) — reserva de presente, confirmação de RSVP contra `max_members` — são implementadas como funções Postgres versionadas em `supabase/migrations/` (`reserve_gift`, `cancel_gift_reservation`, `confirm_rsvp`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas. Nenhuma é `SECURITY DEFINER`: rodam com o papel de quem chama, para que o caminho administrativo continue protegido por RLS como defesa em profundidade (o caminho do convidado já ignora RLS via `service_role`, ver 4.5).
 
+`confirm_gift_payment()` (CLAUDE.md 18.4/28.3) segue o mesmo padrão, com uma nuance: o `SELECT ... FOR UPDATE` na própria linha de `gift_payments` funciona como gate de **idempotência**, não de controle de estoque — e uma falha de domínio esperada dentro dela (`GIFT_UNAVAILABLE`, capturada via bloco `EXCEPTION`) é gravada como `status='failed'` em vez de propagada como exceção, porque uma exceção não tratada reverteria a transação inteira da chamada RPC, apagando justamente o registro que precisa ficar visível pro casal resolver manualmente.
+
 ### 4.5 Storage
 
 Bucket dedicado para fotos da galeria (CLAUDE.md 11.1 — `photos`), particionado por `wedding_id` no path do objeto, com policy de leitura pública (site do casamento é público) e escrita restrita a membros autenticados do respectivo `wedding_id`. Validação de tipo/tamanho de arquivo (CLAUDE.md 28) acontece no `server/api` antes de gerar a URL assinada de upload — o client nunca faz upload direto sem essa checagem prévia.
@@ -322,7 +324,8 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 | Site público (evento + cronograma) | `/api/public/*` | Pública (sem auth, sem token — CLAUDE.md 4.5) | Não |
 | RSVP | `/api/rsvp/[code]` | Convidado (token) | **Sim** |
 | Presentes (leitura) | `/api/gifts` | Pública / Admin | Não |
-| Presentes (reserva/contribuição/cancelamento) | `/api/gifts/[id]/*` | Convidado (token) | **Sim** |
+| Presentes (reserva grátis/checkout online) | `/api/gifts/[id]/*` | Pública (sem token — CLAUDE.md 4.5/18/32) | **Sim** |
+| Pagamento online (status/webhook) | `/api/gifts/payments/*` | Pública (paymentId como credencial) / InfinitePay (sem auth) | Status: **sim**. Webhook: não (defesa é `payment_check`, não IP — CLAUDE.md 28.3) |
 | Comunicações | `/api/communications` | Admin (JWT) | Não |
 | Administração | `/api/admin/*` | Admin (JWT, `owner`) | Não |
 
@@ -334,17 +337,18 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 - Erros seguem o formato único descrito em 3.5 — o client tem um único parser de erro para toda a aplicação, nunca um por endpoint.
 - Paginação por parâmetros de query (`page`, `pageSize`), com `pageSize` máximo travado no servidor (evita que um client mal-intencionado peça a base inteira de uma vez, reforça CLAUDE.md 27).
 
-### 5.3 Três personas de API, três modelos de autorização
+### 5.3 Quatro personas de API, quatro modelos de autorização
 
 Espelhando o modelo de confiança do CLAUDE.md (4.5/14.6):
 
 - **API administrativa**: cada handler resolve `wedding_id` a partir do JWT (via `wedding_members`) e nunca aceita `wedding_id` vindo do body/query da requisição para decidir o que é acessível — o JWT é a única fonte de verdade sobre qual evento o usuário pode tocar.
-- **API do convidado**: cada handler resolve o registro a partir do hash do token recebido na URL, e todo o restante da autorização (esse `guest`/`group` pertence a esse `wedding`, esse presente pertence a esse `wedding`) é revalidado explicitamente dentro do handler — nunca assumida a partir de um único join solto.
-- **API pública** (`/api/public/*`): nenhum handler recebe ou valida credencial — a autorização é inteiramente delegada à policy RLS `select_public` da tabela consultada (CLAUDE.md 4.5). Por isso esse handler só pode existir para tabelas sem nenhum dado sensível; adicionar um novo endpoint em `/api/public/*` exige confirmar antes que a tabela alvo realmente não expõe dado pessoal de convidado.
+- **API do convidado (RSVP)**: cada handler resolve o registro a partir do hash do token recebido na URL, e todo o restante da autorização (esse `guest`/`group` pertence a esse `wedding`) é revalidado explicitamente dentro do handler — nunca assumida a partir de um único join solto.
+- **API de presentes** (`/api/gifts/[id]/*`, `/api/gifts/payments/*`): sem token nenhum (CLAUDE.md 4.5/18/32) — qualquer requisição bem-formada é aceita, rate limitada por IP. `wedding_id` é resolvido a partir do próprio `gift_id`/`paymentId` da URL (que já o determina unicamente), nunca de uma credencial de identidade. A "autorização" aqui não é "esse recurso pertence a este usuário", é "o valor/quantidade envolvidos são sempre recalculados no servidor, nunca aceitos do client" — um modelo qualitativamente diferente dos dois anteriores.
+- **API pública** (`/api/public/*`, leitura): nenhum handler recebe ou valida credencial — a autorização é inteiramente delegada à policy RLS `select_public` da tabela consultada (CLAUDE.md 4.5). Por isso esse handler só pode existir para tabelas sem nenhum dado sensível; adicionar um novo endpoint em `/api/public/*` exige confirmar antes que a tabela alvo realmente não expõe dado pessoal de convidado.
 
 ### 5.4 Idempotência
 
-Endpoints de mutação do caminho do convidado (`rsvp/[code].post`, `gifts/[id]/reserve.post`, `gifts/[id]/contribute.post`) são desenhados para tolerar reenvio de rede (retry automático do browser em conexão instável) sem efeito duplicado — resposta de RSVP usa o token como chave de upsert (CLAUDE.md 16.4); reserva de presente é naturalmente idempotente porque a segunda tentativa encontra o recurso já indisponível e retorna um erro de domínio claro, não uma duplicata.
+Endpoints de mutação voltados ao convidado/visitante (`rsvp/[code].post`, `gifts/[id]/reserve.post`, `gifts/[id]/checkout.post`) são desenhados para tolerar reenvio de rede (retry automático do browser em conexão instável) sem efeito duplicado — resposta de RSVP usa o token como chave de upsert (CLAUDE.md 16.4); reserva/checkout de presente é naturalmente idempotente porque a segunda tentativa encontra o recurso já indisponível (ou já reservado por outra pessoa) e retorna um erro de domínio claro, não uma duplicata — sem token nenhum de por trás, já que esse caminho não usa `guest_access_tokens` (5.3). O pagamento Pix (CLAUDE.md 18.4/28.3) leva isso mais longe: `confirmGiftPayment` é idempotente por construção (`gift_payments.status` como gate), e é o único ponto que efetiva `gift_reservations`/`gift_contributions` — webhook duplicado ou corrida entre webhook e "pull" do convidado nunca duplicam o efeito.
 
 ---
 
@@ -379,10 +383,12 @@ Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por 
 
 **Nota para testes/dev**: `serverSupabaseUser()` retorna o payload cru do JWT — o id do usuário vem na claim `sub`, não em `id` (esse é o formato do objeto `User` da API de Admin, um tipo diferente). Usar `.id` silenciosamente quebra qualquer query filtrada por esse valor.
 
-### 6.2 Caminho do convidado (RSVP e presentes)
+### 6.2 Caminho do convidado (RSVP)
+
+> Presentes **não** segue este fluxo desde a "Rodada 4" da Fase Presentes 2.0 (CLAUDE.md, seção 4.5/18/32) — é público, sem token; identificação é só nome/telefone coletados no modal. Ver seção 8.
 
 ```
-1. Convidado abre /rsvp/{code} (ou /presentes?code={code})
+1. Convidado abre /rsvp/{code}
 2. A própria página resolve o código via composable no <script setup>
    (useRsvp(code).getRsvp()) — sem middleware, ver correção em 2.4
 3. GET /api/rsvp/[code]:
@@ -459,55 +465,87 @@ O dashboard (CLAUDE.md 19) não recebe push em tempo real (CLAUDE.md 16.4/27) �
 
 ## 8. Fluxo de Presentes
 
+> Reescrito na "Fase Presentes 2.0" (CLAUDE.md 18/32) — a vitrine pública ganhou três seções (Lista de Presentes, Contribuições, Presentes Emocionais) e um caminho de pagamento online real via InfinitePay, que convive com o caminho gratuito original. **Rodada 4** removeu o token de convite do módulo inteiro (CLAUDE.md 4.5/18/32) — diferente de RSVP (seção 7), presentes não usa `guest_access_token`: a página é pública a qualquer momento, e a identificação de quem presenteia é só nome/telefone, coletados no modal antes de qualquer ação.
+
 ### 8.1 Navegação e listagem pública
 
 ```
-1. GET /api/gifts?weddingSlug=... — leitura pública, sem token obrigatório
-   (mas se um code estiver presente no contexto, é usado para decidir se o
-   próprio convidado já reservou/contribuiu com algo, para exibir esse estado)
-2. Presentes retornados já incluem estado agregado: 'available' | 'reserved' |
-   'sold_out' para itens simples, e { collected_amount_cents, target_amount_cents }
-   para presentes de cota (gifts.is_group_gift)
+1. GET /api/public/[slug]/gifts — leitura pública, sem token, sem query
+   de identificação (calcula hasPixOption a partir de weddings.infinitepay_handle
+   e physicalDeliveryMode a partir de weddings.physical_gift_delivery_mode)
+2. Presentes retornados já incluem estado agregado: quantityAvailable para
+   itens simples, { collectedAmountCents, targetAmountCents, quotaAmountCents }
+   para presentes de cota, e displayStyle/emotionalIcon para diferenciar
+   "Contribuições" de "Presentes Emocionais" na UI — sem reservedByMe/
+   contributedByMeCents (dependiam do token, que não existe mais; o servidor
+   não tem mais como saber "quem é o convidado" entre uma visita e outra)
+3. Client segmenta a resposta em 3 listas (shared/utils/filter-gifts.ts#segmentGifts)
+   — física / contribuições / emocionais — nunca o servidor devolvendo três
+   payloads separados, é a mesma lista de presentes vista sob três lentes
 ```
 
-### 8.2 Reserva de presente simples (`is_group_gift = false`)
+### 8.2 Identificação + reserva grátis de presente simples ("vou comprar e entregar")
 
 ```
-1. POST /api/gifts/[id]/reserve com o token do convidado (ou contributor_name avulso)
-2. Handler revalida token → chamada RPC à função Postgres de reserva:
+1. Convidado abre o modal de escolha (GiftDeliveryChoiceModal) → se ainda não
+   se identificou nesta sessão, primeiro informa nome (obrigatório) e
+   telefone (opcional) — useGiftGiverIdentity, useState do Nuxt, reaproveitado
+   em todos os presentes/contribuições da mesma visita
+2. Escolhe "vou comprar e entregar" → POST /api/gifts/[id]/reserve com
+   { giverName, giverPhone?, message? } — sem token/code
+3. Handler chama RPC reserve_gift() diretamente (sem resolver nenhum token):
    a. abre transação
    b. SELECT ... FOR UPDATE na linha do gift
-   c. quantity_available = 0 → aborta, erro de domínio ('GiftUnavailableError')
-   d. disponível → decrementa quantity_available, insere gift_reservations, commit
-3. Resposta atualiza a UI para o estado 'reserved' imediatamente
+   c. quantity_available = 0 → aborta, erro de domínio ('GIFT_UNAVAILABLE')
+   d. disponível → decrementa quantity_available, insere gift_reservations
+      (guest_id/group_id sempre null; contributor_name/giver_phone = a
+      identificação do modal), commit
+4. Resposta atualiza a UI para o estado 'reserved' imediatamente — nenhum
+   dinheiro passa pela plataforma neste caminho
 ```
 
-### 8.3 Contribuição em presente de cota (`is_group_gift = true`)
+### 8.3 Pagamento online (presente físico pago, contribuição livre ou em cotas fixas)
 
 ```
-1. POST /api/gifts/[id]/contribute com { amountCents } + token (ou contributor_name)
-2. Handler valida amountCents > 0 e insere em gift_contributions
-   (sem necessidade de SELECT ... FOR UPDATE — contribuições não competem por
-   um recurso exclusivo, apenas somam; ver CLAUDE.md 18.3)
-3. Valor "arrecadado" exibido é sempre uma leitura agregada (SUM) no momento
-   da renderização, nunca um contador mantido manualmente no client
+1. Convidado (já identificado, passo 8.2.1) escolhe "enviar valor pelo link
+   de pagamento" (presente físico) ou contribui/compra cotas (presente de
+   cota) → POST /api/gifts/[id]/checkout com { giverName, giverPhone?, ... }
+2. Handler resolve wedding_id a partir do próprio gift_id (sem token), calcula
+   amount_cents SEMPRE no servidor (nunca aceita valor do client, exceto
+   contribuição de valor livre), cria uma linha gift_payments (status='pending',
+   invite_id sempre null) e chama a API de checkout hospedado da InfinitePay
+   (server/utils/infinitepay.ts#createInfinitePayCheckoutLink)
+3. Browser navega (redirect completo) para o checkout hospedado da
+   InfinitePay — não há geração de QR Code embutida na própria página
+4. Convidado paga (Pix ou cartão) → InfinitePay redireciona de volta para
+   /{slug}/presentes/pagamento/{paymentId} (com transaction_nsu/slug na
+   querystring — achado real, necessários pro passo 5) E, em paralelo, chama
+   o webhook (POST /api/gifts/payments/webhook) — só alcançável em produção,
+   não em localhost
+5. Os dois caminhos convergem em server/utils/gift-payment.ts#confirmGiftPayment
+   — NUNCA confia no corpo do webhook, no retorno do navegador, nem no
+   próprio paymentId isoladamente como prova de pagamento; sempre reverifica
+   servidor-a-servidor via payment_check (com transaction_nsu/slug) antes de
+   qualquer efeito (CLAUDE.md 28.3, detalhamento completo). O paymentId em si
+   funciona como credencial de leitura de status (UUID não enumerável), mas
+   nunca como prova de pagamento
+6. Pago confirmado → RPC confirm_gift_payment() chama reserve_gift() (kind
+   reservation) ou insere gift_contributions (kind contribution), atomicamente,
+   e marca gift_payments.status='confirmed'. Corrida com o caminho gratuito
+   (última unidade levada nesse meio-tempo) vira status='failed', nunca uma
+   exceção que reverteria o registro do pagamento em si
+7. Idempotência: gift_payments.status já não-'pending' é um no-op imediato —
+   webhook duplicado ou corrida entre webhook e "pull" do convidado não
+   duplica nem reprocessa nada
 ```
 
 ### 8.4 Cancelamento
 
-```
-1. POST /api/gifts/[id]/cancel com o token do convidado
-2. Handler verifica que a reserva/contribuição pertence ao mesmo guest/group
-   do token (nunca confia em um reservationId isolado sem essa checagem)
-3. Reserva simples → remove a linha e incrementa quantity_available de volta,
-   dentro de transação equivalente à de 8.2
-4. Contribuição → remove a linha correspondente; o valor arrecadado se ajusta
-   automaticamente por ser uma agregação lida em tempo de leitura
-```
+Não existe mais self-service (CLAUDE.md 18.3/32) — `POST /api/gifts/[id]/cancel` e `giftCancelSchema` foram removidos junto com o token de convite: sem ele, não haveria como autenticar com segurança que quem está pedindo o cancelamento é a mesma pessoa que presenteou (nome/telefone sozinhos são triviais de forjar). Qualquer cancelamento — pago ou grátis — é resolvido falando direto com o casal, que ajusta manualmente pelo painel administrativo se necessário.
 
 ### 8.5 Visão administrativa
 
-`/api/gifts` (variante autenticada) e a listagem administrativa (CLAUDE.md 19) expõem quem reservou/contribuiu o quê — informação propositalmente **não exposta** na vitrine pública (CLAUDE.md 18.2), usada apenas para agradecimento pós-evento.
+`/api/gifts` (variante autenticada) devolve, além da lista, um `paymentsSummary` mínimo (bruto arrecadado online confirmado, contagem de pagamentos com falha) e um `activity` — as até 20 reservas/contribuições mais recentes do casamento inteiro, cross-presente, com nome, telefone, presente, valor (quando pago) e mensagem — sem relatório completo de taxas/estornos, que dependeria de a InfinitePay documentar publicamente esses dados (CLAUDE.md 18.5/18.6). A listagem administrativa por item (CLAUDE.md 19) expõe quem reservou/contribuiu o quê, mensagem do convidado e status de pagamento — informação propositalmente **não exposta** na vitrine pública (CLAUDE.md 18.2), usada apenas para agradecimento pós-evento e resolução manual de pagamentos com falha.
 
 ---
 
@@ -534,9 +572,9 @@ Essa separação não é redundância — são dois mecanismos de enforcement di
 - Convidado recusa presença (caminho curto, sem campos de acompanhante/dietary).
 - Convidado edita uma resposta já enviada antes do `rsvp_deadline`.
 - Convidado tenta responder após `rsvp_deadline` — formulário em somente leitura.
-- Convidado reserva presente simples; segunda tentativa concorrente ao mesmo item vê "esgotado".
-- Convidado contribui parcialmente para presente de cota; progresso é refletido corretamente.
-- Convidado cancela reserva/contribuição.
+- Convidado se identifica (nome/telefone) e reserva presente simples sem custo ("vou comprar e entregar"); segunda tentativa concorrente ao mesmo item vê "esgotado".
+- Convidado paga um presente físico ou contribui (valor livre ou cotas) via checkout online; volta pra `/presentes/pagamento/[paymentId]` e vê o status confirmado após o `payment_check` real.
+- Convidado tenta cancelar um item já pago — não há caminho self-service (CLAUDE.md 18.4/32); a orientação exibida é contato direto com o casal.
 - Casal faz login, importa CSV de convidados, acompanha o job de importação até concluir.
 - Casal exclui um convidado e confirma que o histórico de RSVP associado é preservado (soft delete).
 - Colaborador sem permissão de `owner` tenta acessar configurações restritas e é bloqueado.

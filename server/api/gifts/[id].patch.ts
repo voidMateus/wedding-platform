@@ -21,6 +21,9 @@ export default defineEventHandler(async (event) => {
       is_group_gift: input.isGroupGift,
       quantity_available: input.isGroupGift ? null : (input.quantityAvailable ?? 0),
       target_amount_cents: input.isGroupGift ? (input.targetAmountCents ?? null) : null,
+      quota_amount_cents: input.isGroupGift ? (input.quotaAmountCents ?? null) : null,
+      display_style: input.isGroupGift ? input.displayStyle : 'standard',
+      emotional_icon: input.displayStyle === 'emotional' ? input.emotionalIcon || null : null,
       is_active: input.isActive,
     })
     .eq('id', id)

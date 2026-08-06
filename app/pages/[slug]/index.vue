@@ -7,10 +7,10 @@ const { getPublicEventSegments } = usePublicEventSegments()
 const { data: wedding, status: weddingStatus } = getPublicWedding()
 const { data: segmentsResponse } = getPublicEventSegments()
 
-// Repassado a Hero/GiftsShowcaseSection como prop (em vez de cada um chamar
-// useRoute() diretamente) — mantém os dois testáveis com @vue/test-utils
-// puro, e preserva a autorização de reservar/contribuir na navegação real
-// para /presentes (CLAUDE.md §4.5/14).
+// Repassado a Hero como prop (em vez de useRoute() direto) — mantém o
+// componente testável com @vue/test-utils puro. Presentes não usa mais
+// token de convite (CLAUDE.md §18.2/4.5), então GiftsShowcaseSection não
+// precisa mais deste valor.
 const route = useRoute()
 const code = computed(() => (typeof route.query.code === 'string' ? route.query.code : undefined))
 
@@ -67,7 +67,7 @@ useSeoMeta({
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection />
       <PublicRsvpTeaserSection :wedding="wedding" />
-      <PublicGiftsShowcaseSection :code="code" />
+      <PublicGiftsShowcaseSection />
       <PublicFaqSection />
       <PublicGallerySection />
     </template>

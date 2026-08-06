@@ -1,48 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import {
-  giftCancelSchema,
-  giftContributeSchema,
-  giftReserveSchema,
-} from '#shared/schemas/gift-mutations'
+import { giftReserveSchema } from '#shared/schemas/gift-mutations'
 
 describe('giftReserveSchema', () => {
-  it('aceita um código válido', () => {
-    expect(giftReserveSchema.safeParse({ code: 'abc123' }).success).toBe(true)
+  it('aceita um nome válido', () => {
+    expect(giftReserveSchema.safeParse({ giverName: 'Maria' }).success).toBe(true)
   })
 
-  it('rejeita código vazio', () => {
-    expect(giftReserveSchema.safeParse({ code: '' }).success).toBe(false)
+  it('aceita telefone e mensagem opcionais', () => {
+    const result = giftReserveSchema.safeParse({
+      giverName: 'Maria',
+      giverPhone: '(11) 99999-9999',
+      message: 'Com carinho!',
+    })
+    expect(result.success).toBe(true)
   })
 
-  it('rejeita ausência de código', () => {
+  it('aceita ausência de telefone e mensagem', () => {
+    expect(giftReserveSchema.safeParse({ giverName: 'Maria' }).success).toBe(true)
+  })
+
+  it('rejeita ausência de nome (identificação obrigatória — CLAUDE.md, seção 18)', () => {
     expect(giftReserveSchema.safeParse({}).success).toBe(false)
   })
-})
 
-describe('giftContributeSchema', () => {
-  it('aceita código e valor válidos', () => {
-    expect(giftContributeSchema.safeParse({ code: 'abc123', amountCents: 5000 }).success).toBe(
-      true,
-    )
-  })
-
-  it('rejeita valor zero', () => {
-    expect(giftContributeSchema.safeParse({ code: 'abc123', amountCents: 0 }).success).toBe(false)
-  })
-
-  it('rejeita valor negativo', () => {
-    expect(giftContributeSchema.safeParse({ code: 'abc123', amountCents: -100 }).success).toBe(
-      false,
-    )
-  })
-})
-
-describe('giftCancelSchema', () => {
-  it('aceita um código válido', () => {
-    expect(giftCancelSchema.safeParse({ code: 'abc123' }).success).toBe(true)
-  })
-
-  it('rejeita ausência de código', () => {
-    expect(giftCancelSchema.safeParse({}).success).toBe(false)
+  it('rejeita nome vazio', () => {
+    expect(giftReserveSchema.safeParse({ giverName: '  ' }).success).toBe(false)
   })
 })

@@ -1,17 +1,9 @@
 <script setup lang="ts">
-// Teaser (não mais a vitrine completa embutida) — direciona pra página
-// dedicada /{slug}/presentes, pensada pra escalar quando a lista crescer
-// bastante (ex.: 100+ itens, agrupados por categoria). CLAUDE.md, redesign
-// pós-Fase Premium Experience, foco em RSVP/Presentes.
-interface Props {
-  /** ?code= atual, resolvido pela página (evita useRoute() aqui — mantém testável com @vue/test-utils puro). */
-  code?: string
-}
-
-const { code } = defineProps<Props>()
+// Teaser (não a vitrine completa embutida) — direciona pra página dedicada
+// /{slug}/presentes, pública desde sempre, sem token de convite (CLAUDE.md,
+// seção 18.2/4.5).
 const slug = useWeddingSlug()
-
-const giftsLink = computed(() => `/${slug}/presentes${code ? `?code=${code}` : ''}`)
+const giftsLink = computed(() => `/${slug}/presentes`)
 </script>
 
 <template>

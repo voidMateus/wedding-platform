@@ -2,39 +2,21 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { giftCategoryInputSchema } from '#shared/schemas/gift-categories'
-import { giftInputSchema } from '#shared/schemas/gifts'
 import type { GiftCategory } from '~/types/gift-category'
 import type { Gift } from '~/types/gift'
 import type { GiftReservationsView } from '~/types/gift-public'
 
 definePageMeta({ layout: 'admin' })
 
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
-
-function centsToReaisText(cents: number | null | undefined): string {
-  if (cents === null || cents === undefined) return ''
-  return (cents / 100).toFixed(2)
-}
-
-function reaisTextToCents(text: string): number | undefined {
-  if (text === '') return undefined
-  const value = Number(text.replace(',', '.'))
-  if (Number.isNaN(value)) return undefined
-  return Math.round(value * 100)
+function centsToBRL(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 const { listGiftCategories, createGiftCategory, updateGiftCategory, deleteGiftCategory } =
   useGiftCategories()
 const { data: categoriesData, refresh: refreshCategories } = listGiftCategories()
 
-const { listGifts, createGift, updateGift, deleteGift } = useGifts()
+const { listGifts, deleteGift } = useGifts()
 const { data: giftsData, status: giftsStatus, refresh: refreshGifts } = listGifts()
 
 const { getGiftReservations } = useGiftReservations()
@@ -53,10 +35,6 @@ async function openReservationsModal(gift: Gift) {
   } finally {
     isLoadingReservations.value = false
   }
-}
-
-function formatCentsAdmin(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function categoryName(categoryId: string | null): string {
@@ -134,122 +112,17 @@ async function handleDeleteCategory(category: GiftCategory) {
 // --- presentes ---
 
 const isGiftModalOpen = ref(false)
-const giftErrorMessage = ref<string | null>(null)
 const editingGift = ref<Gift | null>(null)
-
-const {
-  handleSubmit: handleGiftSubmit,
-  defineField: defineGiftField,
-  errors: giftErrors,
-  resetForm: resetGiftForm,
-  isSubmitting: isGiftSubmitting,
-} = useForm({
-  validationSchema: toTypedSchema(giftInputSchema),
-  initialValues: {
-    title: '',
-    description: '',
-    priceCents: undefined,
-    imageUrl: '',
-    categoryId: '',
-    isGroupGift: false,
-    quantityAvailable: 1,
-    targetAmountCents: undefined,
-    isActive: true,
-  },
-})
-
-const [title] = defineGiftField('title')
-const [description] = defineGiftField('description')
-const [priceCents] = defineGiftField('priceCents')
-const [imageUrl] = defineGiftField('imageUrl')
-const [categoryId] = defineGiftField('categoryId')
-const [isGroupGift] = defineGiftField('isGroupGift')
-const [quantityAvailable] = defineGiftField('quantityAvailable')
-const [targetAmountCents] = defineGiftField('targetAmountCents')
-const [isActive] = defineGiftField('isActive')
-
-const priceReaisText = computed({
-  get: () => centsToReaisText(priceCents.value),
-  set: (value: string) => {
-    priceCents.value = reaisTextToCents(value)
-  },
-})
-
-const targetAmountReaisText = computed({
-  get: () => centsToReaisText(targetAmountCents.value),
-  set: (value: string) => {
-    targetAmountCents.value = reaisTextToCents(value)
-  },
-})
-
-const quantityAvailableText = computed({
-  get: () => (quantityAvailable.value === undefined ? '' : String(quantityAvailable.value)),
-  set: (value: string) => {
-    quantityAvailable.value = value === '' ? undefined : Number(value)
-  },
-})
-
-const giftTypeValue = computed({
-  get: () => (isGroupGift.value ? 'group' : 'simple'),
-  set: (value: string) => {
-    isGroupGift.value = value === 'group'
-  },
-})
 
 function openGiftModal() {
   editingGift.value = null
-  giftErrorMessage.value = null
-  resetGiftForm({
-    values: {
-      title: '',
-      description: '',
-      priceCents: undefined,
-      imageUrl: '',
-      categoryId: '',
-      isGroupGift: false,
-      quantityAvailable: 1,
-      targetAmountCents: undefined,
-      isActive: true,
-    },
-  })
   isGiftModalOpen.value = true
 }
 
 function openEditGiftModal(gift: Gift) {
   editingGift.value = gift
-  giftErrorMessage.value = null
-  resetGiftForm({
-    values: {
-      title: gift.title,
-      description: gift.description ?? '',
-      priceCents: gift.price_cents ?? undefined,
-      imageUrl: gift.image_url ?? '',
-      categoryId: gift.category_id ?? '',
-      isGroupGift: gift.is_group_gift,
-      quantityAvailable: gift.quantity_available ?? undefined,
-      targetAmountCents: gift.target_amount_cents ?? undefined,
-      isActive: gift.is_active,
-    },
-  })
   isGiftModalOpen.value = true
 }
-
-const onGiftSubmit = handleGiftSubmit(async (values) => {
-  giftErrorMessage.value = null
-  try {
-    if (editingGift.value) {
-      await updateGift(editingGift.value.id, values)
-    } else {
-      await createGift(values)
-    }
-    isGiftModalOpen.value = false
-    await refreshGifts()
-  } catch (err) {
-    giftErrorMessage.value = isApiError(err)
-      ? (err.data?.message ?? 'Não foi possível salvar o presente.')
-      : 'Não foi possível salvar o presente.'
-  }
-})
 
 const deleteTarget = ref<Gift | null>(null)
 const isDeleteModalOpen = ref(false)
@@ -275,7 +148,7 @@ async function confirmDelete() {
 
 function formatPrice(cents: number | null): string {
   if (cents === null) return '—'
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return centsToBRL(cents)
 }
 </script>
 
@@ -284,6 +157,55 @@ function formatPrice(cents: number | null): string {
     <template #actions>
       <UiButton @click="openGiftModal">Novo presente</UiButton>
     </template>
+
+    <section v-if="giftsData?.paymentsSummary" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <UiCard class="flex flex-col gap-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-text-muted">Arrecadado online</span>
+        <span class="text-xl font-semibold text-text">
+          {{ centsToBRL(giftsData.paymentsSummary.confirmedTotalCents) }}
+        </span>
+      </UiCard>
+      <UiCard v-if="giftsData.paymentsSummary.failedCount > 0" variant="highlight" class="flex flex-col gap-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-text-muted">Pagamentos com falha</span>
+        <span class="text-xl font-semibold text-text">{{ giftsData.paymentsSummary.failedCount }}</span>
+        <span class="text-xs text-text-muted">
+          Convidado pagou, mas não foi possível reservar/registrar automaticamente — veja "Ver reservas" do
+          presente correspondente.
+        </span>
+      </UiCard>
+    </section>
+
+    <section v-if="giftsData?.activity?.length" class="flex flex-col gap-3">
+      <h2 class="text-sm font-medium text-text">Atividade recente</h2>
+      <div class="flex flex-col gap-2">
+        <div
+          v-for="entry in giftsData.activity"
+          :key="entry.id"
+          class="flex flex-col gap-1 rounded-md border border-border p-3 text-sm"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-text">
+              <strong>{{ entry.name }}</strong>
+              {{ entry.type === 'contribution' ? 'contribuiu com' : 'presenteou' }}
+              <strong>{{ entry.giftTitle }}</strong>
+            </span>
+            <span class="flex shrink-0 items-center gap-2 text-text-muted">
+              <UiBadge v-if="entry.isPaid" tone="success">Pago online</UiBadge>
+              <UiBadge v-else tone="neutral">Vou entregar</UiBadge>
+              <span v-if="entry.amountCents !== null" class="font-medium text-text">
+                {{ centsToBRL(entry.amountCents) }}
+              </span>
+              <template v-if="entry.quotaCount"> ({{ entry.quotaCount }} cotas)</template>
+            </span>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-3 text-xs text-text-muted">
+            <span v-if="entry.phone">{{ entry.phone }}</span>
+            <span>{{ new Date(entry.at).toLocaleString('pt-BR') }}</span>
+          </div>
+          <p v-if="entry.message" class="text-xs italic text-text-muted">"{{ entry.message }}"</p>
+        </div>
+      </div>
+    </section>
 
     <section class="flex flex-col gap-3">
       <div class="flex items-center justify-between">
@@ -327,52 +249,57 @@ function formatPrice(cents: number | null): string {
         <UiButton @click="openGiftModal">Novo presente</UiButton>
       </UiEmptyState>
 
-      <UiTable v-else>
-        <template #head>
-          <th class="px-4 py-2 font-medium">Título</th>
-          <th class="px-4 py-2 font-medium">Categoria</th>
-          <th class="px-4 py-2 font-medium">Tipo</th>
-          <th class="px-4 py-2 font-medium">Preço / Alvo</th>
-          <th class="px-4 py-2 font-medium">Status</th>
-          <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
-        </template>
-        <tr
-          v-for="gift in giftsData?.data"
-          :key="gift.id"
-          class="border-t border-border transition-brand hover:bg-surface-muted/60"
-        >
-          <td class="px-4 py-2 text-text">{{ gift.title }}</td>
-          <td class="px-4 py-2 text-text-muted">{{ categoryName(gift.category_id) }}</td>
-          <td class="px-4 py-2 text-text-muted">
-            {{ gift.is_group_gift ? 'Cota' : 'Simples' }}
-          </td>
-          <td class="px-4 py-2 text-text-muted">
-            {{
-              gift.is_group_gift
-                ? formatPrice(gift.target_amount_cents)
-                : `${formatPrice(gift.price_cents)} (${gift.quantity_available} disp.)`
-            }}
-          </td>
-          <td class="px-4 py-2">
-            <UiBadge :tone="gift.is_active ? 'success' : 'neutral'">
-              {{ gift.is_active ? 'Ativo' : 'Inativo' }}
-            </UiBadge>
-          </td>
-          <td class="px-4 py-2">
-            <div class="flex justify-end gap-2">
-              <UiButton size="sm" variant="ghost" @click="openReservationsModal(gift)">
-                Ver reservas
-              </UiButton>
-              <UiButton size="sm" variant="ghost" @click="openEditGiftModal(gift)">
-                Editar
-              </UiButton>
-              <UiButton size="sm" variant="destructive" @click="openDeleteModal(gift)">
-                Excluir
-              </UiButton>
-            </div>
-          </td>
-        </tr>
-      </UiTable>
+      <UiCard v-else padding="md">
+        <UiTable>
+          <template #head>
+            <th class="px-4 py-2 font-medium">Título</th>
+            <th class="px-4 py-2 font-medium">Categoria</th>
+            <th class="px-4 py-2 font-medium">Tipo</th>
+            <th class="px-4 py-2 font-medium">Preço / Alvo</th>
+            <th class="px-4 py-2 font-medium">Status</th>
+            <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
+          </template>
+          <tr
+            v-for="gift in giftsData?.data"
+            :key="gift.id"
+            class="border-t border-border transition-brand hover:bg-surface-muted/60"
+          >
+            <td class="px-4 py-2 text-text">
+              {{ gift.title }}
+              <UiBadge v-if="gift.display_style === 'emotional'" tone="neutral" class="ml-1">Emocional</UiBadge>
+            </td>
+            <td class="px-4 py-2 text-text-muted">{{ categoryName(gift.category_id) }}</td>
+            <td class="px-4 py-2 text-text-muted">
+              {{ gift.is_group_gift ? 'Cota' : 'Simples' }}
+            </td>
+            <td class="px-4 py-2 text-text-muted">
+              {{
+                gift.is_group_gift
+                  ? formatPrice(gift.target_amount_cents)
+                  : `${formatPrice(gift.price_cents)} (${gift.quantity_available} disp.)`
+              }}
+            </td>
+            <td class="px-4 py-2">
+              <UiBadge :tone="gift.is_active ? 'success' : 'neutral'">
+                {{ gift.is_active ? 'Ativo' : 'Inativo' }}
+              </UiBadge>
+            </td>
+            <td class="px-4 py-2">
+              <div class="flex justify-end gap-2">
+                <UiButton size="sm" variant="ghost" @click="openReservationsModal(gift)">
+                  Ver reservas
+                </UiButton>
+                <UiButton size="sm" variant="ghost" @click="openEditGiftModal(gift)">
+                  Editar
+                </UiButton>
+                <UiButton size="sm" variant="destructive" @click="openDeleteModal(gift)">
+                  Excluir
+                </UiButton>
+              </div>
+            </td>
+          </tr>
+        </UiTable>
+      </UiCard>
     </section>
 
     <UiModal
@@ -399,61 +326,12 @@ function formatPrice(cents: number | null): string {
       </form>
     </UiModal>
 
-    <UiModal v-model="isGiftModalOpen" :title="editingGift ? 'Editar presente' : 'Novo presente'">
-      <form class="flex flex-col gap-4" @submit="onGiftSubmit">
-        <UiInput v-model="title" label="Título" :error="giftErrors.title" />
-        <UiTextarea v-model="description" label="Descrição (opcional)" :error="giftErrors.description" />
-        <UiSelect
-          v-model="categoryId"
-          label="Categoria (opcional)"
-          placeholder="Sem categoria"
-          :options="(categoriesData?.data ?? []).map((c) => ({ value: c.id, label: c.name }))"
-        />
-        <UiInput v-model="imageUrl" label="URL da imagem (opcional)" :error="giftErrors.imageUrl" />
-        <UiSelect
-          v-model="giftTypeValue"
-          label="Tipo"
-          :options="[
-            { value: 'simple', label: 'Presente simples (reserva exclusiva)' },
-            { value: 'group', label: 'Presente de cota (contribuição em dinheiro)' },
-          ]"
-        />
-
-        <UiInput
-          v-if="!isGroupGift"
-          v-model="quantityAvailableText"
-          type="number"
-          label="Quantidade disponível"
-          :error="giftErrors.quantityAvailable"
-        />
-        <UiInput
-          v-if="!isGroupGift"
-          v-model="priceReaisText"
-          label="Preço estimado, em R$ (opcional)"
-          placeholder="0,00"
-          :error="giftErrors.priceCents"
-        />
-        <UiInput
-          v-if="isGroupGift"
-          v-model="targetAmountReaisText"
-          label="Valor-alvo da cota, em R$"
-          placeholder="0,00"
-          :error="giftErrors.targetAmountCents"
-        />
-
-        <UiCheckbox v-model="isActive" label="Visível na vitrine pública" />
-
-        <p v-if="giftErrorMessage" class="text-sm text-red-600" role="alert">
-          {{ giftErrorMessage }}
-        </p>
-        <div class="mt-2 flex justify-end gap-2">
-          <UiButton type="button" variant="ghost" @click="isGiftModalOpen = false">
-            Cancelar
-          </UiButton>
-          <UiButton type="submit" :disabled="isGiftSubmitting">Salvar</UiButton>
-        </div>
-      </form>
-    </UiModal>
+    <AdminGiftsAdminGiftFormModal
+      v-model="isGiftModalOpen"
+      :gift="editingGift"
+      :categories="categoriesData?.data ?? []"
+      @saved="refreshGifts"
+    />
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir presente">
       <p class="text-sm text-text">
@@ -485,10 +363,21 @@ function formatPrice(cents: number | null): string {
         <div
           v-for="contribution in reservationsData?.contributions"
           :key="contribution.id"
-          class="flex items-center justify-between rounded-md border border-border p-3 text-sm"
+          class="flex flex-col gap-1 rounded-md border border-border p-3 text-sm"
         >
-          <span class="text-text">{{ contribution.name }}</span>
-          <span class="text-text-muted">{{ formatCentsAdmin(contribution.amountCents) }}</span>
+          <div class="flex items-center justify-between">
+            <span class="text-text">
+              {{ contribution.name }}
+              <span v-if="contribution.inviteName" class="text-text-muted">({{ contribution.inviteName }})</span>
+            </span>
+            <span class="flex items-center gap-2 text-text-muted">
+              <UiBadge v-if="contribution.isPaid" tone="success">Pago online</UiBadge>
+              {{ centsToBRL(contribution.amountCents) }}
+              <template v-if="contribution.quotaCount"> ({{ contribution.quotaCount }} cotas)</template>
+            </span>
+          </div>
+          <p v-if="contribution.phone" class="text-xs text-text-muted">{{ contribution.phone }}</p>
+          <p v-if="contribution.message" class="text-xs italic text-text-muted">"{{ contribution.message }}"</p>
         </div>
       </div>
       <div v-else class="flex flex-col gap-2">
@@ -498,9 +387,17 @@ function formatPrice(cents: number | null): string {
         <div
           v-for="reservation in reservationsData?.reservations"
           :key="reservation.id"
-          class="rounded-md border border-border p-3 text-sm text-text"
+          class="flex flex-col gap-1 rounded-md border border-border p-3 text-sm"
         >
-          {{ reservation.name }}
+          <div class="flex items-center justify-between">
+            <span class="text-text">
+              {{ reservation.name }}
+              <span v-if="reservation.inviteName" class="text-text-muted">({{ reservation.inviteName }})</span>
+            </span>
+            <UiBadge v-if="reservation.isPaid" tone="success">Pago online</UiBadge>
+          </div>
+          <p v-if="reservation.phone" class="text-xs text-text-muted">{{ reservation.phone }}</p>
+          <p v-if="reservation.message" class="text-xs italic text-text-muted">"{{ reservation.message }}"</p>
         </div>
       </div>
     </UiModal>

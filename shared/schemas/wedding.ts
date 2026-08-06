@@ -24,6 +24,15 @@ export const weddingSettingsSchema = z.object({
   rsvpDeadline: z.string().trim().optional().or(z.literal('')),
   childMaxAge: z.coerce.number().int().min(0).max(30),
   guestListMode: z.enum(['closed', 'open']),
+  // InfiniteTag pública (sem "$") usada pro checkout online de presentes
+  // (CLAUDE.md, seção 18/28) — vazio/ausente desativa o caminho pago. Os
+  // métodos aceitos (Pix, cartão) são configurados na conta InfinitePay do
+  // casal, não por este campo.
+  infinitepayHandle: z.string().trim().max(100).optional().or(z.literal('')),
+  // Quais formas de presentear um item físico ficam disponíveis ao convidado
+  // (CLAUDE.md, seção 18) — não se aplica a Contribuições/Emocionais, que
+  // sempre exigem pagamento online.
+  physicalGiftDeliveryMode: z.enum(['both', 'self_purchase_only', 'payment_only']).default('both'),
 })
 
 export type WeddingSettingsInput = z.infer<typeof weddingSettingsSchema>

@@ -3,24 +3,33 @@ import type { PublicGift } from '~/types/gift-public'
 
 interface Props {
   gift: PublicGift
-  hasCode: boolean
 }
 
-const { gift, hasCode } = defineProps<Props>()
+const { gift } = defineProps<Props>()
 
 const emit = defineEmits<{
-  reserve: []
-  cancel: []
-  contribute: [amountCents: number]
+  reserve: [message: string]
+  checkout: [payload: { kind: 'reservation' | 'contribution'; amountCents?: number; quotaCount?: number; message: string }]
 }>()
 
-const isContributing = ref(false)
-const contributionReaisText = ref('')
+const isDeliveryModalOpen = ref(false)
+const isPaymentModalOpen = ref(false)
 
 function formatCents(cents: number | null): string {
   if (cents === null) return '—'
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
+
+// O casal pode restringir a Lista de Presentes física a um só método
+// (CLAUDE.md, seção 18, weddings.physical_gift_delivery_mode) — se nenhum
+// dos dois ficar disponível (ex.: só pagamento configurado, mas sem
+// infinitepay_handle), não há como presentear esse item por aqui.
+const canPresentPhysical = computed(() => {
+  const allowSelfPurchase = gift.physicalDeliveryMode !== 'payment_only'
+  const allowOnlinePayment =
+    gift.physicalDeliveryMode !== 'self_purchase_only' && gift.hasPixOption && gift.priceCents !== null
+  return allowSelfPurchase || allowOnlinePayment
+})
 
 const progressPercent = computed(() => {
   if (!gift.isGroupGift || !gift.targetAmountCents) return 0
@@ -30,18 +39,30 @@ const progressPercent = computed(() => {
   )
 })
 
-function submitContribution() {
-  const value = Number(contributionReaisText.value.replace(',', '.'))
-  if (Number.isNaN(value) || value <= 0) return
-  emit('contribute', Math.round(value * 100))
-  isContributing.value = false
-  contributionReaisText.value = ''
+function handleChooseFree(message: string) {
+  isDeliveryModalOpen.value = false
+  emit('reserve', message)
+}
+
+function handleChoosePix(message: string) {
+  isDeliveryModalOpen.value = false
+  emit('checkout', { kind: 'reservation', message })
+}
+
+function handlePaymentSubmit(payload: { amountCents?: number; quotaCount?: number; message: string }) {
+  isPaymentModalOpen.value = false
+  emit('checkout', { kind: 'contribution', ...payload })
 }
 </script>
 
 <template>
   <UiCard padding="none" radius="xl" elevation="xl" class="flex h-full flex-col overflow-hidden">
-    <div v-if="gift.imageUrl" class="relative">
+    <div v-if="gift.displayStyle === 'emotional'" class="flex flex-col items-center gap-2 p-5 pb-0 text-center">
+      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon :name="`lucide:${gift.emotionalIcon ?? 'heart-handshake'}`" class="h-6 w-6" />
+      </span>
+    </div>
+    <div v-else-if="gift.imageUrl" class="relative">
       <NuxtImg :src="gift.imageUrl" :alt="gift.title" class="h-48 w-full object-cover" sizes="400px" />
       <span
         v-if="!gift.isGroupGift && gift.priceCents !== null"
@@ -51,10 +72,12 @@ function submitContribution() {
       </span>
     </div>
     <div class="flex flex-1 flex-col gap-3 p-5">
-      <div>
-        <div class="flex items-start justify-between gap-2">
+      <div :class="gift.displayStyle === 'emotional' ? 'text-center' : ''">
+        <div class="flex items-start justify-between gap-2" :class="gift.displayStyle === 'emotional' ? 'justify-center' : ''">
           <h3 class="font-display text-base font-semibold text-heading">{{ gift.title }}</h3>
-          <UiBadge v-if="gift.categoryName" tone="neutral">{{ gift.categoryName }}</UiBadge>
+          <UiBadge v-if="gift.categoryName && gift.displayStyle !== 'emotional'" tone="neutral">
+            {{ gift.categoryName }}
+          </UiBadge>
         </div>
         <p v-if="gift.description" class="mt-1 text-sm leading-relaxed text-text-muted">
           {{ gift.description }}
@@ -65,19 +88,15 @@ function submitContribution() {
         <template v-if="!gift.isGroupGift">
           <p v-if="!gift.imageUrl" class="text-sm font-medium text-text">{{ formatCents(gift.priceCents) }}</p>
           <div>
-            <UiBadge v-if="gift.reservedByMe" tone="success">Você reservou</UiBadge>
-            <UiBadge v-else-if="(gift.quantityAvailable ?? 0) > 0" tone="neutral">Disponível</UiBadge>
+            <UiBadge v-if="(gift.quantityAvailable ?? 0) > 0" tone="neutral">Disponível</UiBadge>
             <UiBadge v-else tone="danger">Esgotado</UiBadge>
           </div>
 
-          <UiButton v-if="gift.reservedByMe" class="w-full" variant="destructive" @click="emit('cancel')">
-            Cancelar reserva
-          </UiButton>
           <UiButton
-            v-else-if="hasCode && (gift.quantityAvailable ?? 0) > 0"
+            v-if="(gift.quantityAvailable ?? 0) > 0 && canPresentPhysical"
             class="w-full"
             rounded="full"
-            @click="emit('reserve')"
+            @click="isDeliveryModalOpen = true"
           >
             <Icon name="lucide:gift" class="h-4 w-4" />
             Presentear
@@ -95,33 +114,26 @@ function submitContribution() {
             </p>
           </div>
 
-          <p v-if="(gift.contributedByMeCents ?? 0) > 0" class="text-sm text-text">
-            Você contribuiu com {{ formatCents(gift.contributedByMeCents) }}
-          </p>
-
-          <div v-if="hasCode" class="flex flex-col gap-2">
-            <div v-if="isContributing" class="flex items-center gap-2">
-              <UiInput v-model="contributionReaisText" placeholder="0,00" class="flex-1" />
-              <UiButton size="sm" @click="submitContribution">Confirmar</UiButton>
-              <UiButton size="sm" variant="ghost" @click="isContributing = false">Cancelar</UiButton>
-            </div>
-            <UiButton v-else class="w-full" rounded="full" @click="isContributing = true">
-              <Icon name="lucide:heart-handshake" class="h-4 w-4" />
-              Contribuir
-            </UiButton>
-
-            <UiButton
-              v-if="(gift.contributedByMeCents ?? 0) > 0"
-              size="sm"
-              variant="ghost"
-              class="text-red-600 hover:bg-red-50"
-              @click="emit('cancel')"
-            >
-              Cancelar minha contribuição
-            </UiButton>
-          </div>
+          <UiButton v-if="gift.hasPixOption" class="w-full" rounded="full" @click="isPaymentModalOpen = true">
+            <Icon name="lucide:heart-handshake" class="h-4 w-4" />
+            {{ gift.quotaAmountCents ? 'Comprar cotas' : 'Contribuir' }}
+          </UiButton>
         </template>
       </div>
     </div>
+
+    <GiftsGiftDeliveryChoiceModal
+      v-if="!gift.isGroupGift"
+      v-model="isDeliveryModalOpen"
+      :gift="gift"
+      @choose-free="handleChooseFree"
+      @choose-pix="handleChoosePix"
+    />
+    <GiftsGiftPaymentModal
+      v-if="gift.isGroupGift"
+      v-model="isPaymentModalOpen"
+      :gift="gift"
+      @submit="handlePaymentSubmit"
+    />
   </UiCard>
 </template>

@@ -4,6 +4,9 @@ import { giftReserveSchema } from '#shared/schemas/gift-mutations'
  * Reserva atômica de um presente simples (CLAUDE.md, seção 18.3) — delega ao
  * RPC reserve_gift (SELECT...FOR UPDATE + decremento + insert na mesma
  * transação), nunca um check-then-insert feito aqui.
+ *
+ * Sem token de convite (CLAUDE.md, seção 18.2/4.5) — identificação é só
+ * giverName/giverPhone, coletados no modal antes desta chamada.
  */
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -13,16 +16,14 @@ export default defineEventHandler(async (event) => {
   const input = await validateBody(event, giftReserveSchema)
 
   const client = supabaseAdmin(event)
-  const token = await resolveGuestToken(client, input.code)
-  if (!token) {
-    throw notFoundError('Link inválido ou expirado.')
-  }
 
   const { data, error } = await client.rpc('reserve_gift', {
     p_gift_id: id,
     p_guest_id: null,
-    p_group_id: token.inviteId,
-    p_contributor_name: null,
+    p_group_id: null,
+    p_contributor_name: input.giverName,
+    p_message: input.message || null,
+    p_giver_phone: input.giverPhone || null,
   })
 
   if (error) {
