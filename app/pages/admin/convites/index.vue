@@ -104,92 +104,94 @@ function formatDate(value: string | null): string {
       <UiButton @click="openCreateModal">Novo convite</UiButton>
     </template>
 
-    <UiInput v-model="search" placeholder="Buscar por nome do convite" class="max-w-xs" />
+    <UiCard padding="md" class="flex flex-col gap-4">
+      <UiInput v-model="search" placeholder="Buscar por nome do convite" class="max-w-xs" />
 
-    <div v-if="status === 'pending'" class="flex flex-col gap-2">
-      <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
-    </div>
-
-    <UiEmptyState
-      v-else-if="!data?.data.length"
-      icon="lucide:mail"
-      title="Nenhum convite cadastrado ainda"
-      description="Convites nascem automaticamente ao cadastrar convidados com acompanhantes, ou crie um manualmente."
-    >
-      <UiButton @click="openCreateModal">Novo convite</UiButton>
-    </UiEmptyState>
-
-    <template v-else>
-      <UiTable>
-        <template #head>
-          <th class="px-4 py-2 font-medium">Convite</th>
-          <th class="px-4 py-2 font-medium">Responsável</th>
-          <th class="px-4 py-2 font-medium">Pessoas</th>
-          <th class="px-4 py-2 font-medium">Status</th>
-          <th class="px-4 py-2 font-medium">Enviado em</th>
-          <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
-        </template>
-        <tr
-          v-for="invite in data?.data"
-          :key="invite.id"
-          class="border-t border-border transition-brand hover:bg-surface-muted/60"
-        >
-          <td class="px-4 py-2 text-text">
-            <NuxtLink :to="`/admin/convites/${invite.id}`" class="font-medium hover:underline">
-              {{ invite.name }}
-            </NuxtLink>
-            <UiBadge v-if="invite.archived_at" tone="neutral" class="ml-2">arquivado</UiBadge>
-          </td>
-          <td class="px-4 py-2 text-text-muted">
-            <span v-if="invite.responsibleGuestName" class="inline-flex items-center gap-1">
-              <Icon name="lucide:star" class="h-3.5 w-3.5 text-amber-500" />
-              {{ invite.responsibleGuestName }}
-            </span>
-            <span v-else>—</span>
-          </td>
-          <td class="px-4 py-2 text-text-muted">{{ invite.memberCount }}</td>
-          <td class="px-4 py-2">
-            <UiBadge :tone="statusTone[invite.responseStatus]">
-              {{ statusLabel[invite.responseStatus] }}
-            </UiBadge>
-          </td>
-          <td class="px-4 py-2 text-text-muted">{{ formatDate(invite.sent_at) }}</td>
-          <td class="px-4 py-2">
-            <div class="flex justify-end gap-2">
-              <UiButton size="sm" variant="ghost" :to="`/admin/convites/${invite.id}`">
-                Abrir
-              </UiButton>
-              <UiButton size="sm" variant="destructive" @click="openDeleteModal(invite.id)">
-                Excluir
-              </UiButton>
-            </div>
-          </td>
-        </tr>
-      </UiTable>
-
-      <div class="flex items-center justify-between text-sm text-text-muted">
-        <span>{{ data?.meta.total ?? 0 }} convite(s)</span>
-        <div class="flex items-center gap-2">
-          <UiButton
-            size="sm"
-            variant="ghost"
-            :disabled="page <= 1"
-            @click="page = Math.max(1, page - 1)"
-          >
-            Anterior
-          </UiButton>
-          <span>Página {{ page }} de {{ totalPages }}</span>
-          <UiButton
-            size="sm"
-            variant="ghost"
-            :disabled="page >= totalPages"
-            @click="page = Math.min(totalPages, page + 1)"
-          >
-            Próxima
-          </UiButton>
-        </div>
+      <div v-if="status === 'pending'" class="flex flex-col gap-2">
+        <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
       </div>
-    </template>
+
+      <UiEmptyState
+        v-else-if="!data?.data.length"
+        icon="lucide:mail"
+        title="Nenhum convite cadastrado ainda"
+        description="Convites nascem automaticamente ao cadastrar convidados com acompanhantes, ou crie um manualmente."
+      >
+        <UiButton @click="openCreateModal">Novo convite</UiButton>
+      </UiEmptyState>
+
+      <template v-else>
+        <UiTable>
+          <template #head>
+            <th class="px-4 py-2 font-medium">Convite</th>
+            <th class="px-4 py-2 font-medium">Responsável</th>
+            <th class="px-4 py-2 font-medium">Pessoas</th>
+            <th class="px-4 py-2 font-medium">Status</th>
+            <th class="px-4 py-2 font-medium">Enviado em</th>
+            <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
+          </template>
+          <tr
+            v-for="invite in data?.data"
+            :key="invite.id"
+            class="border-t border-border transition-brand hover:bg-surface-muted/60"
+          >
+            <td class="px-4 py-2 text-text">
+              <NuxtLink :to="`/admin/convites/${invite.id}`" class="font-medium hover:underline">
+                {{ invite.name }}
+              </NuxtLink>
+              <UiBadge v-if="invite.archived_at" tone="neutral" class="ml-2">arquivado</UiBadge>
+            </td>
+            <td class="px-4 py-2 text-text-muted">
+              <span v-if="invite.responsibleGuestName" class="inline-flex items-center gap-1">
+                <Icon name="lucide:star" class="h-3.5 w-3.5 text-amber-500" />
+                {{ invite.responsibleGuestName }}
+              </span>
+              <span v-else>—</span>
+            </td>
+            <td class="px-4 py-2 text-text-muted">{{ invite.memberCount }}</td>
+            <td class="px-4 py-2">
+              <UiBadge :tone="statusTone[invite.responseStatus]">
+                {{ statusLabel[invite.responseStatus] }}
+              </UiBadge>
+            </td>
+            <td class="px-4 py-2 text-text-muted">{{ formatDate(invite.sent_at) }}</td>
+            <td class="px-4 py-2">
+              <div class="flex justify-end gap-2">
+                <UiButton size="sm" variant="ghost" :to="`/admin/convites/${invite.id}`">
+                  Abrir
+                </UiButton>
+                <UiButton size="sm" variant="destructive" @click="openDeleteModal(invite.id)">
+                  Excluir
+                </UiButton>
+              </div>
+            </td>
+          </tr>
+        </UiTable>
+
+        <div class="flex items-center justify-between text-sm text-text-muted">
+          <span>{{ data?.meta.total ?? 0 }} convite(s)</span>
+          <div class="flex items-center gap-2">
+            <UiButton
+              size="sm"
+              variant="ghost"
+              :disabled="page <= 1"
+              @click="page = Math.max(1, page - 1)"
+            >
+              Anterior
+            </UiButton>
+            <span>Página {{ page }} de {{ totalPages }}</span>
+            <UiButton
+              size="sm"
+              variant="ghost"
+              :disabled="page >= totalPages"
+              @click="page = Math.min(totalPages, page + 1)"
+            >
+              Próxima
+            </UiButton>
+          </div>
+        </div>
+      </template>
+    </UiCard>
 
     <UiModal v-model="isFormModalOpen" title="Novo convite">
       <form class="flex flex-col gap-4" @submit="onSubmit">

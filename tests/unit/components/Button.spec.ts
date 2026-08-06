@@ -29,15 +29,32 @@ describe('UiButton', () => {
     expect(wrapper.classes()).toContain('border-primary/25')
   })
 
-  it('CTA em pill (rounded="full") ganha lift, rótulo uppercase tracked e, se primary, glow colorido', () => {
-    const pill = mount(Button, { props: { rounded: 'full' }, slots: { default: 'Confirmar' } })
+  it('CTA em pill (rounded="full", default da plataforma inteira) ganha lift, rótulo uppercase tracked e, se primary, glow colorido', () => {
+    const pill = mount(Button, { slots: { default: 'Confirmar' } })
     expect(pill.classes()).toContain('hover:scale-[1.03]')
     expect(pill.classes()).toContain('uppercase')
     expect(pill.classes().some((c) => c.startsWith('shadow-['))).toBe(true)
 
-    const mdButton = mount(Button, { slots: { default: 'Salvar' } })
+    const mdButton = mount(Button, { props: { rounded: 'md' }, slots: { default: 'Salvar' } })
     expect(mdButton.classes()).not.toContain('hover:scale-[1.03]')
     expect(mdButton.classes()).not.toContain('uppercase')
+  })
+
+  it('variante ghost mantém uma borda sutil sempre visível, não só no hover', () => {
+    const wrapper = mount(Button, { props: { variant: 'ghost' }, slots: { default: 'Editar' } })
+    expect(wrapper.classes()).toContain('border')
+    expect(wrapper.classes()).toContain('border-border/60')
+  })
+
+  it('no contexto admin (ADMIN_UI_CONTEXT_KEY), suprime só o lift de hover — glow/uppercase continuam', () => {
+    const wrapper = mount(Button, {
+      slots: { default: 'Novo convidado' },
+      global: { provide: { [ADMIN_UI_CONTEXT_KEY as symbol]: true } },
+    })
+    expect(wrapper.classes()).not.toContain('hover:scale-[1.03]')
+    expect(wrapper.classes()).toContain('active:scale-95')
+    expect(wrapper.classes()).toContain('uppercase')
+    expect(wrapper.classes().some((c) => c.startsWith('shadow-['))).toBe(true)
   })
 
   it('fica desabilitado quando a prop disabled é verdadeira', () => {

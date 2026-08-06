@@ -52,16 +52,16 @@ describe('UiCard', () => {
     expect(wrapper.classes()).not.toContain('p-3')
   })
 
-  it('usa rounded-lg/shadow-sm por padrão', () => {
+  it('usa rounded-xl/shadow-xl por padrão (tratamento premium, plataforma inteira)', () => {
     const wrapper = mount(Card, { slots: { default: 'Conteúdo' } })
-    expect(wrapper.classes()).toContain('rounded-lg')
-    expect(wrapper.classes()).toContain('shadow-sm')
-  })
-
-  it('aplica o tratamento premium (radius/elevation "xl") quando pedido', () => {
-    const wrapper = mount(Card, { props: { radius: 'xl', elevation: 'xl' }, slots: { default: 'Conteúdo' } })
     expect(wrapper.classes()).toContain('rounded-xl')
     expect(wrapper.classes()).toContain('shadow-xl')
+  })
+
+  it('aplica o degrau reduzido (radius/elevation "lg"/"sm") quando pedido', () => {
+    const wrapper = mount(Card, { props: { radius: 'lg', elevation: 'sm' }, slots: { default: 'Conteúdo' } })
+    expect(wrapper.classes()).toContain('rounded-lg')
+    expect(wrapper.classes()).toContain('shadow-sm')
   })
 
   it('variant "default" (padrão) não aplica hover nem destaque', () => {

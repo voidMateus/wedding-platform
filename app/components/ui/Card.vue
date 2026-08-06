@@ -1,13 +1,12 @@
 <script setup lang="ts">
 interface Props {
   padding?: 'none' | 'sm' | 'md'
-  /** 'xl' = tratamento premium (raio/sombra maiores) — cartões de vitrine do site público (ex.: GiftCard). Default 'lg' cobre o resto da plataforma, incluindo todo o admin. */
+  /** 'lg' é o degrau reduzido, reservado a cartões densamente empilhados onde o raio/sombra grandes competiriam entre si. Default 'xl' (tratamento premium) cobre o resto da plataforma, público e admin. */
   radius?: 'lg' | 'xl'
   elevation?: 'sm' | 'xl'
   /**
    * 'default' preserva o comportamento atual (estático). 'interactive' ganha
-   * hover no degrau médio da escala (radius-md/shadow-md, liberado para o
-   * admin na Fase Admin Premium — CLAUDE.md §22.1/§21) — para cards
+   * hover no degrau médio da escala (radius-md/shadow-md) — para cards
    * clicáveis (stat tiles, itens de lista). 'highlight' dá ênfase visual
    * leve (fundo/borda na cor primária) para cards de destaque, sem virar um
    * CTA — ex.: prazo de RSVP no dashboard.
@@ -17,8 +16,8 @@ interface Props {
 
 const {
   padding = 'md',
-  radius = 'lg',
-  elevation = 'sm',
+  radius = 'xl',
+  elevation = 'xl',
   variant = 'default',
 } = defineProps<Props>()
 

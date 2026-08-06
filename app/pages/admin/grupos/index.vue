@@ -116,37 +116,39 @@ async function confirmDelete() {
       <UiButton @click="openCreateModal">Novo grupo</UiButton>
     </UiEmptyState>
 
-    <UiTable v-else>
-      <template #head>
-        <th class="px-4 py-2 font-medium">Nome</th>
-        <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
-      </template>
-      <tr
-        v-for="group in data?.data"
-        :key="group.id"
-        class="border-t border-border transition-brand hover:bg-surface-muted/60"
-      >
-        <td class="px-4 py-2 text-text">
-          <span class="inline-flex items-center gap-2">
-            <span
-              v-if="group.color"
-              class="h-3 w-3 rounded-full border border-border"
-              :style="{ backgroundColor: group.color }"
-              aria-hidden="true"
-            />
-            {{ group.name }}
-          </span>
-        </td>
-        <td class="px-4 py-2">
-          <div class="flex justify-end gap-2">
-            <UiButton size="sm" variant="ghost" @click="openEditModal(group)">Editar</UiButton>
-            <UiButton size="sm" variant="destructive" @click="openDeleteModal(group)">
-              Excluir
-            </UiButton>
-          </div>
-        </td>
-      </tr>
-    </UiTable>
+    <UiCard v-else padding="md">
+      <UiTable>
+        <template #head>
+          <th class="px-4 py-2 font-medium">Nome</th>
+          <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
+        </template>
+        <tr
+          v-for="group in data?.data"
+          :key="group.id"
+          class="border-t border-border transition-brand hover:bg-surface-muted/60"
+        >
+          <td class="px-4 py-2 text-text">
+            <span class="inline-flex items-center gap-2">
+              <span
+                v-if="group.color"
+                class="h-3 w-3 rounded-full border border-border"
+                :style="{ backgroundColor: group.color }"
+                aria-hidden="true"
+              />
+              {{ group.name }}
+            </span>
+          </td>
+          <td class="px-4 py-2">
+            <div class="flex justify-end gap-2">
+              <UiButton size="sm" variant="ghost" @click="openEditModal(group)">Editar</UiButton>
+              <UiButton size="sm" variant="destructive" @click="openDeleteModal(group)">
+                Excluir
+              </UiButton>
+            </div>
+          </td>
+        </tr>
+      </UiTable>
+    </UiCard>
 
     <UiModal v-model="isFormModalOpen" :title="editingGroup ? 'Editar grupo' : 'Novo grupo'">
       <form class="flex flex-col gap-4" @submit="onSubmit">

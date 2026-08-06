@@ -2,6 +2,8 @@
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
 // preserva --font-sans fixo — nunca troca de fonte por casamento, mesmo que
 // o casal tenha escolhido um fontPairId diferente (CLAUDE.md, seção 21).
+provide(ADMIN_UI_CONTEXT_KEY, true)
+
 const { signOut } = useAuth()
 const uiStore = useUiStore()
 const { getWedding } = useWedding()
@@ -89,7 +91,7 @@ onMounted(() => {
     >
       <div class="flex items-center justify-between gap-2 border-b border-border px-3 py-4">
         <span v-if="uiStore.sidebarOpen" class="truncate text-sm font-medium text-text">
-          Wedding Platform
+          MeuSiteCasamento
         </span>
         <button
           type="button"
@@ -151,7 +153,7 @@ onMounted(() => {
         >
           <Icon name="lucide:menu" class="h-5 w-5" />
         </button>
-        <span class="text-sm font-medium text-text">Wedding Platform</span>
+        <span class="text-sm font-medium text-text">MeuSiteCasamento</span>
       </header>
       <header class="hidden items-center border-b border-border bg-surface px-6 py-3 sm:flex">
         <AdminGlobalSearch />
