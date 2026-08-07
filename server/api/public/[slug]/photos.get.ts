@@ -28,5 +28,5 @@ export default defineEventHandler(async (event) => {
     throw badRequestError(error.message)
   }
 
-  return { data: data.map((photo) => ({ ...photo, url: resolvePhotoUrl(client, photo.storage_path) })) }
+  return { data: data.map((photo) => ({ ...photo, url: resolvePhotoServedUrl(photo) })) }
 })

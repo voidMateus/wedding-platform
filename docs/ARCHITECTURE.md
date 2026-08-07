@@ -297,7 +297,13 @@ Operações com controle de concorrência explícito (CLAUDE.md 13/18.3) — res
 
 ### 4.5 Storage
 
-Bucket dedicado para fotos da galeria (CLAUDE.md 11.1 — `photos`), particionado por `wedding_id` no path do objeto, com policy de leitura pública (site do casamento é público) e escrita restrita a membros autenticados do respectivo `wedding_id`. Validação de tipo/tamanho de arquivo (CLAUDE.md 28) acontece no `server/api` antes de gerar a URL assinada de upload — o client nunca faz upload direto sem essa checagem prévia.
+Buckets dedicados a imagens **próprias do casal** (foto de capa `wedding-covers`, foto da seção Nossa História, imagem de `event_segments`), particionados por `wedding_id` no path do objeto, com leitura pública (site do casamento é público) e escrita restrita a membros autenticados do respectivo `wedding_id`. Validação de tipo/tamanho de arquivo (CLAUDE.md 28) acontece no `server/api` antes do upload — o client nunca faz upload direto sem essa checagem prévia.
+
+**Galeria não usa mais Storage** (CLAUDE.md, Fase Galeria via Google Drive): `photos` deixou de guardar bytes no nosso Storage e passou a **referenciar** arquivos de uma fonte externa espelhada (Google Drive), servidos direto do Google (thumbnail). O bucket `wedding-photos` deixou de receber escrita (policies de escrita removidas; DROP em limpeza posterior). O upload manual (`POST /api/photos`) foi removido. Ver o fluxo de sincronização abaixo.
+
+### 4.5.1 Sincronização da galeria (Google Drive)
+
+A conexão do casamento com a fonte vive em `gallery_source_connections` (uma por `wedding_id`), em dois modos: `oauth` (conta do casal via Google Identity Services + Picker, escopo `drive.readonly`, tokens cifrados em repouso com AES-256-GCM — `server/utils/token-cipher.ts`) ou `public_link` (pasta pública listada via API key do projeto). O driver do Drive é isolado em `server/utils/google-drive.ts` (mesmo padrão `{ ok, ... }` de `infinitepay.ts`), e o espelhamento em `server/utils/gallery-sync.ts#syncGalleryConnection` — `photos` reflete a pasta atual (novos entram, removidos na origem saem, metadado nosso — legenda/ordem/foco — preservado por `source_file_id`). O sync escreve com service_role (mesmo modelo do worker assíncrono, §3.4), disparado por dois gatilhos que convergem no mesmo código: cron diário da Vercel (`GET /api/cron/sync-galleries`, autorizado por `CRON_SECRET` — o plano free limita cron a 1x/dia) e botão manual (`POST /api/wedding/gallery/sync`, autorizado por `requireWeddingContext`). Nenhum token é exposto na leitura do client (endpoints selecionam colunas explícitas sem as de token).
 
 ### 4.6 Autenticação
 
@@ -327,6 +333,8 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 | Presentes (reserva grátis/checkout online) | `/api/gifts/[id]/*` | Pública (sem token — CLAUDE.md 4.5/18/32) | **Sim** |
 | Pagamento online (status/webhook) | `/api/gifts/payments/*` | Pública (paymentId como credencial) / InfinitePay (sem auth) | Status: **sim**. Webhook: não (defesa é `payment_check`, não IP — CLAUDE.md 28.3) |
 | Comunicações | `/api/communications` | Admin (JWT) | Não |
+| Galeria (conexão/sync) | `/api/wedding/gallery/*` | Admin (JWT) | Não |
+| Cron de sincronização | `/api/cron/sync-galleries` | Vercel Cron (`CRON_SECRET`) | Não |
 | Administração | `/api/admin/*` | Admin (JWT, `owner`) | Não |
 
 `/api/wedding` e `/api/event-segments` (admin) são endpoints **distintos** de `/api/public/wedding` e `/api/public/event-segments`: a leitura administrativa resolve `wedding_id` a partir do JWT e usa o client da requisição (RLS como defesa em profundidade — 5.3); a leitura pública não recebe nenhuma credencial e depende da policy `select_public` (CLAUDE.md 4.5) para não vazar nada além do que já é público por natureza. Endpoints separados, em vez de um único handler com lógica condicional por autenticação, mantêm cada um com um único modelo de autorização para raciocinar.

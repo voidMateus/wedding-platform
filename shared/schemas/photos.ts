@@ -14,3 +14,11 @@ export const photoMetadataSchema = z.object({
 })
 
 export type PhotoMetadataInput = z.infer<typeof photoMetadataSchema>
+
+// Reordenação da galeria (drag-and-drop no admin) — a lista de ids na ordem
+// desejada; o servidor grava display_order = posição na lista.
+export const photoReorderSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, 'Nenhuma foto para reordenar.'),
+})
+
+export type PhotoReorderInput = z.infer<typeof photoReorderSchema>

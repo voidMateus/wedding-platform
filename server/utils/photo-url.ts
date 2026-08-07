@@ -1,15 +1,29 @@
-import type { serverSupabaseClient } from '#supabase/server'
-import type { Database } from '~/types/database.types'
-
-type SupabaseClient = Awaited<ReturnType<typeof serverSupabaseClient<Database>>>
-
 /**
- * Resolve a URL pública de uma foto a partir do storage_path salvo em
- * `photos` (bucket `wedding-photos`, leitura pública — CLAUDE.md, seção 28).
- * Compartilhado entre os endpoints de listagem, upload e edição de metadados
- * (server/api/photos/**) para não recalcular a URL de formas diferentes.
+ * Resolve a URL da imagem servida na galeria (Fase Galeria via Google Drive —
+ * CLAUDE.md). A imagem vem SEMPRE direto do Google, nunca do nosso Storage:
+ *
+ *  - Modo OAuth (pasta privada): usa `source_thumbnail_url` (o thumbnailLink
+ *    que a Drive API devolve, um lh3.googleusercontent.com renovado a cada
+ *    sync) — o endpoint estável drive.google.com/thumbnail não renderiza pra
+ *    visitante anônimo quando o arquivo é privado.
+ *  - Modo link público: `source_thumbnail_url` é null e o client cai no
+ *    endpoint estável de thumbnail (aceita tamanho via sz=w{width}).
+ *
+ * Compartilhado entre os endpoints de listagem (admin e público).
  */
-export function resolvePhotoUrl(client: SupabaseClient, storagePath: string): string {
-  const { data } = client.storage.from('wedding-photos').getPublicUrl(storagePath)
-  return data.publicUrl
+const DEFAULT_THUMBNAIL_WIDTH = 1600
+
+export function resolvePhotoServedUrl(
+  photo: { source_file_id: string | null; source_thumbnail_url: string | null },
+  width: number = DEFAULT_THUMBNAIL_WIDTH,
+): string {
+  if (photo.source_thumbnail_url) {
+    return photo.source_thumbnail_url
+  }
+  if (photo.source_file_id) {
+    return `https://drive.google.com/thumbnail?id=${photo.source_file_id}&sz=w${width}`
+  }
+  // Linha legada sem fonte externa — não deve ocorrer após o 1º sync
+  // (o espelhamento remove as fotos antigas baseadas em Storage).
+  return ''
 }
