@@ -1,23 +1,25 @@
 <script setup lang="ts">
-import { DRESS_CODE_CONTENT } from '#shared/wedding-content'
+import { resolveWeddingContent } from '#shared/wedding-content'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
 }
 
-defineProps<Props>()
+const { wedding } = defineProps<Props>()
+
+const content = computed(() => resolveWeddingContent(wedding.content_config))
 </script>
 
 <template>
   <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code">
     <div class="mx-auto flex max-w-xl flex-col items-center gap-8 text-center">
       <PublicDressCodeIllustration />
-      <p class="leading-relaxed text-body">{{ DRESS_CODE_CONTENT.description }}</p>
+      <p class="leading-relaxed text-body">{{ content.dressCodeDescription }}</p>
 
-      <ul class="flex flex-col gap-2 self-start text-left text-body">
+      <ul v-if="content.dressCodeSuggestions.length" class="flex flex-col gap-2 self-start text-left text-body">
         <li
-          v-for="tip in DRESS_CODE_CONTENT.suggestions"
+          v-for="tip in content.dressCodeSuggestions"
           :key="tip"
           class="flex items-start gap-2"
         >

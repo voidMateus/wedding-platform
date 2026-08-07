@@ -17,6 +17,7 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
     guest_list_mode: 'closed',
     rsvp_deadline: null,
     theme_config: {},
+    content_config: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -66,5 +67,11 @@ describe('PublicStorySection', () => {
     const wrapper = mountStory(makeWedding())
     expect(wrapper.find('h2').text()).toBe('Nossa História')
     expect(wrapper.find('#historia').exists()).toBe(true)
+  })
+
+  it('usa a mensagem customizada pelo casal quando presente em content_config', () => {
+    const wrapper = mountStory(makeWedding({ content_config: { storyMessage: 'Nossa história, do nosso jeito.' } }))
+    expect(wrapper.text()).toContain('Nossa história, do nosso jeito.')
+    expect(wrapper.text()).not.toContain(STORY_CONTENT.paragraphs[0])
   })
 })

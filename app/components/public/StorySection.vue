@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ThemeConfig } from '#shared/schemas/theme'
-import { STORY_CONTENT } from '#shared/wedding-content'
+import { resolveWeddingContent } from '#shared/wedding-content'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
 }
 
 const { wedding } = defineProps<Props>()
+
+const content = computed(() => resolveWeddingContent(wedding.content_config))
 
 // Foto própria da seção — independente da foto de capa do Hero (CLAUDE.md,
 // seção 22.3; separadas a pedido do casal, cada uma é uma foto diferente).
@@ -39,14 +41,14 @@ const storyFocalPosition = computed(() => {
         loading="lazy"
       />
       <div class="flex flex-col gap-4 text-body">
-        <p v-for="(paragraph, index) in STORY_CONTENT.paragraphs" :key="index" class="leading-relaxed">
+        <p v-for="(paragraph, index) in content.storyParagraphs" :key="index" class="leading-relaxed">
           {{ paragraph }}
         </p>
       </div>
     </div>
 
     <div v-else class="mx-auto flex max-w-2xl flex-col gap-4 text-center text-body">
-      <p v-for="(paragraph, index) in STORY_CONTENT.paragraphs" :key="index" class="leading-relaxed">
+      <p v-for="(paragraph, index) in content.storyParagraphs" :key="index" class="leading-relaxed">
         {{ paragraph }}
       </p>
     </div>

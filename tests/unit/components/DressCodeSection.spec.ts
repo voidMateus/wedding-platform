@@ -17,6 +17,7 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
     guest_list_mode: 'closed',
     rsvp_deadline: null,
     theme_config: {},
+    content_config: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -56,5 +57,23 @@ describe('PublicDressCodeSection', () => {
   it('cai nas cores default quando o tema não define paleta', () => {
     const wrapper = mountDressCode(makeWedding({ theme_config: {} }))
     expect(wrapper.html()).not.toContain('undefined')
+  })
+
+  it('usa descrição/sugestões customizadas pelo casal quando presentes em content_config', () => {
+    const wrapper = mountDressCode(
+      makeWedding({
+        content_config: { dressCodeDescription: 'Traje esporte fino.', dressCodeSuggestions: ['Use tons pastel.'] },
+      }),
+    )
+    expect(wrapper.text()).toContain('Traje esporte fino.')
+    expect(wrapper.text()).toContain('Use tons pastel.')
+    expect(wrapper.text()).not.toContain(DRESS_CODE_CONTENT.description)
+  })
+
+  it('esconde a lista de sugestões quando o casal esvazia content_config.dressCodeSuggestions', () => {
+    const wrapper = mountDressCode(
+      makeWedding({ content_config: { dressCodeSuggestions: [] } }),
+    )
+    expect(wrapper.find('ul').exists()).toBe(false)
   })
 })
