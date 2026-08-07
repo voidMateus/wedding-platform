@@ -1,5 +1,6 @@
 import type { WeddingSettingsInput } from '#shared/schemas/wedding'
 import type { ThemeConfigInput } from '#shared/schemas/theme'
+import type { WeddingContentConfigInput } from '#shared/schemas/content'
 import type { Wedding } from '~/types/wedding'
 
 /**
@@ -21,5 +22,12 @@ export function useWedding() {
     return $fetch<Wedding>('/api/wedding/theme', { method: 'PATCH', body: input })
   }
 
-  return { getWedding, updateWedding, updateWeddingTheme }
+  // Mensagens narrativas do site público (CLAUDE.md, roadmap "Fase Mensagens
+  // Personalizáveis") — endpoint próprio, separado dos dados de negócio e da
+  // aparência visual.
+  async function updateWeddingContent(input: WeddingContentConfigInput): Promise<Wedding> {
+    return $fetch<Wedding>('/api/wedding/content', { method: 'PATCH', body: input })
+  }
+
+  return { getWedding, updateWedding, updateWeddingTheme, updateWeddingContent }
 }

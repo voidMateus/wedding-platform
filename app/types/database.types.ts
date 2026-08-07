@@ -1498,6 +1498,7 @@ export type Database = {
       weddings: {
         Row: {
           child_max_age: number
+          content_config: Json | null
           couple_names: string
           created_at: string
           event_date: string
@@ -1513,6 +1514,7 @@ export type Database = {
         }
         Insert: {
           child_max_age?: number
+          content_config?: Json | null
           couple_names: string
           created_at?: string
           event_date: string
@@ -1528,6 +1530,7 @@ export type Database = {
         }
         Update: {
           child_max_age?: number
+          content_config?: Json | null
           couple_names?: string
           created_at?: string
           event_date?: string

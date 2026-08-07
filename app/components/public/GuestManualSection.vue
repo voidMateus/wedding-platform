@@ -1,12 +1,27 @@
 <script setup lang="ts">
-import { GUEST_MANUAL_CONTENT } from '#shared/wedding-content'
+import { resolveWeddingContent } from '#shared/wedding-content'
+import type { Wedding } from '~/types/wedding'
+
+interface Props {
+  wedding: Wedding
+}
+
+const { wedding } = defineProps<Props>()
+
+const content = computed(() => resolveWeddingContent(wedding.content_config))
 </script>
 
 <template>
-  <PublicEditorialSection id="manual-convidados" eyebrow="Informações úteis" title="Manual dos Convidados" tone="muted">
+  <PublicEditorialSection
+    v-if="content.guestManualTopics.length"
+    id="manual-convidados"
+    eyebrow="Informações úteis"
+    title="Manual dos Convidados"
+    tone="muted"
+  >
     <div class="mx-auto flex max-w-3xl flex-col gap-8">
-      <p class="text-center leading-relaxed text-body">{{ GUEST_MANUAL_CONTENT.intro }}</p>
-      <PublicTopicGrid :topics="GUEST_MANUAL_CONTENT.topics" />
+      <p class="text-center leading-relaxed text-body">{{ content.guestManualIntro }}</p>
+      <PublicTopicGrid :topics="content.guestManualTopics" />
     </div>
   </PublicEditorialSection>
 </template>

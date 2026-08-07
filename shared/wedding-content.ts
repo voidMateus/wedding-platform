@@ -1,11 +1,13 @@
 // Copy fixo das novas seções editoriais do site público (Fase Editorial —
-// CLAUDE.md, seção 22.3/32). Decisão explícita do usuário: por enquanto
-// essas seções não têm tela de admin para o casal editar — o conteúdo vive
-// aqui, centralizado, para facilitar a migração para colunas/tabelas
-// editáveis quando essa fase futura existir (ver "Adiado" no plano da Fase
-// Editorial). Nenhum texto aqui inventa fatos específicos sobre um casal
-// real — é copy genérico de placeholder, do tipo que o casal reescreveria
-// com a própria história assim que o admin de conteúdo existir.
+// CLAUDE.md, seção 22.3/32). Nenhum texto aqui inventa fatos específicos
+// sobre um casal real — é copy genérico de placeholder. Desde o roadmap
+// "Fase Mensagens Personalizáveis", esses textos viraram a MENSAGEM PADRÃO:
+// cada casamento pode sobrescrevê-los via weddings.content_config (aba
+// "Conteúdo" do admin) — ver resolveWeddingContent() no fim deste arquivo,
+// que resolve o config bruto do banco + esses defaults no shape final
+// consumido pelos componentes públicos.
+import type { WeddingContentConfig } from './schemas/content'
+import { splitParagraphs } from './utils/split-paragraphs'
 
 // Boas-vindas logo após o Hero (Fase Linguagem Visual, Rodada 6) —
 // continuação natural do Hero, sem card/caixa, só tipografia.
@@ -107,3 +109,39 @@ export const FAQ_CONTENT: FaqItem[] = [
   },
 ]
 
+export interface ResolvedWeddingContent {
+  welcomeTitle: string
+  welcomeParagraphs: string[]
+  storyParagraphs: string[]
+  dressCodeDescription: string
+  dressCodeSuggestions: string[]
+  guestManualIntro: string
+  guestManualTopics: ManualTopic[]
+  giftsIntroMessage: string
+  faqItems: FaqItem[]
+}
+
+/**
+ * Resolve weddings.content_config (bruto, do banco) + os defaults acima no
+ * shape final consumido pelos componentes públicos — mesmo espírito de
+ * useWeddingTheme.ts (função pura, sem estado).
+ *
+ * Usa `??` (não `?.length ?`) de propósito: distingue "nunca customizado"
+ * (undefined → cai no default) de "customizado para lista vazia" ([] → o
+ * casal removeu todos os itens de Manual/FAQ, a seção correspondente some —
+ * ver v-if nos componentes).
+ */
+export function resolveWeddingContent(contentConfig: unknown): ResolvedWeddingContent {
+  const c = (contentConfig ?? {}) as Partial<WeddingContentConfig>
+  return {
+    welcomeTitle: c.welcomeTitle ?? WELCOME_CONTENT.title,
+    welcomeParagraphs: c.welcomeMessage ? splitParagraphs(c.welcomeMessage) : WELCOME_CONTENT.paragraphs,
+    storyParagraphs: c.storyMessage ? splitParagraphs(c.storyMessage) : STORY_CONTENT.paragraphs,
+    dressCodeDescription: c.dressCodeDescription ?? DRESS_CODE_CONTENT.description,
+    dressCodeSuggestions: c.dressCodeSuggestions ?? DRESS_CODE_CONTENT.suggestions,
+    guestManualIntro: c.guestManualIntro ?? GUEST_MANUAL_CONTENT.intro,
+    guestManualTopics: c.guestManualTopics ?? GUEST_MANUAL_CONTENT.topics,
+    giftsIntroMessage: c.giftsIntroMessage ?? GIFTS_INTRO_CONTENT.message,
+    faqItems: c.faqItems ?? FAQ_CONTENT,
+  }
+}

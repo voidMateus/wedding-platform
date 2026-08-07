@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GIFTS_INTRO_CONTENT } from '#shared/wedding-content'
+import { resolveWeddingContent } from '#shared/wedding-content'
 
 // Página pública, sempre indexável — sem token de convite (CLAUDE.md, seção
 // 18.2/4.5): acessível a qualquer momento a partir do site do casamento,
@@ -11,6 +11,10 @@ const slug = useWeddingSlug()
 
 const { getPublicWedding } = usePublicWedding()
 const { data: wedding } = await getPublicWedding()
+
+const giftsIntroMessage = computed(
+  () => resolveWeddingContent(wedding.value?.content_config).giftsIntroMessage,
+)
 
 useSeoMeta({ title: 'Presentes' })
 
@@ -42,7 +46,7 @@ const SECTION_LINKS = [
           Presentear{{ wedding?.couple_names ? ` ${wedding.couple_names}` : '' }}
         </h1>
         <p class="mt-2 max-w-xl text-sm leading-relaxed text-text-muted">
-          {{ GIFTS_INTRO_CONTENT.message }}
+          {{ giftsIntroMessage }}
         </p>
       </div>
 

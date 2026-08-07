@@ -3,6 +3,8 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { weddingSettingsSchema } from '#shared/schemas/wedding'
 import { themeConfigSchema, type ThemeConfig } from '#shared/schemas/theme'
+import { weddingContentConfigSchema } from '#shared/schemas/content'
+import { resolveWeddingContent } from '#shared/wedding-content'
 import {
   DEFAULT_PRIMARY_COLOR,
   DEFAULT_SECONDARY_COLOR,
@@ -39,6 +41,7 @@ const toast = useToast()
 const settingsTabs = [
   { id: 'geral', label: 'Geral' },
   { id: 'aparencia', label: 'Aparência' },
+  { id: 'conteudo', label: 'Conteúdo' },
 ]
 const activeTab = ref('geral')
 
@@ -55,8 +58,16 @@ const experienciaItems = [
   { id: 'countdown', trigger: 'Contagem regressiva' },
   { id: 'hero-buttons', trigger: 'Atalhos do Hero' },
 ]
+const conteudoItems = [
+  { id: 'boas-vindas', trigger: 'Boas-vindas' },
+  { id: 'historia', trigger: 'Nossa História' },
+  { id: 'dress-code', trigger: 'Dress Code' },
+  { id: 'manual', trigger: 'Manual dos Convidados' },
+  { id: 'presentes', trigger: 'Lista de Presentes' },
+  { id: 'faq', trigger: 'Perguntas Frequentes' },
+]
 
-const { getWedding, updateWedding, updateWeddingTheme } = useWedding()
+const { getWedding, updateWedding, updateWeddingTheme, updateWeddingContent } = useWedding()
 // Aguardado (não apenas destructuring de useFetch): sem isso, o formulário de
 // Aparência é populado por um watcher assíncrono que roda DEPOIS do walk de
 // renderização do SSR, produzindo HTML de servidor com os presets/fontes
@@ -274,6 +285,73 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
       isApiError(err)
         ? (err.data?.message ?? 'Não foi possível salvar a aparência.')
         : 'Não foi possível salvar a aparência.',
+    )
+  }
+})
+
+// --- Conteúdo (mensagens narrativas do site público — CLAUDE.md, roadmap
+// "Fase Mensagens Personalizáveis") — endpoint próprio, separado dos dados
+// de negócio e da aparência visual. ---
+const {
+  handleSubmit: handleContentSubmit,
+  defineField: defineContentField,
+  errors: contentErrors,
+  resetForm: resetContentForm,
+  isSubmitting: isContentSubmitting,
+} = useForm({ validationSchema: toTypedSchema(weddingContentConfigSchema) })
+
+const [welcomeTitle] = defineContentField('welcomeTitle')
+const [welcomeMessage] = defineContentField('welcomeMessage')
+const [storyMessage] = defineContentField('storyMessage')
+const [dressCodeDescription] = defineContentField('dressCodeDescription')
+const [dressCodeSuggestions] = defineContentField('dressCodeSuggestions')
+const [guestManualIntro] = defineContentField('guestManualIntro')
+const [guestManualTopics] = defineContentField('guestManualTopics')
+const [giftsIntroMessage] = defineContentField('giftsIntroMessage')
+const [faqItems] = defineContentField('faqItems')
+
+function addDressCodeSuggestion() {
+  dressCodeSuggestions.value = [...(dressCodeSuggestions.value ?? []), '']
+}
+function updateDressCodeSuggestion(index: number, value: string) {
+  dressCodeSuggestions.value = (dressCodeSuggestions.value ?? []).map((tip, i) => (i === index ? value : tip))
+}
+function removeDressCodeSuggestion(index: number) {
+  dressCodeSuggestions.value = (dressCodeSuggestions.value ?? []).filter((_, i) => i !== index)
+}
+
+watch(
+  wedding,
+  (value) => {
+    if (!value) return
+    const resolved = resolveWeddingContent(value.content_config)
+    resetContentForm({
+      values: {
+        welcomeTitle: resolved.welcomeTitle,
+        welcomeMessage: resolved.welcomeParagraphs.join('\n\n'),
+        storyMessage: resolved.storyParagraphs.join('\n\n'),
+        dressCodeDescription: resolved.dressCodeDescription,
+        dressCodeSuggestions: resolved.dressCodeSuggestions,
+        guestManualIntro: resolved.guestManualIntro,
+        guestManualTopics: resolved.guestManualTopics,
+        giftsIntroMessage: resolved.giftsIntroMessage,
+        faqItems: resolved.faqItems,
+      },
+    })
+  },
+  { immediate: true },
+)
+
+const onContentSubmit = handleContentSubmit(async (values) => {
+  try {
+    await updateWeddingContent(values)
+    await refresh()
+    toast.success('Conteúdo salvo.')
+  } catch (err) {
+    toast.error(
+      isApiError(err)
+        ? (err.data?.message ?? 'Não foi possível salvar o conteúdo.')
+        : 'Não foi possível salvar o conteúdo.',
     )
   }
 })
@@ -563,6 +641,111 @@ const onThemeSubmit = handleThemeSubmit(async (values) => {
 
             <div class="flex justify-end">
               <UiButton type="submit" :disabled="isThemeSubmitting">Salvar aparência</UiButton>
+            </div>
+          </form>
+        </UiCard>
+      </template>
+
+      <template #conteudo>
+        <UiCard>
+          <form class="flex flex-col gap-6" @submit="onContentSubmit">
+            <p class="text-xs text-text-muted">
+              Cada mensagem já vem preenchida com o texto padrão da plataforma — edite à vontade para contar a
+              sua própria história, ou deixe como está.
+            </p>
+
+            <UiAccordion :items="conteudoItems">
+              <template #content="{ item }">
+                <div class="flex flex-col gap-4 px-5 pb-5">
+                  <template v-if="item.id === 'boas-vindas'">
+                    <UiInput v-model="welcomeTitle" label="Título" :error="contentErrors.welcomeTitle" />
+                    <UiTextarea
+                      v-model="welcomeMessage"
+                      label="Mensagem"
+                      :rows="4"
+                      :error="contentErrors.welcomeMessage"
+                    />
+                    <p class="-mt-2 text-xs text-text-muted">
+                      Separe parágrafos deixando uma linha em branco entre eles.
+                    </p>
+                  </template>
+
+                  <template v-if="item.id === 'historia'">
+                    <UiTextarea
+                      v-model="storyMessage"
+                      label="Mensagem"
+                      :rows="6"
+                      :error="contentErrors.storyMessage"
+                    />
+                    <p class="-mt-2 text-xs text-text-muted">
+                      Separe parágrafos deixando uma linha em branco entre eles.
+                    </p>
+                  </template>
+
+                  <template v-if="item.id === 'dress-code'">
+                    <UiTextarea
+                      v-model="dressCodeDescription"
+                      label="Descrição"
+                      :rows="3"
+                      :error="contentErrors.dressCodeDescription"
+                    />
+                    <div class="flex flex-col gap-2">
+                      <span class="text-sm font-medium text-text">Sugestões</span>
+                      <div
+                        v-for="(tip, index) in dressCodeSuggestions"
+                        :key="index"
+                        class="flex items-center gap-2"
+                      >
+                        <UiInput
+                          class="flex-1"
+                          :model-value="tip"
+                          @update:model-value="(value) => updateDressCodeSuggestion(index, value)"
+                        />
+                        <UiButton type="button" size="sm" variant="ghost" @click="removeDressCodeSuggestion(index)">
+                          <Icon name="lucide:trash-2" class="h-4 w-4" />
+                        </UiButton>
+                      </div>
+                      <UiButton type="button" variant="outline" class="self-start" @click="addDressCodeSuggestion">
+                        <Icon name="lucide:plus" class="h-4 w-4" />
+                        Adicionar sugestão
+                      </UiButton>
+                    </div>
+                  </template>
+
+                  <template v-if="item.id === 'manual'">
+                    <UiTextarea
+                      v-model="guestManualIntro"
+                      label="Introdução"
+                      :rows="2"
+                      :error="contentErrors.guestManualIntro"
+                    />
+                    <AdminManualTopicsEditor
+                      :model-value="guestManualTopics ?? []"
+                      @update:model-value="(value) => (guestManualTopics = value)"
+                    />
+                  </template>
+
+                  <template v-if="item.id === 'presentes'">
+                    <UiTextarea
+                      v-model="giftsIntroMessage"
+                      label="Mensagem"
+                      :rows="4"
+                      :error="contentErrors.giftsIntroMessage"
+                    />
+                  </template>
+
+                  <template v-if="item.id === 'faq'">
+                    <AdminFaqItemsEditor
+                      :model-value="faqItems ?? []"
+                      @update:model-value="(value) => (faqItems = value)"
+                    />
+                  </template>
+                </div>
+              </template>
+            </UiAccordion>
+
+            <div class="flex justify-end">
+              <UiButton type="submit" :disabled="isContentSubmitting">Salvar conteúdo</UiButton>
             </div>
           </form>
         </UiCard>
