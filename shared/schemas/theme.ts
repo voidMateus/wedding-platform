@@ -104,4 +104,11 @@ export interface ThemeConfig {
   heroButtons?: string[]
   /** Id do atalho em destaque (cor preenchida) — os demais ficam em outline. */
   heroFeaturedButton?: string
+  /**
+   * Quantas fotos aparecem na prévia da Galeria na home antes do botão "Abrir
+   * galeria" (Fase Galeria via Google Drive). Ausente = DEFAULT_GALLERY_PREVIEW_COUNT.
+   * Gerido por PATCH /api/wedding/gallery/preview; preservado pelo spread de
+   * theme.patch.ts (fora da lista de chaves daquele endpoint), como coverImageUrl.
+   */
+  galleryPreviewCount?: number
 }

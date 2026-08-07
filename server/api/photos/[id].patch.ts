@@ -38,5 +38,5 @@ export default defineEventHandler(async (event) => {
     entityId: data.id,
   })
 
-  return { ...data, url: resolvePhotoUrl(client, data.storage_path) }
+  return { ...data, url: resolvePhotoServedUrl(data) }
 })

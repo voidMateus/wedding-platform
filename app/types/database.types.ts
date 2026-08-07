@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       audit_logs: {
@@ -320,6 +295,88 @@ export type Database = {
             foreignKeyName: "event_segments_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gallery_source_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          created_at: string
+          created_by: string | null
+          folder_id: string
+          folder_name: string | null
+          id: string
+          last_sync_error: string | null
+          last_sync_photo_count: number | null
+          last_synced_at: string | null
+          mode: string
+          provider: string
+          refresh_token_encrypted: string | null
+          status: string
+          token_expires_at: string | null
+          token_scope: string | null
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          created_at?: string
+          created_by?: string | null
+          folder_id: string
+          folder_name?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_photo_count?: number | null
+          last_synced_at?: string | null
+          mode: string
+          provider: string
+          refresh_token_encrypted?: string | null
+          status?: string
+          token_expires_at?: string | null
+          token_scope?: string | null
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string
+          folder_name?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_photo_count?: number | null
+          last_synced_at?: string | null
+          mode?: string
+          provider?: string
+          refresh_token_encrypted?: string | null
+          status?: string
+          token_expires_at?: string | null
+          token_scope?: string | null
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_source_connections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "wedding_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gallery_source_connections_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "wedding_rsvp_summary"
+            referencedColumns: ["wedding_id"]
+          },
+          {
+            foreignKeyName: "gallery_source_connections_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
@@ -1223,7 +1280,11 @@ export type Database = {
           focal_x: number
           focal_y: number
           id: string
-          storage_path: string
+          source_connection_id: string | null
+          source_file_id: string | null
+          source_mime_type: string | null
+          source_thumbnail_url: string | null
+          storage_path: string | null
           updated_at: string
           uploaded_by: string | null
           wedding_id: string
@@ -1235,7 +1296,11 @@ export type Database = {
           focal_x?: number
           focal_y?: number
           id?: string
-          storage_path: string
+          source_connection_id?: string | null
+          source_file_id?: string | null
+          source_mime_type?: string | null
+          source_thumbnail_url?: string | null
+          storage_path?: string | null
           updated_at?: string
           uploaded_by?: string | null
           wedding_id: string
@@ -1247,12 +1312,23 @@ export type Database = {
           focal_x?: number
           focal_y?: number
           id?: string
-          storage_path?: string
+          source_connection_id?: string | null
+          source_file_id?: string | null
+          source_mime_type?: string | null
+          source_thumbnail_url?: string | null
+          storage_path?: string | null
           updated_at?: string
           uploaded_by?: string | null
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "photos_source_connection_id_fkey"
+            columns: ["source_connection_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_source_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "photos_uploaded_by_fkey"
             columns: ["uploaded_by"]
@@ -1920,9 +1996,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

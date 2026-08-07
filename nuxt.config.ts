@@ -51,6 +51,20 @@ export default defineNuxtConfig({
     // dá pra depender de getRequestURL em produção (URLs de preview não
     // devem virar webhook_url permanente por engano).
     siteUrl: process.env.NUXT_SITE_URL,
+    // Galeria via Google Drive (CLAUDE.md, Fase Galeria via Google Drive) —
+    // todos server-only. O secret do OAuth, a API key da listagem pública, a
+    // chave de cifra dos tokens em repouso e o segredo do cron nunca vão pro
+    // bundle do client (CLAUDE.md, seção 28).
+    googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    googleDriveApiKey: process.env.GOOGLE_DRIVE_API_KEY,
+    driveTokenEncryptionKey: process.env.DRIVE_TOKEN_ENCRYPTION_KEY,
+    cronSecret: process.env.CRON_SECRET,
+    public: {
+      // Públicos por design: consumidos client-side pelo Google Identity
+      // Services e pelo Google Picker no admin (restringir no Google Console).
+      googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
+      googlePickerApiKey: process.env.GOOGLE_PICKER_API_KEY,
+    },
   },
 
   // Ícones vêm do pacote local @iconify-json/lucide (devDependency), não da
