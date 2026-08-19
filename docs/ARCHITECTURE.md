@@ -27,32 +27,21 @@ A árvore abaixo estende a estrutura já definida no CLAUDE.md (seção 5) com o
 ```
 wedding-platform/
 ├── app/
-│   ├── assets/css/
+│   ├── assets/css/                    # Tailwind v4 CSS-first (@theme) — sem tailwind.config.ts
 │   ├── components/
 │   │   ├── ui/                        # Design System (Button, Input, Modal, Toast, Badge, Card, Table...)
-│   │   ├── public/                    # Hero, Timeline (event_segments), GallerySection, Footer, NavBar
-│   │   ├── rsvp/                      # RsvpForm, CompanionFieldList, RsvpStatusBanner
-│   │   ├── gifts/                     # GiftCard, GiftReservationModal, GiftContributionModal, GiftProgressBar
+│   │   ├── public/                    # Hero, GrandeDiaSection (event_segments), GallerySection, NavBar
+│   │   ├── rsvp/                      # RsvpInviteFlow, CompanionFieldList, RsvpStatusBanner
+│   │   ├── gifts/                     # GiftCard, GiftDeliveryChoiceModal, GiftPaymentModal, GiftsShowcase
 │   │   └── admin/
-│   │       ├── guests/                # GuestTable, GuestFormModal, CsvImportWizard
-│   │       ├── groups/                # GroupTree, GroupFormModal
-│   │       ├── gifts/                 # GiftFormModal, GiftReservationsList
-│   │       ├── schedule/              # EventSegmentForm (Cronograma)
-│   │       ├── communications/        # CommunicationsLog, ResendReminderButton
-│   │       └── dashboard/             # ProgressSummary, RsvpBreakdownChart
-│   ├── composables/
-│   │   ├── useAuth.ts                 # sessão do casal/colaborador
-│   │   ├── useWedding.ts              # configurações do evento (admin, autenticado)
-│   │   ├── usePublicWedding.ts        # dados do evento para a home pública (sem auth)
-│   │   ├── useGuestAccessToken.ts     # resolução/estado do token do convidado
-│   │   ├── useGuests.ts
-│   │   ├── useGuestGroups.ts
-│   │   ├── useRsvp.ts
-│   │   ├── useGifts.ts
-│   │   ├── useGiftContributions.ts
-│   │   ├── useEventSegments.ts        # CRUD do cronograma (admin, autenticado)
-│   │   ├── usePublicEventSegments.ts  # cronograma para a timeline pública (sem auth)
-│   │   └── useCommunications.ts
+│   │       ├── guests/                # GuestPartyWizard, GuestPersonFields
+│   │       ├── gifts/                 # AdminGiftFormModal
+│   │       └── (demais componentes soltos em admin/ — cabeçalho/dashboard: AdminSection, AdminStatCard...)
+│   ├── composables/                   # 1 por domínio: useAuth, useGuests, useInvites, useGroups,
+│   │                                   # useGuestAccessTokens, useInviteTags, useRsvp, useGifts,
+│   │                                   # useGiftCategories, useGiftReservations, useGiftGiverIdentity,
+│   │                                   # useWedding, usePublicWedding, useWeddingTheme, useEventSegments,
+│   │                                   # usePublicEventSegments, useGalleryConnection, useWeddingPhotos...
 │   ├── layouts/
 │   │   ├── default.vue                # site público
 │   │   ├── admin.vue                  # painel administrativo
@@ -60,99 +49,88 @@ wedding-platform/
 │   ├── middleware/
 │   │   └── auth.global.ts             # protege /admin/** (sem middleware de guest-access — ver 2.4)
 │   ├── pages/
-│   │   ├── index.vue
-│   │   ├── presentes/index.vue
-│   │   ├── rsvp/[code].vue
+│   │   ├── index.vue                  # resolve/redireciona pro casamento ativo
 │   │   ├── login.vue
+│   │   ├── [slug]/                    # site público, sempre sob o slug do casamento
+│   │   │   ├── index.vue
+│   │   │   ├── rsvp/
+│   │   │   │   ├── index.vue          # busca por nome, sem código (ver 6.2/7)
+│   │   │   │   └── [code].vue         # link/QR direto do convite
+│   │   │   ├── presentes/
+│   │   │   │   ├── index.vue
+│   │   │   │   └── pagamento/[paymentId].vue
+│   │   │   └── galeria.vue
 │   │   └── admin/
 │   │       ├── index.vue              # dashboard
-│   │       ├── convidados/index.vue
-│   │       ├── grupos/index.vue
+│   │       ├── convidados/[id].vue, index.vue, novo.vue
+│   │       ├── convites/[id].vue, index.vue    # invites — unidade de RSVP (CLAUDE.md 17)
+│   │       ├── grupos/index.vue                # groups — etiqueta livre (CLAUDE.md 17)
 │   │       ├── presentes/index.vue
 │   │       ├── cronograma/index.vue
-│   │       ├── comunicacoes/index.vue
+│   │       ├── galeria/index.vue
 │   │       └── configuracoes/index.vue
 │   ├── stores/
 │   │   ├── auth.store.ts
-│   │   ├── guests.store.ts
-│   │   ├── gifts.store.ts
-│   │   └── ui.store.ts
-│   ├── types/
-│   │   ├── database.types.ts          # gerado via Supabase CLI, nunca editado à mão
-│   │   ├── wedding.ts / guest.ts / gift.ts / rsvp.ts / event-segment.ts / communication.ts
+│   │   └── ui.store.ts                # guests/gifts NÃO são Pinia — server state via composables (CLAUDE.md 10)
+│   ├── types/                         # 1:1 por entidade (guest.ts, invite.ts, group.ts, gift.ts, rsvp.ts...),
+│   │                                   # + database.types.ts gerado via Supabase CLI, nunca editado à mão
 │   └── utils/
-│       ├── formatters.ts
-│       └── validators.ts
 ├── server/
 │   ├── api/
 │   │   ├── auth/
-│   │   │   └── session.get.ts
-│   │   ├── wedding/                   # singleton — configurações do evento (admin)
-│   │   │   ├── index.get.ts
-│   │   │   └── index.patch.ts
+│   │   ├── wedding/                   # config do evento, theme, content, gallery (connection/sync/preview)
 │   │   ├── guests/
-│   │   │   ├── index.get.ts / index.post.ts
-│   │   │   ├── [id].patch.ts / [id].delete.ts
-│   │   │   └── import.post.ts         # enfileira job de importação CSV
-│   │   ├── guest-groups/
-│   │   │   ├── index.get.ts / index.post.ts
-│   │   │   └── [id].patch.ts / [id].delete.ts
-│   │   ├── event-segments/
-│   │   │   ├── index.get.ts / index.post.ts
-│   │   │   └── [id].patch.ts / [id].delete.ts  # exclusão física — ver CLAUDE.md 11
+│   │   ├── invites/                   # unidade de RSVP (antiga "guest-groups") — CRUD + tags
+│   │   ├── groups/                    # etiqueta livre — CRUD
+│   │   ├── guest-access-tokens/
+│   │   ├── invite-tags/
+│   │   ├── event-segments/            # exclusão física — ver CLAUDE.md 11
 │   │   ├── public/                    # sem autenticação e sem token — site público (CLAUDE.md 4.5)
-│   │   │   ├── wedding.get.ts
-│   │   │   └── event-segments.get.ts
+│   │   │   └── [slug]/                # wedding, event-segments, gifts, photos, rsvp-search
 │   │   ├── rsvp/
-│   │   │   ├── [code].get.ts          # resolve token, retorna dados do grupo/convidado
-│   │   │   └── [code].post.ts         # submete/atualiza resposta (função transacional)
-│   │   ├── gifts/
-│   │   │   ├── index.get.ts / index.post.ts
-│   │   │   ├── [id].patch.ts
-│   │   │   ├── [id]/reserve.post.ts
-│   │   │   ├── [id]/contribute.post.ts
-│   │   │   └── [id]/cancel.post.ts
-│   │   ├── communications/
-│   │   │   ├── index.get.ts
-│   │   │   └── reminders.post.ts      # enfileira job de lembrete em lote
-│   │   └── admin/
-│   │       ├── members.get.ts / members.post.ts
-│   │       └── audit-logs.get.ts
+│   │   │   ├── [code].get.ts                     # link/QR direto — resolve token, retorna o convite
+│   │   │   ├── guests/[guestId].put.ts            # upsert_guest_rsvp — RSVP por convidado
+│   │   │   └── invites/[inviteId]/finalize.post.ts # finalize_invite_rsvp — acompanhante avulso + mensagem
+│   │   ├── public/rsvp-search/        # select.post.ts, confirm.post.ts — segundo caminho de entrada (6.2)
+│   │   ├── gifts/                     # CRUD admin + [id]/reservations.get.ts
+│   │   ├── gift-categories/
+│   │   ├── public/gifts/              # [id]/reserve.post.ts, [id]/checkout.post.ts,
+│   │   │                              # payments/[id]/status.get.ts, payments/webhook.post.ts
+│   │   ├── photos/                    # [id].patch.ts, reorder.patch.ts (sem POST/upload — ver 4.5)
+│   │   ├── cron/                      # sync-galleries.get.ts (Vercel Cron, CRON_SECRET)
+│   │   ├── dashboard/                 # summary.get.ts
+│   │   └── admin/                     # members, audit-logs, search
 │   ├── middleware/
-│   │   ├── request-context.ts         # request id, logging estruturado
-│   │   └── rate-limit.ts              # backed by Upstash Redis
-│   ├── utils/
-│   │   ├── supabase-admin.ts          # client com service_role key (uso restrito e auditável)
-│   │   ├── wedding-context.ts         # resolve wedding_id/role do usuário autenticado — função, não middleware (ver 3.1)
-│   │   ├── errors.ts                  # tipos de erro padronizados + mapeamento HTTP
-│   │   └── jobs/
-│   │       ├── enqueue.ts
-│   │       └── handlers/              # um handler por `jobs.type` (csv-import, send-reminder, ...)
-│   └── jobs-worker/                   # processo/rota separada que consome a fila `jobs`
-├── shared/
-│   └── schemas/                       # Zod schemas por domínio (alias #shared) — únicos importáveis por client E server
+│   │   └── rate-limit.ts              # backed by Upstash Redis — cobre /api/rsvp/**, rsvp-search, gifts públicos
+│   └── utils/                         # supabase-admin, wedding-context, errors, guest-access-token,
+│                                       # rsvp-invite-payload, gift-payment, infinitepay, google-drive,
+│                                       # gallery-sync(-trigger), token-cipher, validate-same-venue...
+├── shared/                            # alias #shared — únicos importáveis por client E server
+│   ├── schemas/                       # Zod por domínio (guests, invites, groups, gifts, theme, content...)
+│   └── utils/                         # contrast, filter-gifts, mask-name, event-datetime, guest-age...
 ├── supabase/
 │   ├── migrations/                    # schema + funções Postgres transacionais, ver CLAUDE.md 13
-│   ├── functions/                     # Supabase Edge Functions (Deno) — reservado, não usado nesta fase
-│   ├── policies/                      # README indexando onde cada RLS policy está definida (não duplica SQL)
 │   └── seed.sql
 ├── tests/
-│   ├── unit/                          # composables, utils, schemas Zod
-│   ├── integration/
-│   │   ├── api/                       # endpoints server/api contra Supabase local
-│   │   ├── rls/                       # suíte dedicada de isolamento entre wedding_id
-│   │   └── guest-path/                # suíte dedicada de autorização manual (ver CLAUDE.md 4.5/14.6)
+│   ├── unit/                          # composables, utils, schemas Zod, componentes
 │   └── e2e/                           # Playwright — fluxos críticos ponta a ponta
+├── docs/
+│   ├── ARCHITECTURE.md
+│   └── CHANGELOG.md                   # histórico de decisões/incidentes (CLAUDE.md 32)
 ├── .env.example
 ├── nuxt.config.ts
+├── vercel.json                        # cron da sincronização de galeria
 ├── tsconfig.json
 └── CLAUDE.md
 ```
 
+**Nota sobre `jobs`/worker assíncrono**: a tabela `jobs` (CLAUDE.md 11.1) e o worker descrito na seção 3.4 abaixo permanecem como desenho de arquitetura para a Fase 2 (importação de CSV, lembretes em lote) — `server/utils/jobs/` e um processo/rota de worker dedicado **ainda não foram implementados**; hoje não há nenhuma fila assíncrona real no código. Tratar a seção 3.4 como especificação a implementar, não como descrição do estado atual. `communications` (CLAUDE.md 11.1) é a mesma situação — tabela reservada no schema, sem `server/api/communications/` ainda.
+
 ### 1.1 Notas sobre a estrutura
 
-- `server/api` é organizado **por recurso de domínio**, espelhando 1:1 as tabelas descritas no CLAUDE.md (11.1) — facilita localizar rapidamente onde uma regra de negócio de uma tabela específica está implementada.
-- **Correção sobre `supabase/functions/`**: esse diretório é reservado pela própria Supabase CLI para *Edge Functions* (Deno/TypeScript) — um arquivo `.sql` ali dentro nunca seria aplicado ao banco. As funções Postgres com controle de concorrência explícito (reserva de presente, confirmação de RSVP contra `max_members`) por isso vivem como migrations normais em `supabase/migrations/`, na ordem em que passam a existir no schema (ver 4.4). `supabase/functions/` fica vazio até o projeto realmente precisar de uma Edge Function.
+- `server/api` é organizado **por recurso de domínio**, espelhando 1:1 as tabelas descritas no CLAUDE.md (11.1) — facilita localizar rapidamente onde uma regra de negócio de uma tabela específica está implementada. Alguns domínios (RSVP, presentes) têm rotas espalhadas entre um namespace autenticado e um em `public/`, refletindo o modelo de confiança por fluxo (CLAUDE.md 4.5), não um desvio da convenção.
+- **Correção sobre `supabase/functions/`**: esse diretório é reservado pela própria Supabase CLI para *Edge Functions* (Deno/TypeScript) — um arquivo `.sql` ali dentro nunca seria aplicado ao banco. As funções Postgres com controle de concorrência explícito (reserva de presente, `finalize_invite_rsvp`) por isso vivem como migrations normais em `supabase/migrations/`, na ordem em que passam a existir no schema (ver 4.4). `supabase/functions/` fica vazio (só `.gitkeep`) até o projeto realmente precisar de uma Edge Function.
+- `supabase/policies/` **não duplica** o SQL das RLS policies (isso criaria duas fontes de verdade divergentes) — mantém um README que documenta a convenção de nomenclatura e indexa em qual migration cada tabela tem suas policies definidas, que é o único artefato que efetivamente governa o banco.
 - `supabase/policies/` **não duplica** o SQL das RLS policies (isso criaria duas fontes de verdade divergentes) — mantém um README que documenta a convenção de nomenclatura e indexa em qual migration cada tabela tem suas policies definidas, que é o único artefato que efetivamente governa o banco.
 - `server/jobs-worker/` é logicamente separado de `server/api` mesmo rodando no mesmo processo Nitro na v1 — isso permite, no futuro, extraí-lo para um serviço/worker dedicado sem reestruturar o restante do backend.
 - **Correção sobre `schemas/`**: não vivem em `server/utils/schemas/` como a primeira versão desta árvore sugeria — código sob `server/` roda só em Nitro e não é importável pelo bundle do client no Nuxt. Um schema Zod que precisa validar tanto no formulário (client) quanto no handler (server) só pode viver em `shared/` (alias `#shared`, um diretório de primeira classe do Nuxt 4 acessível dos dois lados).
@@ -291,7 +269,7 @@ Um terceiro ambiente (`staging`, entre `dev` e `prod`) é uma extensão natural 
 
 ### 4.4 Funções Postgres para operações transacionais
 
-Operações com controle de concorrência explícito (CLAUDE.md 13/18.3) — reserva de presente, confirmação de RSVP contra `max_members` — são implementadas como funções Postgres versionadas em `supabase/migrations/` (`reserve_gift`, `cancel_gift_reservation`, `confirm_rsvp`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas. Nenhuma é `SECURITY DEFINER`: rodam com o papel de quem chama, para que o caminho administrativo continue protegido por RLS como defesa em profundidade (o caminho do convidado já ignora RLS via `service_role`, ver 4.5).
+Operações com controle de concorrência explícito (CLAUDE.md 13/16.4/18.3) — reserva de presente, acompanhante avulso contra `invites.max_companions` — são implementadas como funções Postgres versionadas em `supabase/migrations/` (`reserve_gift`, `upsert_guest_rsvp`, `finalize_invite_rsvp`, `sync_guest_party`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas. Nenhuma é `SECURITY DEFINER`: rodam com o papel de quem chama, para que o caminho administrativo continue protegido por RLS como defesa em profundidade (o caminho do convidado já ignora RLS via `service_role`, ver 4.5). `confirm_rsvp()` (Fase 1) foi dropada e substituída pelas duas funções de RSVP acima quando o modelo virou sempre-por-convidado (CLAUDE.md, "Fase 7" no roadmap); `cancel_gift_reservation()` permanece no schema mas está órfã desde que o cancelamento self-service de presentes foi removido (ver 8.4) — nenhum código a chama mais.
 
 `confirm_gift_payment()` (CLAUDE.md 18.4/28.3) segue o mesmo padrão, com uma nuance: o `SELECT ... FOR UPDATE` na própria linha de `gift_payments` funciona como gate de **idempotência**, não de controle de estoque — e uma falha de domínio esperada dentro dela (`GIFT_UNAVAILABLE`, capturada via bloco `EXCEPTION`) é gravada como `status='failed'` em vez de propagada como exceção, porque uma exceção não tratada reverteria a transação inteira da chamada RPC, apagando justamente o registro que precisa ficar visível pro casal resolver manualmente.
 
@@ -323,21 +301,24 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 | Domínio | Base path | Persona | Rate limited |
 |---|---|---|---|
 | Sessão administrativa | `/api/auth` | Admin (JWT) | Não |
-| Configurações do evento | `/api/wedding` | Admin (JWT) | Não |
+| Configurações do evento, tema, conteúdo, galeria | `/api/wedding/*` | Admin (JWT) | Não |
 | Convidados | `/api/guests` | Admin (JWT) | Não |
-| Grupos | `/api/guest-groups` | Admin (JWT) | Não |
+| Convites (unidade de RSVP) | `/api/invites`, `/api/invite-tags`, `/api/guest-access-tokens` | Admin (JWT) | Não |
+| Grupos (etiqueta livre) | `/api/groups` | Admin (JWT) | Não |
 | Cronograma | `/api/event-segments` | Admin (JWT) | Não |
-| Site público (evento + cronograma) | `/api/public/*` | Pública (sem auth, sem token — CLAUDE.md 4.5) | Não |
-| RSVP | `/api/rsvp/[code]` | Convidado (token) | **Sim** |
-| Presentes (leitura) | `/api/gifts` | Pública / Admin | Não |
-| Presentes (reserva grátis/checkout online) | `/api/gifts/[id]/*` | Pública (sem token — CLAUDE.md 4.5/18/32) | **Sim** |
-| Pagamento online (status/webhook) | `/api/gifts/payments/*` | Pública (paymentId como credencial) / InfinitePay (sem auth) | Status: **sim**. Webhook: não (defesa é `payment_check`, não IP — CLAUDE.md 28.3) |
-| Comunicações | `/api/communications` | Admin (JWT) | Não |
-| Galeria (conexão/sync) | `/api/wedding/gallery/*` | Admin (JWT) | Não |
-| Cron de sincronização | `/api/cron/sync-galleries` | Vercel Cron (`CRON_SECRET`) | Não |
+| Galeria (fotos) | `/api/photos/*` | Admin (JWT) | Não |
+| Site público (evento, cronograma, presentes, fotos, busca de RSVP) | `/api/public/[slug]/*` | Pública (sem auth, sem token — CLAUDE.md 4.5) | Busca de RSVP: **sim** |
+| RSVP — link/QR direto | `/api/rsvp/[code]` | Convidado (token) | **Sim** |
+| RSVP — busca por nome | `/api/public/rsvp-search/*` | Convidado (sem token, ver 6.2) | **Sim** |
+| RSVP — resposta/finalização | `/api/rsvp/guests/[guestId]`, `/api/rsvp/invites/[inviteId]/finalize` | Convidado (token ou busca) | **Sim** |
+| Presentes (CRUD/leitura admin) | `/api/gifts`, `/api/gift-categories` | Admin (JWT) | Não |
+| Presentes (reserva grátis/checkout online) | `/api/public/gifts/[id]/*` | Pública (sem token — CLAUDE.md 4.5/18/32) | **Sim** |
+| Pagamento online (status/webhook) | `/api/public/gifts/payments/*` | Pública (paymentId como credencial) / InfinitePay (sem auth) | Status: **sim**. Webhook: não (defesa é `payment_check`, não IP — CLAUDE.md 28.3) |
+| Cron de sincronização de galeria | `/api/cron/sync-galleries` | Vercel Cron (`CRON_SECRET`) | Não |
 | Administração | `/api/admin/*` | Admin (JWT, `owner`) | Não |
+| Comunicações | *(não implementado ainda — Fase 2 do roadmap)* | — | — |
 
-`/api/wedding` e `/api/event-segments` (admin) são endpoints **distintos** de `/api/public/wedding` e `/api/public/event-segments`: a leitura administrativa resolve `wedding_id` a partir do JWT e usa o client da requisição (RLS como defesa em profundidade — 5.3); a leitura pública não recebe nenhuma credencial e depende da policy `select_public` (CLAUDE.md 4.5) para não vazar nada além do que já é público por natureza. Endpoints separados, em vez de um único handler com lógica condicional por autenticação, mantêm cada um com um único modelo de autorização para raciocinar.
+`/api/wedding` e `/api/event-segments` (admin) são endpoints **distintos** de `/api/public/[slug]/wedding` e `/api/public/[slug]/event-segments`: a leitura administrativa resolve `wedding_id` a partir do JWT e usa o client da requisição (RLS como defesa em profundidade — 5.3); a leitura pública não recebe nenhuma credencial e depende da policy `select_public` (CLAUDE.md 4.5) para não vazar nada além do que já é público por natureza. Endpoints separados, em vez de um único handler com lógica condicional por autenticação, mantêm cada um com um único modelo de autorização para raciocinar.
 
 ### 5.2 Convenções de request/response
 
@@ -350,7 +331,7 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 Espelhando o modelo de confiança do CLAUDE.md (4.5/14.6):
 
 - **API administrativa**: cada handler resolve `wedding_id` a partir do JWT (via `wedding_members`) e nunca aceita `wedding_id` vindo do body/query da requisição para decidir o que é acessível — o JWT é a única fonte de verdade sobre qual evento o usuário pode tocar.
-- **API do convidado (RSVP)**: cada handler resolve o registro a partir do hash do token recebido na URL, e todo o restante da autorização (esse `guest`/`group` pertence a esse `wedding`) é revalidado explicitamente dentro do handler — nunca assumida a partir de um único join solto.
+- **API do convidado (RSVP)**: dois caminhos (ver 6.2) — o handler resolve o registro a partir do hash do token recebido na URL (link/QR) **ou** a partir de uma busca por nome sem credencial (`rsvp-search`, fricção via nomes mascarados, não prova de identidade). Em ambos, todo o restante da autorização (esse `guest`/`invite` pertence a esse `wedding`) é revalidado explicitamente dentro do handler — nunca assumida a partir de um único join solto.
 - **API de presentes** (`/api/gifts/[id]/*`, `/api/gifts/payments/*`): sem token nenhum (CLAUDE.md 4.5/18/32) — qualquer requisição bem-formada é aceita, rate limitada por IP. `wedding_id` é resolvido a partir do próprio `gift_id`/`paymentId` da URL (que já o determina unicamente), nunca de uma credencial de identidade. A "autorização" aqui não é "esse recurso pertence a este usuário", é "o valor/quantidade envolvidos são sempre recalculados no servidor, nunca aceitos do client" — um modelo qualitativamente diferente dos dois anteriores.
 - **API pública** (`/api/public/*`, leitura): nenhum handler recebe ou valida credencial — a autorização é inteiramente delegada à policy RLS `select_public` da tabela consultada (CLAUDE.md 4.5). Por isso esse handler só pode existir para tabelas sem nenhum dado sensível; adicionar um novo endpoint em `/api/public/*` exige confirmar antes que a tabela alvo realmente não expõe dado pessoal de convidado.
 
@@ -391,83 +372,103 @@ Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por 
 
 **Nota para testes/dev**: `serverSupabaseUser()` retorna o payload cru do JWT — o id do usuário vem na claim `sub`, não em `id` (esse é o formato do objeto `User` da API de Admin, um tipo diferente). Usar `.id` silenciosamente quebra qualquer query filtrada por esse valor.
 
-### 6.2 Caminho do convidado (RSVP)
+### 6.2 Caminho do convidado (RSVP) — dois pontos de entrada
 
 > Presentes **não** segue este fluxo desde a "Rodada 4" da Fase Presentes 2.0 (CLAUDE.md, seção 4.5/18/32) — é público, sem token; identificação é só nome/telefone coletados no modal. Ver seção 8.
 
+**A — Link/QR direto**:
 ```
-1. Convidado abre /rsvp/{code}
-2. A própria página resolve o código via composable no <script setup>
-   (useRsvp(code).getRsvp()) — sem middleware, ver correção em 2.4
+1. Convidado abre /{slug}/rsvp/{code}
+2. A própria página resolve o código via composable no <script setup> — sem middleware, ver correção em 2.4
 3. GET /api/rsvp/[code]:
    a. calcula hash do código recebido
    b. busca em guest_access_tokens por code_hash, com revoked_at nulo
    c. não encontrado/revogado → erro de domínio dedicado (nunca "500 genérico",
       para permitir uma tela clara de "link inválido ou expirado")
-   d. encontrado → resolve guest/group + wedding + event_segments associados,
+   d. encontrado → resolve invite + todos os guests do convite + wedding + event_segments,
       retorna apenas esse recorte de dados
-4. Formulário de RSVP é preenchido e submetido usando o mesmo token
-5. POST /api/rsvp/[code] revalida o token da mesma forma antes de qualquer escrita
 ```
 
-### 6.3 Diferença de postura entre os dois caminhos
+**B — Busca por nome, sem código** (`/{slug}/rsvp`):
+```
+1. GET /api/public/[slug]/rsvp-search?q=... → RPC search_guests_by_name (busca tolerante:
+   acentuação, ordem invertida, apelido, parcial) → retorna só {guestId, fullName}, no máximo
+   8 resultados, filtrando convidados sem invite_id (nada a confirmar)
+2. POST /api/public/rsvp-search/select { guestId } → "confirmação leve": retorna os nomes
+   MASCARADOS dos demais membros do mesmo convite, sem revelar guestId de terceiros
+3. Convidado confirma "sim, sou eu" → POST /api/public/rsvp-search/confirm { guestId } →
+   retorna o mesmo payload completo do caminho A (equivalente a GET /api/rsvp/[code])
+```
 
-O caminho administrativo tem duas camadas de checagem (client para UX, RLS no banco como última linha — CLAUDE.md 4.5). O caminho do convidado tem uma única camada real de enforcement, inteiramente no `server/api` — por isso todo endpoint desse caminho é tratado, na suíte de testes (seção 9), com o mesmo rigor que se testaria uma policy de RLS.
+Os dois caminhos convergem na mesma tela (lista de convidados do convite). Cada convidado responde de forma independente:
+```
+4. PUT /api/rsvp/guests/[guestId] (upsert_guest_rsvp) — autosave a cada toque em
+   confirmar/recusar, sem lock de convite; grava evento em invite_events
+5. POST /api/rsvp/invites/[inviteId]/finalize (finalize_invite_rsvp) — revisão final:
+   acompanhante avulso (só se guest_list_mode='open', SELECT ... FOR UPDATE na linha do
+   convite contra max_companions) + mensagem única ao casal
+```
+
+### 6.3 Diferença de postura entre os caminhos
+
+O caminho administrativo tem duas camadas de checagem (client para UX, RLS no banco como última linha — CLAUDE.md 4.5). Os dois caminhos do convidado têm uma única camada real de enforcement, inteiramente no `server/api` — por isso todo endpoint desses caminhos é tratado, na suíte de testes (seção 9), com o mesmo rigor que se testaria uma policy de RLS. Entre si, os dois caminhos do convidado também têm posturas diferentes: o link/QR prova posse de uma credencial (o token); a busca por nome não prova nada, só adiciona fricção (nomes mascarados) — um trade-off deliberado de UX sobre segurança, aceito na "Fase Jornada do Convidado" (CLAUDE.md, seção 32/14.5).
 
 ---
 
 ## 7. Fluxo de RSVP
 
+RSVP é sempre **por convidado** — não existe mais um envio único que cobre todo um grupo de uma vez (ver CLAUDE.md, seção 16, e "Fase 7" no roadmap).
+
 ### 7.1 Carregamento inicial
 
 ```
-1. GET /api/rsvp/[code] resolve token → retorna:
-   - dados do wedding (nome do casal, data, event_segments)
-   - dados do guest ou guest_group (conforme rsvp_mode)
-   - resposta já existente, se houver (para reabrir em modo de edição)
-2. Página renderiza formulário pré-preenchido se já existir resposta,
-   ou formulário em branco se for a primeira submissão
+1. Caminho A (GET /api/rsvp/[code]) ou caminho B (busca por nome + confirmação leve,
+   ver 6.2) resolvem o mesmo payload: dados do wedding (nome do casal, data,
+   event_segments) + todos os guests do invite, cada um com sua própria resposta
+   (se já existir, para reabrir em modo de edição)
+2. Página renderiza a lista de convidados do convite — cada um com seu próprio
+   estado de confirmar/recusar, não um formulário único para o convite inteiro
 ```
 
-### 7.2 Submissão — caminho de confirmação
+### 7.2 Submissão — por convidado
 
 ```
 1. Client valida com o schema Zod compartilhado (feedback imediato)
-2. POST /api/rsvp/[code] com { status: 'confirmed', companions: [...], dietaryNotes, message }
-3. Handler revalida o token e o schema no server
-4. Chamada RPC à função Postgres de confirmação de RSVP:
+2. PUT /api/rsvp/guests/[guestId] com { status: 'confirmed' | 'declined', dietaryRestrictions? }
+3. Handler revalida o guestId contra o invite já resolvido (caminho A ou B) e o schema no server
+4. RPC upsert_guest_rsvp() — sem lock de convite (cada convidado é independente):
+   upsert em rsvp_responses (chave: guest_id, único), grava responded_at,
+   registra o evento em invite_events na mesma transação
+5. Sucesso → resposta confirma o novo estado; UI atualiza esse convidado imediatamente
+   (autosave a cada toque, não um submit único no fim do formulário)
+6. Job assíncrono (opcional, Fase 2): enfileira e-mail de confirmação, registrado em communications
+```
+
+Recusar (`status: 'declined'`) usa o mesmo endpoint — não coleta `dietaryRestrictions` no client (CLAUDE.md 16.3), mas a validação de negócio real (não há acompanhante avulso a checar aqui) só entra na revisão final (7.3).
+
+### 7.3 Revisão final do convite (acompanhante avulso + mensagem)
+
+```
+1. Depois de cada convidado responder, a tela de revisão final chama
+   POST /api/rsvp/invites/[inviteId]/finalize com { companions?: [...], message? }
+2. RPC finalize_invite_rsvp():
    a. abre transação
-   b. SELECT ... FOR UPDATE na linha do guest_group (trava a checagem de max_members)
-   c. conta acompanhantes já confirmados no grupo + os novos desta submissão
-   d. excede max_members → aborta transação, retorna erro de domínio
-      (ex: "limite de acompanhantes do grupo atingido")
-   e. dentro do limite → upsert em rsvp_responses (chave: guest_id/group_id),
-      substitui os companions associados pelos enviados nesta submissão,
-      grava responded_at
+   b. SELECT ... FOR UPDATE na linha do invite (trava a checagem de max_companions)
+   c. só processa companions se weddings.guest_list_mode = 'open'
+   d. conta acompanhantes avulsos novos — excede invites.max_companions → aborta
+      transação, retorna erro de domínio ("limite de acompanhantes do convite atingido")
+   e. dentro do limite → soft-delete dos companions anteriores + insert dos novos
+      (nunca hard delete — histórico), grava invites.rsvp_message/rsvp_message_at
    f. commit
-5. Sucesso → resposta confirma o novo estado; UI mostra confirmação
-6. Job assíncrono (opcional, Fase 2): enfileira e-mail de confirmação,
-   registrado em communications
-```
-
-### 7.3 Submissão — caminho de recusa
-
-```
-1. Formulário de recusa não coleta companions/dietaryNotes (CLAUDE.md 16.3) —
-   apenas status = 'declined' + message opcional
-2. POST /api/rsvp/[code] segue o mesmo endpoint, mas o handler pula a etapa
-   de checagem de max_members quando status = 'declined' (não há acompanhante
-   a validar) e remove companions pré-existentes, se o convidado estiver
-   corrigindo uma resposta anterior de "confirmado" para "recusado"
 ```
 
 ### 7.4 Edição de resposta já enviada
 
-Reenvio do formulário até `rsvp_deadline` segue exatamente o mesmo endpoint (upsert por token) — não existe um endpoint separado de "editar", o que elimina uma classe inteira de bugs de divergência entre "criar" e "editar". Após `rsvp_deadline`, o handler recusa a escrita com um erro de domínio específico (`RsvpClosedError`), e a UI já havia colocado o formulário em somente leitura preventivamente (CLAUDE.md 16.2).
+Reenvio do formulário até `rsvp_deadline` segue exatamente os mesmos dois endpoints (upsert por `guest_id`, revisão final idempotente) — não existe um endpoint separado de "editar", o que elimina uma classe inteira de bugs de divergência entre "criar" e "editar". Após `rsvp_deadline`, os handlers recusam a escrita com um erro de domínio específico (`RsvpClosedError`), e a UI já havia colocado a tela em somente leitura preventivamente (CLAUDE.md 16.2).
 
 ### 7.5 Reflexo no dashboard administrativo
 
-O dashboard (CLAUDE.md 19) não recebe push em tempo real (CLAUDE.md 16.4/27) — os contadores são lidos de uma `view` agregada (`wedding_rsvp_summary`, CLAUDE.md 13) a cada carregamento/refetch da página administrativa.
+O dashboard (CLAUDE.md 19) não recebe push em tempo real (CLAUDE.md 16.4/27) — os contadores são computados em memória a cada carregamento/refetch da página administrativa, em `server/api/dashboard/summary.get.ts` (via `serverSupabaseClient`, respeitando RLS). A view `wedding_rsvp_summary` que fazia isso na Fase 1 foi removida por achado de segurança (CLAUDE.md 28.4) — estava órfã desde a reescrita do dashboard.
 
 ---
 
@@ -569,14 +570,16 @@ Não existe mais self-service (CLAUDE.md 18.3/32) — `POST /api/gifts/[id]/canc
 | Integração — caminho do convidado | Vitest + Supabase local | Suíte dedicada (`tests/integration/guest-path/`): para cada endpoint público-facing, confirma que um token só acessa o próprio `guest`/`group`/`wedding_id` — cobre exatamente o que RLS não cobre nesse caminho (CLAUDE.md 4.5) |
 | E2E | Playwright | Fluxos críticos ponta a ponta, navegador real |
 
+**Estado real (não aspiracional)**: `tests/integration/{api,rls,guest-path}/` existem como pastas escafoldadas (só `.gitkeep`) — nenhum teste de integração/RLS/caminho-do-convidado foi escrito ainda. A cobertura de segurança hoje vem de `tests/unit/server/` (ex.: `guest-access-token.spec.ts`, `gift-payment.spec.ts`) e de `tests/e2e/` (3 specs: `smoke`, `login`, `guests-invites-rsvp`), não das três suítes dedicadas descritas abaixo. Preencher `rls/` e `guest-path/` continua sendo pré-requisito explícito antes da abertura multi-tenant (CLAUDE.md 33.4) — a ausência delas é uma lacuna real, não só de documentação.
+
 ### 9.2 Por que duas suítes de integração separadas (RLS vs. caminho do convidado)
 
 Essa separação não é redundância — são dois mecanismos de enforcement diferentes (CLAUDE.md 4.5/14.6), cada um podendo falhar de forma independente. Um teste de RLS que passa não diz nada sobre a segurança do `server/api/rsvp/[code]`, porque esse endpoint usa a `service_role key` e nunca é avaliado por RLS. Tratar as duas como a mesma suíte esconderia essa lacuna.
 
 ### 9.3 Fluxos cobertos por E2E (mínimo obrigatório antes de qualquer release)
 
-- Convidado confirma presença com acompanhantes, respeitando `max_members`.
-- Convidado tenta confirmar acompanhantes além do `max_members` — vê erro claro, não um erro genérico.
+- Convidado confirma presença (link/QR e busca por nome) e, na revisão final, adiciona acompanhante avulso respeitando `invites.max_companions`.
+- Convidado tenta adicionar acompanhante avulso além do `max_companions` — vê erro claro, não um erro genérico.
 - Convidado recusa presença (caminho curto, sem campos de acompanhante/dietary).
 - Convidado edita uma resposta já enviada antes do `rsvp_deadline`.
 - Convidado tenta responder após `rsvp_deadline` — formulário em somente leitura.
@@ -589,7 +592,7 @@ Essa separação não é redundância — são dois mecanismos de enforcement di
 
 ### 9.4 Dados de teste
 
-Fábricas de dados (`tests/factories` — não confundir com seed de produto) geram `wedding`, `guest_group`, `guests` e `gifts` com valores mínimos válidos, permitindo que cada teste declare apenas o que é relevante para o cenário em questão. `supabase/seed.sql` continua servindo apenas para desenvolvimento manual local, nunca para os testes automatizados (que devem ser determinísticos e isolados entre execuções).
+Fábricas de dados (`tests/factories` — não confundir com seed de produto) geram `wedding`, `invite`, `guests` e `gifts` com valores mínimos válidos, permitindo que cada teste declare apenas o que é relevante para o cenário em questão. `supabase/seed.sql` continua servindo apenas para desenvolvimento manual local, nunca para os testes automatizados (que devem ser determinísticos e isolados entre execuções).
 
 ### 9.5 Acessibilidade e visual
 
