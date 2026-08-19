@@ -8,10 +8,11 @@
 
 ## Documentação Relacionada
 
-O detalhamento técnico de execução — estrutura de diretórios completa, ciclo de vida de requisição do Nitro, estratégia Supabase por ambiente, organização das APIs e fluxos ponta a ponta de autenticação, RSVP e presentes, além da estratégia de testes — está em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+O detalhamento técnico de execução — estrutura de diretórios completa, ciclo de vida de requisição do Nitro, estratégia Supabase por ambiente, organização das APIs e fluxos ponta a ponta de autenticação, RSVP e presentes, além da estratégia de testes — está em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). O histórico de decisões, achados de bugs reais e rodadas de iteração de cada fase de trabalho — que não é necessário ler para executar uma tarefa nova, mas explica o "porquê" de decisões não óbvias — está em [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
-- Este arquivo (CLAUDE.md) continua sendo o **documento principal e a fonte única de verdade** do projeto: decisões de produto, modelagem de dados, convenções de código e regras de negócio nascem e vivem aqui.
+- Este arquivo (CLAUDE.md) continua sendo o **documento principal e a fonte única de verdade** do projeto: decisões de produto, modelagem de dados, convenções de código e regras de negócio nascem e vivem aqui — sempre descrevendo **o estado atual**, nunca narrativa de processo.
 - `docs/ARCHITECTURE.md` é um documento **complementar e subordinado** — ele não redefine nada do que está aqui, apenas aprofunda como essas decisões se traduzem em execução técnica.
+- `docs/CHANGELOG.md` é **só histórico** — achado de bug, reversão de escopo, rodada de iteração dentro de uma fase. Nunca a única fonte de uma regra atual: se um comportamento só está documentado lá, falta trazê-lo pra cá (ver regra de manutenção na seção 32).
 - `docs/ARCHITECTURE.md` deve ser **consultado (e atualizado, quando aplicável) antes de qualquer alteração estrutural** — mudança na estrutura de pastas, no ciclo de vida de requisição, na estratégia Supabase, na organização das APIs ou nos fluxos críticos ali documentados.
 - Em caso de conflito entre os dois documentos, **este CLAUDE.md prevalece** — a divergência é sinal de que `docs/ARCHITECTURE.md` está desatualizado e precisa ser corrigido.
 
@@ -37,7 +38,7 @@ O detalhamento técnico de execução — estrutura de diretórios completa, cic
 14. [Fluxo de Autenticação](#14-fluxo-de-autenticação)
 15. [Sistema de Convidados](#15-sistema-de-convidados)
 16. [Sistema de RSVP](#16-sistema-de-rsvp)
-17. [Sistema de Grupos](#17-sistema-de-grupos)
+17. [Sistema de Convites e Grupos](#17-sistema-de-convites-e-grupos)
 18. [Sistema de Presentes](#18-sistema-de-presentes)
 19. [Sistema Administrativo](#19-sistema-administrativo)
 20. [Experiência do Usuário (UX)](#20-experiência-do-usuário-ux)
@@ -180,7 +181,7 @@ O produto nasce como uma aplicação de uso único por casamento (single-tenant,
 ### 4.2 Camadas da Aplicação
 
 1. **Apresentação (pages/ + components/)** — responsável apenas por renderização e interação. Não deve conter lógica de acesso a dados diretamente.
-2. **Composables (composables/)** — encapsulam lógica de negócio reutilizável (ex: `useRsvp`, `useGuestGroups`, `useGiftReservation`).
+2. **Composables (composables/)** — encapsulam lógica de negócio reutilizável (ex: `useRsvp`, `useInvites`, `useGifts`).
 3. **Camada de API (server/api/)** — validação de entrada (Zod), autorização, orquestração de regras de negócio, chamadas ao banco.
 4. **Camada de dados (server/utils/db, tipos gerados do Supabase)** — acesso ao Postgres, sempre tipado.
 5. **Banco de Dados (Postgres/Supabase)** — fonte de verdade, com constraints e RLS garantindo integridade mesmo se a camada de aplicação falhar.
@@ -199,7 +200,7 @@ Embora a v1 opere como single-tenant (um casamento por instância/deploy), o mod
 A arquitetura tem **quatro modelos de enforcement de segurança diferentes**, e isso precisa ser explícito para não gerar falsa sensação de proteção uniforme:
 
 - **Caminho administrativo (casal/colaboradores)**: autenticado via Supabase Auth. As requisições ao Postgres carregam `auth.uid()`, e as **RLS policies são a última linha de defesa** — mesmo um bug no `server/api` não vaza dados de outro `wedding_id`, porque o banco recusa a query.
-- **Caminho do convidado (RSVP)**: não há sessão Supabase — o acesso é resolvido por um token opaco (ver 14.3). O Nitro server usa a `service_role key` (que **ignora RLS**) para atender esse fluxo. Isso significa que, para o convidado, **a autorização é inteiramente responsabilidade do código do `server/api`**, não do banco.
+- **Caminho do convidado (RSVP)**: não há sessão Supabase, e há **dois caminhos de entrada** (ver 14.3) — um token opaco (link/QR) ou busca pública por nome (sem token nenhum, só fricção — nomes mascarados dos demais membros do convite). O Nitro server usa a `service_role key` (que **ignora RLS**) para atender os dois. Isso significa que, para o convidado, **a autorização é inteiramente responsabilidade do código do `server/api`**, não do banco — e no caminho por nome, nem "autorização" é o termo certo, já que não há credencial a validar (ver 14.5).
 - **Caminho de presentes (mutação pública, sem token)**: desde a "Fase Presentes 2.0" (seção 18/32), presentear/contribuir **não usa `guest_access_token`** — a página é acessível a qualquer momento, sem link personalizado por convite. Também usa `service_role key` (mesma razão do caminho do convidado: `gift_reservations`/`gift_contributions`/`gift_payments` não têm RLS de escrita pública), mas com uma diferença importante: **não há nenhuma identidade a verificar** — qualquer requisição bem-formada (rate limitada por IP) pode reservar/contribuir. A segurança aqui não é "só o dono pode fazer X", é "o valor/quantidade são sempre calculados no servidor, nunca aceitos do client" (seção 18.4) — um modelo de confiança genuinamente diferente do caminho do convidado, não uma variação dele.
 - **Caminho público (site do casamento)**: sem sessão e sem token — qualquer pessoa com o link (ex.: home pública, `GET /api/public/wedding`, `GET /api/public/event-segments`). Como as colunas expostas por esse caminho nunca são sensíveis, o enforcement continua sendo **RLS**, via uma policy de leitura explícita e deliberada (`<tabela>_select_public`, `using (true)`) — o banco permanece a última linha de defesa mesmo sem autenticação alguma, em vez de empurrar essa responsabilidade para o `server/api` como nos dois caminhos anteriores. Esse padrão só é válido para tabelas sem nenhum dado sensível (hoje: `weddings`, `event_segments`, `gifts`, `gift_categories` — leitura) — nunca para `guests` ou qualquer tabela com dado pessoal de convidado identificável.
 
@@ -212,82 +213,76 @@ Consequência prática: tanto o caminho do convidado quanto o caminho de present
 ```
 wedding-platform/
 ├── app/
-│   ├── assets/                  # CSS global, fontes, imagens processadas pelo build
+│   ├── assets/                  # CSS global (Tailwind v4 via @theme, sem tailwind.config.ts), fontes
 │   │   └── css/
 │   │       └── main.css
 │   ├── components/
 │   │   ├── ui/                  # Design System — componentes atômicos (Button, Input, Badge...)
-│   │   ├── public/              # Componentes do site público (Hero, EventSpotlight, GallerySection)
+│   │   ├── public/              # Componentes do site público (Hero, GrandeDiaSection, GallerySection)
 │   │   ├── rsvp/                # Componentes do fluxo de RSVP
 │   │   ├── gifts/                # Componentes da lista de presentes
-│   │   └── admin/               # Componentes exclusivos do painel administrativo
-│   ├── composables/
-│   │   ├── useAuth.ts
-│   │   ├── useGuests.ts
-│   │   ├── useGuestGroups.ts
-│   │   ├── useRsvp.ts
-│   │   ├── useGifts.ts
-│   │   └── useWedding.ts
+│   │   └── admin/               # Componentes exclusivos do painel administrativo (guests/, gifts/...)
+│   ├── composables/              # useAuth, useGuests, useInvites, useGroups, useRsvp, useGifts,
+│   │                              # useWedding, useWeddingTheme, useGalleryConnection... (1:1 por domínio)
 │   ├── layouts/
 │   │   ├── default.vue          # Layout do site público
 │   │   ├── admin.vue            # Layout do painel administrativo
 │   │   └── auth.vue             # Layout de telas de login/cadastro
 │   ├── middleware/
-│   │   ├── auth.global.ts       # Protege rotas /admin/**
-│   │   └── guest-access.ts      # Valida token de acesso do convidado, se aplicável
+│   │   └── auth.global.ts       # Protege rotas /admin/** (sem middleware de guest-access — a
+│   │                              # autorização do convidado é responsabilidade do server, ver 4.5)
 │   ├── pages/
-│   │   ├── index.vue            # Home pública do casamento
-│   │   ├── rsvp/
-│   │   │   └── [code].vue       # RSVP via código único do convidado/grupo
-│   │   ├── presentes/
-│   │   │   └── index.vue
+│   │   ├── index.vue            # Redireciona/resolve pro casamento ativo
 │   │   ├── login.vue
+│   │   ├── [slug]/               # Site público, sempre sob o slug do casamento
+│   │   │   ├── index.vue
+│   │   │   ├── rsvp/
+│   │   │   │   ├── index.vue    # Busca por nome, sem código
+│   │   │   │   └── [code].vue   # Link/QR direto do convite
+│   │   │   ├── presentes/
+│   │   │   │   ├── index.vue
+│   │   │   │   └── pagamento/[paymentId].vue
+│   │   │   └── galeria.vue
 │   │   └── admin/
 │   │       ├── index.vue        # Dashboard
 │   │       ├── convidados/
-│   │       ├── grupos/
+│   │       ├── convites/        # Convite = unidade de RSVP (ver seção 17)
+│   │       ├── grupos/          # Grupo = etiqueta livre (ver seção 17)
 │   │       ├── presentes/
+│   │       ├── cronograma/
+│   │       ├── galeria/
 │   │       └── configuracoes/
-│   ├── stores/                  # Pinia stores
-│   │   ├── auth.store.ts
-│   │   ├── guests.store.ts
-│   │   ├── gifts.store.ts
-│   │   └── ui.store.ts
-│   ├── types/
-│   │   ├── database.types.ts    # Tipos gerados a partir do schema Supabase
-│   │   ├── guest.ts
-│   │   ├── gift.ts
-│   │   └── rsvp.ts
+│   ├── stores/                  # Pinia — só auth.store.ts e ui.store.ts (ver seção 10; guests/gifts
+│   │                              # são server state via composables + useAsyncData, não store)
+│   ├── types/                    # Tipos de domínio derivados de database.types.ts (1:1 por entidade)
 │   └── utils/
-│       ├── formatters.ts
-│       └── validators.ts
 ├── server/
 │   ├── api/
-│   │   ├── guests/
-│   │   │   ├── index.get.ts
-│   │   │   ├── index.post.ts
-│   │   │   └── [id].patch.ts
-│   │   ├── rsvp/
-│   │   │   └── [code].post.ts
-│   │   ├── gifts/
-│   │   │   ├── index.get.ts
-│   │   │   └── [id]/reserve.post.ts
-│   │   └── auth/
-│   │       └── session.get.ts
+│   │   ├── guests/ invites/ groups/ invite-tags/ guest-access-tokens/  # domínio de convidados/RSVP
+│   │   ├── rsvp/                 # [code].get.ts, guests/[guestId].put.ts, invites/[id]/finalize.post.ts
+│   │   ├── gifts/ gift-categories/
+│   │   ├── wedding/               # dados do evento, theme, content, gallery (sync/connection)
+│   │   ├── public/                # [slug]/wedding, [slug]/rsvp-search, gifts/**, rsvp-search/**
+│   │   ├── admin/ auth/ dashboard/ event-segments/ photos/ cron/
 │   ├── middleware/
 │   │   └── rate-limit.ts
-│   └── utils/
-│       ├── supabase.ts          # cliente admin (service role) server-side
-│       └── schemas/             # schemas Zod compartilhados por endpoint
+│   └── utils/                    # supabase-admin, gift-payment, gallery-sync, google-drive,
+│                                   # token-cipher, guest-access-token, rsvp-invite-payload...
+├── shared/                       # Código compartilhado client/server (schemas Zod, presets, conteúdo)
+│   ├── schemas/                  # 1 arquivo por domínio (guests, invites, groups, gifts, theme...)
+│   └── utils/                    # contrast, filter-gifts, mask-name, event-datetime...
 ├── supabase/
 │   ├── migrations/               # migrations SQL versionadas
 │   └── seed.sql                  # dados de exemplo para desenvolvimento
 ├── tests/
 │   ├── unit/
 │   └── e2e/
+├── docs/
+│   ├── ARCHITECTURE.md
+│   └── CHANGELOG.md              # histórico de decisões/incidentes (ver seção 32)
 ├── public/                       # arquivos estáticos servidos diretamente
 ├── nuxt.config.ts
-├── tailwind.config.ts
+├── vercel.json                   # cron da sincronização de galeria (ver seção 32)
 ├── tsconfig.json
 ├── package.json
 └── CLAUDE.md
@@ -448,12 +443,12 @@ Modelo de decisão em camadas — do mais local ao mais global:
 - **SGBD**: PostgreSQL 15+ (via Supabase).
 - **Modelagem**: normalizada (3FN) como padrão; denormalização só é aceita com justificativa de performance documentada em comentário SQL.
 - **Chaves primárias**: `uuid` (`gen_random_uuid()`), nunca `serial`/`bigserial` — evita vazamento de contagem de registros e facilita merge futuro entre tenants.
-- **Timestamps**: toda tabela possui `created_at` e `updated_at` (`timestamptz`, default `now()`), atualizados via trigger `set_updated_at`.
-- **Soft delete**: entidades com valor histórico (convidados, presentes) usam `deleted_at timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria. `guest_groups` também usa soft delete — não por valor histórico próprio, mas porque `guests.group_id` é `NOT NULL` com `ON DELETE RESTRICT`: um grupo nunca pode ser excluído fisicamente enquanto qualquer convidado, mesmo já soft-deleted, ainda referenciar seu id (ver seção 17.3). `event_segments`, por outro lado, usa exclusão física — nenhuma outra tabela referencia essa entidade e ela não tem valor histórico por si só.
+- **Timestamps**: toda tabela possui `created_at` e `updated_at` (`timestamptz`, default `now()`), atualizados via trigger `set_updated_at`. Exceção deliberada: `invite_events` (log append-only) não tem `updated_at` — um log nunca é editado.
+- **Soft delete**: entidades com valor histórico (convidados, presentes) usam `deleted_at timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria. `invites` e `groups` também usam soft delete — não por valor histórico próprio, mas porque `guests.invite_id`/`guests.group_id` podem referenciar essas linhas mesmo após um convidado ser soft-deleted (ver seção 17.3). `event_segments`, por outro lado, usa exclusão física — nenhuma outra tabela referencia essa entidade e ela não tem valor histórico por si só. `guest_parties` e `invite_tags` não têm soft delete — não carregam valor histórico próprio (ver seção 12.2).
 - **Row Level Security (RLS)**: habilitado em **todas** as tabelas desde a v1, mesmo em modo single-tenant. Na maioria das tabelas, a policy filtra por `wedding_id` pertencente ao usuário autenticado (caminho administrativo, preparando a base para o modelo SaaS); `weddings` e `event_segments` também têm uma policy adicional de leitura pública, sem filtro de `wedding_id`, para atender o site público (ver 4.5). O caminho do convidado tem enforcement próprio, fora de RLS (ver 4.5 e 28).
-- **`wedding_id` denormalizado em toda tabela filha**: mesmo quando `wedding_id` é tecnicamente derivável via join (ex.: `guests` → `guest_groups` → `weddings`), a coluna é duplicada diretamente na tabela filha (`guests.wedding_id`, `rsvp_responses.wedding_id`, `gift_reservations.wedding_id` etc.). Isso simplifica e acelera as RLS policies (evita join por linha) e prepara particionamento futuro por `wedding_id` (ver 33.4). A consistência entre `guests.wedding_id` e `guests.group_id → guest_groups.wedding_id` é garantida por `CHECK`/trigger, não apenas por convenção.
-- **Tokens de acesso hasheados em repouso**: qualquer valor que funcione como credencial (código de acesso do convidado) é armazenado como hash (ex.: SHA-256), nunca em texto plano — comparação sempre feita pelo hash do valor recebido. Reduz o dano de um vazamento de banco a zero reutilização direta dos códigos.
-- **Extensões utilizadas**: `pgcrypto` (geração de UUID e hashing), `citext` (e-mails case-insensitive).
+- **`wedding_id` denormalizado em toda tabela filha**: mesmo quando `wedding_id` é tecnicamente derivável via join (ex.: `guests` → `invites` → `weddings`), a coluna é duplicada diretamente na tabela filha (`guests.wedding_id`, `rsvp_responses.wedding_id`, `gift_reservations.wedding_id` etc.). Isso simplifica e acelera as RLS policies (evita join por linha) e prepara particionamento futuro por `wedding_id` (ver 33.4). A consistência entre `guests.wedding_id` e `guests.invite_id → invites.wedding_id` (assim como `group_id`/`party_id`, quando preenchidos) é garantida por trigger, não apenas por convenção.
+- **Tokens de acesso hasheados em repouso**: qualquer valor que funcione como credencial (código de acesso do convite) é armazenado como hash (ex.: SHA-256), nunca em texto plano — comparação sempre feita pelo hash do valor recebido. Reduz o dano de um vazamento de banco a zero reutilização direta dos códigos.
+- **Extensões utilizadas**: `pgcrypto` (geração de UUID e hashing), `citext` (e-mails case-insensitive), `unaccent` (busca tolerante de nome, ver 12.1).
 
 ### 11.1 Visão geral das tabelas
 
@@ -464,10 +459,14 @@ Modelo de decisão em camadas — do mais local ao mais global:
 | `weddings` | Um casamento/evento — unidade central de particionamento |
 | `wedding_members` | Usuários com acesso administrativo a um casamento (casal, colaboradores) |
 | `event_segments` | Etapas do evento (cerimônia, recepção, festa), cada uma com local e horário próprios |
-| `guest_groups` | Agrupamento de convidados (família, "amigos do trabalho", etc.) |
-| `guests` | Convidados individuais, sempre pertencentes a um grupo |
-| `rsvp_responses` | Resposta de confirmação de presença, vinculada a um convidado ou grupo |
-| `companions` | Acompanhantes nominais declarados em uma resposta de RSVP (nome, restrição alimentar) |
+| `invites` | Convite — quem recebeu o mesmo convite físico/digital. Unidade real de RSVP, com um Convidado Responsável opcional (`responsible_guest_id`) |
+| `groups` | Etiqueta organizacional livre do convidado (Família da Noiva, Amigos, Trabalho...) — **não é** a unidade de RSVP; não confundir com `invites` nem `guest_parties` (ver 12.1) |
+| `guest_parties` | Agrupamento simétrico de "Acompanhantes" — convidados comumente convidados juntos (casal, pais e filhos); nunca chamado de "família" na UI |
+| `guests` | Convidados individuais, sempre pertencentes a um convite (`invite_id`) |
+| `rsvp_responses` | Resposta de confirmação de presença, sempre por convidado (`guest_id`) |
+| `companions` | Acompanhante avulso (nome sem cadastro prévio) de um convite — só existe quando `weddings.guest_list_mode = 'open'` |
+| `invite_tags` / `invite_tag_links` | Etiquetas internas reutilizáveis de convite (VIP, Mesa 01...), M:N — só uso administrativo, nunca exibidas ao convidado |
+| `invite_events` | Log append-only de eventos por convite (criado, token gerado/enviado, primeiro acesso, mudança de status de RSVP, mensagem enviada, arquivado) — alimenta auditoria e a Linha do Tempo visual do convite no admin |
 
 **Presentes**
 
@@ -475,23 +474,23 @@ Modelo de decisão em camadas — do mais local ao mais global:
 |---|---|
 | `gift_categories` | Categorias da lista de presentes (opcional, para organização visual) |
 | `gifts` | Itens da lista de presentes, incluindo presentes de cota (`is_group_gift`) |
-| `gift_reservations` | Reserva integral de um presente unitário por um convidado/grupo — grátis (o convidado compra por fora) ou paga online via InfinitePay (ver `gift_payments`) |
-| `gift_contributions` | Contribuição parcial em dinheiro para um presente de cota (`is_group_gift = true`) — sempre paga online (InfinitePay) desde a "Fase Presentes 2.0" (seção 18) |
-| `gift_payments` | Tentativas de checkout Pix via InfinitePay — única origem de efeito de negócio no caminho pago; `gift_reservations`/`gift_contributions` só são gravadas depois de um pagamento confirmado (seção 18/28) |
+| `gift_reservations` | Reserva integral de um presente unitário — grátis (o convidado compra por fora) ou paga online via InfinitePay (ver `gift_payments`) |
+| `gift_contributions` | Contribuição parcial em dinheiro para um presente de cota (`is_group_gift = true`) — sempre paga online (InfinitePay) desde a "Fase Presentes 2.0" |
+| `gift_payments` | Tentativas de checkout via InfinitePay — única origem de efeito de negócio no caminho pago; `gift_reservations`/`gift_contributions` só são gravadas depois de um pagamento confirmado (seção 18/28) |
 
 **Acesso e comunicação**
 
 | Tabela | Propósito |
 |---|---|
-| `guest_access_tokens` | Credencial estável de acesso do convidado/grupo (hash do código), independente de quantas comunicações foram enviadas |
+| `guest_access_tokens` | Credencial estável de acesso ao convite (hash do código), sempre por `invite_id` — independente de quantas comunicações foram enviadas |
 | `communications` | Log de cada envio (convite, lembrete, confirmação) por canal — 1:N em relação ao token de acesso |
 
 **Mídia e operação**
 
 | Tabela | Propósito |
 |---|---|
-| `photos` | Itens da galeria de fotos do casal — reservada desde a v1. Desde a **Fase Galeria via Google Drive** (roadmap), deixou de guardar bytes no nosso Storage: cada linha **referencia** um arquivo de uma fonte externa espelhada (`source_connection_id` → `gallery_source_connections`, `source_file_id`, `source_thumbnail_url`, `source_mime_type`), servido direto do Google (thumbnail do Drive), nunca copiado. `storage_path` virou coluna legada (nullable, não mais escrita — o upload manual foi removido). Mantém a policy de leitura pública (`photos_select_public`) além da de membros (seção 4.5) e `focal_x`/`focal_y` (ponto de foco, §22.2). O bucket `wedding-photos` deixou de receber escrita (policies de escrita removidas; DROP em migration de limpeza posterior) |
-| `gallery_source_connections` | Conexão do casamento com a fonte externa da galeria (Google Drive nesta fase). Uma por `wedding_id`. Modo `oauth` (conta do casal, pasta privada, tokens cifrados em repouso — AES-256-GCM) ou `public_link` (URL de pasta pública, listada via API key do projeto). `provider` é ponto de extensão para Google Photos/iCloud sem migration estrutural. Sem policy pública (guarda segredo). Ver **Fase Galeria via Google Drive** |
+| `photos` | Itens da galeria de fotos do casal. Referencia um arquivo de uma fonte externa espelhada (`source_connection_id` → `gallery_source_connections`, `source_file_id`, `source_thumbnail_url`, `source_mime_type`), servido direto do Google (thumbnail do Drive), nunca copiado — `storage_path` é coluna legada (nullable, não mais escrita). Policy de leitura pública (`photos_select_public`) além da de membros (seção 4.5); `focal_x`/`focal_y` (ponto de foco, §22.2) |
+| `gallery_source_connections` | Conexão do casamento com a fonte externa da galeria (Google Drive hoje). Uma por `wedding_id`. Modo `oauth` (tokens cifrados em repouso — AES-256-GCM) ou `public_link` (URL de pasta pública). `provider` é ponto de extensão pra outras fontes sem migration estrutural. Sem policy pública (guarda segredo) |
 | `jobs` | Fila de processamento assíncrono (importação de CSV, envio de e-mail em lote) |
 | `audit_logs` | Trilha de auditoria de ações administrativas sensíveis |
 
@@ -499,148 +498,59 @@ Modelo de decisão em camadas — do mais local ao mais global:
 
 ## 12. Modelo Entidade-Relacionamento
 
-> Os diagramas abaixo são uma representação aproximada (ASCII) para orientação rápida. Em caso de divergência, a lista de colunas e regras em texto (12.2) é a fonte de verdade — diagramas ASCII tendem a desatualizar com o tempo.
+> As tabelas abaixo (colunas-chave e relações, não diagramas ASCII) são a representação de referência. Em caso de divergência, a lista de regras em texto (12.2) é a fonte de verdade.
 
-### 12.1 Diagramas
+### 12.1 Entidades e relações
 
-**Núcleo: evento, locais, grupos, convidados, RSVP**
+**Núcleo: evento, locais, convites, grupos, acompanhantes, RSVP**
 
-```
-┌────────────────┐        ┌────────────────────┐
-│    weddings     │1      *│  wedding_members    │
-│─────────────────│◄──────►│──────────────────────│
-│ id (PK)         │        │ id (PK)              │
-│ slug            │        │ wedding_id (FK)       │
-│ couple_names    │        │ user_id (FK auth)     │
-│ event_date      │        │ role                  │
-│ rsvp_mode       │        └──────────────────────┘
-│ rsvp_deadline   │
-│ theme_config    │
-│ created_at      │
-│ updated_at      │
-└───────┬─────────┘
-        │1
-        │*
-┌───────▼─────────┐
-│  event_segments  │   (cerimônia, recepção, festa — local/horário próprios)
-│──────────────────│
-│ id (PK)          │
-│ wedding_id (FK)  │
-│ title            │
-│ venue_name       │
-│ venue_address    │
-│ venue_latitude   │  (opcional — precisão do mapa)
-│ venue_longitude  │  (opcional — precisão do mapa)
-│ same_venue_as    │  (opcional — reaproveita o local de outro segmento)
-│ starts_at        │
-│ ends_at          │
-│ display_order    │
-└──────────────────┘
-
-┌────────────────┐        ┌────────────────────────┐
-│  guest_groups    │1      *│         guests            │
-│──────────────────│◄──────►│──────────────────────────────│
-│ id (PK)          │        │ id (PK)                      │
-│ wedding_id (FK)  │        │ wedding_id (FK, denormalizado) │
-│ name             │        │ group_id (FK)                  │
-│ max_members      │        │ full_name / email / phone       │
-│ notes            │        │ is_child                          │
-│ deleted_at       │        │ dietary_restrictions                │
-│ created_at       │        │ deleted_at / created_at               │
-└──────────────────┘        └──────────────┬─────────────────────────┘
-                                            │1
-                                            │
-                             ┌──────────────▼─────────────┐
-                             │       rsvp_responses          │
-                             │─────────────────────────────────│
-                             │ id (PK)                           │
-                             │ wedding_id (FK, denormalizado)      │
-                             │ guest_id (FK, nullable)               │
-                             │ group_id (FK, nullable)                 │
-                             │ status (enum)                             │
-                             │ dietary_notes / message                     │
-                             │ responded_at                                  │
-                             └──────────────┬───────────────────────────────────┘
-                                            │1
-                                            │*
-                             ┌──────────────▼─────────────┐
-                             │        companions             │
-                             │─────────────────────────────────│
-                             │ id (PK)                           │
-                             │ rsvp_response_id (FK)                │
-                             │ full_name                              │
-                             │ dietary_restrictions                     │
-                             └───────────────────────────────────────────┘
-```
+| Tabela | FK principal | O que é |
+|---|---|---|
+| `weddings` | — | Evento — `slug`, `couple_names`, `event_date`, `rsvp_deadline`, `guest_list_mode`, `child_max_age`, `theme_config`, `content_config` |
+| `wedding_members` | `wedding_id`; `user_id` (auth) | Acesso administrativo — `role` |
+| `event_segments` | `wedding_id`; `same_venue_as` (auto-referência, opcional) | Cerimônia/recepção/festa — local, horário, `display_order` |
+| `invites` | `wedding_id`; `responsible_guest_id` → `guests` (opcional) | Unidade real de RSVP — `internal_code`, `status` (`pending`\|`sent`), `max_companions`, `rsvp_message`, `archived_at` |
+| `groups` | `wedding_id` | Etiqueta organizacional livre — `name`, `color` |
+| `guest_parties` | `wedding_id` | Agrupamento simétrico de Acompanhantes — sem colunas de negócio próprias |
+| `guests` | `wedding_id` (denormalizado); `invite_id` → `invites` (restrict); `group_id` → `groups` (opcional); `party_id` → `guest_parties` (opcional) | Convidado individual — nome, contato, `nickname`/`sex`/`birth_date`/`photo_path`/`wedding_role`, restrição alimentar, `party_order` |
+| `rsvp_responses` | `wedding_id` (denormalizado); `guest_id` → `guests` (obrigatório, único); `invite_id` (denormalizado) | Resposta de RSVP, sempre por convidado — `status` (`pending`\|`confirmed`\|`declined`\|`waitlisted`\|`removed`) |
+| `companions` | `invite_id` → `invites` | Acompanhante avulso do convite (nome livre) — só quando `guest_list_mode = 'open'`; soft delete |
+| `invite_tags` / `invite_tag_links` | `wedding_id` (na tag); `invite_id` + `tag_id` (no link) | Etiqueta interna reutilizável de convite, M:N |
+| `invite_events` | `wedding_id`; `invite_id` → `invites` | Log append-only de eventos do convite |
 
 **Presentes**
 
-```
-┌────────────────┐        ┌──────────────────────────┐
-│ gift_categories │1      *│           gifts             │
-│─────────────────│◄──────►│───────────────────────────────│
-│ id (PK)         │        │ id (PK)                          │
-│ wedding_id (FK)  │        │ wedding_id (FK, denormalizado)     │
-│ name             │        │ category_id (FK)                     │
-│ display_order    │        │ title / description / price_cents      │
-└──────────────────┘        │ image_url / quantity_available           │
-                             │ is_group_gift / target_amount_cents        │
-                             │ is_active                                     │
-                             └──────┬────────────────────────────┬────────────┘
-                                    │1                           │1
-                                    │*                           │*
-                     ┌──────────────▼─────────┐   ┌──────────────▼──────────────┐
-                     │   gift_reservations       │   │     gift_contributions        │
-                     │─────────────────────────────│   │─────────────────────────────────│
-                     │ id (PK)                       │   │ id (PK)                           │
-                     │ gift_id (FK)                    │   │ gift_id (FK)                        │
-                     │ guest_id / group_id (nullable)    │   │ guest_id / group_id (nullable)        │
-                     │ contributor_name (avulso)           │   │ contributor_name (avulso)               │
-                     │ reserved_at                            │   │ amount_cents / contributed_at             │
-                     └───────────────────────────────────────┘   └───────────────────────────────────────────┘
-```
-
-> `gift_payments` (seção 18.4, "Fase Presentes 2.0") não está redesenhada acima — o diagrama ASCII já era citado como aproximado no topo desta seção. Resumo: `gift_payments` referencia `gifts`/`invites`, e `gift_reservations.id`/`gift_contributions.id` são referenciados de volta por `gift_payments.resulting_reservation_id`/`resulting_contribution_id` (nullable, `on delete set null`) — é a tabela que, no caminho pago, precede e origina as duas acima.
+| Tabela | FK principal | O que é |
+|---|---|---|
+| `gift_categories` | `wedding_id` | Categoria opcional — `name`, `display_order` |
+| `gifts` | `wedding_id`; `category_id` (opcional) | Item — `price_cents`, `quantity_available`, `is_group_gift`, `target_amount_cents`, `quota_amount_cents`, `display_style`, `emotional_icon` |
+| `gift_reservations` | `gift_id`; `guest_id`/`group_id` (legado, sempre `null` em registros novos) | Reserva integral — `contributor_name`/`giver_phone`, `message` |
+| `gift_contributions` | `gift_id`; `guest_id`/`group_id` (legado, sempre `null` em registros novos) | Contribuição parcial — `amount_cents`, `quota_count`, `contributor_name`/`giver_phone`, `message` |
+| `gift_payments` | `gift_id`; `invite_id` (legado, nullable); `resulting_reservation_id`/`resulting_contribution_id` (nullable, exclusivos entre si) | Tentativa de checkout InfinitePay — `status`, `provider_transaction_nsu`, `provider_invoice_slug` |
 
 **Acesso do convidado, comunicação e auditoria**
 
-```
-┌───────────────────────┐        ┌───────────────────────┐
-│ guest_access_tokens      │1      *│      communications       │
-│───────────────────────────│◄──────►│──────────────────────────────│
-│ id (PK)                     │        │ id (PK)                      │
-│ wedding_id (FK)               │        │ access_token_id (FK)          │
-│ guest_id / group_id             │        │ type (invite|reminder|confirmation) │
-│  (um dos dois, via CHECK)         │        │ channel (email|whatsapp|sms)          │
-│ code_hash                           │        │ sent_at / opened_at                     │
-│ revoked_at / created_at               │        └──────────────────────────────────────────┘
-└──────────────────────────────────────┘
-
-┌────────────────┐
-│  audit_logs     │
-│─────────────────│
-│ id (PK)         │
-│ wedding_id (FK)  │
-│ actor_id (FK, nullable)       │  nulo em ações automatizadas do sistema
-│ actor_type (member | system)    │
-│ action / entity_type / entity_id  │
-│ metadata (jsonb) / created_at       │
-└──────────────────────────────────────┘
-```
+| Tabela | FK principal | O que é |
+|---|---|---|
+| `guest_access_tokens` | `wedding_id`; `invite_id` → `invites` (único ativo por convite, `where revoked_at is null`) | Credencial — `code_hash`, `revoked_at` |
+| `communications` | `access_token_id` → `guest_access_tokens` | Log de envio — `type`, `channel`, `sent_at`/`opened_at` |
+| `gallery_source_connections` | `wedding_id` (único) | Conexão da galeria — `provider`, `mode`, tokens cifrados |
+| `audit_logs` | `wedding_id`; `actor_id` (opcional — nulo em ações do sistema) | `actor_type`, `action`, `entity_type`/`entity_id`, `metadata` |
 
 ### 12.2 Regras de relacionamento
 
-- `guests.group_id` é **obrigatório** — todo convidado pertence a um grupo, mesmo que seja um grupo "unitário" (grupo de 1 pessoa). Isso simplifica a lógica de RSVP e convite, que sempre opera no nível de grupo por padrão, mas pode ser respondida individualmente quando necessário.
-- `guests.wedding_id` e `rsvp_responses.wedding_id` são denormalizados (ver 11) e mantidos consistentes com o `wedding_id` do grupo/convidado pai via `CHECK`/trigger — nunca definidos de forma independente pela aplicação.
-- `rsvp_responses` referencia **ou** `guest_id` **ou** `group_id`, nunca ambos nulos nem ambos preenchidos (`CHECK` constraint) — o modo é controlado por `weddings.rsvp_mode` (`'per_guest'` | `'per_group'`).
-- `companions` só existe vinculada a uma `rsvp_response` com `status = 'confirmed'`; o número de acompanhantes é `count(companions)` — não há mais um contador solto sem lastro nominal.
-- Confirmar uma `rsvp_response` (e seus `companions`) contra `guest_groups.max_members` é uma operação sujeita a concorrência, resolvida com o mesmo mecanismo de bloqueio usado na reserva de presentes (ver 13 e 18.3) — validado no banco, nunca apenas no client, mesmo no modo `per_guest` onde múltiplas submissões independentes do mesmo grupo podem concorrer pela mesma vaga.
+- `guests.invite_id` é o vínculo que habilita RSVP — nullable até o convidado ser vinculado a um convite (ex.: "Fazer Depois" no wizard de cadastro), mas obrigatório pra responder RSVP. `guests.group_id` (etiqueta livre) e `guests.party_id` (Acompanhantes) são **independentes** de `invite_id` e entre si — os três nunca devem ser confundidos (ver 11.1).
+- `guests.wedding_id` e `rsvp_responses.wedding_id` são denormalizados (ver 11) e mantidos consistentes com o `wedding_id` de `invite_id`/`group_id`/`party_id` via trigger — nunca definidos de forma independente pela aplicação.
+- `rsvp_responses.guest_id` é obrigatório e único (RSVP é sempre por convidado — não existe mais "modo grupo"); `invite_id` é desnormalizado a partir de `guests.invite_id` pra agregação rápida por convite.
+- `is_child` **não é uma coluna** — é sempre calculado por `guest_is_child(birth_date, wedding_id)` a partir de `guests.birth_date` + `weddings.child_max_age` (default 11 anos). Sem `birth_date`, o convidado conta como adulto.
+- `companions` (acompanhante avulso) só existe quando `weddings.guest_list_mode = 'open'`, pendurado em `invite_id`. Confirmar um avulso contra `invites.max_companions` é uma operação sujeita a concorrência — resolvida com `SELECT ... FOR UPDATE` na linha do convite dentro de `finalize_invite_rsvp()` (mesmo mecanismo de bloqueio usado na reserva de presentes, ver 13 e 18.3), nunca apenas validação client-side.
 - `gifts.is_group_gift = true` usa `gift_contributions` (soma de `amount_cents` até `target_amount_cents`); `gifts.is_group_gift = false` usa `gift_reservations` (reserva integral e exclusiva). As duas tabelas nunca se aplicam ao mesmo `gift_id`.
-- `gift_reservations`/`gift_contributions` permitem `guest_id`/`group_id` nulos simultaneamente quando `contributor_name` está preenchido — desde a "Fase Presentes 2.0" (seção 18.2/32), esse é o **único** caminho de escrita: `guest_id`/`group_id` nunca são mais preenchidos pelo fluxo público (presentes deixou de usar `guest_access_token`/convite como identificação, seção 4.5), só `contributor_name`/`giver_phone` (nome/telefone digitados no modal). As colunas `guest_id`/`group_id` continuam existindo no schema por compatibilidade com dados antigos, mas ficam sempre `null` em qualquer registro novo.
+- `gift_reservations`/`gift_contributions` sempre têm `guest_id`/`group_id` nulos e `contributor_name` preenchido desde a "Fase Presentes 2.0" — a identificação do fluxo público é **inteiramente** nome/telefone (`contributor_name`/`giver_phone`), nunca ligada à lista de convidados cadastrados. As colunas `guest_id`/`group_id` continuam existindo por compatibilidade com dados anteriores a essa fase.
 - `gift_payments.status = 'confirmed'` sempre tem `resulting_reservation_id` **ou** `resulting_contribution_id` preenchido (`CHECK`), nunca os dois — só uma dessas duas tabelas recebe o efeito de um mesmo pagamento, dependendo de `gifts.is_group_gift`.
-- `guest_access_tokens` é a única fonte de autenticação implícita do convidado; `communications` é apenas log — revogar/rotacionar um token (`revoked_at`) não apaga o histórico de comunicações já registrado, e um novo lembrete (Fase 2) gera uma nova linha em `communications` sem invalidar o link original.
+- `guest_access_tokens` é sempre por `invite_id` (nunca `guest_id`/`group_id` isolado) — o link/QR resolve o convite inteiro; o convidado específico dentro do convite é resolvido por busca tolerante de nome (`guest_name_matches`/`search_guests_by_name`, ver 14.3) ou por seleção direta na tela do convite. `communications` é apenas log — revogar/rotacionar um token (`revoked_at`) não apaga o histórico já registrado.
+- `invite_tags`/`invite_tag_links` não têm `wedding_id` próprio no link (evita duplicar o par se um convite trocasse de wedding, o que nunca acontece) — RLS via subquery em `invites`.
 - Toda tabela com `wedding_id` possui índice composto `(wedding_id, <coluna mais consultada>)` para otimizar queries filtradas por evento.
-- `event_segments.same_venue_as` (auto-referência, `on delete set null`) resolve o caso de cerimônia e recepção no mesmo local — quando definido, os campos `venue_name`/`venue_address`/`venue_latitude`/`venue_longitude` deste próprio registro ficam sempre nulos (fonte de verdade única, evita duas cópias divergentes do mesmo endereço). Validado na aplicação (`server/utils/validate-same-venue.ts`): não pode ser o próprio id, e não pode apontar para um segmento que já tem `same_venue_as` definido (só um nível de indireção, nunca uma corrente). Excluir um segmento referenciado por outro é bloqueado até o dependente ser desvinculado — checado explicitamente no handler antes do `DELETE`, não só confiando na mensagem de erro da FK.
+- `event_segments.same_venue_as` (auto-referência, `on delete set null`) resolve o caso de cerimônia e recepção no mesmo local — quando definido, os campos `venue_name`/`venue_address`/`venue_latitude`/`venue_longitude` deste próprio registro ficam sempre nulos (fonte de verdade única). Validado na aplicação (`server/utils/validate-same-venue.ts`): não pode ser o próprio id, e não pode apontar para um segmento que já tem `same_venue_as` definido (só um nível de indireção). Excluir um segmento referenciado por outro é bloqueado até o dependente ser desvinculado.
 
 ---
 
@@ -648,19 +558,19 @@ Modelo de decisão em camadas — do mais local ao mais global:
 
 - **Nomenclatura de tabelas**: `snake_case`, plural (`guests`, `gift_reservations`).
 - **Nomenclatura de colunas**: `snake_case`, singular (`full_name`, `event_date`).
-- **Chaves estrangeiras**: sempre nomeadas `<entidade_singular>_id` (ex: `wedding_id`, `guest_id`).
+- **Chaves estrangeiras**: sempre nomeadas `<entidade_singular>_id` (ex: `wedding_id`, `invite_id`).
 - **Chaves primárias**: sempre `id uuid primary key default gen_random_uuid()`.
 - **Enums**: implementados como `CHECK` constraint sobre `text`, não `CREATE TYPE ... AS ENUM`, para facilitar alteração de valores permitidos sem migração destrutiva.
   ```sql
   status text not null check (status in ('pending', 'confirmed', 'declined')) default 'pending'
   ```
 - **Migrations**: uma migration por mudança lógica, nome no padrão `YYYYMMDDHHMMSS_short_description.sql`. Migrations nunca são editadas após merge na branch principal — correções viram uma nova migration.
-- **Índices**: toda FK ganha índice explícito (Postgres não cria automaticamente para FKs). Índices únicos parciais usados para regras como "um único token de acesso ativo por convidado/grupo" (`guest_access_tokens.code_hash` onde `revoked_at is null`).
+- **Índices**: toda FK ganha índice explícito (Postgres não cria automaticamente para FKs). Índices únicos parciais usados para regras como "um único token de acesso ativo por convite" (`guest_access_tokens.invite_id` onde `revoked_at is null`).
 - **RLS Policies**: nomeadas no padrão `<tabela>_<operação>_<regra>` (ex: `guests_select_own_wedding`, `gifts_update_wedding_members_only`).
 - **Comentários em SQL**: toda tabela e coluna não óbvia recebe `COMMENT ON TABLE`/`COMMENT ON COLUMN` explicando intenção de negócio, já que o schema é a documentação viva do domínio.
-- **Views**: usadas para agregações reaproveitadas pelo dashboard administrativo (ex: `wedding_rsvp_summary`), evitando repetir lógica de agregação em múltiplos endpoints.
+- **Views**: usadas para agregações reaproveitadas por múltiplos endpoints, quando fizer sentido. Nenhuma view em produção hoje (ver 28.4) — o dashboard atual computa os contadores em memória em `server/api/dashboard/summary.get.ts`, via `serverSupabaseClient`, respeitando RLS. Qualquer view futura **precisa** ser criada com `security_invoker = true` (Postgres 15+) — sem isso, a view roda com o privilégio do dono (que ignora RLS), não do usuário que consulta.
 - **Colunas de hash**: nomeadas `<coluna>_hash` (ex: `code_hash`), geradas via `pgcrypto` no momento da escrita; o valor em texto plano correspondente nunca é persistido, apenas retornado uma vez no momento da geração (ex: dentro do link enviado ao convidado).
-- **Concorrência em operações de estoque/limite** (reserva de presente, confirmação de vaga em grupo): implementada via função Postgres com `SELECT ... FOR UPDATE` sobre a linha do recurso limitado, dentro de uma transação, combinada com índice único parcial que impede exceder o limite — nunca via `check-then-insert` feito na camada de aplicação.
+- **Concorrência em operações de estoque/limite** (reserva de presente, acompanhante avulso contra `max_companions`): implementada via função Postgres com `SELECT ... FOR UPDATE` sobre a linha do recurso limitado, dentro de uma transação, combinada com índice único parcial que impede exceder o limite — nunca via `check-then-insert` feito na camada de aplicação.
 
 ---
 
@@ -669,8 +579,8 @@ Modelo de decisão em camadas — do mais local ao mais global:
 ### 14.1 Dois contextos de acesso distintos
 
 1. **Acesso administrativo (casal/colaboradores)** — autenticação completa via Supabase Auth (e-mail + senha, com opção de magic link). Protegido por `middleware/auth.global.ts`, redireciona para `/login` se não houver sessão válida.
-2. **Acesso do convidado (RSVP)** — **sem conta/senha**. O convidado acessa via link único contendo um `unique_code`, resolvido contra `guest_access_tokens` (tabela de credencial, hasheada — ver 11 e 12), que identifica seu grupo/convidado sem exigir cadastro. Reduz fricção drasticamente.
-3. **Acesso ao site público e aos Presentes** — também sem conta/senha, mas sem nenhum código/link personalizado: a home e `/{slug}/presentes` são acessíveis a qualquer momento a partir do link do casamento. Presentear/contribuir se identifica pelo nome/telefone digitados no modal (CLAUDE.md, seção 18.2), não por um token — desde a "Fase Presentes 2.0" (seção 32), esse módulo deixou de usar `guest_access_tokens`.
+2. **Acesso do convidado (RSVP)** — **sem conta/senha**, por dois caminhos que convergem na mesma tela do convite (ver 14.3): link único (`guest_access_tokens`, resolve o convite inteiro) ou busca pública por nome (sem token — identidade é uma confirmação leve, não uma credencial).
+3. **Acesso ao site público e aos Presentes** — também sem conta/senha, mas sem nenhum código/link personalizado: a home e `/{slug}/presentes` são acessíveis a qualquer momento a partir do link do casamento. Presentear/contribuir se identifica pelo nome/telefone digitados no modal (seção 18.2), não por um token.
 
 ### 14.2 Fluxo administrativo
 
@@ -684,13 +594,28 @@ Modelo de decisão em camadas — do mais local ao mais global:
 
 ### 14.3 Fluxo do convidado
 
+Dois caminhos de entrada, que convergem na mesma tela (lista de convidados do convite, um RSVP independente por pessoa):
+
+**A — Link/QR direto** (`/{slug}/rsvp/{code}`):
 ```
-1. Convidado recebe link: /rsvp/{unique_code}
+1. Convidado recebe o link único do convite
 2. server/api/rsvp/[code] calcula o hash do código recebido e busca em guest_access_tokens (nunca compara texto plano)
-3. Token válido e não revogado → identifica guest/group + wedding
-4. Convidado preenche formulário de RSVP (sem login)
-5. Submissão grava em rsvp_responses (+ companions, se confirmado), vinculada ao guest_id/group_id resolvido pelo token
-6. O acesso via unique_code é de uso repetido até rsvp_deadline (permite alterar resposta) ou até o token ser revogado
+3. Token válido e não revogado → identifica invite_id + wedding_id, pula direto pra tela do convite
+```
+
+**B — Busca por nome** (`/{slug}/rsvp`, sem código):
+```
+1. Convidado digita o nome (busca tolerante — acentuação, ordem invertida, apelido, parcial: guest_name_matches/search_guests_by_name)
+2. Resultado retorna só {guestId, fullName} — nunca convite, acompanhantes ou status
+3. "Confirmação leve": antes de revelar dados completos, mostra os nomes mascarados dos demais membros do mesmo convite (reduz clique errado/curiosidade casual)
+4. "Sim, sou eu" → payload completo do convite, equivalente ao caminho A
+```
+
+Depois de identificado (por qualquer um dos dois caminhos), o convidado responde por conta própria dentro do convite:
+```
+1. Cada convidado do convite confirma/recusa independentemente (upsert_guest_rsvp — autosave a cada toque, sem lock de convite)
+2. Revisão final (finalize_invite_rsvp): acompanhante avulso (só se guest_list_mode='open', respeitando invites.max_companions sob lock) + mensagem única ao casal
+3. O acesso é de uso repetido até rsvp_deadline (permite alterar resposta) ou até o token ser revogado (caminho A) — o caminho B não expira por token, só pelo rsvp_deadline
 ```
 
 ### 14.4 Autorização (RBAC simplificado)
@@ -699,26 +624,28 @@ Modelo de decisão em camadas — do mais local ao mais global:
 |---|---|
 | `owner` | Casal — acesso total ao próprio `wedding_id` |
 | `collaborator` | Convidado para ajudar na organização — acesso de leitura/escrita configurável por recurso (ex: pode gerenciar convidados, mas não configurações de conta) |
-| `guest` (implícito, via código) | Acesso apenas ao próprio registro de RSVP |
+| `guest` (implícito, via token ou busca por nome) | Acesso apenas aos convidados do próprio convite |
 | visitante (sem código, presentes) | Acesso de leitura à vitrine de presentes + presentear/contribuir se identificando por nome/telefone (sem posse de nenhum recurso pré-existente) |
 
 ### 14.5 Segurança do fluxo de convidado
 
 - `unique_code` é gerado com entropia suficiente (ex: 22+ caracteres, base62) para não ser adivinhável por força bruta, e armazenado apenas como `code_hash` (ver 13) — o valor em texto plano existe somente no link enviado ao convidado, nunca no banco.
-- Rate limiting aplicado ao endpoint de resolução de código (`server/middleware/rate-limit.ts`), com estado mantido em store durável compartilhado entre instâncias (Upstash Redis — ver 3), não em memória do processo — em ambiente serverless, rate limiting em memória não protege nada, pois cada instância tem seu próprio contador.
-- Nenhum dado de outros convidados/grupos é exposto pela resolução de um código — o endpoint retorna estritamente o registro correspondente.
-- Este caminho **não é protegido por RLS** (ver 4.5) — a suíte de testes de segurança do projeto precisa validar isoladamente que um token nunca retorna dados de outro `guest`/`group`/`wedding_id`, já que o Postgres, aqui, confiaria em qualquer query feita pela `service_role key`.
+- Rate limiting aplicado a `/api/rsvp/**` **e** à busca pública por nome (`/api/public/[slug]/rsvp-search`, `server/middleware/rate-limit.ts`), com estado mantido em store durável compartilhado entre instâncias (Upstash Redis — ver 3), não em memória do processo.
+- **A busca por nome (caminho B, 14.3) é um modelo de confiança mais fraco que o token (caminho A), deliberadamente**: não há credencial nenhuma, só uma etapa de fricção (nomes mascarados dos demais membros do convite) antes de revelar/permitir RSVP. Qualquer pessoa que saiba o nome de um convidado consegue confirmar/recusar presença por ele — trade-off aceito na "Fase Jornada do Convidado" pra reduzir fricção (mesmo racional do caminho de Presentes, seção 4.5: não é "só o dono pode", é fricção suficiente pra evitar erro casual, não ataque deliberado). A busca nunca retorna convite, acompanhantes ou status — só `{guestId, fullName}`; e filtra convidados sem `invite_id` (nada a confirmar).
+- Nenhum dado de outros convidados/convites é exposto pela resolução de um código ou por uma busca — cada endpoint retorna estritamente o registro/convite correspondente.
+- Este caminho **não é protegido por RLS** (ver 4.5) — a suíte de testes de segurança do projeto precisa validar isoladamente que um token ou uma busca nunca retorna dados de outro convite/`wedding_id`, já que o Postgres, aqui, confiaria em qualquer query feita pela `service_role key`.
 
 ### 14.6 Modelo de confiança e RLS (resumo)
 
 | Caminho | Autenticação | Enforcement de isolamento entre tenants |
 |---|---|---|
 | Administrativo (casal/colaboradores) | Supabase Auth (JWT, `auth.uid()`) | RLS policies no Postgres — banco é a última linha de defesa |
-| Convidado (RSVP) | Token opaco (`guest_access_tokens`, hash) | Autorização manual em `server/api/**`, usando `service_role key` — servidor é a última linha de defesa |
+| Convidado (RSVP) — link/QR | Token opaco (`guest_access_tokens`, hash) | Autorização manual em `server/api/**`, usando `service_role key` — servidor é a última linha de defesa |
+| Convidado (RSVP) — busca por nome | Nenhuma — fricção (nomes mascarados), não credencial | `service_role key`; mesma responsabilidade do servidor, com garantia mais fraca de identidade (ver 14.5) |
 | Presentes (público, sem token) | Nenhuma — qualquer visitante | `service_role key` (sem RLS de escrita pública nas tabelas de presente) + validação de valor/quantidade sempre recalculada no servidor (seção 4.5/18.4) — não há identidade a autorizar, só dado a validar |
 | Público (site do casamento) | Nenhuma — link direto | RLS policy de leitura pública explícita (`select using (true)`) — banco continua sendo a última linha de defesa, sem dado sensível para vazar |
 
-Essa tabela existe para deixar explícito que "RLS em 100% das tabelas" (seção 28) protege o caminho administrativo e o caminho público; o caminho do convidado depende da correção do código do servidor e precisa de cobertura de teste equivalente em rigor, não apenas de RLS.
+Essa tabela existe para deixar explícito que "RLS em 100% das tabelas" (seção 28) protege o caminho administrativo e o caminho público; os dois caminhos do convidado dependem da correção do código do servidor e precisam de cobertura de teste equivalente em rigor, não apenas de RLS — o caminho por busca de nome tem garantia de identidade deliberadamente mais fraca que o link/QR (ver 14.5).
 
 ---
 
@@ -726,21 +653,22 @@ Essa tabela existe para deixar explícito que "RLS em 100% das tabelas" (seção
 
 ### 15.1 Conceito
 
-Convidados (`guests`) são sempre organizados dentro de um `guest_group` — a unidade de convite e comunicação. Um grupo pode representar uma família, um casal de amigos, ou uma única pessoa.
+Convidados (`guests`) são sempre vinculados a um `invite` (a unidade real de RSVP) para poder responder — o vínculo pode ficar pendente ("Fazer Depois" no wizard) até ser resolvido. Independentemente disso, um convidado pode opcionalmente ter uma etiqueta livre (`group`, ex. "Família da Noiva") e pertencer a um agrupamento de Acompanhantes (`guest_party`) — os três vínculos (`invite_id`, `group_id`, `party_id`) são independentes entre si (ver seção 12.1).
 
 ### 15.2 Funcionalidades previstas
 
-- Cadastro manual de convidado (formulário administrativo).
-- Importação em massa (CSV) — mapeamento de colunas para `full_name`, `email`, `phone`, `group`.
+- Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sync_guest_party()`).
+- Perfil do convidado: apelido, sexo, data de nascimento, foto, papel de padrinho/madrinha, restrição alimentar, observações internas.
+- Importação em massa (CSV) — mapeamento de colunas para `full_name`, `email`, `phone`.
 - Edição inline de dados de contato e restrições alimentares.
-- Marcação de convidado como criança (`is_child`) para fins de contagem de "lugares" no evento (crianças podem não contar no orçamento por adulto).
+- "Criança" nunca é um campo manual — calculada a partir de `birth_date` + `weddings.child_max_age` (`guest_is_child()`), para fins de contagem de "lugares" no evento.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
-- Busca e filtro por nome, grupo, status de RSVP.
+- Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `guest_name_matches`), convite, status de RSVP.
 
 ### 15.3 Regras de negócio
 
-- Um convidado não pode existir sem um grupo (mesmo que seja um grupo próprio).
-- Alterar o grupo de um convidado não apaga suas respostas de RSVP anteriores (histórico preservado).
+- Um convidado só consegue responder RSVP depois de vinculado a um convite (`invite_id`); antes disso, existe no cadastro mas fica fora do fluxo de RSVP.
+- Alterar o convite/etiqueta/grupo de Acompanhantes de um convidado não apaga suas respostas de RSVP anteriores (histórico preservado).
 - E-mail/telefone não são obrigatórios (alguns convidados só têm envio de convite físico), mas ao menos um canal de contato é recomendado pela UI (aviso, não bloqueio).
 
 ---
@@ -749,49 +677,59 @@ Convidados (`guests`) são sempre organizados dentro de um `guest_group` — a u
 
 ### 16.1 Conceito
 
-RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou recusa presença.
+RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou recusa presença. É sempre **por convidado** — não existe mais um "modo grupo" que cobre todos os membros de uma vez (ver 12.2).
 
 ### 16.2 Configuração por casamento
 
-- O casal define `weddings.rsvp_mode` (`'per_group'` | `'per_guest'`) — coluna própria de comportamento de negócio, deliberadamente separada de `theme_config` (que é exclusivamente visual — ver 22). `'per_group'`: uma resposta cobre todos os membros do grupo. `'per_guest'`: cada convidado do grupo responde separadamente.
+- `weddings.guest_list_mode` (`'closed'` default | `'open'`) — coluna própria de comportamento de negócio, deliberadamente separada de `theme_config` (que é exclusivamente visual — ver 22). `'closed'`: só convidados pré-cadastrados podem confirmar presença. `'open'`: permite acompanhante avulso (nome livre, sem cadastro prévio) até `invites.max_companions`.
 - `rsvp_deadline` define o prazo final — após essa data, o formulário público entra em modo somente leitura.
 
 ### 16.3 Dados coletados
 
-- Status: `pending` (default) | `confirmed` | `declined`.
-- Acompanhantes confirmados como registros nominais em `companions` (nome + restrição alimentar individual), não como um contador solto — necessário para cerimonial/buffet e futuro mapa de mesas. O total de acompanhantes é `count(companions)`, sempre respeitando `guest_groups.max_members`.
-- Restrições alimentares do próprio convidado (texto livre + possíveis tags pré-definidas: vegetariano, vegano, sem glúten, sem lactose, alergias) — mesmo formato usado em `companions.dietary_restrictions`.
-- Mensagem opcional ao casal.
-- Timestamp de resposta (`responded_at`), permitindo reenvio de lembrete apenas para quem ainda está `pending`.
-- Fluxo de formulário diferenciado por resultado: recusar presença **não** solicita restrição alimentar/acompanhantes — reduz fricção de quem só precisa dizer "não vou".
+- Status por convidado: `pending` (default) | `confirmed` | `declined` (escolhidos pelo próprio convidado) | `waitlisted` | `removed` (só administrativos, o convidado nunca escolhe sozinho).
+- Acompanhante avulso (nome sem cadastro prévio, só em `guest_list_mode = 'open'`) registrado em `companions`, pendurado no convite (não numa resposta individual) — respeitando `invites.max_companions`.
+- Restrições alimentares do convidado (texto livre + possíveis tags pré-definidas: vegetariano, vegano, sem glúten, sem lactose, alergias) — fonte única em `guests.dietary_restrictions`, mesmo formato usado em `companions.dietary_restrictions`.
+- Mensagem opcional ao casal — uma por **convite** (`invites.rsvp_message`, preenchida na revisão final), não por convidado individual.
+- Timestamp de resposta (`responded_at`) por convidado, permitindo reenvio de lembrete apenas para quem ainda está `pending`.
+- Fluxo de formulário diferenciado por resultado: recusar presença **não** solicita restrição alimentar — reduz fricção de quem só precisa dizer "não vou".
 
 ### 16.4 Regras de negócio
 
-- Resposta é **editável** até `rsvp_deadline` — reenvio do formulário atualiza o registro existente (não cria duplicata), usando o `guest_access_token` como chave de idempotência.
-- Confirmar acompanhantes contra `guest_groups.max_members` é uma operação sujeita a corrida (dois membros do mesmo grupo respondendo simultaneamente no modo `per_guest`), resolvida com o mesmo mecanismo de bloqueio usado na reserva de presentes (ver 13 e 18.3) — nunca apenas validação client-side.
+- Resposta de cada convidado é **editável** até `rsvp_deadline` — `upsert_guest_rsvp()` atualiza o registro existente (não cria duplicata), gravando o evento em `invite_events` na mesma transação.
+- Confirmar acompanhante avulso contra `invites.max_companions` é uma operação sujeita a corrida (múltiplos convidados do mesmo convite respondendo simultaneamente), resolvida com `SELECT ... FOR UPDATE` sobre a linha do convite dentro de `finalize_invite_rsvp()` (mesmo mecanismo da reserva de presentes, ver 13 e 18.3) — nunca apenas validação client-side.
 - Painel administrativo exibe contadores **atualizados a cada carregamento/refetch** (não é um canal de push em tempo real — ver 27): confirmados, recusados, pendentes, total de acompanhantes.
 - Sistema de lembretes (fase 2 do roadmap): disparo automático de e-mail para convidados `pending` X dias antes do `rsvp_deadline`, registrado em `communications` (não em `guest_access_tokens`, que permanece estável entre envios).
 
 ---
 
-## 17. Sistema de Grupos
+## 17. Sistema de Convites e Grupos
 
 ### 17.1 Conceito
 
-`guest_groups` é a unidade central de organização e comunicação. Todo convite, RSVP (no modo grupo) e lembrete opera nesse nível por padrão.
+Dois conceitos independentes, fáceis de confundir pelo nome (ver 12.1/12.2):
+
+- **Convite (`invites`)** é a unidade real de RSVP e comunicação — "quem recebeu o mesmo convite físico/digital". Todo link/QR de acesso, lembrete e mensagem ao casal opera nesse nível. Um convite pode ter um Convidado Responsável (`responsible_guest_id`), usado pra personalizar mensagens.
+- **Grupo (`groups`)** é só uma etiqueta organizacional livre (ex.: "Família da Noiva", "Trabalho") — sem nenhuma semântica de RSVP, comunicação ou limite de acompanhante. Serve pra filtrar/organizar a lista de convidados no admin.
+- **Acompanhantes (`guest_parties`)** é um terceiro conceito, tratado à parte na seção 15 — agrupamento simétrico de convidados comumente convidados juntos.
 
 ### 17.2 Funcionalidades previstas
 
-- Criar/renomear/excluir grupos.
-- Mover convidados entre grupos (drag-and-drop no painel administrativo).
-- Definir `max_members` (limite de acompanhantes permitido para aquele grupo, ex: "Família Silva" pode confirmar até 5 pessoas).
-- Visualização em árvore: grupo → convidados → status de RSVP de cada um → acompanhantes nominais confirmados.
-- Anotações internas (`notes`) visíveis apenas para o casal/colaboradores (ex.: "sentar longe da família X").
+**Convites:**
+- Criar convite, vincular convidados, definir Convidado Responsável.
+- Gerar link/QR de acesso (`guest_access_tokens`) e reenviar sem invalidar o já compartilhado.
+- Definir `max_companions` (limite de acompanhante avulso, só relevante em `guest_list_mode = 'open'`).
+- Etiquetas internas reutilizáveis (`invite_tags`, ex.: "VIP", "Mesa 01") — só uso administrativo.
+- Linha do Tempo do convite (`invite_events`): criado, token enviado, primeiro acesso, RSVP alterado, mensagem enviada, arquivado.
+- Visualização: convite → convidados → status de RSVP de cada um.
+
+**Grupos (etiqueta livre):**
+- Criar/renomear/excluir grupos, definir cor.
+- Atribuir/remover a etiqueta de um convidado (não move o convidado de convite nem de Acompanhantes).
 
 ### 17.3 Regras de negócio
 
-- Excluir um grupo com convidados associados exige realocar os convidados para outro grupo ou confirmar exclusão em cascata (soft delete) — nunca exclusão física silenciosa. A cascata soft-deleta os convidados do grupo **e** o próprio grupo (nunca um `DELETE` físico na linha do grupo): `guests.group_id` é `NOT NULL`/`ON DELETE RESTRICT`, então a linha do grupo permanece referenciada por qualquer convidado soft-deleted que já tenha pertencido a ele. Um grupo sem nenhum convidado (nem ativo, nem soft-deleted) também é apenas soft-deleted, pela mesma convenção (seção 11).
-- `max_members` é validado no momento do RSVP: o formulário não permite confirmar mais acompanhantes do que o limite definido pelo casal.
+- Excluir um convite ou grupo com convidados associados exige realocar os convidados ou confirmar exclusão em cascata (soft delete) — nunca exclusão física silenciosa. A cascata soft-deleta os convidados **e** o próprio convite/grupo (nunca um `DELETE` físico): `guests.invite_id` é `ON DELETE RESTRICT`, então a linha do convite permanece referenciada por qualquer convidado soft-deleted que já tenha pertencido a ele. Um convite/grupo sem nenhum convidado (nem ativo, nem soft-deleted) também é apenas soft-deleted, pela mesma convenção (seção 11).
+- `max_companions` é validado no momento da revisão final do RSVP (`finalize_invite_rsvp`): não permite confirmar mais acompanhantes avulsos do que o limite definido pelo casal.
 
 ---
 
@@ -831,7 +769,7 @@ A lista de presentes é um "ecossistema de presentes", não uma lista fria de pr
 1. Convidado escolhe pagar (presente físico) ou contribuir/comprar cotas (presente de cota) → `POST /api/public/gifts/[id]/checkout` calcula `amount_cents` **sempre no servidor** (nunca aceita valor do client, exceto na contribuição de valor livre), cria uma linha `gift_payments` (`status = 'pending'`) e um link de checkout hospedado na InfinitePay (`server/utils/infinitepay.ts#createInfinitePayCheckoutLink`).
 2. Browser navega (redirect completo, não iframe/modal) para o checkout hospedado da InfinitePay — não há API pública documentada pra emitir QR Code Pix embutido na própria página da plataforma.
 3. Convidado paga (Pix e/ou cartão — o que a conta InfinitePay do casal aceitar, tela hospedada da InfinitePay) e é redirecionado de volta para `/{slug}/presentes/pagamento/{paymentId}`, que faz "pull" do status (`GET /api/public/gifts/payments/[id]/status`, com polling curto). Em paralelo, a InfinitePay chama o webhook (`POST /api/public/gifts/payments/webhook`) — só alcançável quando o site está publicado num domínio real (não `localhost`), então em dev o "pull" é o único caminho viável na prática.
-4. Os dois caminhos (pull e webhook) convergem em `server/utils/gift-payment.ts#confirmGiftPayment` — idempotente (pagamento já `confirmed`/`failed`/`expired` não dispara nova verificação externa) e reverifica sempre via `payment_check` antes de qualquer efeito. **Achado real, validado com um pagamento de R$1 de verdade**: `payment_check` responde `{"success": false}` quando chamado só com `handle`+`order_nsu` (contrariando a suposição inicial de que `order_nsu` sozinho bastaria) — a InfinitePay exige também `transaction_nsu`/`slug`, que só chegam via querystring no redirect de volta ao site (`route.query.transaction_nsu`/`slug`, capturados por `[paymentId].vue` e repassados a `status.get.ts` → `confirmGiftPayment`) ou no corpo do webhook. `gift_payments.provider_transaction_nsu`/`provider_invoice_slug` persistem esses identificadores assim que aprendidos, reaproveitados em tentativas seguintes mesmo sem esses query params (ex.: um refresh da página sem eles na URL).
+4. Os dois caminhos (pull e webhook) convergem em `server/utils/gift-payment.ts#confirmGiftPayment` — idempotente (pagamento já `confirmed`/`failed`/`expired` não dispara nova verificação externa) e reverifica sempre via `payment_check` antes de qualquer efeito. `payment_check` exige `handle` + `order_nsu` **+ `transaction_nsu`/`slug`** (não confirma só com `order_nsu`) — esses dois últimos só chegam via querystring no redirect de volta ao site ou no corpo do webhook, e são persistidos em `gift_payments.provider_transaction_nsu`/`provider_invoice_slug` assim que aprendidos, reaproveitados em tentativas seguintes mesmo sem esses query params (ex.: refresh da página sem eles na URL) — ver `docs/CHANGELOG.md` para o achado real que revelou essa exigência (só visível com pagamento de verdade, nenhum teste com handle fake reproduz).
 5. Pagamento confirmado → RPC `confirm_gift_payment(payment_id)` chama `reserve_gift()` (kind `reservation`) ou insere em `gift_contributions` (kind `contribution`), atomicamente, e marca `gift_payments.status = 'confirmed'`.
 6. **Corrida aceita como limitação conhecida**: se a última unidade de um presente físico for levada pelo caminho gratuito entre o checkout e a confirmação do Pix, `reserve_gift()` falha dentro de `confirm_gift_payment()` — a função marca `status = 'failed'` (nunca propaga como exceção não tratada, ver comentário na migration) em vez de reverter a transação, porque "pago mas não conseguiu reservar" é um estado real que precisa ficar visível para o casal resolver manualmente (destacado na própria página `/admin/presentes`).
 7. **Cancelamento de item já pago é bloqueado no self-service** — `POST /api/public/gifts/[id]/cancel` verifica se existe um `gift_payments` confirmado apontando pro registro e, se sim, recusa com 409 orientando contato direto com o casal. Sem estorno automático: a InfinitePay não documenta publicamente uma API de estorno.
@@ -867,7 +805,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente (quem presenteou o quê, mais recente primeiro, sem precisar abrir item por item) — tudo na própria página `/admin/presentes` (seção 18) |
 | **Cronograma** | Gestão de `event_segments` — cerimônia, recepção, festa, cada um com local/horário próprios |
 | **Convites e Comunicações** | Geração de tokens de acesso (`guest_access_tokens`), histórico completo de envios por canal (`communications`), reenvio de lembretes sem invalidar o link já compartilhado |
-| **Configurações** | Dados do evento (data, nome dos noivos, `rsvp_mode`), tema visual, prazo de RSVP, handle da InfinitePay (ativa pagamento Pix de presentes, seção 18) |
+| **Configurações** | Dados do evento (data, nome dos noivos, `guest_list_mode`), tema visual, prazo de RSVP, handle da InfinitePay (ativa pagamento Pix de presentes, seção 18) |
 | **Colaboradores** | Convidar/remover pessoas com acesso administrativo, definir permissões |
 
 ### 19.3 Regras de negócio
@@ -904,11 +842,9 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 ## 21. Interface do Usuário (UI)
 
-- Interface do **site público** é fortemente visual e emocional (fotos do casal, tipografia expressiva), permitindo customização de tema por casamento — cor primária, cor secundária e par tipográfico (`--font-display`) aplicados globalmente via `layouts/default.vue` (`ui.store.ts` + `useWeddingTheme.ts`), cobrindo `/`, `/presentes` e `/rsvp/[code]` automaticamente, por herdarem do mesmo layout.
-- Interface do **painel administrativo** prioriza escaneabilidade (tabelas, contadores, filtros) — mas, desde a "Fase Admin Premium — Rodada 2" (roadmap), a linguagem visual do Design System é **100% compartilhada com o site público**: pill buttons com glow (`rounded="full"`, default da plataforma inteira), cartões com raio/sombra premium (`radius="xl"`/`elevation="xl"`, default de `UiCard`) e dropdowns modernizados aparecem também no admin. O painel herda a paleta de cores do casamento (`layouts/admin.vue`, mesmo mecanismo do site público) desde a fase anterior. A fonte, porém, nunca varia: `--font-sans` é fixa em toda a plataforma, mesmo que o casal tenha escolhido um `fontPairId` diferente para o site público — legibilidade em densidade de dados prevalece sobre identidade visual aqui, e é a única exceção mantida por essa razão (custo de recurso/legibilidade), não por preferência estética.
-- **Polimento "Admin Premium"**: o admin deixou de ser puramente estático — cards, botões, campos de formulário e linhas de tabela ganharam transições suaves (`transition-brand`, ver 22.1). Cabeçalho de página padronizado via `AdminSection.vue` (`components/admin/`, slots `title`/`description`/`actions`); métricas do dashboard via `AdminStatCard.vue` (ícone + label + valor); atalhos de ação via `AdminQuickAction.vue`. Configurações reorganizada em abas (`UiTabs`, ver 22.2) — Geral/Aparência — com as subseções de Aparência agrupadas em `UiAccordion` por tema (Branding/Tema/Experiência) em vez de um formulário único e longo.
-- **Rodada 2 (reversão do escopo original — pedido explícito do usuário)**: a régua original desta fase ("sutil e profissional, nunca decorativo" — pill/glow/uppercase e o tier `xl` exclusivos do site público, admin sempre em `rounded="md"`/`radius="lg"`/`elevation="sm"`) foi revertida — feedback do usuário: "faz parte da experiência do usuário", quer o mínimo de componentes/aparência diferentes entre admin e público. Implementado trocando os **defaults** de `UiButton` (`rounded: 'full'`) e `UiCard` (`radius: 'xl'`, `elevation: 'xl'`) — cascateia pra praticamente todo call site existente sem precisar editar cada página individualmente (só os poucos lugares que já setavam esses valores explicitamente, redundantes agora, foram limpos). **Único ponto de divergência mantido, deliberadamente**: o "lift" de hover dos botões pill (`hover:scale-[1.03]`) — natural nos poucos CTAs de destaque do público, mas ruído visual numa tabela do admin com dezenas de botões lado a lado. Suprimido só no admin via `provide(ADMIN_UI_CONTEXT_KEY, true)` em `layouts/admin.vue`, injetado (default `false`) dentro de `UiButton` — glow, uppercase e o `active:scale` de clique continuam idênticos nos dois contextos; só o hover passivo muda. Ver `app/utils/admin-ui-context.ts`, testado em `Button.spec.ts`.
-- **Rodada 2, ajustes adicionais**: a variante `ghost` de `UiButton` (usada em ações secundárias como "Editar" em linhas de tabela) ganhou uma borda sutil sempre visível (`border-border/60`) — antes era puramente transparente em repouso, e um botão pill sem fundo/borda sobre uma linha de tabela/card da mesma cor lia como texto solto, sem affordance de clique (achado do usuário testando a página de Convidados). `UiSelect` deixou de usar a seta nativa do navegador (`appearance-none` + ícone `lucide:chevron-down` posicionado absoluto) para bater com o acabamento do resto dos inputs. Páginas com um único bloco de formulário estreito pinado à esquerda numa tela larga (Cronograma, Configurações) foram corrigidas — Cronograma virou grid de 2 colunas (Cerimônia/Recepção lado a lado, `lg:grid-cols-2`) em vez de coluna única `max-w-2xl`; Configurações ganhou `mx-auto` no mesmo `max-w-2xl` em vez de ficar pinado no canto. Marca do sidebar/header do admin trocada de "Wedding Platform" para "MeuSiteCasamento" (`layouts/admin.vue`), completando no admin o rebrand já feito no público (ver `docs/ARCHITECTURE.md`/roadmap — rebrand completo do restante da plataforma, fora do admin/site do casal, segue pendente).
+- Interface do **site público** é fortemente visual e emocional (fotos do casal, tipografia expressiva), permitindo customização de tema por casamento — cor primária, cor secundária e par tipográfico (`--font-display`) aplicados globalmente via `layouts/default.vue` (`ui.store.ts` + `useWeddingTheme.ts`), cobrindo `/{slug}`, `/{slug}/presentes` e `/{slug}/rsvp` (com ou sem código) automaticamente, por herdarem do mesmo layout.
+- Interface do **painel administrativo** prioriza escaneabilidade (tabelas, contadores, filtros), mas a linguagem visual do Design System é **100% compartilhada com o site público**: pill buttons com glow (`rounded="full"`, default da plataforma inteira), cartões com raio/sombra premium (`radius="xl"`/`elevation="xl"`, default de `UiCard`) e dropdowns modernizados aparecem também no admin (histórico de como se chegou a essa decisão — inclusive uma reversão de escopo — em `docs/CHANGELOG.md`). O painel herda a paleta de cores do casamento (`layouts/admin.vue`, mesmo mecanismo do site público). A fonte, porém, nunca varia: `--font-sans` é fixa em toda a plataforma, mesmo que o casal tenha escolhido um `fontPairId` diferente para o site público — legibilidade em densidade de dados prevalece sobre identidade visual aqui, e é a única exceção mantida por essa razão, não por preferência estética. **Único ponto de divergência visual mantido, deliberado**: o "lift" de hover dos botões pill (`hover:scale-[1.03]`) é suprimido no admin via `provide(ADMIN_UI_CONTEXT_KEY, true)` em `layouts/admin.vue`, injetado (default `false`) dentro de `UiButton` — glow, uppercase e o `active:scale` de clique continuam idênticos nos dois contextos; só o hover passivo muda (`app/utils/admin-ui-context.ts`, testado em `Button.spec.ts`).
+- **Polimento "Admin Premium"**: cards, botões, campos de formulário e linhas de tabela têm transições suaves (`transition-brand`, ver 22.1). Cabeçalho de página padronizado via `AdminSection.vue` (`components/admin/`, slots `title`/`description`/`actions`); métricas do dashboard via `AdminStatCard.vue` (ícone + label + valor); atalhos de ação via `AdminQuickAction.vue`. Configurações organizada em abas (`UiTabs`, ver 22.2) — Geral/Aparência/Conteúdo — com as subseções de Aparência agrupadas em `UiAccordion` por tema (Branding/Tema/Experiência). A variante `ghost` de `UiButton` tem uma borda sutil sempre visível (`border-border/60`), mesmo em repouso, pra não ler como texto solto sobre uma linha/card da mesma cor. Marca do sidebar/header do admin: "MeuSiteCasamento" (`layouts/admin.vue`), mesmo rebrand do público (rebrand completo do restante da plataforma segue pendente).
 - Uso consistente de **estado vazio ilustrado** nas listagens administrativas para orientar o próximo passo do usuário.
 - Modais reservados para ações rápidas e contidas (ex: editar um convidado); fluxos longos (ex: importação CSV com mapeamento de colunas) usam página dedicada ou wizard em etapas.
 - Toasts para feedback de ações assíncronas (sucesso/erro), nunca `alert()` nativo do navegador.
@@ -937,26 +873,26 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
     --color-body: var(--color-text); /* customizável por casamento (bodyColor, opcional — modo de cor avançada) */
   }
   ```
-  > **Achado da implementação (corrigido)**: o valor de exemplo original desta seção era `#a8785c`, que fica em ~3.81:1 de contraste contra `--color-surface` — abaixo do mínimo de 4.5:1 exigido pela própria seção 22.4 (achado confirmado por teste unitário, `tests/unit/utils/contrast.spec.ts`). O default real (`app/assets/css/main.css`, `shared/utils/contrast.ts#DEFAULT_PRIMARY_COLOR`) foi corrigido para `#6b4a35` — mesma família de tom do preset "Clássico Elegante" (`shared/theme-presets.ts`), agora passando no contraste mínimo. `#a8785c` permanece citado nos testes como caso de rejeição conhecido.
-  > **Off-white vs. branco puro (Fase Editorial)**: `--color-surface`/`--color-surface-muted`/`--color-border` são tons neutros fixos da **plataforma inteira** (público e admin) — não variam por casamento, ao contrário de `primary`/`secondary`/`heading`/`body`. `--color-surface-elevated` existe à parte para dar profundidade sutil (cartão branco puro sobre página off-white, como um editorial impresso); `shared/utils/contrast.ts` continua validando contra branco puro como pior caso.
+  > `#6b4a35` (mesma família de tom do preset "Clássico Elegante") é o default real (`app/assets/css/main.css`, `shared/utils/contrast.ts#DEFAULT_PRIMARY_COLOR`), validado ≥4.5:1 de contraste contra `--color-surface` — `#a8785c` fica citado em `tests/unit/utils/contrast.spec.ts` só como caso de rejeição conhecido (~3.81:1, achado real documentado em `docs/CHANGELOG.md`).
+  > **Off-white vs. branco puro**: `--color-surface`/`--color-surface-muted`/`--color-border` são tons neutros fixos da **plataforma inteira** (público e admin) — não variam por casamento, ao contrário de `primary`/`secondary`/`heading`/`body`. `--color-surface-elevated` existe à parte para dar profundidade sutil (cartão branco puro sobre página off-white, como um editorial impresso); `shared/utils/contrast.ts` continua validando contra branco puro como pior caso.
 - **Tipografia**: um par tipográfico por casamento — uma fonte serifada de destaque (`--font-display`, aplicada ao site público) e uma fonte sans-serif fixa de plataforma (`--font-sans`, aplicada a corpo de texto e a todo o painel administrativo, nunca customizada por casamento — legibilidade em densidade de dados). O casal escolhe o par via `shared/theme-presets.ts#FONT_PAIRS`, independentemente da paleta de cores (ver 22.3). Cada par pode opcionalmente definir uma terceira família só para botões/CTAs (`FontPair.buttonFontFamily`, ex.: preset `vermelho-classico` usa Montserrat) — resolvida para `--font-button` por `useWeddingTheme.ts` (mesmo padrão condicional de `--color-heading`/`--color-body`: só entra quando o par a define) e aplicada globalmente por `UiButton` (`[font-family:var(--font-button)]` nas classes base). Sem sobrescrita, `--font-button` cai em `var(--font-sans)` (default declarado em `main.css`) — pares sem `buttonFontFamily` não mudam de aparência. Como só o layout público injeta `--font-button` (`includeFont: true`; o admin usa `includeFont: false`, mesma regra de `--font-display`), botões do painel administrativo nunca variam por casamento.
 - **Espaçamento**: escala baseada em múltiplos de 4px (Tailwind spacing scale padrão, sem customização salvo necessidade real).
-- **Raio de borda e sombra**: escala limitada (`--radius-sm/md/lg/xl`, `--shadow-sm/md/lg/xl`) fixa na plataforma — não varia por tema, aplicada consistentemente via os componentes de `components/ui/`; nenhum valor arbitrário de `border-radius`/`box-shadow` direto em componentes de domínio. O tier `xl` (introduzido na "Fase Linguagem Visual" para o site público) é, desde a "Fase Admin Premium — Rodada 2", o **default de `UiCard`** na plataforma inteira, público e admin (ver §21) — deixou de ser exclusivo do site público.
-- **Movimento**: `--transition-duration` (200ms) e `--transition-easing` (`cubic-bezier(0.16, 1, 0.3, 1)`), consumidos pela utility `.transition-brand` (`app/assets/css/main.css`, `@layer utilities`) — duração/easing únicos para toda a plataforma, para que ajustar a "sensação" das transições seja uma mudança de 2 variáveis, não de dezenas de componentes. Usada em todos os componentes de `components/ui/` tocados pela Fase Admin Premium (Button, Card, Input, Select, Textarea, Checkbox, RadioGroup, Toast) e em hovers/transições de página do admin (nav ativa, linhas de tabela).
+- **Raio de borda e sombra**: escala limitada (`--radius-sm/md/lg/xl`, `--shadow-sm/md/lg/xl`) fixa na plataforma — não varia por tema, aplicada consistentemente via os componentes de `components/ui/`; nenhum valor arbitrário de `border-radius`/`box-shadow` direto em componentes de domínio. O tier `xl` é o **default de `UiCard`** na plataforma inteira, público e admin (ver §21).
+- **Movimento**: `--transition-duration` (200ms) e `--transition-easing` (`cubic-bezier(0.16, 1, 0.3, 1)`), consumidos pela utility `.transition-brand` (`app/assets/css/main.css`, `@layer utilities`) — duração/easing únicos para toda a plataforma, para que ajustar a "sensação" das transições seja uma mudança de 2 variáveis, não de dezenas de componentes. Usada em todos os componentes de `components/ui/` (Button, Card, Input, Select, Textarea, Checkbox, RadioGroup, Toast) e em hovers/transições de página do admin (nav ativa, linhas de tabela).
 
 ### 22.2 Componentes base (`components/ui/`)
 
 | Componente | Responsabilidade |
 |---|---|
-| `Button` | Variantes: `primary`, `secondary`, `outline` (borda sutil `border-primary/25` + fundo translúcido `bg-surface-elevated/70` com `backdrop-blur-sm` — CTAs secundários sobre fundo claro ou foto), `ghost` (borda sutil `border-border/60` sempre visível, mesmo em repouso — "Fase Admin Premium — Rodada 2", evita que o botão leia como texto solto sobre um card/linha da mesma cor), `destructive`; tamanhos `sm/md/lg`; prop `rounded` (`'full'` = pill, **default da plataforma inteira** desde a Rodada 2; `'md'` só onde pedido explicitamente). CTAs em pill ganham rótulo uppercase tracked e, quando também `variant="primary"`, um glow colorido (`box-shadow` via `color-mix(in srgb, var(--color-primary) ...)`) — referência de estilo mimodocasal.com.br, "Fase Linguagem Visual" — em toda a plataforma. O "lift" de hover (`hover:scale-[1.03]`) é a única parte condicional: presente no site público, suprimido no admin via `inject(ADMIN_UI_CONTEXT_KEY)` (provido por `layouts/admin.vue`) — ruído visual numa tela com dezenas de botões pill lado a lado; `active:scale-95`/glow/uppercase continuam iguais nos dois contextos. Prop `to` (renderiza como `NuxtLink` em vez de `<button>`, mesmas classes de variante) + `target` (só com `to`, ex.: `"_blank"`, aplica `rel="noopener noreferrer"` automaticamente) |
-| `Input` / `Textarea` / `Select` / `Checkbox` / `RadioGroup` | Campos de formulário com estado de erro integrado; foco/hover com `.transition-brand` (§22.1, "Fase Admin Premium") |
+| `Button` | Variantes: `primary`, `secondary`, `outline` (borda sutil `border-primary/25` + fundo translúcido `bg-surface-elevated/70` com `backdrop-blur-sm` — CTAs secundários sobre fundo claro ou foto), `ghost` (borda sutil `border-border/60` sempre visível, mesmo em repouso, pra não ler como texto solto sobre um card/linha da mesma cor), `destructive`; tamanhos `sm/md/lg`; prop `rounded` (`'full'` = pill, **default da plataforma inteira**; `'md'` só onde pedido explicitamente). CTAs em pill ganham rótulo uppercase tracked e, quando também `variant="primary"`, um glow colorido (`box-shadow` via `color-mix(in srgb, var(--color-primary) ...)`) em toda a plataforma. O "lift" de hover (`hover:scale-[1.03]`) é a única parte condicional: presente no site público, suprimido no admin via `inject(ADMIN_UI_CONTEXT_KEY)` (provido por `layouts/admin.vue`) — ruído visual numa tela com dezenas de botões pill lado a lado; `active:scale-95`/glow/uppercase continuam iguais nos dois contextos. Prop `to` (renderiza como `NuxtLink` em vez de `<button>`, mesmas classes de variante) + `target` (só com `to`, ex.: `"_blank"`, aplica `rel="noopener noreferrer"` automaticamente) |
+| `Input` / `Textarea` / `Select` / `Checkbox` / `RadioGroup` | Campos de formulário com estado de erro integrado; foco/hover com `.transition-brand` (§22.1) |
 | `Modal` / `Dialog` | Confirmações e edições rápidas; prop `size` (`'md'` default, `'lg'` para conteúdo mais largo — ex.: lightbox de foto da galeria pública) |
-| `Tabs` | Headless via Reka UI (`TabsRoot`/`List`/`Trigger`/`Content`), estilo próprio (não um passthrough) — props `tabs: {id, label}[]` + `v-model`, conteúdo via slot nomeado por `id` (mesmo padrão de `Accordion`). Introduzido na "Fase Admin Premium" para as abas Geral/Aparência de `/admin/configuracoes`, mas é um componente genérico (fica em `components/ui/`, não `components/admin/`) — reutilizável em qualquer tela, pública ou admin |
-| `Toast` / `ToastViewport` | Feedback de ações assíncronas (nunca `alert()` nativo) — estado em `ui.store.ts` (`toasts`), disparado via `useToast().success()/error()/warning()/info()` (tom `warning` e duração por tom — 3500ms/5000ms/6000ms — adicionados na "Fase Admin Premium"), `ToastViewport` montado uma vez em `app.vue`; toasts entram/saem com transição (`TransitionGroup` + `.transition-brand`, antes instantâneo) |
-| `Chip` | Label + estado opcional de seleção (`selected`), toggle (`clickable`, emite `click`) e remoção (`removable`, emite `remove`) + slot `actions` para botões extras (ex.: editar) — substitui os 3 pontos de "pill manual" que existiam (categorias de presente, tags de convite, atalhos do wizard de convidados), "Fase Admin Premium" |
+| `Tabs` | Headless via Reka UI (`TabsRoot`/`List`/`Trigger`/`Content`), estilo próprio (não um passthrough) — props `tabs: {id, label}[]` + `v-model`, conteúdo via slot nomeado por `id` (mesmo padrão de `Accordion`). Usado nas abas Geral/Aparência/Conteúdo de `/admin/configuracoes`, mas é um componente genérico (fica em `components/ui/`, não `components/admin/`) — reutilizável em qualquer tela, pública ou admin |
+| `Toast` / `ToastViewport` | Feedback de ações assíncronas (nunca `alert()` nativo) — estado em `ui.store.ts` (`toasts`), disparado via `useToast().success()/error()/warning()/info()` (tom `warning` e duração por tom — 3500ms/5000ms/6000ms), `ToastViewport` montado uma vez em `app.vue`; toasts entram/saem com transição (`TransitionGroup` + `.transition-brand`) |
+| `Chip` | Label + estado opcional de seleção (`selected`), toggle (`clickable`, emite `click`) e remoção (`removable`, emite `remove`) + slot `actions` para botões extras (ex.: editar) — único componente de "pill" da plataforma (categorias de presente, tags de convite, atalhos do wizard de convidados) |
 | `Badge` | Status visual (RSVP confirmado/pendente/recusado) |
-| `Card` | Contêiner padrão para itens de lista (convidado, presente); props `radius` (`'xl'` = tratamento premium, **default da plataforma inteira** desde a "Fase Admin Premium — Rodada 2"; `'lg'` = degrau reduzido, só onde cartões densamente empilhados fariam o raio/sombra grandes competirem entre si), `elevation` (`'xl'` default, acompanha `radius="xl"`; `'sm'` no degrau reduzido) e `variant` (`'default'` | `'interactive'` — hover `shadow-md`/`border-primary` no degrau médio | `'highlight'` — leve ênfase `bg-primary/[0.03]` para cards de destaque, ex. prazo de RSVP no dashboard) |
-| `Table` | Listagens administrativas com ordenação/paginação; linhas com hover (`hover:bg-surface-muted/60 .transition-brand`) aplicado em cada página, "Fase Admin Premium" |
+| `Card` | Contêiner padrão para itens de lista (convidado, presente); props `radius` (`'xl'` = tratamento premium, **default da plataforma inteira**; `'lg'` = degrau reduzido, só onde cartões densamente empilhados fariam o raio/sombra grandes competirem entre si), `elevation` (`'xl'` default, acompanha `radius="xl"`; `'sm'` no degrau reduzido) e `variant` (`'default'` | `'interactive'` — hover `shadow-md`/`border-primary` no degrau médio | `'highlight'` — leve ênfase `bg-primary/[0.03]` para cards de destaque, ex. prazo de RSVP no dashboard) |
+| `Table` | Listagens administrativas com ordenação/paginação; linhas com hover (`hover:bg-surface-muted/60 .transition-brand`) em cada página |
 | `Avatar` | Representação visual de convidado/casal |
 | `Skeleton` | Estado de carregamento consistente |
 | `EmptyState` | Estado vazio ilustrado e padronizado; prop opcional `icon` (ícone lucide acima do título, "Fase Admin Premium") |
@@ -968,7 +904,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 
 - Nenhum estilo visual (cor, espaçamento, tipografia) é definido diretamente em componentes de domínio — sempre via classes Tailwind mapeadas aos tokens, ou via componente de `components/ui/`.
 - Toda nova variante visual passa primeiro pelo Design System antes de ser usada em uma feature específica — proibido criar "botão especial" isolado dentro de uma página.
-- Temas por casamento são dados armazenados em `weddings.theme_config` (jsonb — exclusivamente atributos visuais, nunca comportamento de negócio como `rsvp_mode`, ver 16.2), aplicados via CSS variables no layout público. Shape atual: `{ presetId?: string, primaryColor: string, secondaryColor: string, titleColor?: string, bodyColor?: string, fontPairId: string, coverImageUrl?: string, storyImageUrl?: string, coverFocalX?: number, coverFocalY?: number, storyFocalX?: number, storyFocalY?: number, showCountdown: boolean, heroButtons?: string[], heroFeaturedButton?: string }`. **Todo campo novo do schema precisa ser adicionado também à lista explícita de `server/api/wedding/theme.patch.ts`** — o endpoint enumera as chaves manualmente e descarta silenciosamente as que não conhece (bug já ocorrido duas vezes). `presetId` é só um rótulo informativo do último preset aplicado (ou `'custom'` após qualquer edição manual) — nunca usado para resolver a aparência em si, que sempre lê `primaryColor`/`secondaryColor`/`fontPairId` diretamente.
+- Temas por casamento são dados armazenados em `weddings.theme_config` (jsonb — exclusivamente atributos visuais, nunca comportamento de negócio como `guest_list_mode`, ver 16.2), aplicados via CSS variables no layout público. Shape atual: `{ presetId?: string, primaryColor: string, secondaryColor: string, titleColor?: string, bodyColor?: string, fontPairId: string, coverImageUrl?: string, storyImageUrl?: string, coverFocalX?: number, coverFocalY?: number, storyFocalX?: number, storyFocalY?: number, showCountdown: boolean, heroButtons?: string[], heroFeaturedButton?: string }`. **Todo campo novo do schema precisa ser adicionado também à lista explícita de `server/api/wedding/theme.patch.ts`** — o endpoint enumera as chaves manualmente e descarta silenciosamente as que não conhece (bug já ocorrido duas vezes). `presetId` é só um rótulo informativo do último preset aplicado (ou `'custom'` após qualquer edição manual) — nunca usado para resolver a aparência em si, que sempre lê `primaryColor`/`secondaryColor`/`fontPairId` diretamente.
 - `theme_config` é gerenciado por um endpoint próprio (`PATCH /api/wedding/theme`, `shared/schemas/theme.ts`), separado dos dados de negócio do evento (`PATCH /api/wedding`, `shared/schemas/wedding.ts`) — reflexo, na camada de API, da mesma separação já documentada para a coluna. `coverImageUrl`/`storyImageUrl` ficam de fora até desse schema: são geridos exclusivamente pelos respectivos endpoints de upload/remoção (`cover-upload`/`story-upload`, seção 28), nunca submetidos junto com o restante do formulário de Aparência, evitando que salvar cor/fonte apague uma foto por engano. As duas fotos são **independentes** (feedback de produto: a foto de capa do Hero e a foto da seção "Nossa História" não podem ser forçosamente a mesma) — arquivos próprios no mesmo bucket `wedding-covers` (`{wedding_id}/cover.{ext}` e `{wedding_id}/story.{ext}`), cada uma com seu próprio par de endpoints (`server/api/wedding/theme/cover-upload.*`, `server/api/wedding/theme/story-upload.*`) e composable (`useWeddingCoverUpload`, `useWeddingStoryUpload`).
 - A paleta do casal é sempre **duas cores** (`primaryColor` + `secondaryColor`, cada uma validada independentemente pela seção 22.4), sempre editáveis por hexadecimal exato. `shared/theme-presets.ts` cataloga temas prontos (`THEME_PRESETS`, cor+cor+par tipográfico combinados) e pares tipográficos (`FONT_PAIRS`, independentes de cor) — presets são só um atalho de largada: escolher um preenche os três campos de uma vez, mas cada um continua editável manualmente depois, e a fonte é sempre uma escolha independente da cor (nunca embutida apenas dentro do preset).
 - **Personalização avançada (Fase Editorial)**: além da paleta primária/secundária, o casal pode opcionalmente sobrescrever `titleColor`/`bodyColor` — resolvidos para `--color-heading`/`--color-body` (`useWeddingTheme.ts`), tokens que, sem sobrescrita, herdam `--color-text` (`app/assets/css/main.css`). É um toggle "Personalização avançada" na tela de Aparência (`app/pages/admin/configuracoes/index.vue`): desligá-lo limpa os dois campos no submit seguinte, em vez de deixar um valor escondido e não-editável. Cada cor é validada por contraste independentemente, como `primaryColor`/`secondaryColor` (seção 22.4). Adoção pelos componentes é incremental — `text-heading`/`text-body` (utilities geradas a partir dos tokens) substituem `text-text` onde fizer sentido, não em todo o código de uma vez; o Hero (variante sem foto de capa) é o primeiro consumidor real do `<h1>` com `text-heading`. Na variante *com* foto de capa, o texto permanece branco fixo (legibilidade sobre a imagem) — a cor de título do casal não se aplica ali, decisão deliberada, não lacuna.
@@ -1051,32 +987,13 @@ Um componente só é extraído para uso compartilhado após aparecer em **pelo m
 - **Importação de CSV processada de forma assíncrona** via `jobs` (ver 11.1/3): o endpoint que recebe o upload apenas enfileira o processamento e retorna imediatamente; o parsing/validação/inserção em lote roda em um worker separado, evitando estourar o tempo de vida de uma função serverless síncrona em listas grandes.
 - **Rate limiting com store compartilhado** (Upstash Redis, ver 3) — contadores em memória de processo não funcionam corretamente em ambiente serverless com múltiplas instâncias, e dariam falsa sensação de proteção.
 
-### 27.1 Medição real (Lighthouse mobile, pós-Fase Editorial)
+### 27.1 Estado medido (Lighthouse mobile)
 
-Medido contra o build de produção (`npm run build` + `node .output/server/index.mjs`), Lighthouse `--form-factor=mobile --throttling-method=simulate` (4G simulado), na home pública já com as 13 seções da Fase Editorial:
+A meta de LCP < 2.5s (acima) **ainda não é cumprida** na home pública — última medição real ficou em 5.8s, com o elemento de LCP sendo o `<h1>` do Hero (texto, não imagem) bloqueado por um chunk JS inicial que inclui parte do grafo de rotas do admin, contrariando o item "bundle do admin carregado separadamente" acima. Não é um bug pontual introduzido por uma fase específica — é o padrão de bundling já existente do projeto. Investigar por que o manifesto de rotas do admin entra no chunk inicial do público (lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é o item de maior prioridade da Fase 4 ("Revisão de performance", seção 32) — ver `docs/CHANGELOG.md` para a medição completa.
 
-| Métrica | Medido | Meta (acima) | Status |
-|---|---|---|---|
-| LCP | 5.8s | < 2.5s | ❌ acima da meta |
-| CLS | 0 | < 0.1 | ✅ |
-| TBT | 150ms | — | ✅ |
-| Speed Index | 4.9s | — | ❌ |
+### 27.2 `sizes` do NuxtImg exige formato por breakpoint
 
-**Achado**: o elemento de LCP é o `<h1>` do Hero (texto, não imagem), mas o carregamento inicial da página baixa um chunk JS único (`_nuxt/CPRH98eB.js`, ~471KB) contendo referências às rotas `/admin/**` (`convidados`, `cronograma` aparecem no bundle) — hidratação do site público está sendo bloqueada por JS que inclui pelo menos parte do grafo de rotas do admin, contrariando o item acima ("bundle do admin carregado separadamente"). Isso não foi introduzido por uma mudança específica desta fase (é o padrão de bundling já existente do projeto), mas as 13 seções novas da home tornaram o custo de hidratação visível o suficiente para aparecer claramente na medição.
-
-**Não corrigido nesta fase** — decisão deliberada: uma investigação de code-splitting (por que o manifesto de rotas do admin entra no chunk inicial do público, se dá para lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é um trabalho à parte, arriscado de tentar no fim de uma fase já longa sem tempo para validar a fundo. Fica registrado aqui como o item de maior prioridade antes da Fase 4 ("Revisão de performance").
-
-### 27.2 Achado crítico: sintaxe da prop `sizes` do NuxtImg (pós-Fase Editorial)
-
-Reportado pelo usuário logo após o merge da Fase Editorial: a foto de capa (Hero) e as fotos da Galeria não apareciam no site — sem nenhum erro de console, sem falha de rede (a imagem original respondia 200 normalmente).
-
-**Causa raiz**: `@nuxt/image` não aceita a sintaxe crua do atributo HTML `sizes` (`sizes="100vw"` ou `sizes="(min-width: 640px) 50vw, 100vw"`) — a prop exige o formato próprio do módulo, `"breakpoint:valor"`, com chaves iguais às do `tailwind.config` (`sm`/`md`/`lg`/`xl`/`2xl`). Qualquer valor sem `:` é internamente tratado como se a chave fosse a string literal `"1px"`; para valores em `vw`, isso faz o módulo calcular a largura como **1% de 1px**, gerando um `srcset` de ~1-2px de largura — uma imagem essencialmente em branco, carregada com sucesso (por isso nenhum erro aparece), só que do tamanho errado. Confirmado via leitura direta de `node_modules/@nuxt/image/dist/runtime/utils/index.js#parseSizes`.
-
-**Correção**: todo uso de `sizes` com unidade `vw` em `NuxtImg`/`NuxtPicture` neste projeto precisa listar os 5 breakpoints explicitamente, ex.: `sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"` (constante) ou `sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"` (variável — nota: a biblioteca desloca cada valor para valer "a partir deste breakpoint até o próximo", não "abaixo deste breakpoint"; sempre conferir o `srcset`/`naturalWidth` renderizado após qualquer mudança, não confiar só na leitura do código). Valores em `px` (ex.: `sizes="400px"`, usado em `GiftCard.vue`) não têm esse problema — o bug é específico de unidades fluidas (`vw`).
-
-Corrigido em `Hero.vue`, `StorySection.vue` e `GallerySection.vue` (grade e lightbox) — comentário de alerta deixado em `Hero.vue` como referência para o próximo uso de `sizes` no projeto.
-
-**Atualização (Fase Galeria via Google Drive)**: as fotos da Galeria (`GallerySection.vue`, `PhotoGalleryManager.vue`) deixaram de usar `NuxtImg` — passaram a ser servidas direto do Google via `<img loading="lazy">` (thumbnail do Drive), então este achado de `sizes` não se aplica mais a elas. Segue valendo para capa/história e qualquer outro uso de `NuxtImg`/`NuxtPicture` com unidade `vw`.
+Todo uso de `sizes` com unidade `vw` em `NuxtImg`/`NuxtPicture` neste projeto precisa listar os 5 breakpoints explicitamente (`@nuxt/image` não aceita a sintaxe crua do HTML — `sizes="100vw"` sozinho silenciosamente gera um `srcset` de ~1-2px de largura, sem nenhum erro visível), ex.: `sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"` (constante) ou `sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"` (variável — a biblioteca desloca cada valor para valer "a partir deste breakpoint até o próximo", não "abaixo deste breakpoint"; sempre conferir o `srcset`/`naturalWidth` renderizado após qualquer mudança). Valores em `px` (ex.: `sizes="400px"`, usado em `GiftCard.vue`) não têm esse problema — é específico de unidades fluidas (`vw`). Aplica-se a capa/história (`Hero.vue`, `StorySection.vue`) e qualquer novo uso de `NuxtImg`/`NuxtPicture`; não se aplica à Galeria, que usa `<img loading="lazy">` direto do Google (seção 27, achado real documentado em `docs/CHANGELOG.md`).
 
 ---
 
@@ -1086,7 +1003,7 @@ Corrigido em `Hero.vue`, `StorySection.vue` e `GallerySection.vue` (grade e ligh
 - **Princípio do menor privilégio**: o client (browser) nunca usa a `service_role key` do Supabase — apenas o server (Nitro) tem acesso a credenciais privilegiadas, via variáveis de ambiente não expostas ao bundle client.
 - **Tokens de convidado hasheados em repouso**: `guest_access_tokens.code_hash` nunca armazena o valor em texto plano (ver 11 e 13) — um vazamento de banco não deve permitir reuso direto dos códigos de acesso.
 - **Validação em ambas as camadas**: Zod no client (UX) e Zod novamente no server (segurança) — nunca confiar apenas na validação do formulário.
-- **Rate limiting com store durável e compartilhado** (Upstash Redis, ver 3) em endpoints públicos sensíveis (`rsvp/[code]`, resolução de token de acesso) para mitigar enumeração/brute force — contadores em memória de processo não protegem nada em ambiente serverless multi-instância.
+- **Rate limiting com store durável e compartilhado** (Upstash Redis, ver 3) em endpoints públicos sensíveis (`/api/rsvp/**`, busca pública por nome, resolução de token de acesso) para mitigar enumeração/brute force — contadores em memória de processo não protegem nada em ambiente serverless multi-instância.
 - **Upload de arquivos** (fotos, Fase 3): allowlist explícita de tipo MIME (`image/jpeg`, `image/png`, `image/webp`), limite de tamanho por arquivo, e nome de arquivo sempre regenerado no servidor (nunca reaproveitado do upload original) antes de gravar no Storage.
 - **Proibição de `v-html` sobre conteúdo gerado por usuário**: campos livres de convidado (`message` do RSVP, `notes` de grupo) são sempre renderizados via interpolação padrão do Vue (auto-escapada) — `v-html` só é permitido sobre conteúdo controlado pela própria equipe, nunca sobre dado de entrada externo.
 - **Dados pessoais de convidados** (nome, telefone, e-mail, restrições alimentares) são tratados como dados sensíveis: nunca logados em texto pleno, acesso de leitura restrito a membros autenticados do respectivo `wedding_id`.
@@ -1118,6 +1035,10 @@ O pagamento de presentes via InfinitePay (seção 18.4) introduz um **terceiro m
 - A única prova real de pagamento é uma chamada **servidor-a-servidor** (`payment_check`, `server/utils/infinitepay.ts`), disparada de dentro de `server/utils/gift-payment.ts#confirmGiftPayment` — chamada tanto pelo webhook quanto pelo retorno do convidado, que funcionam apenas como **gatilhos** para essa mesma verificação, nunca como fonte de verdade.
 - Todo efeito de negócio (gravar `gift_reservations`/`gift_contributions`) nasce **exclusivamente** dentro da função Postgres `confirm_gift_payment()`, chamada só depois de `payment_check` confirmar. Isso é reforçado no próprio schema: `gift_payments` não tem policy de RLS de escrita para ninguém (seção 28) — nem um bug de autorização no admin conseguiria forjar um pagamento confirmado.
 - Consequência prática para testes: a suíte de segurança deste fluxo precisa validar explicitamente idempotência (webhook duplicado, corrida entre webhook e "pull" do convidado não deve reprocessar nem duplicar o efeito) — coberto em `tests/unit/server/gift-payment.spec.ts`.
+
+### 28.4 Nenhuma view em produção hoje
+
+A view `wedding_rsvp_summary` (criada na Fase 1) foi removida — o Supabase Security Advisor sinalizou, com severidade CRITICAL, que ela rodava sem `security_invoker` e por isso ignorava RLS por completo (views Postgres executam com o privilégio do dono por padrão, não do usuário que consulta). Sem consumidor real no código (o dashboard já computava os contadores em memória, respeitando RLS), a view foi apenas removida (`drop view`) em vez de corrigida in-place. **Regra daqui pra frente**: qualquer view nova neste projeto precisa ser criada com `security_invoker = true` (ver §13) — relato completo do achado em `docs/CHANGELOG.md`.
 
 ---
 
@@ -1200,6 +1121,8 @@ docs: atualizar CLAUDE.md com convenções de commit
 
 ## 32. Roadmap
 
+> **Regra de manutenção**: um fato de estado atual (o que o produto faz hoje) vai na seção numerada correspondente do documento (1–31, 33). Narrativa de processo — achado de bug, rodada de iteração, reversão de escopo, "como chegamos aqui" — vai direto em [`docs/CHANGELOG.md`](docs/CHANGELOG.md), nunca misturada à seção de especificação. Cada fase nomeada abaixo tem só um resumo curto + pointer; o histórico completo mora só no CHANGELOG. Essa separação é o que manteve este documento legível depois da reorganização registrada na última entrada do CHANGELOG — sem ela, o documento volta a inchar do mesmo jeito na próxima fase.
+
 ### Fase 0 — Fundação (concluída)
 - [x] Especificação técnica e de produto (este documento).
 - [x] Setup inicial do projeto Nuxt + Supabase.
@@ -1213,9 +1136,9 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [x] CRUD de convidados e grupos.
 - [x] Configuração básica do evento (data, local, tema visual simples) — inclui o cronograma (`event_segments`).
 - [x] Site público com informações do evento.
-- [x] Fluxo de RSVP via código único — geração de token (admin), `/rsvp/[code]` (confirmar/recusar, acompanhantes nominais, limite de grupo validado via `confirm_rsvp()`), com rate limiting.
+- [x] Fluxo de RSVP via código único — geração de token (admin), `/rsvp/[code]` (confirmar/recusar, acompanhantes nominais, limite de grupo validado via `confirm_rsvp()`), com rate limiting. **Superado pela "Fase 7" (abaixo)**: RSVP passou a ser sempre por convidado, `confirm_rsvp()` foi substituída por `upsert_guest_rsvp()`/`finalize_invite_rsvp()`, e um segundo caminho de entrada (busca por nome, sem código) foi adicionado — este bullet permanece como registro histórico do que a Fase 1 entregou (seções 14/16 têm o comportamento atual).
 - [x] Lista de presentes com reserva — CRUD administrativo, vitrine pública (`/presentes?code=`), reserva atômica (`reserve_gift()`), contribuição em presentes de cota e cancelamento, todos via `guest_access_token`. Contribuição avulsa por `contributor_name` (presente físico entregue por terceiro, CLAUDE.md §18.2) é só de uso administrativo/manual — não exposta como fluxo self-service na vitrine pública ainda. **Superado pela "Fase Presentes 2.0" (abaixo)**: a vitrine deixou de depender de `?code=`/`guest_access_token` (identificação por nome/telefone) e o cancelamento self-service foi removido por completo — este bullet permanece como registro histórico do que a Fase 1 entregou, não como descrição do comportamento atual.
-- [x] Dashboard administrativo com contadores essenciais — confirmados/recusados/pendentes, acompanhantes confirmados e prazo de RSVP, lidos da view `wedding_rsvp_summary` (CLAUDE.md, seção 13). Contador de presentes reservados ainda não foi adicionado ao dashboard — a lista de presentes já existe agora, então isso deixou de ser um bloqueio; fica como ajuste pontual futuro.
+- [x] Dashboard administrativo com contadores essenciais — confirmados/recusados/pendentes, acompanhantes confirmados e prazo de RSVP, lidos originalmente da view `wedding_rsvp_summary` (CLAUDE.md, seção 13). Contador de presentes reservados ainda não foi adicionado ao dashboard — a lista de presentes já existe agora, então isso deixou de ser um bloqueio; fica como ajuste pontual futuro. **A view foi removida por achado de segurança (seção 28.4)** — o dashboard já havia sido reescrito para computar os contadores em memória, então este bullet permanece só como registro histórico do que a Fase 1 entregou.
 
 ### Fase 2 — Consolidação
 - [ ] Importação de convidados via CSV.
@@ -1234,217 +1157,41 @@ docs: atualizar CLAUDE.md com convenções de commit
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
 
+### Fase 7 — Convites, Grupos e Acompanhantes (concluída, fora da sequência numerada)
+
+Reestruturação de schema do domínio de convidados/RSVP — a mudança mais profunda já feita no produto (ver `docs/CHANGELOG.md` para o histórico completo). `guest_groups` virou `invites` (unidade real de RSVP), e duas tabelas novas nasceram com semânticas independentes: `groups` (etiqueta organizacional livre, ex. "Família da Noiva") e `guest_parties` (agrupamento de Acompanhantes). RSVP passou a ser sempre por convidado (não mais "modo grupo"); busca de convidado por nome (não só por código) habilitada. Modelo atual documentado nas seções 11, 12, 14, 15, 16 e 17.
+
 ### Fase Editorial (concluída, fora da sequência numerada)
 
-Redesign completo de identidade visual e conteúdo do site público, motivado por feedback direto do usuário pedindo qualidade de "editorial de revista de casamento de luxo" — 14 PRs sequenciais, cada um validado contra o Supabase real antes do merge (mesmo ciclo já estabelecido na Fase Visual).
-
-- **Identidade**: paleta Borgonha profundo/Dourado fosco aplicada como tema real do casamento (`shared/theme-presets.ts#borgonha-editorial`); modo de cor avançada opcional (`titleColor`/`bodyColor`, seção 22.3); tokens neutros da plataforma refinados para off-white/branco puro com profundidade sutil (`--color-surface` vs. `--color-surface-elevated`, seção 22.1).
-- **Fundação reutilizável**: `PublicEditorialSection` (wrapper de "capítulo" — título, divisor, alternância de fundo, reveal-on-scroll, âncora) e `UiSectionDivider`, usados por todas as seções novas.
-- **7 novas seções na home** (`app/pages/index.vue`): Nossa História, Cerimônia/Recepção em destaque (`PublicEventSpotlight`, deriva de `event_segments` existentes), Contagem Regressiva (promovida de dentro do Hero para seção própria — **revertido na Fase Vermelho Clássico**, ver abaixo), Dress Code, Manual dos Convidados/Padrinhos (`PublicTopicGrid` compartilhado), teasers de Presentes/RSVP, Galeria, FAQ (`UiAccordion`, headless via Reka UI) e Contato — a maioria com copy fixo centralizado em `shared/wedding-content.ts` (decisão explícita: sem admin de conteúdo ainda, ver "Não-decisões" abaixo).
-- **Galeria** ativada de ponta a ponta (tabela `photos`, reservada desde a Fase 1) — ver bullet acima.
-- **Navegação**: `PublicNavBar` reescrita com 6 links curados por âncora (`/#id`, funciona a partir de qualquer página do layout público) e menu mobile em drawer.
-- **QA de mobile/performance**: auditoria de área de toque (≥44×44px) em todo elemento interativo novo, `html`/`body { overflow-x: hidden }` (elemento `fixed` do drawer fechado inflava `scrollWidth` sem ser de fato alcançável — achado da auditoria), `NuxtImg` com `preload` no Hero (LCP) e `loading="lazy"` nas imagens abaixo da dobra.
-
-**Não-decisões / adiado deliberadamente**: as 7 novas seções de conteúdo (exceto Galeria) não têm tela de admin para o casal editar — o texto vive em `shared/wedding-content.ts`, centralizado para facilitar a migração para colunas/tabelas editáveis quando essa fase futura existir. Cerimônia/Recepção em destaque derivam de `event_segments` por heurística de palavra-chave (`shared/utils/event-segment-keywords.ts`), sem coluna de tipo estruturada — depois generalizado para toda seção do cronograma (não só as duas classificadas), ver bullet "Cronograma detalhado do evento" na Fase 3.
+Redesign completo de identidade visual e conteúdo do site público (paleta Borgonha/Dourado, 7 novas seções na home, galeria ativada, navegação por âncora). Histórico completo (14 PRs, decisões de escopo) em `docs/CHANGELOG.md`.
 
 ### Fase Vermelho Clássico (concluída, fora da sequência numerada)
 
-Redesign visual da home pública para "casar" com um site de referência de um concorrente real (`mimodocasal.com.br`), pedido explícito do usuário — "front only" (sem migração de schema nova, sem novo modelo de acesso do convidado). Pesquisa feita via Playwright real contra o site de referência (screenshots seção-a-seção + `computedStyle` de elementos-chave), não por inspeção visual superficial. 4 PRs sequenciais planejados; cada um validado contra o Supabase real antes do merge (mesmo ciclo já estabelecido nas fases anteriores).
-
-**Exceções explícitas, mantidas como já estavam** (pedido do usuário): seção Nossa História (conteúdo/layout inalterados), a separação entre foto de capa e foto da seção Nossa História (`theme_config.coverImageUrl`/`storyImageUrl`, ver bullet "Galeria de fotos" abaixo desta lista), e a existência das seções Galeria/FAQ/Dress Code (o site de referência não tem essas seções — mantidas).
-
-- **PR 1 — Tokens de tema + Hero/NavBar** ([x] concluído): novo par tipográfico `cinzel-inter-montserrat` (`shared/theme-presets.ts#FONT_PAIRS` — Cinzel para headings, Inter para corpo, Montserrat para botões via `FontPair.buttonFontFamily`/`--font-button`, ver §22.1) e novo preset `vermelho-classico` (`primaryColor: #dc2626`, `secondaryColor`/`titleColor: #7f1d1d`) aplicado como tema real deste casamento. `Hero.vue` reestruturado: nome do casal em 3 linhas quando segue o padrão `"Nome & Nome"` (fallback de 1 linha para nomes fora do padrão), local do primeiro `event_segment` cadastrado na linha da data, contagem regressiva embutida (reversão da decisão da Fase Editorial de tê-la como seção própria — `CountdownSection.vue` removido), atalhos em pill com ícone (personalizáveis pelo casal — quais aparecem e qual fica em destaque, ver §21) logo abaixo, indicador "Role" no rodapé do Hero. `PublicNavBar`: CTA "Presentear" em pill apontando para `/#presentes` (a vitrine completa de presentes passa a viver embutida na home a partir da PR 3 desta fase — `/presentes` continua existindo como página própria/compartilhável). `UiButton` ganhou as props `rounded` (`'md'`/`'full'`) e a variante `outline`.
-- **PR 2 — Cronograma em card único** ([x] concluído): `EventSpotlight.vue` reestruturado para um cartão único (`rounded-lg border bg-surface-elevated shadow-md`) contendo, empilhados: badge pill com o título classificado (`CERIMÔNIA`/`RECEPÇÃO`/`FESTA` em maiúsculas; itens não classificados, ex. "Chá de panela", mantêm o título original — `classifyEventSegmentTitle`), faixa de horário, nome/endereço do local, `PublicVenueMap` (mesmo embed do Google Maps já existente) e botão "Abrir no Google Maps" (`variant="outline" rounded="full"`) — tudo dentro do mesmo card, substituindo o layout anterior (ícone circular centralizado + mapa solto abaixo). `PublicSaveTheDateCard.vue` (novo) — mini-cartão com ícone + data do evento, renderizado uma vez em `index.vue` logo acima do wrapper `#cronograma`, só quando há ao menos um `event_segment` cadastrado. Sem foto no card de local (`event_segments` não tem coluna de imagem — fora do escopo "front only" desta fase, ver "Restrições de escopo" acima).
-- **PR 3 — Vitrine de presentes embutida na home** ([x] concluído): lógica de `pages/presentes/index.vue` extraída para `components/gifts/GiftsShowcase.vue` (fetch via `usePublicGifts`, filtros, grid, handlers de reservar/cancelar/contribuir) — reutilizada pela página dedicada (que passa a só delegar) e pela nova `components/public/GiftsShowcaseSection.vue`, que substitui o antigo `GiftsTeaserSection.vue` na home. Filtro por faixa de preço (item já cogitado numa fase anterior e não implementado até então) calculado dinamicamente a partir do preço real dos presentes de cada casamento (`shared/utils/gift-price-brackets.ts#computeGiftPriceBrackets` — nunca hardcoded, no máximo 4 faixas em incrementos redondos de reais; presente de cota usa o valor-alvo como "preço efetivo") + `UiSelect` "Ordenar por" (Ordem do casal/Menor preço/Maior preço) + contador "Mostrando X de Y presentes". Filtro de categoria + faixa de preço + ordenação encadeados numa função pura testável (`shared/utils/filter-gifts.ts#filterAndSortGifts`), não inline no componente. `GiftCard.vue` reestilizado (badge de preço sobreposto na foto, botão "Presentear" em pill com ícone) sem alterar nenhuma lógica/estado existente (reservar, cancelar, contribuir, badges de status). `/presentes` continua existindo como página própria (link direto/compartilhável) — só deixou de ser o alvo principal do menu (CLAUDE.md, PR 1 desta fase). **Filtro por faixa de preço removido na "Fase Presentes 2.0"** (seção 32, pedido do usuário) — `shared/utils/gift-price-brackets.ts` foi deletado; só o filtro de categoria e a ordenação por preço permanecem.
-- **PR 4 — RSVP informativo + polimento** ([x] concluído): `RsvpTeaserSection.vue` reestilizado como cartão único (`rounded-lg border bg-surface-elevated shadow-md`) — ícone + nome do casal + data no topo, texto explicativo abaixo, mesma linguagem visual do card de Cerimônia (PR 2 desta fase). Sem formulário funcional (ver restrição de escopo acima); passa a receber `wedding` como prop (antes não recebia nenhuma). Passada de QA mobile real (viewport 375×812): sem overflow horizontal em toda a home, screenshots comparados à referência.
-
-**Restrições de escopo "front only" (deliberadas, não lacunas)**: (1) o card de Cerimônia do site de referência tem uma foto real do local — como `event_segments` não tem coluna de imagem e adicionar uma seria mudança de schema, o card não terá foto nesta fase (**superado na Fase Linguagem Visual, Rodada 2** — `event_segments.image_url` adicionada, upload manual pelo casal); (2) o RSVP do site de referência busca o convidado por telefone digitado na própria home, sem link único — isso contraria o modelo de segurança já documentado (§4.5/§14, acesso do convidado é só via token opaco na URL, nunca busca aberta) e exigiria um endpoint público novo, então a seção RSVP da home continua sendo só informativa, orientando o uso do link único recebido; (3) a ilustração floral decorativa do Hero do site de referência não foi recriada (decisão do usuário — já existe upload de foto de capa personalizada); (4) botões de compartilhar (WhatsApp/copiar link) do rodapé do site de referência não foram adicionados (decisão já tomada antes desta fase, mantida).
+Redesign visual "front only" da home pública para casar com uma referência real de mercado (Hero com contagem embutida e atalhos, cronograma em card único, vitrine de presentes embutida na home, RSVP informativo). Histórico completo (4 PRs, restrições de escopo deliberadas) em `docs/CHANGELOG.md`.
 
 ### Fase Jornada do Convidado (concluída, fora da sequência numerada)
 
-Reordenação e renomeação das seções da home pública, pedido explícito do usuário: a experiência deve simular "entrar na casa dos noivos" — desacelerar a navegação com o momento emocional (Nossa História) antes de qualquer informação prática, e dar à confirmação de presença o maior destaque visual da página, movida para antes da lista de presentes.
-
-- **Nova ordem**: Hero → Nossa História → O Grande Dia → Dress Code → Manual dos Convidados → Confirme sua Presença → Lista de Presentes → Perguntas Frequentes → Nossos Momentos → rodapé (`index.vue`).
-- **"O Grande Dia"** (renomeado de "Cerimônia e Recepção"/título dinâmico por segmento): `EventSpotlight.vue` deixou de ser uma seção própria (removeu o `PublicEditorialSection` interno) e virou só o cartão de conteúdo — o novo `GrandeDiaSection.vue` monta a seção única (`id="grande-dia"`, título fixo), renderizando um cartão por grupo de `groupEventSegmentsByVenue()` (um cartão fundido quando Cerimônia/Recepção compartilham endereço, dois cartões lado a lado quando não). Âncoras internas `#cerimonia`/`#recepcao` preservadas como `sr-only` dentro do cartão, para compatibilidade com links já compartilhados.
-- **"Confirme sua Presença" com destaque real**: `RsvpTeaserSection.vue` passou de cartão puramente informativo (`tone="muted"`, sem CTA funcional) para `tone="accent"` com um botão real para `/{slug}/rsvp` — a busca por nome (`RsvpInviteFlow`, já implementada desde a Fase 1) estava órfã, sem nenhum link visível apontando pra ela a partir da home; agora é o caminho principal.
-- **"Nossos Momentos"** (renomeado de "Galeria"): vira uma prévia pequena (`GallerySection.vue`) em vez da grade completa — decisão deliberada do usuário de manter o upload direto (Supabase Storage) como está por ora; sincronização com link de álbum do Google Drive (comum entre fotógrafos) registrada como ideia de fase futura, não implementada. **Implementado depois na "Fase Galeria via Google Drive"** (abaixo): a sincronização com o Google Drive substituiu por completo o upload direto; a prévia deixou de ter um limite fixo (`PREVIEW_PHOTO_LIMIT`) e passou a ser configurável (`theme_config.galleryPreviewCount`) com botão "Abrir galeria" para a página dedicada `/{slug}/galeria`. Este bullet permanece como registro histórico da decisão de então.
-- `NavBar.vue`/`shared/hero-buttons.ts` atualizados para os novos rótulos/âncoras (`#grande-dia`, `#nossos-momentos`).
+Reordenação da home pública simulando "entrar na casa dos noivos": Nossa História logo após o Hero, "Confirme sua Presença" com destaque real (CTA funcional pra `/rsvp`) movida antes da lista de presentes, Galeria virou prévia pequena ("Nossos Momentos"). Histórico completo em `docs/CHANGELOG.md`.
 
 ### Fase Linguagem Visual (concluída, fora da sequência numerada)
 
-Refinamento visual pedido pelo usuário — "acho no site com muitos espaços em branco, e sem uma certa padronização visual" — pesquisa real via Playwright (screenshots + `getComputedStyle` de botões/cards/cabeçalhos/divisores) contra `mimodocasal.com.br`, mesma metodologia da Fase Vermelho Clássico. Só estilo de componente/animação foi replicado (padrão explícito do usuário) — nenhuma imagem/texto do concorrente foi copiado; cores e tipografia já batiam com o preset `vermelho-classico` (coincidência favorável, não ajuste).
-
-- **Cabeçalho de seção padronizado**: toda seção pública ganhou um `eyebrow` (rótulo curto, uppercase, tracked, `primary/60`) acima do título, com o `SectionDivider` (ornamento linha–ponto–losango–ponto–linha, agora tingido na cor primária) abaixo — antes só metade das seções tinham subtítulo, sem padrão visual consistente entre elas.
-- **Alternância de fundo consistente**: todas as 8 seções da home alternam `default`/`muted` (com a seção de RSVP em `accent`, quebrando o ritmo como destaque deliberado) — antes só duas seções usavam `tone="muted"` ad hoc.
-- **Tier de cartão "premium"** (`--radius-xl`/`--shadow-xl`, `UiCard` props `radius`/`elevation`): aplicado a `EventSpotlight` (card de "O Grande Dia"), `RsvpTeaserSection`, `SaveTheDateCard` e `GiftCard` — raio e sombra maiores/mais suaves que o resto da plataforma. Nesta fase era exclusivo do site público; virou o default de `UiCard` na plataforma inteira, incluindo o admin, na "Fase Admin Premium — Rodada 2" (§21).
-- **Cartão de busca do RSVP em duas colunas** (`/{slug}/rsvp`, passo `search`): painel esquerdo com gradiente na cor primária + contexto (casal/data/ícone), painel direito com o formulário de busca — mesmo padrão do cartão de RSVP de referência, citado explicitamente pelo usuário como favorito. Empilha em mobile.
-- **Botões**: variante `outline` ganhou fundo translúcido + borda tingida (era borda sólida/fundo transparente); CTAs em pill (`rounded="full"`) ganharam `hover:scale`/`active:scale` e, quando `primary`, um glow colorido via `color-mix()`.
-- **Rodapé redesenhado**: de uma linha de texto solta para o mesmo tratamento editorial das seções (ícone, nome do casal, data, divisor, crédito) — banda com gradiente sutil.
-- Rebrand pontual: fallback de marca (`NavBar`/`Footer`) de "Wedding Platform" para "MeuSiteCasamento" — consistente com a decisão de rebrand parcial já em andamento (só strings do convidado).
-
-**Rodada 2** (feedback do usuário sobre a primeira rodada, com screenshots da própria home comparados ao card de referência):
-
-- **Foto do local em "O Grande Dia"**: nova coluna `event_segments.image_url` (bucket próprio `wedding-event-segments`, mesmo padrão RLS de capa/galeria — leitura pública, escrita restrita a `wedding_members`) + upload manual pelo casal em `/admin/cronograma` (`AdminEventSegmentImageUploader.vue`, sem ponto de foco — diferente de capa/história/galeria, tratamento simples `object-cover` como o `GiftCard`). Decisão explícita do usuário: **não** busca automática via Google (Places Photos/Street View exigiriam API paga com billing, contrariando o mapa embutido sem chave — §3); upload manual reaproveita a infraestrutura já existente, sem custo adicional. `EventSpotlight.vue` renderiza a foto full-bleed no topo do cartão quando presente (`aspect-video`), sem quebrar o layout quando ausente.
-- **"Save the date" reposicionado**: antes era um bloco solto entre `StorySection` e `GrandeDiaSection`, com fundo/padding próprios — ficava visualmente "perdido", desconectado da seção que descrevia. Agora vive dentro do próprio `GrandeDiaSection` (`PublicSaveTheDateCard` movido pra lá), logo abaixo de uma nova frase de descrição, antes dos cartões de local — mesma posição do card de referência.
-- **Hierarquia tipográfica maior**: título de `PublicEditorialSection` de `text-3xl sm:text-4xl` para `text-4xl sm:text-5xl`; `Hero.vue` (as duas variantes, com/sem foto de capa) subiu um degrau na escala do Tailwind — mais perto da referência (H1 ~83px, H2 ~54px via `getComputedStyle`) sem introduzir tamanho arbitrário fora da escala padrão.
-- **FAQ modernizado**: `UiAccordion` deixou de ser uma lista com `divide-y` (traço fino entre itens) e virou uma pilha de cartões (`rounded-xl`, `shadow-sm`, badge circular no lugar do chevron solto) — mesma linguagem de card do resto da fase.
-- **Ilustração no Dress Code**: `PublicDressCodeIllustration.vue` — SVG em line-art autoral (vestido + terno em cabides, traço fino na cor primária/secundária do tema), substitui o vazio entre o divisor e o texto. Decorativa (`aria-hidden`), sem dependência de upload/dado externo.
-- **Manual dos Convidados** (`TopicGrid.vue`): cartões de tópico também sobem para `rounded-xl`/`shadow-md` com ícone tingido em `primary` (era `secondary`) — consistência com o resto dos cartões da fase.
-
-**Rodada 3**: `PublicScrollToTopButton.vue` — botão circular flutuante (`fixed bottom-6 right-6`), aparece só depois de rolar além de 480px e some perto do topo; `window.scrollTo({ behavior: 'smooth' })`. Pedido do usuário para a home longa (9 seções) — deliberadamente pequeno/discreto, não uma sidebar fixa de navegação. Montado uma vez em `layouts/default.vue` (mesmo nível de `NavBar`/`Footer`), cobre todas as páginas do site público.
-
-**Rodada 4 — Hero "sensação de convite"** (reconstrução do `Hero.vue`, variante sem foto de capa, pedido do usuário com referência visual real):
-
-- **Monograma d'água**: iniciais do casal (`"M & R"`, derivadas de `coupleNameParts`) em `font-display`, enorme (`text-[12rem] sm:text-[18rem]`) e quase transparente (`text-heading/[0.05]`), posicionado à direita do Hero — `aria-hidden`, `pointer-events-none`. Só na variante sem foto de capa (sobre uma foto ficaria ilegível/competiria com a imagem); sem fallback de nome fora do padrão `"Nome & Nome"`, simplesmente não aparece.
-- **`PublicHeroFlourish.vue`**: pequeno ornamento em line-art (galho duplo + ponto central) entre o eyebrow e o nome do casal — mesma família visual de `SectionDivider`/`DressCodeIllustration`, mas exclusivo do Hero (é o primeiro momento da página, "hero cinematográfico"). Traço fino em `currentColor`, herda a cor do contexto (`secondary/70` sem foto, `white/60` com foto).
-- **Linha fina sob o nome**: `<span class="h-px w-12 bg-secondary/50">` entre o `<h1>` e a linha de data/local.
-- **Countdown "inline"**: `UiCountdownTimer` ganhou a prop `variant` (`'cards'` default — mantido no dashboard admin; `'inline'` — números soltos, sem caixa, separados por `·`, usado só no Hero). Rótulos completos (`dias/horas/minutos/segundos`, antes abreviados `min/seg`) nas duas variantes.
-- **Indicador de scroll em círculo**: "Role para descobrir" + ícone dentro de um círculo com borda (`h-8 w-8 rounded-full border`), no lugar do ícone solto.
-- **Onda de transição**: SVG (`viewBox 0 0 1440 120`, `preserveAspectRatio="none"`) no rodapé do Hero, curva suave preenchida com `text-surface` (a cor da seção seguinte) — cria a sensação de página de convite entre o Hero e `Nossa História`. Presente nas duas variantes (com/sem foto). A variante sem foto também mudou de `bg-surface` para `bg-surface-muted`, criando o contraste necessário pra onda aparecer.
-- **Destaque do menu sincronizado**: `NavBar.vue` ganhou a prop `featuredButtonId` (repassada por `layouts/default.vue` a partir de `theme_config.heroFeaturedButton`) — o link de âncora correspondente (quando o atalho em destaque do Hero também existe como item do menu: `historia`/`cronograma`/`confirmar-presenca`/`galeria`) ganha `font-semibold text-primary`. O CTA "Presentear" continua sempre destacado por padrão (é um botão pill sólido, não depende dessa sincronização) — o comportamento cobre o caso em que o casal muda `heroFeaturedButton` para outro atalho via `/admin/configuracoes`.
-
-**Rodada 5** (feedback: "definitivamente não ficou igual à referência"): os ornamentos da Rodada 4 (`HeroFlourish`, linha sob o nome, separadores da contagem, círculo do indicador de scroll) estavam com opacidade baixa demais (`/30`–`/70`) — na paleta deste casamento (`vermelho-classico`, secundária também um tom de vermelho escuro, não dourada) isso lia como "apagado" em vez de um acento nítido; todos passaram a usar `--color-secondary` em opacidade cheia. Adicionado também `HeroCornerBranch.vue` (ramo decorativo em line-art nos dois cantos superiores, espelhado via `-scale-x-100`) e uma luz diagonal suave (`linear-gradient` de branco translúcido) no fundo — os dois elementos que a Rodada 4 tinha deliberadamente deixado de fora. **Nota de honestidade**: o acento dourado da referência é o `secondaryColor` daquele tema específico — neste casamento (`vermelho-classico`) o resultado é vermelho escuro, não dourado, porque o sistema de tema (CLAUDE.md §22.3) não expõe uma terceira cor "de acento" fixa; um casal com uma paleta de secundária dourada (ex.: preset `borgonha-editorial`) veria o mesmo efeito em dourado.
-
-**Rodada 6 — Hero "Convite de Luxo"** (brief de design completo escrito pelo usuário — estética de marca de luxo, minimalista/editorial, "não um template de casamento"): reconstrução da variante sem foto do `Hero.vue` + nova antessala. Tudo continua configurável por casamento (cores/fontes via `theme_config`, brief explícito).
-
-- **Novo preset `convite-luxo`** ("Convite de Luxo": Borgonha profundo `#7a1f24` + Dourado fosco `#8a6a1f`, par novo `cormorant-inter` — Cormorant Garamond + Inter) aplicado como tema real deste casamento. O dourado do brief (`#C8A56A`) reprova no contraste mínimo (≈2.3:1, §22.4) — usa o dourado fosco escuro já validado; ornamentos decorativos (`aria-hidden`) clareiam via opacidade, sem burlar a validação de texto.
-- **Fundo com profundidade**: textura de papel de algodão (ruído `feTurbulence` em SVG inline data-URI, opacidade 4%, sem request externo) + luz diagonal + glow radial superior — nunca cor chapada. Monograma d'água em cascata diagonal (M / & / R, iniciais derivadas de `couple_names`, `text-heading/[0.04]`, brief pede 2–4%).
-- **Ilustrações botânicas** (`BotanicalSpray.vue`/`BotanicalBranch.vue`, com toggle `showHeroBotanicals`) — **removidas por completo na Rodada 7** a pedido do usuário (componentes, usos, campo do schema, toggle do admin e o campo correspondente em `theme.patch.ts` deletados; valor `showHeroBotanicals` já persistido no `theme_config` do banco fica como chave morta inofensiva, mesmo caso das chaves da fase revertida). O `HeroCornerBranch.vue` da Rodada 5 também foi removido nesse processo; `HeroFlourish.vue` (raminho de louro horizontal, redesenhado na Rodada 6) permanece — não fazia parte do pedido de remoção.
-- **Tipografia**: nomes em `text-6xl sm:text-8xl` (elemento dominante), "&" em itálico dourado a 0.45em; eyebrow flanqueado por filetes; data/local em uppercase tracked pequeno; contagem `variant="inline"` com números `text-4xl/5xl` e **separadores verticais** (`data-test="countdown-separator"`, antes "·"); botões em pill uppercase tracked (`!h-11 !px-6 !text-xs`); indicador de scroll com filete vertical + seta em círculo.
-- **`WelcomeSection.vue`** ("Seja muito bem-vindo!", copy em `shared/wedding-content.ts#WELCOME_CONTENT`): continuação do Hero após a onda — sem card/caixa, só tipografia (título uppercase tracked em `font-display`, ornamento, dois parágrafos, ♥). Deliberadamente **não** usa `PublicEditorialSection` (é uma antessala, não um "capítulo"). Inserida entre Hero e Nossa História em `index.vue`.
-- **NavBar**: + link "Manual do Convidado" e ícone de presente no CTA "Presentear" (paridade com a referência).
-- **Fix real de bug**: `theme.patch.ts` descartava silenciosamente `showHeroBotanicals` (endpoint enumera chaves manualmente — segunda ocorrência dessa classe de bug; aviso adicionado no §22.3 e no próprio arquivo). Nenhuma dependência nova: fontes via `@nuxt/fonts` (Cormorant Garamond já registrada em `nuxt.config.ts`), ornamentos/textura em SVG próprio inline.
-
-**Rodada 8 — Hero unificado (fim do layout "com foto")**: o `Hero.vue` tinha dois layouts (com foto de capa = texto branco flutuando sobre a foto crua; sem foto = o convite em marfim da Rodada 6). Feedback do usuário ao subir uma capa clara: "o texto fica flutuando na imagem e as cores das fontes mudaram para a mesma cor do fundo" — o branco sumia. Agora existe **um único layout** (o convite em marfim): a foto de capa, quando existe, entra como **fundo-ambiente sob um véu** (`opacity-20` + `blur-[2px]` + `scale-105` sobre o `bg-surface-muted`, ponto de foco preservado), e toda a tipografia mantém as cores do tema em qualquer situação. O monograma d'água passou a renderizar sempre (antes era exclusivo da variante sem foto). Nunca mais texto branco automático sobre foto no Hero.
-
-**Rodada 9 — Costuras curvas + padronização final**: pedido do usuário ("as transições de uma seção e outra são linhas retas, quadradas — quero arredondadas, suaves; o site está despadronizado").
-
-- **Costura curva sistemática**: `PublicEditorialSection` ganhou uma "colina" SVG no topo (`bottom-full`, preenchida com a cor da própria seção, prop `seam` default `true`) — entre seções da mesma cor fica invisível, entre cores diferentes vira a transição orgânica; mesma curva (`viewBox 1440x96`, `Q720,0`) usada na onda do Hero e no topo do `Footer` (que perdeu o `border-t` reto) — uma única linguagem de transição no site inteiro, sem wiring manual por página.
-- **Bug real encontrado**: as ondas usavam `preserve-aspect-ratio` (kebab-case, atributo inexistente em SVG — o correto é `preserveAspectRatio`); sem ele o SVG cai no default `xMidYMid meet`, renderiza a curva com ~840px centralizados e degraus retos nas laterais — era literalmente a "transição quadrada" da reclamação. Ao usar SVG inline em templates Vue, atributos SVG camelCase devem ser escritos em camelCase.
-- **`tone="accent"` virou cor sólida** (`color-mix(in srgb, var(--color-secondary) 10%, var(--color-surface))` em vez de `bg-secondary/10` translúcido) — necessário para a costura ter exatamente a mesma cor do corpo da seção.
-- **Identidade única dos CTAs em pill**: o rótulo uppercase tracked pequeno (`!text-xs font-semibold uppercase tracking-[0.16em]`) foi movido do Hero para dentro do `UiButton` (junto do lift/glow que já eram do pill) — todo `rounded="full"` do site público (Hero, NavBar, cards de presente, RSVP, mapas) fala a mesma língua; `rounded="md"` (admin/formulários) segue sem decoração.
-- Fotos editoriais alinhadas ao tier premium: foto da Nossa História (`rounded-xl shadow-xl`, era `rounded-lg shadow-md`) e miniaturas da galeria (`rounded-xl shadow-md`).
-
-**Rodada 10 — Menu superior em pílulas + verificação de fontes**: pedido do usuário ("os botões do menu estão quebrando linha... deixe mais moderno, pílula arredondada, fundo bem mais suave").
-
-- **Causa raiz da quebra de linha**: o container do `NavBar` (`max-w-5xl`) não tinha largura suficiente para marca + 5 links + CTA em `justify-between`, e o breakpoint que ligava o menu desktop era `sm:` (640px) — cedo demais pra esse volume de conteúdo. Os itens (`flex`, sem `shrink-0`) encolhiam e quebravam palavra a palavra.
-- **Fix**: container do header para `max-w-6xl`; breakpoint do menu desktop/hambúrguer/drawer de `sm:` para `lg:` (1024px — abaixo disso, hambúrguer); cada link com `shrink-0 whitespace-nowrap`. Links viram pílulas (`rounded-full px-3.5 py-2`) com `transition-all duration-200` e fundo `hover:bg-surface-muted` — o link sincronizado com `heroFeaturedButton` usa `bg-secondary/10` (mesmo tom suave da banda de destaque `accent`, não uma cor nova) em vez de só texto colorido.
-- **Verificação de fontes**: `--font-display` é resolvido em `useWeddingTheme.ts` a partir de `theme_config.fontPairId` (nenhum componente do site público hardcoda uma família de fonte — todos usam a classe `font-display`/`--font-button`). Round-trip confirmado contra o Supabase real (`PATCH /api/wedding/theme` → `fontPairId` persistido → `--font-display` computado no `<html>` reflete exatamente o valor salvo) — sem bug de propagação. O que estava acontecendo: o `theme_config` do casamento de teste tinha revertido pra `fontPairId: 'cinzel-inter-montserrat'`/`presetId: 'custom'` (provavelmente uma interação manual no admin entre rodadas) — restaurado para `cormorant-inter`/`convite-luxo`.
-
-**Rodada 11 — ordem do menu + bug real do drawer mobile (backdrop-blur/containing block)**:
-
-- **Ordem do menu**: `NAV_LINKS` reordenado pra casar exatamente com a ordem das seções em `index.vue` (pedido do usuário) — Nossa História → O Grande Dia → Manual do Convidado → Confirmar Presença → Nossos Momentos (antes "Confirmar Presença" e "Nossos Momentos" vinham fora de ordem).
-- **Bug real encontrado no celular** (reportado pelo usuário com screenshot: menu "vazando" o conteúdo da home por trás, painel espremido no canto): o drawer mobile era filho do `<header>`, que tem `backdrop-blur`. `backdrop-filter` cria um novo *containing block* pra descendentes `position: fixed` (mesmo efeito de `transform`/`filter`/`perspective`) — o `fixed inset-y-0` do drawer parava de resolver contra o viewport e passava a resolver contra a caixa do próprio `<header>` (~68px de altura), por isso a altura computada do drawer virava 68px em vez dos ~844px do viewport, e o conteúdo da home aparecia "por trás" dele. **Fix**: overlay + drawer movidos pra `<Teleport to="body">`, escapando completamente do contexto do header; `z-index` ajustado (`z-40`/`z-50`, antes `z-20`/`z-30`) porque fora do header a comparação de stacking passa a ser explícita contra o header `sticky z-30`. Testes de `NavBar.spec.ts` reescritos pra consultar o drawer teleportado via `document.body` (não aparece em `wrapper.find`), com `afterEach(() => wrapper?.unmount())` — sem isso, cada `mount()` deixaria um `.w-64` órfão em `document.body` entre testes.
-- **Swatches de cor removidos do Dress Code** (pedido do usuário): os dois círculos "Cor principal"/"Cor complementar" — eram só um indicativo visual da paleta, sem função, destoando do restante da seção.
-
-**Rodada 12**: o atalho "Confirmar presença" do Hero (`shared/hero-buttons.ts`) passou de âncora (`/#confirmar-presenca`, rolava até o card informativo da home) para rota real (`/rsvp`, a busca por nome) — um clique a menos pro convidado (pedido do usuário), mesmo racional já usado pelo atalho "presentes". Só o botão do Hero muda; a `NavBar` ("Confirmar Presença" no menu) e `RsvpTeaserSection` (`id="confirmar-presenca"`, o card na home) continuam apontando pro card informativo — o menu ainda faz sentido como "me leve até essa seção da página", diferente do Hero, que é a primeira tela e não tem motivo pra não ir direto ao fluxo.
-
-**Rodada 13**: mesmo direcionamento aplicado ao link "Confirmar Presença" do menu superior (`NavBar.vue`) — de âncora (`/#confirmar-presenca`) pra rota real (`/rsvp`), pedido do usuário logo depois da Rodada 12 ter feito isso só no botão do Hero. `RsvpTeaserSection` (o card informativo na home, `id="confirmar-presenca"`) continua existindo — só deixou de ser o alvo do menu.
+Padronização visual do site público — cabeçalho de seção consistente (eyebrow + divisor), alternância de fundo por seção, tier de cartão "premium" (`radius-xl`/`elevation-xl`), Hero reconstruído em várias rodadas até a versão atual ("Convite de Luxo": monograma d'água, tipografia grande, costuras curvas entre seções), menu em pílulas. 13 rodadas de iteração incremental, incluindo 3 bugs reais (SVG `preserveAspectRatio`, `backdrop-blur` quebrando `position: fixed` do drawer mobile, menu quebrando linha) — histórico completo em `docs/CHANGELOG.md`.
 
 ### Fase Admin Premium (concluída, fora da sequência numerada)
 
-Redesign visual do painel administrativo, pedido explícito do usuário: trazer o mesmo polimento do site público (botões modernos, animações, formulários melhores) para o admin — reversão parcial da decisão de "admin sem decoração" (§21) — e reorganizar a tela de Configurações, que tinha virado um formulário único muito longo. Decisões de escopo validadas com o usuário antes da implementação: intensidade **sutil/profissional** (sem o tratamento pill/glow/uppercase exclusivo do site público), Configurações em **abas Geral/Aparência** com as 7 subseções agrupadas em `UiAccordion`, entregue numa única branch (`feature/admin-premium-redesign`) faseada em commits por camada.
-
-- **Fundação de tokens**: `--transition-duration`/`--transition-easing` + utility `.transition-brand` (§22.1) — duração/easing únicos pra toda a plataforma. Degraus `radius-md`/`shadow-md` (já existentes, antes reservados ao site público) liberados para hover/interativo no admin — só `radius-xl`/`shadow-xl` (tier "premium") permanecem exclusivos do público.
-- **Design System**: `Button` (`rounded="md"`) ganhou `hover:shadow-md`/`active:scale-[0.98]`; `Card` ganhou prop `variant` (`interactive`/`highlight`, além do `default` existente); `Input`/`Select`/`Textarea`/`Checkbox`/`RadioGroup` com transição de foco/hover; `EmptyState` ganhou prop `icon`; `Toast` ganhou transição de entrada/saída (`TransitionGroup`), tom `warning` e duração por tom. Dois componentes novos: `UiChip` (substitui 3 pontos de "pill manual" reinventada) e `UiTabs` (sobre `TabsRoot` do reka-ui, mesmo padrão de `Accordion`). `Accordion` ganhou slot com escopo `#content` para conteúdo rico além de texto simples.
-- **Componentes estruturais do admin** (`components/admin/`): `AdminSection` (cabeçalho de página — título/descrição/ações, usado em toda página do admin), `AdminStatCard` (métrica com ícone, usado no dashboard) e `AdminQuickAction` (atalho de ação, nova seção "Ações rápidas" do dashboard: novo convidado, editar evento, novo presente, ver site público).
-- **Dashboard**: reescrito com `AdminSection`/`AdminStatCard`/`AdminQuickAction`; entrada dos grupos de card com `v-motion` (fade+slide com stagger, mesmo padrão do site público); cards de destaque (prazo de RSVP, countdown) em `Card` `variant="highlight"`.
-- **Configurações**: `UiTabs` (Geral/Aparência); dentro de Aparência, as 7 subseções (fotos de capa/história, preset, tipografia, cores, personalização avançada, countdown, atalhos do Hero) agrupadas em 3 clusters temáticos (Branding/Tema/Experiência) via `UiAccordion` com slot `#content`; mensagens de sucesso/erro migradas de texto inline para `useToast()`. Lógica de formulário (vee-validate, dois submits separados) intacta — é reorganização de template, não de dados.
-- **Páginas de listagem**: cabeçalho de todas as páginas do admin migrado para `AdminSection`; hover consistente (`hover:bg-surface-muted/60 .transition-brand`) em todas as linhas de tabela; `EmptyState` com ícone relevante ao contexto; categorias de presente e etiquetas de convite (antes chips manuais duplicados em 2 lugares) migradas para `UiChip`; `cronograma/index.vue` trocou `<details>/<summary>` nativo pelo novo slot `#content` do `Accordion`; checkboxes nativos da lista de "irmãos sugeridos" em `convites/[id].vue` viraram `UiCheckbox`.
-- **`GuestPartyWizard.vue`** (formulário de cadastro de convidado): indicador de progresso ganhou linha conectora entre os steps (era só pills soltas); transição fade+slide entre steps (`<Transition mode="out-in">`); auto-scroll para o topo do wizard a cada troca de step; etiquetas do passo "Convite" também migradas para `UiChip`.
-
-**Rodada 2** (feedback do usuário revisando um protótipo ao vivo na página de Convidados, depois de pedir explicitamente pra ver o tratamento completo do site público — pills/glow, cartões `xl` — antes de decidir se estendia): "no geral eu gostei bastante" — mas a régua original desta fase (pill/glow/uppercase e tier `xl` exclusivos do público, §21/§22.1 antes desta rodada) foi revertida por completo. Motivo do usuário: essa decoração "faz parte da experiência do usuário", e ele quer o mínimo de diferença visual entre admin e público — só o que for "realmente necessário".
-
-- **Defaults trocados, não código duplicado por página**: `UiButton` (`rounded: 'full'`) e `UiCard` (`radius: 'xl'`, `elevation: 'xl'`) passaram a ter o tratamento premium como **default do componente**, não uma prop setada manualmente em cada call site — cascateou automaticamente pra quase toda página do admin (dashboard, presentes, convites, cronograma, galeria) sem precisar editar cada uma. Único ponto de divergência mantido, deliberado: o "lift" de hover dos pills (`hover:scale-[1.03]`) some no admin (`ADMIN_UI_CONTEXT_KEY`, `app/utils/admin-ui-context.ts`, provido por `layouts/admin.vue` e injetado em `UiButton`) — o usuário achou a animação desnecessária numa tela com muitos botões lado a lado; glow, uppercase e o `active:scale` de clique continuam idênticos nos dois contextos.
-- **Bug real corrigido no processo**: a variante `ghost` de `UiButton` (usada em "Editar" nas linhas de tabela) era `bg-transparent` em repouso — sobre uma linha/card da mesma cor de fundo, lia como texto solto, sem affordance de botão (achado do usuário olhando o protótipo). Ganhou uma borda sutil sempre visível (`border-border/60`).
-- **`UiSelect` modernizado**: seta nativa do navegador trocada por `appearance-none` + ícone `lucide:chevron-down` posicionado absoluto, pra bater com o acabamento do resto dos inputs (pedido do usuário — "melhore os dropdowns... para ficar bonitos e modernos como os demais elementos").
-- **Layouts "pinados no canto" corrigidos**: Cronograma e Configurações tinham um único bloco de formulário estreito (`max-w-2xl`) alinhado à esquerda numa tela larga, deixando um vazio grande à direita — achado do usuário olhando um screenshot real. Cronograma virou grid de 2 colunas (Cerimônia/Recepção lado a lado, usa a largura em vez de só deixar vazia); Configurações ganhou `mx-auto` no mesmo `max-w-2xl` (formulário único, não fazia sentido virar grid).
-- **Listagens sem `Card` (Grupos, Presentes, Convites) padronizadas**: essas três página tinham a tabela "solta" direto no `AdminSection`, sem o wrapper `UiCard` que Convidados ganhou no protótipo — replicado pra consistência.
-- Rebrand do sidebar/header do admin (`layouts/admin.vue`): "Wedding Platform" → "MeuSiteCasamento", completando no admin o rebrand parcial já feito no público.
-- Testes de `Button.spec.ts`/`Card.spec.ts` atualizados pros novos defaults, mais dois casos novos: borda do `ghost` e supressão do lift só com `ADMIN_UI_CONTEXT_KEY` injetado.
-
-Sem mudança de schema/rota nesta fase — reskin + reorganização de template sobre a infraestrutura de dados já existente.
+Painel administrativo ganhou o mesmo polimento visual do site público (transições, `AdminSection`/`AdminStatCard`/`AdminQuickAction`, Configurações em abas) — inicialmente com intensidade reduzida frente ao público, depois revertido para tratamento visual idêntico a pedido do usuário (Rodada 2). Estado atual documentado nas seções 21 e 22. Histórico completo em `docs/CHANGELOG.md`.
 
 ### Fase Presentes 2.0 (concluída, fora da sequência numerada)
 
-Refatoração completa do módulo de presentes, pedido explícito do usuário: transformar a lista de presentes tradicional num "ecossistema de presentes" (seção 18) — três seções na vitrine pública (Lista de Presentes física, Contribuições, Presentes Emocionais), duas formas de presentear um item físico (grátis ou via Pix, escolhidas pelo convidado), cotas fixas parceladas, cartão/mensagem do convidado, e **pagamento Pix real** via InfinitePay recebido diretamente na conta do casal — decisão explícita do usuário, mesmo isso alterando o não-objetivo original da seção 2.3 ("não implementar pagamentos/gateway financeiro nesta fase").
-
-- **Escopo "núcleo forte primeiro"**, validado com o usuário antes da implementação: as features mais acessórias do brief original (timeline pública de contribuições, modo anônimo explícito, fotos pós-presente, agradecimentos em massa pelo painel, gamificação de metas atingidas, relatórios financeiros completos com taxas/estornos/exportação, moeda estrangeira) ficaram deliberadamente de fora — listadas na Fase 2/roadmap abaixo, não implementadas.
-- **Gateway**: InfinitePay, modelo de checkout hospedado (redirect, não QR embutido — API pública não documenta isso). Sem split nativo, sem sandbox documentado, sem assinatura de webhook — três limitações que moldaram o desenho de segurança (seção 18.5/28.3) mais do que decisões de produto.
-- **Schema novo**: `weddings.infinitepay_handle`; `gifts.quota_amount_cents`/`display_style`/`emotional_icon`; `gift_reservations.message`; `gift_contributions.message`/`quota_count`; tabela `gift_payments` (peça central, RLS só-leitura); RPC `confirm_gift_payment()` (reaproveita `reserve_gift()`, que ganhou `p_message`).
-- **Endpoints novos**: `checkout.post.ts` (calcula o valor sempre no servidor), `payments/webhook.post.ts` (nunca confia no corpo recebido), `payments/[id]/status.get.ts` (fallback de "pull", valida posse via token). `contribute.post.ts` foi **removido** — substituído pelo checkout, já que contribuições passaram a exigir pagamento real.
-- **Frontend público**: `GiftsShowcase.vue` segmenta a vitrine (`shared/utils/filter-gifts.ts#segmentGifts`); `GiftCard.vue` orquestra dois modais novos, `GiftDeliveryChoiceModal.vue` (escolha grátis/Pix do presente físico) e `GiftPaymentModal.vue` (contribuição livre com sugestões de valor, ou cotas fixas); página de retorno `/{slug}/presentes/pagamento/[paymentId].vue` com polling curto de status.
-- **Admin**: handle da InfinitePay entrou como campo a mais na aba Geral de `/admin/configuracoes` (sem aba nova); `app/pages/admin/presentes/index.vue` (509 linhas, já acima do limite do CLAUDE.md §6 antes desta fase) teve o modal de formulário extraído para `AdminGiftFormModal.vue` — primeiro componente de `components/admin/gifts/`, até então vazia; resumo financeiro mínimo (bruto arrecadado, pagamentos com falha) entra como seção da própria página, sem rota/painel dedicados.
-- **Princípio de execução deliberado**: a primeira versão do plano desta fase incluía infraestrutura antecipada sem consumidor real (view agregada dedicada, índice de reconciliação futura, log append-only de eventos de pagamento, rate limiter dedicado pro webhook, campo `reference_url`, arquivos utilitários novos com um único consumidor) — cortada a pedido do usuário ("evite gastar tokens sem real necessidade"), mantendo só o que o fluxo de pagamento e a nova experiência exigem de fato.
-
-**Fora de escopo desta fase (roadmap futuro)**: timeline pública de contribuições, modo anônimo explícito, fotos pós-presente, agradecimentos em massa/individualizados pelo painel, gamificação de metas atingidas, relatórios financeiros completos (taxas detalhadas, estornos, exportação — dependem de a InfinitePay documentar publicamente esses dados), moeda estrangeira/cartão internacional, opt-out de Pix por presente individual (hoje a escolha é sempre do convidado, nunca do casal, por item), e um modelo de custódia com múltiplas contas por casal (split), relevante só quando a transição SaaS da seção 33 avançar.
-
-**Rodada 2** (feedback do usuário testando o fluxo real): duas correções de bug real, além de ajustes de produto.
-
-- **Bug real — nome de auto-import do Nuxt**: `components/admin/gifts/AdminGiftFormModal.vue` (dois níveis de subpasta) é registrado pelo Nuxt como `AdminGiftsAdminGiftFormModal` (mesmo padrão de duplicação já existente em `components/admin/guests/` → `AdminGuestsGuestPartyWizard`), não `AdminGiftFormModal` como foi usado por engano na página — o botão "Novo presente"/"Editar" atualizava o estado (`isGiftModalOpen`) mas o modal, com um nome de tag inexistente, nunca renderizava. Lição registrada aqui porque já era um padrão conhecido do projeto (guests) e mesmo assim passou despercebido — checar `.nuxt/components.d.ts` é a forma definitiva de confirmar o nome real de um componente auto-importado antes de usá-lo, especialmente em pastas aninhadas.
-- **Armadilha do Vite dev server**: apagar um arquivo (`shared/utils/gift-price-brackets.ts`, ver abaixo) enquanto o dev server está rodando pode deixar o grafo de módulos do Vite num estado inconsistente (erro `ENOENT`/`Failed to resolve import` mesmo depois do import correspondente já ter sido removido do código) — precisa de um restart limpo do servidor (não HMR) pra resolver.
-- **Identificação de quem presenteia** (seção 18.2): antes, o token de acesso (nível de convite, ex. "Família Silva") era a única identificação — sem nome da pessoa específica. Agora um passo de identificação (nome obrigatório + telefone opcional, `GiftGiverIdentityForm.vue`) precede a escolha da forma de presentear nos dois modais, coletado uma vez por sessão (`useGiftGiverIdentity`) e reaproveitado nos presentes seguintes. Persistido em `contributor_name`/`giver_phone` (novo) em `gift_reservations`/`gift_contributions`, repassado pelo `gift_payments` no caminho pago.
-- **Terminologia "Pix" corrigida**: quem define os métodos aceitos no checkout (Pix, cartão, ambos) é a conta InfinitePay do casal, não a plataforma — nenhum parâmetro de método é enviado por `createInfinitePayCheckoutLink`. Toda cópia voltada ao convidado/admin que dizia "via Pix" foi trocada por "pagamento online"/"link de pagamento", com uma nota explícita no formulário de Configurações explicando que os métodos são definidos na conta InfinitePay, não na plataforma.
-- **Filtro por faixa de preço removido** (pedido do usuário, considerado ruído na vitrine) — `shared/utils/gift-price-brackets.ts` e seu teste deletados; `filterAndSortGifts`/`GiftFilterOptions` perderam o parâmetro `priceRange`. Só filtro de categoria + ordenação por preço permanecem.
-- **Modal de escolha física reordenado**: fluxo antigo era clicar num método = confirmar na hora; agora é **escolher método → mensagem opcional → confirmar** (`GiftDeliveryChoiceModal.vue`, `selectedMethod` local, botão "Confirmar" dedicado) — evita presentear sem querer com um clique só.
-- **`weddings.physical_gift_delivery_mode`** (`'both'` default | `'self_purchase_only'` | `'payment_only'`, seletor em Configurações → Geral): o casal pode restringir a Lista de Presentes física a só um método em vez das duas opções sempre coexistirem. Se a combinação (`'payment_only'` sem `infinitepay_handle`) não deixar nenhuma opção válida, o botão "Presentear" some (`GiftCard.vue#canPresentPhysical`).
-
-**Rodada 3** (validação com pagamento real de R$1, conta InfinitePay de verdade do usuário): um bug real de integração, só visível pagando de verdade — nenhuma quantidade de teste com handle fake o revelaria.
-
-- **Bug real — `payment_check` exige `transaction_nsu`/`slug`, não só `order_nsu`**: a suposição inicial (seção 18.4 original, baseada em documentação pública de terceiros) era que `order_nsu` sozinho bastaria pra reconfirmar um pagamento. Um Pix real de R$1 confirmou o oposto: `payment_check` respondia `{"success": false}` mesmo com o pagamento genuinamente aprovado do lado da InfinitePay — porque `gift_payments.provider_transaction_nsu`/`provider_invoice_slug` nunca eram preenchidos (só existiam como colunas, nada os populava). Causa raiz: esses identificadores só chegam via querystring no redirect de volta ao site (`transaction_nsu`, `slug` — a página de retorno nunca lia `route.query` além de `code`) ou no corpo do webhook (que não é alcançável a partir de `localhost` em dev, já que é a InfinitePay tentando alcançar nosso servidor pela internet — diferente do redirect, que é o navegador do próprio convidado, funciona igual em qualquer ambiente). Corrigido capturando esses dois campos na página de retorno e no webhook, persistindo em `gift_payments` (`provider_invoice_slug`, coluna nova) assim que aprendidos.
-- **Consequência prática**: o pagamento de teste de R$1 (presente "Lua de mel") ficou permanentemente `pending` no banco — a linha específica não se autocorrige retroativamente (não há como obter `transaction_nsu`/`slug` de um pagamento já concluído sem uma nova tentativa), mas o mecanismo está corrigido para toda tentativa nova a partir de agora.
-- Lição gravada aqui porque é o tipo de bug que **nenhuma quantidade de teste com handle falso revela** — só apareceu com dinheiro real passando pela conta real do casal, reforçando por que a seção 18.5 já registrava "sem sandbox documentado" como risco real, não teórico.
-
-**Rodada 4** (feedback direto do usuário: "não quero assim" sobre exigir link personalizado por convite) — mudança de arquitetura, não só de UI.
-
-- **Presentes deixou de usar `guest_access_token`** — decisão explícita do usuário, comparando com o RSVP (que já tem busca por nome na home, sem exigir link específico, "Fase Jornada do Convidado"): a vitrine e o ato de presentear/contribuir precisavam funcionar a partir do link público normal do site, a qualquer momento, sem depender de o casal ter gerado e enviado um link individual por convite antes. A implementação original desta fase (seção 18.4/28.3 antes desta rodada) exigia `?code=` em toda a jornada — revertido por completo.
-- **Identificação passou a ser só nome/telefone** (já existia como passo do modal, seção 18.2) — virou a **única** fonte de identidade, não mais uma camada adicional sobre o token do convite. `gift_reservations`/`gift_contributions`/`gift_payments.invite_id` nunca mais são preenchidos com um convite real; `weddings.physical_gift_delivery_mode` e as regras de negócio (18.2/18.4) não mudaram, só deixaram de depender de token.
-- **Cancelamento self-service removido** — sem token, não haveria como autenticar "essa é realmente a mesma pessoa que reservou" com segurança (nome/telefone são triviais de forjar); `POST /api/public/gifts/[id]/cancel` e `giftCancelSchema` foram deletados. Qualquer cancelamento — pago ou grátis — agora é sempre resolvido falando com o casal, unificando o que já era a regra pra item pago (18.4) pro resto também. Decisão deliberada de simplificação, não uma lacuna esquecida — dava pra reconstruir um mecanismo de posse via "ID da reserva como credencial" (padrão de rastreio de pedido de e-commerce), mas isso ficou de fora por não ter sido pedido e adicionar complexidade real.
-- **`reservedByMe`/`contributedByMeCents` removidos de `PublicGift`** — dependiam do token pra saber "isso sou eu"; sem token, o servidor não tem mais como saber quem é "eu" entre uma visita e outra. O convidado não vê mais "você reservou" ao voltar à página.
-- **`gift_payments.invite_id`/`gift_reservations`/`gift_contributions.group_id`/`guest_id`** viraram colunas nunca mais escritas pelo fluxo público (`invite_id` passou a nullable) — mantidas no schema só por compatibilidade com dados anteriores a esta rodada, não removidas fisicamente (soft deprecation, mesmo racional de outras colunas mortas já documentadas neste arquivo).
-- **Atividade recente no admin** (pedido separado, mesma rodada): `/api/gifts` passou a devolver também `activity` — as até 20 reservas/contribuições mais recentes do casamento inteiro (não só de um presente), com nome, telefone, presente, valor (quando pago) ou "grátis", mensagem e data, construída em memória (sem view nova) a partir de duas queries com `limit` + merge/sort em JS — volume baixo o suficiente (single-tenant, um casamento por vez) pra não justificar uma view/materialização dedicada ainda.
+Refatoração completa do módulo de presentes: vitrine em três seções (Lista, Contribuições, Presentes Emocionais), pagamento Pix real via InfinitePay, cotas fixas, identificação do convidado por nome/telefone (sem `guest_access_token`), cancelamento self-service removido. 4 rodadas de ajuste pós-lançamento, incluindo um bug real só visível com pagamento de R$1 de verdade. Estado atual documentado na seção 18. Histórico completo em `docs/CHANGELOG.md`.
 
 ### Fase Mensagens Personalizáveis (concluída, fora da sequência numerada)
 
-Abre a personalização das mensagens narrativas do site público, pedido explícito do usuário: os textos genéricos de placeholder da Fase Editorial (`shared/wedding-content.ts`) viram a **mensagem padrão** de cada casamento — continuam existindo no código e são o que todo casamento novo vê — mas o casal pode reescrever a própria versão sem tocar em código.
-
-- **Escopo confirmado com o usuário ("Grupo A")**: os 6 blocos de `shared/wedding-content.ts` — Boas-vindas, Nossa História, Dress Code, Manual dos Convidados, intro da Lista de Presentes, FAQ. Fora de escopo desta fase (mapeado, mas não implementado): títulos/eyebrows fixos de cada seção (`StorySection.vue`, `GrandeDiaSection.vue` etc., hardcoded por componente, não centralizados) e a microcopy funcional do fluxo de RSVP (mensagens de sucesso, prazo encerrado, estados vazios) — ambos ficam para uma fase futura, se pedidos.
-- **FAQ e Manual dos Convidados usam lista editável** (adicionar/remover itens, não só reescrita nos mesmos slots) — decisão explícita do usuário, apesar do custo de complexidade adicional (editor de lista dinâmica no admin) frente à alternativa mais simples de reescrita fixa. Os demais 4 campos são reescrita de texto nos mesmos campos, sem opção de "esconder a seção" (fora de escopo — ficaria para uma fase futura de toggles de visibilidade).
-- **Schema**: nova coluna `weddings.content_config jsonb null default null` (migration `20260806160001_weddings_content_config.sql`) — **não** reaproveita `theme_config` (§22.3: aquela coluna é exclusivamente visual). `null` = 100% do texto padrão da plataforma, zero risco pros casamentos já existentes. Shape em `shared/schemas/content.ts#WeddingContentConfig`, todo campo opcional.
-- **`resolveWeddingContent()`** (`shared/wedding-content.ts`) é a única função que resolve `content_config` bruto + os defaults no shape final consumido pelos componentes — mesmo espírito de `useWeddingTheme.ts`. Usa `??` (não `?.length ?`) de propósito: distingue "nunca customizado" (`undefined` → cai no default) de "customizado para lista vazia" (`[]` → o casal removeu todos os itens de Manual/FAQ, a seção correspondente some do site, ver `v-if` em `GuestManualSection.vue`/`FaqSection.vue`). `welcomeMessage`/`storyMessage` (parágrafos livres) usam `splitParagraphs()` (`shared/utils/split-paragraphs.ts`) — separa por linha em branco, texto sem linha em branco vira um parágrafo único, nunca quebra.
-- **Endpoint (`PATCH /api/wedding/content`)** corrige, por construção, a classe de bug já registrada duas vezes em `theme.patch.ts` (campo novo do schema esquecido na lista manual de chaves e descartado silenciosamente): como `content_config` não tem nenhum campo gerido por outro endpoint (diferente de `theme_config`, que exclui `coverImageUrl`/`storyImageUrl` de propósito), o body validado inteiro é gravado direto (`content_config: input`), sem merge manual de chaves — não existe lista pra esquecer de atualizar.
-- **Admin**: terceira aba "Conteúdo" em `/admin/configuracoes` (ao lado de Geral/Aparência), mesmo padrão de `UiTabs`+`UiAccordion` já usado em Aparência. `AdminManualTopicsEditor.vue`/`AdminFaqItemsEditor.vue` (`components/admin/`) são os editores de lista dinâmica (adicionar/remover, sem reordenar por drag-and-drop — escopo deliberadamente contido). Ícone de cada tópico do Manual vem de um catálogo fixo curado (`shared/manual-topic-icons.ts`, mesmo padrão de `shared/hero-buttons.ts`), nunca um ícone livre.
-- **Nota deliberada**: `GiftsShowcaseSection.vue` (teaser de presentes na home) tem um parágrafo parecido, mas com redação própria, diferente de `giftsIntroMessage` — é Grupo B (título/eyebrow de seção, fora de escopo desta fase), não foi tocado. Os dois textos deverão ser unificados quando essa fase futura acontecer.
+`weddings.content_config` permite ao casal reescrever as mensagens narrativas do site público (boas-vindas, história, dress code, manual do convidado, intro de presentes, FAQ) sem tocar em código — os textos padrão de `shared/wedding-content.ts` continuam sendo o default. Histórico completo em `docs/CHANGELOG.md`.
 
 ### Fase Galeria via Google Drive (concluída, fora da sequência numerada)
 
-Substituição completa do upload manual da galeria por sincronização com o Google Drive, pedido explícito do usuário. Motivação de custo: com a arquitetura já preparada para SaaS multi-tenant (seção 33), storage e banda de saída crescem proporcionalmente ao número de casamentos e o custo é nosso, não do casal. A galeria deixa de armazenar qualquer imagem no nosso banco/Storage — todas as fotos são **referenciadas** de uma fonte externa que o casal já possui, **nunca copiadas**.
-
-- **Upload manual removido por completo** (não desativado — o código saiu do projeto): `POST /api/photos` e `DELETE /api/photos/[id]` deletados, UI de upload/exclusão por foto removida de `PhotoGalleryManager.vue`, e o bucket `wedding-photos` deixou de receber escrita (policies de escrita removidas na migration `20260807120003`; DROP físico do bucket fica para uma migration de limpeza posterior, depois de confirmar o prod migrado — passo não-destrutivo em 2 etapas, docs/ARCHITECTURE.md §4.2). `PATCH /api/photos/[id]` **permanece** — a edição do metadado nosso (legenda/ordem/ponto de foco) é sobreposta ao espelho e preservada entre syncs.
-- **Fonte desta fase: Google Drive.** Arquitetura genérica de propósito para outras fontes entrarem depois (Google Photos, iCloud) só adicionando um driver e um valor de `provider`, sem reescrita: tabela `gallery_source_connections` (coluna `provider`), colunas `photos.source_*`, `server/utils/google-drive.ts` isolado como "driver". Princípio comum a toda fonte futura: **referenciar, nunca copiar**.
-- **Dois modos de conexão, à escolha do casal** (`gallery_source_connections.mode`), UI em `/admin/galeria`:
-  - **OAuth** (`mode='oauth'`): o casal conecta a própria conta Google (escopo `drive.readonly`, só leitura) e escolhe a pasta via **Google Picker** (nunca cola id manualmente). Funciona com pastas privadas. Fluxo client-side (`useGoogleDrivePicker.ts`, Google Identity Services + Picker carregados sob demanda): um único passo obtém o *authorization code* (trocado no servidor por refresh token) e a pasta escolhida no Picker; `POST /api/wedding/gallery/google/connect` troca o code, cifra os tokens e grava a conexão já com a pasta.
-  - **Link público** (`mode='public_link'`): o casal cola a URL de compartilhamento de uma pasta "qualquer pessoa com o link pode ver". Sem OAuth/token — extraímos o folder id (`extractDriveFolderId`) e listamos via **API key do projeto** (`GOOGLE_DRIVE_API_KEY`, `files.list` com `key=`). `POST /api/wedding/gallery/public-link`.
-- **Tokens OAuth sempre cifrados em repouso** (`access_token_encrypted`/`refresh_token_encrypted`), AES-256-GCM, chave só no ambiente do servidor (`DRIVE_TOKEN_ENCRYPTION_KEY`, `server/utils/token-cipher.ts`), nunca no banco. Difere do `code_hash` do convidado (SHA-256, mão única) por um motivo concreto e documentado: um refresh token precisa ser **descifrado** para chamar o Google, então exige cifra reversível, não hash — a propriedade mantida é a mesma (nunca em texto plano em repouso). A tabela `gallery_source_connections` não tem policy pública e os endpoints nunca fazem `select('*')` ao retornar ao client (lista explícita de colunas sem as de token — mesma disciplina de `gift_payments`, §28).
-- **Onde a imagem é servida: sempre direto do Google, nunca do nosso Storage.** `server/utils/photo-url.ts#resolvePhotoServedUrl` resolve por modo: link público → endpoint estável `drive.google.com/thumbnail?id={fileId}&sz=w{width}` (montado a partir de `source_file_id`); OAuth → `source_thumbnail_url` (o `thumbnailLink` da Drive API, um `lh3.googleusercontent.com` **renovado a cada sync**), porque o endpoint estável **não renderiza para visitante anônimo quando o arquivo é privado**. `GallerySection.vue`/`PhotoGalleryManager.vue` usam `<img loading="lazy">` (não `NuxtImg`/IPX — o objetivo é o CDN do Google servir, não proxiar no nosso host).
-- **Sincronização = espelhamento** (`server/utils/gallery-sync.ts#syncGalleryConnection`): `photos` reflete o conteúdo atual da pasta. Novos arquivos entram (upsert por `(source_connection_id, source_file_id)`, `display_order` = fim da fila); arquivos **removidos na origem** saem no próximo sync (o Drive é fonte espelhada, não importação pontual); legenda/ordem/foco são preservados entre syncs pela chave `source_file_id`. Escreve sempre com service_role (mesmo modelo do worker assíncrono, docs/ARCHITECTURE.md §3.4). No 1º sync, as linhas legadas baseadas em Storage (`source_file_id` null) são removidas — é como a galeria antiga dá lugar à espelhada, sem migration destrutiva.
-- **Disparo do sync**: automático via **Vercel Cron** (`vercel.json`, `GET /api/cron/sync-galleries`, autorizado por `CRON_SECRET`) + botão **"Sincronizar agora"** no admin (`POST /api/wedding/gallery/sync`). Decisão de plano: o Vercel **Hobby (free)** limita cron a **1x/dia** (não aceita cadência de 6h — isso exigiria o Pro), então o cron roda diariamente (`0 6 * * *`) e o botão manual cobre atualizações no meio do dia — na prática o gatilho mais usado. Escolha explícita do usuário (tem que caber no plano free).
-- **Status e reconexão**: `gallery_source_connections.status` (`active`/`error`/`reauth_required`) + `last_synced_at`/`last_sync_error`/`last_sync_photo_count`, exibidos no admin. Token OAuth revogado/expirado sem refresh possível → `reauth_required` (nunca apaga as fotos já espelhadas) e o admin mostra "Reconectar". `DELETE /api/wedding/gallery/connection` desconecta (revoga o token no Google best-effort) e as fotos saem por cascata (`photos.source_connection_id on delete cascade`).
-
-**Limitações conhecidas (documentadas, não lacunas):**
-- **Sem sandbox do Google** para os casos de borda de compartilhamento (igual à postura da InfinitePay, §18.5) — o fluxo real (OAuth + Picker e, principalmente, **listar uma pasta pública só com API key**) exige validação manual contra a API real, com uma conta/pasta de verdade, antes de qualquer merge que toque este fluxo.
-- **Cota compartilhada no modo link público**: a `GOOGLE_DRIVE_API_KEY` é do projeto, então sua cota é **compartilhada entre todos os casamentos** que usam esse modo — um sync pesado de um casamento consome cota dos outros. O modo OAuth usa a cota da conta do próprio casal, sem esse acoplamento.
-- **`thumbnailLink` expira** (modo OAuth): as miniaturas de pasta privada dependem do `source_thumbnail_url` renovado a cada sync; se o sync ficar quebrado por muitas horas, as miniaturas podem parar de carregar até o próximo sync bem-sucedido. No modo link público não há esse risco (URL estável).
-- **Reupload perde o enquadramento**: reenviar o mesmo arquivo na pasta do Drive gera um `fileId` novo → o espelhamento o trata como foto nova e perde a legenda/ordem/ponto de foco salvos para o arquivo antigo (§22.2).
-- **`refresh_token` na reconexão**: o Google só devolve refresh token na 1ª concessão (ou com re-consentimento); em reconexões da mesma conta o servidor preserva o já armazenado. Sem nenhum refresh token, a conexão OAuth é recusada com orientação de reautorizar.
-
-**Reordenação por drag-and-drop:** a grade do admin (`PhotoGalleryManager.vue`) permite arrastar as fotos para reordenar — persiste em `photos.display_order` via `PATCH /api/photos/reorder` (schema `photoReorderSchema` em `shared/schemas/photos.ts`), que grava `display_order` = posição na lista, escopado por `wedding_id`. A ordem é **preservada entre syncs** (o espelhamento reusa o `display_order` atual pela chave `source_file_id`). DnD nativo do HTML5 (sem dependência nova), otimista com reversão em erro; o campo numérico "Ordem" no modal de edição continua como alternativa precisa. Foco em desktop (uso típico do admin, §24) — DnD nativo não cobre toque.
-
-**Prévia na home + página dedicada:** a home mostra só uma **prévia** das fotos ("Nossos Momentos"), com a quantidade **configurável pelo casal** (`theme_config.galleryPreviewCount`, default `DEFAULT_GALLERY_PREVIEW_COUNT = 8` em `shared/schemas/gallery.ts`; endpoint próprio `PATCH /api/wedding/gallery/preview`, fora da lista de chaves de `theme.patch.ts` — preservado pelo spread, como `coverImageUrl`; controle em `/admin/galeria` via `AdminGalleryPreviewSetting.vue`). Havendo mais fotos que a prévia, um botão **"Abrir galeria"** leva à página dedicada `/{slug}/galeria` (`app/pages/[slug]/galeria.vue`, grade completa). A grade + lightbox foram extraídas para `PublicPhotoGrid.vue` (prop `variant` `'preview'`/`'full'`), reusada pela `GallerySection` (home) e pela página dedicada — extração justificada pelos 2 consumidores reais (§23.2).
-
-**Fora de escopo desta fase**: implementar Google Photos/iCloud de fato (só o desenho fica pronto), proxiar bytes de imagem pelo nosso servidor, e qualquer cópia de imagem para o nosso Storage.
-
-**Schema/arquivos**: migrations `20260807120001` (`gallery_source_connections`), `20260807120002` (`photos.source_*` + `storage_path` nullable), `20260807120003` (bucket read-only); `server/utils/` (`token-cipher`, `drive-folder-id`, `google-drive`, `gallery-sync`, `gallery-sync-trigger`, `photo-url` reescrito); `server/api/wedding/gallery/**` (inclui `preview.patch.ts`) + `server/api/cron/sync-galleries.get.ts` + `server/api/photos/reorder.patch.ts` (drag-and-drop); `app/components/public/PhotoGrid.vue` + `app/pages/[slug]/galeria.vue` + `app/components/admin/AdminGalleryPreviewSetting.vue`; `shared/schemas/gallery.ts` + `photoReorderSchema` em `shared/schemas/photos.ts` + `galleryPreviewCount` em `theme_config` (`shared/schemas/theme.ts`); `app/composables/` (`useGalleryConnection`, `useGoogleDrivePicker`, `useWeddingPhotos` enxuto); `app/types/gallery.ts`; `vercel.json`. Novas envs em `.env.example` (`GOOGLE_OAUTH_CLIENT_ID/_SECRET`, `GOOGLE_DRIVE_API_KEY`, `GOOGLE_PICKER_API_KEY`, `DRIVE_TOKEN_ENCRYPTION_KEY`, `CRON_SECRET`).
+Upload manual da galeria substituído por sincronização com uma pasta do Google Drive do casal (OAuth ou link público) — fotos são sempre referenciadas, nunca copiadas para o nosso Storage. Sync automático via Vercel Cron (1x/dia, plano Hobby) + botão manual. Estado atual documentado na seção 11.1. Histórico completo (arquitetura, limitações conhecidas) em `docs/CHANGELOG.md`.
 
 ### Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados) — inclui investigar o achado de code-splitting da seção 27.1 (chunk inicial do site público carregando referências de rotas do admin).
