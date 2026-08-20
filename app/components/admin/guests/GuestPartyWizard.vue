@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { GuestPersonInput } from '#shared/schemas/guests'
 import type { GuestDetail } from '~/composables/useGuests'
+import type { CompanionEntry } from './GuestPartyCompanionsStep.vue'
+import type { InviteDraft } from './GuestPartyInviteStep.vue'
 
 interface Props {
   initialGuest?: GuestDetail | null
@@ -10,14 +12,11 @@ const props = withDefaults(defineProps<Props>(), { initialGuest: null })
 
 const { syncGuestParty } = useGuests()
 const { listGroups } = useGroups()
-const { listInviteTags, createInviteTag } = useInviteTags()
 
 const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
 const groupOptions = computed(() => [
   ...(groupsData.value?.data.map((g) => ({ value: g.id, label: g.name })) ?? []),
 ])
-
-const { data: tagsData, refresh: refreshTags } = listInviteTags()
 
 function emptyPerson(): GuestPersonInput {
   return {
@@ -52,11 +51,6 @@ const isEditing = computed(() => Boolean(props.initialGuest))
 const primary = ref<GuestPersonInput>(
   props.initialGuest ? personFromGuest(props.initialGuest) : emptyPerson(),
 )
-
-interface CompanionEntry {
-  key: string
-  person: GuestPersonInput
-}
 
 const companions = ref<CompanionEntry[]>(
   (props.initialGuest?.partyMembers ?? []).map((member) => ({
@@ -111,134 +105,23 @@ function goBack() {
   if (currentStepIndex.value > 0) currentStepIndex.value -= 1
 }
 
-// --- acompanhantes ---
-
-const isAddingCompanion = ref(false)
-const companionDraft = ref<GuestPersonInput>(emptyPerson())
-const editingCompanionKey = ref<string | null>(null)
-const companionDraftError = ref<string | null>(null)
-
-// Busca convidados já cadastrados antes de assumir que o acompanhante é uma
-// pessoa nova (CLAUDE.md, seção 12.1) — evita duplicar quem já existe.
-const companionSearchQuery = ref('')
-const companionSearchResults = ref<Array<{ id: string; full_name: string }>>([])
-let companionSearchTimeout: ReturnType<typeof setTimeout> | undefined
-
-watch(companionSearchQuery, (value) => {
-  clearTimeout(companionSearchTimeout)
-  if (value.trim().length < 2) {
-    companionSearchResults.value = []
-    return
-  }
-  companionSearchTimeout = setTimeout(async () => {
-    const excludeIds = new Set(
-      [primary.value.id, ...companions.value.map((c) => c.person.id)].filter(Boolean),
-    )
-    const response = await $fetch<{ data: Array<{ id: string; full_name: string }> }>('/api/guests', {
-      query: { search: value.trim(), withoutParty: true, pageSize: 6 },
-    })
-    companionSearchResults.value = response.data.filter((g) => !excludeIds.has(g.id))
-  }, 300)
-})
-
-async function selectExistingCompanion(guestId: string) {
-  const detail = await $fetch<Record<string, unknown>>(`/api/guests/${guestId}`)
-  companionDraft.value = personFromGuest(detail)
-  companionDraftError.value = null
-  companionSearchQuery.value = ''
-  companionSearchResults.value = []
-}
-
-function startAddCompanion() {
-  companionDraft.value = emptyPerson()
-  editingCompanionKey.value = null
-  companionDraftError.value = null
-  companionSearchQuery.value = ''
-  companionSearchResults.value = []
-  isAddingCompanion.value = true
-}
-
-function startEditCompanion(entry: CompanionEntry) {
-  companionDraft.value = { ...entry.person }
-  editingCompanionKey.value = entry.key
-  companionDraftError.value = null
-  isAddingCompanion.value = true
-}
-
-function confirmCompanion() {
-  if (!companionDraft.value.fullName.trim()) {
-    companionDraftError.value = 'Informe o nome do acompanhante.'
-    return
-  }
-  companionDraftError.value = null
-
-  if (editingCompanionKey.value) {
-    const target = companions.value.find((c) => c.key === editingCompanionKey.value)
-    if (target) target.person = { ...companionDraft.value }
-  } else {
-    companions.value.push({
-      key: companionDraft.value.id ?? `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      person: { ...companionDraft.value },
-    })
-  }
-
-  isAddingCompanion.value = false
-  editingCompanionKey.value = null
-}
-
-function removeCompanion(entry: CompanionEntry) {
-  if (entry.person.id) {
-    removedGuestIds.value.push(entry.person.id)
-  }
-  companions.value = companions.value.filter((c) => c.key !== entry.key)
-}
-
-function moveCompanion(index: number, direction: -1 | 1) {
-  const target = index + direction
-  if (target < 0 || target >= companions.value.length) return
-  const list = [...companions.value]
-  const temp = list[index]!
-  list[index] = list[target]!
-  list[target] = temp
-  companions.value = list
+function handleRemoveExisting(guestId: string) {
+  removedGuestIds.value.push(guestId)
 }
 
 // --- convite ---
 
-const createInviteChoice = ref<'create' | 'later'>('create')
-const inviteName = ref('')
-const inviteNotes = ref('')
-const selectedTagIds = ref<string[]>([])
-const newTagName = ref('')
+const inviteDraft = ref<InviteDraft>({ choice: 'create', name: '', notes: '', tagIds: [] })
 
 watch(
   () => primary.value.fullName,
   (name) => {
-    if (!inviteName.value && name) {
+    if (!inviteDraft.value.name && name) {
       const firstName = name.trim().split(/\s+/)[0]
-      inviteName.value = firstName ? `Família ${firstName}` : ''
+      inviteDraft.value = { ...inviteDraft.value, name: firstName ? `Família ${firstName}` : '' }
     }
   },
 )
-
-function toggleTag(tagId: string) {
-  selectedTagIds.value = selectedTagIds.value.includes(tagId)
-    ? selectedTagIds.value.filter((id) => id !== tagId)
-    : [...selectedTagIds.value, tagId]
-}
-
-async function addNewTag() {
-  const name = newTagName.value.trim()
-  if (!name) return
-  try {
-    const tag = await createInviteTag({ name })
-    await refreshTags()
-    selectedTagIds.value.push(tag.id)
-    newTagName.value = ''
-  } catch {
-    // etiqueta duplicada ou inválida — silenciosamente ignorado, usuário pode tentar de novo
-  }
-}
 
 // --- concluir ---
 
@@ -255,11 +138,11 @@ async function handleSubmit() {
       companions: companions.value.map((c) => c.person),
       removedGuestIds: removedGuestIds.value,
       invite:
-        showInviteStep.value && createInviteChoice.value === 'create'
+        showInviteStep.value && inviteDraft.value.choice === 'create'
           ? {
-              name: inviteName.value || 'Convite',
-              notes: inviteNotes.value,
-              tagIds: selectedTagIds.value,
+              name: inviteDraft.value.name || 'Convite',
+              notes: inviteDraft.value.notes,
+              tagIds: inviteDraft.value.tagIds,
             }
           : undefined,
     })
@@ -316,148 +199,57 @@ async function handleSubmit() {
       leave-to-class="opacity-0 -translate-x-2"
       mode="out-in"
     >
-    <!-- Passo: Dados do Convidado -->
-    <UiCard v-if="currentStepId === 'dados'" key="dados">
-      <h2 class="mb-4 text-lg font-medium text-text">Dados do Convidado</h2>
-      <AdminGuestsGuestPersonFields
-        v-model="primary"
-        :group-options="groupOptions"
-        :full-name-error="primaryNameError"
-        @group-created="() => refreshGroups()"
-      />
-    </UiCard>
-
-    <!-- Passo: Acompanhantes -->
-    <UiCard v-else-if="currentStepId === 'acompanhantes'" key="acompanhantes">
-      <h2 class="mb-1 text-lg font-medium text-text">Acompanhantes</h2>
-      <p class="mb-4 text-sm text-text-muted">
-        Casal, pais e filhos, mesma residência, amigos inseparáveis — qualquer conjunto que
-        normalmente é convidado junto.
-      </p>
-
-      <p v-if="!companions.length" class="text-sm text-text-muted">
-        Nenhum acompanhante cadastrado.
-      </p>
-
-      <ul v-else class="mb-4 flex flex-col gap-2">
-        <li
-          v-for="(entry, index) in companions"
-          :key="entry.key"
-          class="flex items-center justify-between rounded-md border border-border px-3 py-2"
-        >
-          <span class="text-sm text-text">{{ entry.person.fullName }}</span>
-          <div class="flex items-center gap-1">
-            <UiButton size="sm" variant="ghost" :disabled="index === 0" @click="moveCompanion(index, -1)">
-              <Icon name="lucide:chevron-up" class="h-4 w-4" />
-            </UiButton>
-            <UiButton
-              size="sm"
-              variant="ghost"
-              :disabled="index === companions.length - 1"
-              @click="moveCompanion(index, 1)"
-            >
-              <Icon name="lucide:chevron-down" class="h-4 w-4" />
-            </UiButton>
-            <UiButton size="sm" variant="ghost" @click="startEditCompanion(entry)">Editar</UiButton>
-            <UiButton size="sm" variant="destructive" @click="removeCompanion(entry)">Remover</UiButton>
-          </div>
-        </li>
-      </ul>
-
-      <div v-if="isAddingCompanion" class="mb-4 rounded-md border border-border p-4">
-        <div v-if="!editingCompanionKey" class="mb-4 flex flex-col gap-2">
-          <UiInput
-            v-model="companionSearchQuery"
-            placeholder="Buscar convidado já cadastrado (opcional)"
-          />
-          <ul v-if="companionSearchResults.length" class="flex flex-col gap-1">
-            <li v-for="result in companionSearchResults" :key="result.id">
-              <button
-                type="button"
-                class="w-full rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-surface-muted"
-                @click="selectExistingCompanion(result.id)"
-              >
-                {{ result.full_name }}
-              </button>
-            </li>
-          </ul>
-          <p v-if="companionDraft.id" class="text-xs text-green-700">
-            Convidado existente selecionado — revise os dados abaixo antes de confirmar.
-          </p>
-        </div>
+      <!-- Passo: Dados do Convidado -->
+      <UiCard v-if="currentStepId === 'dados'" key="dados">
+        <h2 class="mb-4 text-lg font-medium text-text">Dados do Convidado</h2>
         <AdminGuestsGuestPersonFields
-          v-model="companionDraft"
+          v-model="primary"
           :group-options="groupOptions"
-          :full-name-error="companionDraftError"
+          :full-name-error="primaryNameError"
           @group-created="() => refreshGroups()"
         />
-        <div class="mt-4 flex justify-end gap-2">
-          <UiButton variant="ghost" @click="isAddingCompanion = false">Cancelar</UiButton>
-          <UiButton @click="confirmCompanion">Confirmar</UiButton>
-        </div>
-      </div>
+      </UiCard>
 
-      <UiButton v-else variant="outline" @click="startAddCompanion">+ Adicionar acompanhante</UiButton>
-    </UiCard>
+      <!-- Passo: Acompanhantes -->
+      <UiCard v-else-if="currentStepId === 'acompanhantes'" key="acompanhantes">
+        <AdminGuestsGuestPartyCompanionsStep
+          v-model="companions"
+          :group-options="groupOptions"
+          :primary-id="primary.id"
+          @group-created="() => refreshGroups()"
+          @remove-existing="handleRemoveExisting"
+        />
+      </UiCard>
 
-    <!-- Passo: Convite -->
-    <UiCard v-else-if="currentStepId === 'convite'" key="convite">
-      <h2 class="mb-1 text-lg font-medium text-text">Convite</h2>
-      <p class="mb-4 text-sm text-text-muted">
-        Este grupo possui {{ companions.length + 1 }} pessoas. Deseja criar um convite para elas
-        agora?
-      </p>
+      <!-- Passo: Convite -->
+      <UiCard v-else-if="currentStepId === 'convite'" key="convite">
+        <AdminGuestsGuestPartyInviteStep
+          v-model="inviteDraft"
+          :party-size="companions.length + 1"
+        />
+      </UiCard>
 
-      <UiRadioGroup
-        v-model="createInviteChoice"
-        :options="[
-          { value: 'create', label: 'Criar convite agora' },
-          { value: 'later', label: 'Fazer depois' },
-        ]"
-      />
-
-      <div v-if="createInviteChoice === 'create'" class="mt-4 flex flex-col gap-4">
-        <UiInput v-model="inviteName" label="Nome do convite" />
-        <UiTextarea v-model="inviteNotes" label="Observações internas (opcional)" />
-
-        <div class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-text">Etiquetas (opcional)</span>
-          <div class="flex flex-wrap gap-2">
-            <UiChip
-              v-for="tag in tagsData?.data ?? []"
-              :key="tag.id"
-              :label="tag.name"
-              :selected="selectedTagIds.includes(tag.id)"
-              clickable
-              @click="toggleTag(tag.id)"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <UiInput v-model="newTagName" placeholder="Nova etiqueta" class="max-w-xs" />
-            <UiButton size="sm" variant="ghost" @click="addNewTag">Adicionar</UiButton>
-          </div>
-        </div>
-      </div>
-    </UiCard>
-
-    <!-- Passo: Revisão -->
-    <UiCard v-else-if="currentStepId === 'revisao'" key="revisao">
-      <h2 class="mb-4 text-lg font-medium text-text">Revisão</h2>
-      <ul class="flex flex-col gap-2 text-sm">
-        <li class="flex items-center gap-2">
-          <Icon name="lucide:star" class="h-4 w-4 text-amber-500" />
-          {{ primary.fullName }}
-          <UiBadge tone="neutral">responsável</UiBadge>
-        </li>
-        <li v-for="entry in companions" :key="entry.key" class="flex items-center gap-2 pl-6">
-          {{ entry.person.fullName }}
-        </li>
-      </ul>
-      <p v-if="showInviteStep && createInviteChoice === 'create'" class="mt-4 text-sm text-text-muted">
-        Convite: <strong>{{ inviteName }}</strong>
-      </p>
-      <p v-if="errorMessage" class="mt-4 text-sm text-red-600" role="alert">{{ errorMessage }}</p>
-    </UiCard>
+      <!-- Passo: Revisão -->
+      <UiCard v-else-if="currentStepId === 'revisao'" key="revisao">
+        <h2 class="mb-4 text-lg font-medium text-text">Revisão</h2>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li class="flex items-center gap-2">
+            <Icon name="lucide:star" class="h-4 w-4 text-amber-500" />
+            {{ primary.fullName }}
+            <UiBadge tone="neutral">responsável</UiBadge>
+          </li>
+          <li v-for="entry in companions" :key="entry.key" class="flex items-center gap-2 pl-6">
+            {{ entry.person.fullName }}
+          </li>
+        </ul>
+        <p
+          v-if="showInviteStep && inviteDraft.choice === 'create'"
+          class="mt-4 text-sm text-text-muted"
+        >
+          Convite: <strong>{{ inviteDraft.name }}</strong>
+        </p>
+        <p v-if="errorMessage" class="mt-4 text-sm text-red-600" role="alert">{{ errorMessage }}</p>
+      </UiCard>
     </Transition>
 
     <div class="flex justify-between">
