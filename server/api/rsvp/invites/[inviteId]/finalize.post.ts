@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
   if (inviteError) throw badRequestError(inviteError.message)
   if (!invite) throw notFoundError('Convite não encontrado.')
 
+  requireRsvpSessionForInvite(event, inviteId)
+
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
     .select('rsvp_deadline')

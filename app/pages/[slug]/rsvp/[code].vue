@@ -9,7 +9,16 @@ const code = route.params.code as string
 const slug = useWeddingSlug()
 
 const { getRsvpByCode } = useRsvp()
-const { data, status, error } = await useAsyncData(`rsvp-code-${code}`, () => getRsvpByCode(code))
+// server: false de propósito — a resposta emite o cookie httpOnly da sessão
+// de RSVP (server/utils/rsvp-session.ts), exigido pelas mutações seguintes
+// (PUT status / POST finalize). Buscar client-side garante que é um fetch
+// normal do browser, que recebe e guarda o Set-Cookie sem ambiguidade — uma
+// chamada interna durante SSR não teria essa garantia. Sem custo de SEO: a
+// página já é noindex (CLAUDE.md, seção 26), então não há razão pra pagar a
+// complexidade de propagar o cookie através do SSR.
+const { data, status, error } = await useAsyncData(`rsvp-code-${code}`, () => getRsvpByCode(code), {
+  server: false,
+})
 
 useSeoMeta({
   title: 'Confirmação de Presença',
