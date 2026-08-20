@@ -27,6 +27,26 @@ export default defineNuxtConfig({
     '@nuxt/icon',
     '@nuxt/image',
     '@vueuse/motion/nuxt',
+    // Achado de performance (auditoria — LCP do site público bem acima da
+    // meta, CLAUDE.md §27): o plugin client do @nuxtjs/supabase roda
+    // incondicionalmente em toda navegação, inclusive nas páginas públicas,
+    // fazendo getSession()/getClaims() e registrando onAuthStateChange mesmo
+    // quando ninguém no site público chama useSupabaseUser()/useSupabaseClient()
+    // (só o caminho administrativo usa, CLAUDE.md §14.2). Removido aqui e
+    // substituído por app/plugins/supabase-auth.client.ts, que só inicializa
+    // o client em /admin e /login. Acoplamento conhecido: depende do plugin
+    // vendor se chamar "supabase.client" — se o pacote renomear esse arquivo
+    // numa atualização futura, este filtro para de remover o plugin original
+    // (os dois passariam a rodar juntos, sem quebrar nada, só perdendo o
+    // ganho de performance) — vale conferir depois de atualizar @nuxtjs/supabase.
+    (_options, nuxt) => {
+      nuxt.hook('modules:done', () => {
+        nuxt.options.plugins = nuxt.options.plugins.filter((plugin) => {
+          const src = typeof plugin === 'string' ? plugin : plugin.src
+          return !(src.includes('@nuxtjs/supabase') && src.includes('supabase.client'))
+        })
+      })
+    },
   ],
 
   css: ['~/assets/css/main.css'],
@@ -132,7 +152,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Wedding Platform',
+      title: 'MeuSiteCasamento',
       htmlAttrs: {
         lang: 'pt-BR',
       },
