@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
+import { formatDateTimePtBR } from '#shared/utils/format-date'
 
 definePageMeta({ layout: 'admin' })
 
 const { getSummary } = useDashboard()
-const { data, status } = getSummary()
+const { data, status, error, refresh } = getSummary()
 
 // Mesma chave 'wedding' do layout admin (useWedding.ts) — dedup automático,
 // sem fetch extra.
@@ -12,7 +13,9 @@ const { getWedding } = useWedding()
 const { data: wedding } = getWedding()
 
 const targetDateTime = computed(() =>
-  wedding.value ? resolveEventDateTime(wedding.value.event_date, wedding.value.event_time).toISOString() : null,
+  wedding.value
+    ? resolveEventDateTime(wedding.value.event_date, wedding.value.event_time).toISOString()
+    : null,
 )
 
 function formatDeadline(value: string | null): string {
@@ -26,19 +29,24 @@ function formatDeadline(value: string | null): string {
   return `${formatted} (${diffDays} dia${diffDays === 1 ? '' : 's'} restante${diffDays === 1 ? '' : 's'})`
 }
 
-function formatDateTime(value: string | null): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-}
-
 const inviteStats = computed(() => {
   if (!data.value) return []
   const d = data.value.invites
   return [
     { icon: 'lucide:mail', label: 'Total', value: d.total, tone: 'default' as const },
     { icon: 'lucide:send', label: 'Enviados', value: d.sent, tone: 'primary' as const },
-    { icon: 'lucide:check-check', label: 'Respondidos', value: d.responded, tone: 'success' as const },
-    { icon: 'lucide:circle-dashed', label: 'Parcialmente respondidos', value: d.partial, tone: 'warning' as const },
+    {
+      icon: 'lucide:check-check',
+      label: 'Respondidos',
+      value: d.responded,
+      tone: 'success' as const,
+    },
+    {
+      icon: 'lucide:circle-dashed',
+      label: 'Parcialmente respondidos',
+      value: d.partial,
+      tone: 'warning' as const,
+    },
     { icon: 'lucide:clock', label: 'Pendentes', value: d.pending, tone: 'default' as const },
     { icon: 'lucide:archive', label: 'Arquivados', value: d.archived, tone: 'default' as const },
   ]
@@ -63,18 +71,48 @@ const rsvpStats = computed(() => {
   if (!data.value) return []
   const d = data.value.rsvp
   return [
-    { icon: 'lucide:calendar-check', label: 'Primeira confirmação', value: formatDateTime(d.firstResponseAt), tone: 'default' as const },
-    { icon: 'lucide:calendar-clock', label: 'Última confirmação', value: formatDateTime(d.lastResponseAt), tone: 'default' as const },
-    { icon: 'lucide:sun', label: 'Confirmações hoje', value: d.respondedToday, tone: 'success' as const },
-    { icon: 'lucide:calendar-days', label: 'Confirmações esta semana', value: d.respondedThisWeek, tone: 'success' as const },
-    { icon: 'lucide:percent', label: 'Taxa de resposta', value: `${d.responseRatePercent}%`, tone: 'primary' as const },
+    {
+      icon: 'lucide:calendar-check',
+      label: 'Primeira confirmação',
+      value: formatDateTimePtBR(d.firstResponseAt),
+      tone: 'default' as const,
+    },
+    {
+      icon: 'lucide:calendar-clock',
+      label: 'Última confirmação',
+      value: formatDateTimePtBR(d.lastResponseAt),
+      tone: 'default' as const,
+    },
+    {
+      icon: 'lucide:sun',
+      label: 'Confirmações hoje',
+      value: d.respondedToday,
+      tone: 'success' as const,
+    },
+    {
+      icon: 'lucide:calendar-days',
+      label: 'Confirmações esta semana',
+      value: d.respondedThisWeek,
+      tone: 'success' as const,
+    },
+    {
+      icon: 'lucide:percent',
+      label: 'Taxa de resposta',
+      value: `${d.responseRatePercent}%`,
+      tone: 'primary' as const,
+    },
     {
       icon: 'lucide:timer',
       label: 'Tempo médio até responder',
       value: d.avgHoursToRespond !== null ? `${d.avgHoursToRespond}h` : '—',
       tone: 'default' as const,
     },
-    { icon: 'lucide:eye', label: 'Visualizaram e ainda não responderam', value: d.viewedNotResponded, tone: 'warning' as const },
+    {
+      icon: 'lucide:eye',
+      label: 'Visualizaram e ainda não responderam',
+      value: d.viewedNotResponded,
+      tone: 'warning' as const,
+    },
   ]
 })
 </script>
@@ -85,12 +123,29 @@ const rsvpStats = computed(() => {
       <UiSkeleton v-for="n in 8" :key="n" class="h-24 w-full" />
     </div>
 
+    <UiEmptyState
+      v-else-if="error"
+      icon="lucide:alert-triangle"
+      title="Não foi possível carregar o dashboard"
+      description="Verifique sua conexão e tente novamente."
+    >
+      <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+    </UiEmptyState>
+
     <template v-else-if="data">
       <div>
         <h2 class="mb-3 text-lg font-medium text-text">Ações rápidas</h2>
         <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <AdminQuickAction icon="lucide:user-plus" label="Novo convidado" to="/admin/convidados/novo" />
-          <AdminQuickAction icon="lucide:settings" label="Editar evento" to="/admin/configuracoes" />
+          <AdminQuickAction
+            icon="lucide:user-plus"
+            label="Novo convidado"
+            to="/admin/convidados/novo"
+          />
+          <AdminQuickAction
+            icon="lucide:settings"
+            label="Editar evento"
+            to="/admin/configuracoes"
+          />
           <AdminQuickAction icon="lucide:gift" label="Novo presente" to="/admin/presentes" />
           <AdminQuickAction
             v-if="wedding?.slug"
@@ -101,7 +156,10 @@ const rsvpStats = computed(() => {
         </div>
       </div>
 
-      <UiCard variant="highlight" class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <UiCard
+        variant="highlight"
+        class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
         <div>
           <p class="text-sm font-medium text-text">Prazo de RSVP</p>
           <p class="text-sm text-text-muted">{{ formatDeadline(data.rsvpDeadline) }}</p>

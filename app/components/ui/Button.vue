@@ -30,11 +30,13 @@ const roundedClasses: Record<NonNullable<Props['rounded']>, string> = {
 const variantClasses: Record<NonNullable<Props['variant']>, string> = {
   primary: 'bg-primary text-primary-foreground hover:opacity-90 hover:shadow-md',
   secondary: 'bg-surface-muted text-text hover:bg-border',
-  outline: 'border border-primary/25 bg-surface-elevated/70 text-primary backdrop-blur-sm hover:bg-primary/10',
+  outline:
+    'border border-primary/25 bg-surface-elevated/70 text-primary backdrop-blur-sm hover:bg-primary/10',
   // Borda sutil sempre visível (não só no hover) — um ghost puramente
   // transparente, empilhado sobre uma linha de tabela/card que já tem o
   // mesmo tom de fundo, lê como texto solto, sem affordance de botão.
-  ghost: 'border border-border/60 bg-transparent text-text hover:border-border hover:bg-surface-muted',
+  ghost:
+    'border border-border/60 bg-transparent text-text hover:border-border hover:bg-surface-muted',
   destructive: 'bg-red-600 text-white hover:bg-red-700',
 }
 
@@ -62,9 +64,7 @@ const pillClasses = computed(() => {
   return [
     '!text-xs font-semibold uppercase tracking-[0.16em]',
     isAdminContext ? 'active:scale-95' : 'hover:scale-[1.03] active:scale-95',
-    variant === 'primary'
-      ? 'shadow-[0_10px_28px_-8px_color-mix(in_srgb,var(--color-primary)_55%,transparent)]'
-      : '',
+    variant === 'primary' ? 'shadow-glow-primary' : '',
   ]
 })
 </script>

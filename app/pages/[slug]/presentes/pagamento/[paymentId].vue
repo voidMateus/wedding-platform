@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useIntervalFn } from '@vueuse/core'
+import { formatCentsToBRL } from '#shared/utils/format-currency'
 import type { GiftPaymentStatus } from '~/composables/usePublicGifts'
 
 // Tela de retorno do checkout online (CLAUDE.md, seção 18/28) — funciona
@@ -21,7 +22,8 @@ const paymentId = route.params.paymentId as string
 // chegam na primeira carga da página; o servidor persiste pra reaproveitar
 // nas tentativas seguintes do polling, mesmo sem esses query params.
 const paymentHints = {
-  transactionNsu: typeof route.query.transaction_nsu === 'string' ? route.query.transaction_nsu : undefined,
+  transactionNsu:
+    typeof route.query.transaction_nsu === 'string' ? route.query.transaction_nsu : undefined,
   slug: typeof route.query.slug === 'string' ? route.query.slug : undefined,
 }
 
@@ -51,10 +53,6 @@ const { pause } = useIntervalFn(
   { immediate: true },
 )
 
-function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 const backLink = computed(() => `/${slug}/presentes`)
 </script>
 
@@ -76,12 +74,15 @@ const backLink = computed(() => `/${slug}/presentes`)
     </template>
 
     <template v-else-if="result?.status === 'confirmed'">
-      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <span
+        class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+      >
         <Icon name="lucide:heart" class="h-6 w-6" />
       </span>
       <h1 class="font-display text-2xl font-semibold text-heading">Obrigado!</h1>
       <p class="text-sm text-text-muted">
-        Seu presente ({{ result.giftTitle }}, {{ formatCents(result.amountCents) }}) foi recebido.
+        Seu presente ({{ result.giftTitle }}, {{ formatCentsToBRL(result.amountCents) }}) foi
+        recebido.
       </p>
     </template>
 
@@ -98,7 +99,9 @@ const backLink = computed(() => `/${slug}/presentes`)
 
     <template v-else>
       <UiSkeleton class="h-14 w-14 rounded-full" />
-      <p class="text-sm text-text-muted">Ainda estamos confirmando seu pagamento — isso pode levar alguns instantes.</p>
+      <p class="text-sm text-text-muted">
+        Ainda estamos confirmando seu pagamento — isso pode levar alguns instantes.
+      </p>
     </template>
 
     <UiButton :to="backLink" variant="ghost" class="mt-4">Voltar aos presentes</UiButton>

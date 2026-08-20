@@ -2,22 +2,24 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { giftCategoryInputSchema } from '#shared/schemas/gift-categories'
+import { formatCentsToBRL, formatCentsToBRLOrDash } from '#shared/utils/format-currency'
 import type { GiftCategory } from '~/types/gift-category'
 import type { Gift } from '~/types/gift'
 import type { GiftReservationsView } from '~/types/gift-public'
 
 definePageMeta({ layout: 'admin' })
 
-function centsToBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 const { listGiftCategories, createGiftCategory, updateGiftCategory, deleteGiftCategory } =
   useGiftCategories()
 const { data: categoriesData, refresh: refreshCategories } = listGiftCategories()
 
 const { listGifts, deleteGift } = useGifts()
-const { data: giftsData, status: giftsStatus, refresh: refreshGifts } = listGifts()
+const {
+  data: giftsData,
+  status: giftsStatus,
+  error: giftsError,
+  refresh: refreshGifts,
+} = listGifts()
 
 const { getGiftReservations } = useGiftReservations()
 const isReservationsModalOpen = ref(false)
@@ -145,32 +147,40 @@ async function confirmDelete() {
     isDeleting.value = false
   }
 }
-
-function formatPrice(cents: number | null): string {
-  if (cents === null) return '—'
-  return centsToBRL(cents)
-}
 </script>
 
 <template>
-  <AdminSection title="Presentes" description="Lista de presentes, incluindo cotas para itens de maior valor.">
+  <AdminSection
+    title="Presentes"
+    description="Lista de presentes, incluindo cotas para itens de maior valor."
+  >
     <template #actions>
       <UiButton @click="openGiftModal">Novo presente</UiButton>
     </template>
 
     <section v-if="giftsData?.paymentsSummary" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <UiCard class="flex flex-col gap-1">
-        <span class="text-xs font-medium uppercase tracking-wide text-text-muted">Arrecadado online</span>
+        <span class="text-xs font-medium uppercase tracking-wide text-text-muted"
+          >Arrecadado online</span
+        >
         <span class="text-xl font-semibold text-text">
-          {{ centsToBRL(giftsData.paymentsSummary.confirmedTotalCents) }}
+          {{ formatCentsToBRL(giftsData.paymentsSummary.confirmedTotalCents) }}
         </span>
       </UiCard>
-      <UiCard v-if="giftsData.paymentsSummary.failedCount > 0" variant="highlight" class="flex flex-col gap-1">
-        <span class="text-xs font-medium uppercase tracking-wide text-text-muted">Pagamentos com falha</span>
-        <span class="text-xl font-semibold text-text">{{ giftsData.paymentsSummary.failedCount }}</span>
+      <UiCard
+        v-if="giftsData.paymentsSummary.failedCount > 0"
+        variant="highlight"
+        class="flex flex-col gap-1"
+      >
+        <span class="text-xs font-medium uppercase tracking-wide text-text-muted"
+          >Pagamentos com falha</span
+        >
+        <span class="text-xl font-semibold text-text">{{
+          giftsData.paymentsSummary.failedCount
+        }}</span>
         <span class="text-xs text-text-muted">
-          Convidado pagou, mas não foi possível reservar/registrar automaticamente — veja "Ver reservas" do
-          presente correspondente.
+          Convidado pagou, mas não foi possível reservar/registrar automaticamente — veja "Ver
+          reservas" do presente correspondente.
         </span>
       </UiCard>
     </section>
@@ -193,7 +203,7 @@ function formatPrice(cents: number | null): string {
               <UiBadge v-if="entry.isPaid" tone="success">Pago online</UiBadge>
               <UiBadge v-else tone="neutral">Vou entregar</UiBadge>
               <span v-if="entry.amountCents !== null" class="font-medium text-text">
-                {{ centsToBRL(entry.amountCents) }}
+                {{ formatCentsToBRL(entry.amountCents) }}
               </span>
               <template v-if="entry.quotaCount"> ({{ entry.quotaCount }} cotas)</template>
             </span>
@@ -241,6 +251,15 @@ function formatPrice(cents: number | null): string {
       </div>
 
       <UiEmptyState
+        v-else-if="giftsError"
+        icon="lucide:alert-triangle"
+        title="Não foi possível carregar os presentes"
+        description="Verifique sua conexão e tente novamente."
+      >
+        <UiButton variant="ghost" @click="refreshGifts()">Tentar novamente</UiButton>
+      </UiEmptyState>
+
+      <UiEmptyState
         v-else-if="!giftsData?.data.length"
         icon="lucide:gift"
         title="Nenhum presente cadastrado ainda"
@@ -266,7 +285,9 @@ function formatPrice(cents: number | null): string {
           >
             <td class="px-4 py-2 text-text">
               {{ gift.title }}
-              <UiBadge v-if="gift.display_style === 'emotional'" tone="neutral" class="ml-1">Emocional</UiBadge>
+              <UiBadge v-if="gift.display_style === 'emotional'" tone="neutral" class="ml-1"
+                >Emocional</UiBadge
+              >
             </td>
             <td class="px-4 py-2 text-text-muted">{{ categoryName(gift.category_id) }}</td>
             <td class="px-4 py-2 text-text-muted">
@@ -275,8 +296,8 @@ function formatPrice(cents: number | null): string {
             <td class="px-4 py-2 text-text-muted">
               {{
                 gift.is_group_gift
-                  ? formatPrice(gift.target_amount_cents)
-                  : `${formatPrice(gift.price_cents)} (${gift.quantity_available} disp.)`
+                  ? formatCentsToBRLOrDash(gift.target_amount_cents)
+                  : `${formatCentsToBRLOrDash(gift.price_cents)} (${gift.quantity_available} disp.)`
               }}
             </td>
             <td class="px-4 py-2">
@@ -335,8 +356,8 @@ function formatPrice(cents: number | null): string {
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir presente">
       <p class="text-sm text-text">
-        Tem certeza que deseja excluir <strong>{{ deleteTarget?.title }}</strong>? Reservas já
-        feitas continuam registradas para consulta, mas o item some da lista.
+        Tem certeza que deseja excluir <strong>{{ deleteTarget?.title }}</strong
+        >? Reservas já feitas continuam registradas para consulta, mas o item some da lista.
       </p>
       <template #footer>
         <UiButton variant="ghost" :disabled="isDeleting" @click="isDeleteModalOpen = false">
@@ -368,16 +389,22 @@ function formatPrice(cents: number | null): string {
           <div class="flex items-center justify-between">
             <span class="text-text">
               {{ contribution.name }}
-              <span v-if="contribution.inviteName" class="text-text-muted">({{ contribution.inviteName }})</span>
+              <span v-if="contribution.inviteName" class="text-text-muted"
+                >({{ contribution.inviteName }})</span
+              >
             </span>
             <span class="flex items-center gap-2 text-text-muted">
               <UiBadge v-if="contribution.isPaid" tone="success">Pago online</UiBadge>
-              {{ centsToBRL(contribution.amountCents) }}
-              <template v-if="contribution.quotaCount"> ({{ contribution.quotaCount }} cotas)</template>
+              {{ formatCentsToBRL(contribution.amountCents) }}
+              <template v-if="contribution.quotaCount">
+                ({{ contribution.quotaCount }} cotas)</template
+              >
             </span>
           </div>
           <p v-if="contribution.phone" class="text-xs text-text-muted">{{ contribution.phone }}</p>
-          <p v-if="contribution.message" class="text-xs italic text-text-muted">"{{ contribution.message }}"</p>
+          <p v-if="contribution.message" class="text-xs italic text-text-muted">
+            "{{ contribution.message }}"
+          </p>
         </div>
       </div>
       <div v-else class="flex flex-col gap-2">
@@ -392,12 +419,16 @@ function formatPrice(cents: number | null): string {
           <div class="flex items-center justify-between">
             <span class="text-text">
               {{ reservation.name }}
-              <span v-if="reservation.inviteName" class="text-text-muted">({{ reservation.inviteName }})</span>
+              <span v-if="reservation.inviteName" class="text-text-muted"
+                >({{ reservation.inviteName }})</span
+              >
             </span>
             <UiBadge v-if="reservation.isPaid" tone="success">Pago online</UiBadge>
           </div>
           <p v-if="reservation.phone" class="text-xs text-text-muted">{{ reservation.phone }}</p>
-          <p v-if="reservation.message" class="text-xs italic text-text-muted">"{{ reservation.message }}"</p>
+          <p v-if="reservation.message" class="text-xs italic text-text-muted">
+            "{{ reservation.message }}"
+          </p>
         </div>
       </div>
     </UiModal>

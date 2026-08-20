@@ -2,6 +2,7 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { inviteInputSchema } from '#shared/schemas/invites'
+import { formatDatePtBR } from '#shared/utils/format-date'
 
 definePageMeta({ layout: 'admin' })
 
@@ -17,7 +18,7 @@ const listParams = computed(() => ({
   search: search.value.trim() || undefined,
 }))
 
-const { data, status, refresh } = listInvites(listParams)
+const { data, status, error, refresh } = listInvites(listParams)
 
 const totalPages = computed(() => {
   const total = data.value?.meta.total ?? 0
@@ -88,11 +89,6 @@ async function confirmDelete() {
     isDeleting.value = false
   }
 }
-
-function formatDate(value: string | null): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString('pt-BR')
-}
 </script>
 
 <template>
@@ -110,6 +106,15 @@ function formatDate(value: string | null): string {
       <div v-if="status === 'pending'" class="flex flex-col gap-2">
         <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
       </div>
+
+      <UiEmptyState
+        v-else-if="error"
+        icon="lucide:alert-triangle"
+        title="Não foi possível carregar os convites"
+        description="Verifique sua conexão e tente novamente."
+      >
+        <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+      </UiEmptyState>
 
       <UiEmptyState
         v-else-if="!data?.data.length"
@@ -154,7 +159,7 @@ function formatDate(value: string | null): string {
                 {{ statusLabel[invite.responseStatus] }}
               </UiBadge>
             </td>
-            <td class="px-4 py-2 text-text-muted">{{ formatDate(invite.sent_at) }}</td>
+            <td class="px-4 py-2 text-text-muted">{{ formatDatePtBR(invite.sent_at) }}</td>
             <td class="px-4 py-2">
               <div class="flex justify-end gap-2">
                 <UiButton size="sm" variant="ghost" :to="`/admin/convites/${invite.id}`">

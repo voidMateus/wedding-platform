@@ -2,7 +2,7 @@
 import { filterAndSortGifts, segmentGifts } from '#shared/utils/filter-gifts'
 
 const { getPublicGifts, reserveGift, createCheckout } = usePublicGifts()
-const { data, status, refresh } = getPublicGifts()
+const { data, status, error, refresh } = getPublicGifts()
 const toast = useToast()
 const identity = useGiftGiverIdentity()
 
@@ -90,6 +90,15 @@ async function handleCheckout(
     </div>
 
     <UiEmptyState
+      v-else-if="error"
+      icon="lucide:alert-triangle"
+      title="Não foi possível carregar os presentes"
+      description="Verifique sua conexão e tente novamente."
+    >
+      <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+    </UiEmptyState>
+
+    <UiEmptyState
       v-else-if="!data?.data.length"
       title="Nenhum presente cadastrado ainda"
       description="Volte em breve para conferir a lista."
@@ -99,38 +108,29 @@ async function handleCheckout(
       <section id="presentes-fisicos" class="flex flex-col gap-4">
         <h2 class="font-display text-xl font-semibold text-heading">Lista de Presentes</h2>
 
-        <div v-if="!filteredPhysicalGifts.length && !categories.length" class="text-sm text-text-muted">
+        <div
+          v-if="!filteredPhysicalGifts.length && !categories.length"
+          class="text-sm text-text-muted"
+        >
           Nenhum presente físico cadastrado ainda.
         </div>
         <template v-else>
           <div class="flex flex-col gap-3">
             <div v-if="categories.length" class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="rounded-full border px-3 py-1 text-sm transition-colors"
-                :class="
-                  selectedCategory === null
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border text-text-muted hover:border-primary/50'
-                "
+              <UiChip
+                label="Todas"
+                clickable
+                :selected="selectedCategory === null"
                 @click="selectedCategory = null"
-              >
-                Todas
-              </button>
-              <button
+              />
+              <UiChip
                 v-for="category in categories"
                 :key="category"
-                type="button"
-                class="rounded-full border px-3 py-1 text-sm transition-colors"
-                :class="
-                  selectedCategory === category
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border text-text-muted hover:border-primary/50'
-                "
+                :label="category"
+                clickable
+                :selected="selectedCategory === category"
                 @click="selectedCategory = category"
-              >
-                {{ category }}
-              </button>
+              />
             </div>
 
             <UiSelect
@@ -161,11 +161,15 @@ async function handleCheckout(
         </template>
       </section>
 
-      <section v-if="segments.contributions.length" id="presentes-contribuicoes" class="flex flex-col gap-4">
+      <section
+        v-if="segments.contributions.length"
+        id="presentes-contribuicoes"
+        class="flex flex-col gap-4"
+      >
         <h2 class="font-display text-xl font-semibold text-heading">Contribuições</h2>
         <p v-if="!hasPixOption" class="text-sm text-text-muted">
-          O casal ainda não ativou pagamento online — contribuições ficam disponíveis assim que
-          isso for configurado.
+          O casal ainda não ativou pagamento online — contribuições ficam disponíveis assim que isso
+          for configurado.
         </p>
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <GiftsGiftCard
@@ -177,7 +181,11 @@ async function handleCheckout(
         </div>
       </section>
 
-      <section v-if="segments.emotional.length" id="presentes-emocionais" class="flex flex-col gap-4">
+      <section
+        v-if="segments.emotional.length"
+        id="presentes-emocionais"
+        class="flex flex-col gap-4"
+      >
         <h2 class="font-display text-xl font-semibold text-heading">Presentes Emocionais</h2>
         <p v-if="!hasPixOption" class="text-sm text-text-muted">
           O casal ainda não ativou pagamento online — esses presentes ficam disponíveis assim que
