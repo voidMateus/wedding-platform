@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens do Wedding Platform (ver CLAUDE.md, seção 22.1).
+ * Design tokens do MeuSiteCasamento (ver CLAUDE.md, seção 22.1).
  * Definidos como variáveis CSS dentro de @theme: o Tailwind v4 gera as
  * utilities (bg-primary, text-text-muted, border-border, font-display,
  * rounded-lg, shadow-md...) a partir delas, mas os valores continuam
@@ -96,6 +96,14 @@
   .transition-brand {
     transition-duration: var(--transition-duration);
     transition-timing-function: var(--transition-easing);
+  }
+
+  /* Glow colorido dos CTAs pill primary (UiButton, ver pillClasses) — extraído
+     pra utility pra não repetir o color-mix como valor arbitrário em cada
+     lugar que precisa do mesmo tratamento visual fora do UiButton (ex.:
+     ScrollToTopButton, que não é um botão de variante/tamanho padrão). */
+  .shadow-glow-primary {
+    box-shadow: 0 10px 28px -8px color-mix(in srgb, var(--color-primary) 55%, transparent);
   }
 }
 

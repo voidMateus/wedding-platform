@@ -35,7 +35,7 @@ function scrollToTop() {
       v-if="isVisible"
       type="button"
       aria-label="Voltar ao topo"
-      class="fixed bottom-6 right-6 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_28px_-8px_color-mix(in_srgb,var(--color-primary)_55%,transparent)] transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      class="shadow-glow-primary fixed bottom-6 right-6 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       @click="scrollToTop"
     >
       <Icon name="lucide:arrow-up" class="h-5 w-5" />

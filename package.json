@@ -1,5 +1,5 @@
 {
-  "name": "wedding-platform",
+  "name": "meusitecasamento",
   "private": true,
   "type": "module",
   "scripts": {
@@ -23,6 +23,7 @@
     "@nuxt/image": "^2.1.0",
     "@nuxtjs/supabase": "^2.0.9",
     "@pinia/nuxt": "^1.0.1",
+    "@supabase/ssr": "^0.10.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vee-validate/nuxt": "^4.15.1",

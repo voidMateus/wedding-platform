@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatCentsToBRL } from '#shared/utils/format-currency'
 import type { PublicGift } from '~/types/gift-public'
 
 interface Props {
@@ -40,17 +41,14 @@ watch(
     if (!open) return
     step.value = identity.value.name.trim() ? 'choose' : 'identify'
     // Só um método disponível: já vem selecionado, sem exigir clique extra.
-    selectedMethod.value = allowSelfPurchase.value && !allowOnlinePayment.value
-      ? 'free'
-      : allowOnlinePayment.value && !allowSelfPurchase.value
-        ? 'pix'
-        : null
+    selectedMethod.value =
+      allowSelfPurchase.value && !allowOnlinePayment.value
+        ? 'free'
+        : allowOnlinePayment.value && !allowSelfPurchase.value
+          ? 'pix'
+          : null
   },
 )
-
-function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
 function confirm() {
   if (selectedMethod.value === 'free') {
@@ -68,7 +66,9 @@ function confirm() {
 <template>
   <UiModal
     :model-value="modelValue"
-    :title="step === 'identify' ? 'Quem está presenteando?' : `Como você quer presentear ${gift.title}?`"
+    :title="
+      step === 'identify' ? 'Quem está presenteando?' : `Como você quer presentear ${gift.title}?`
+    "
     @update:model-value="emit('update:modelValue', $event)"
   >
     <GiftsGiftGiverIdentityForm v-if="step === 'identify'" @continue="step = 'choose'" />
@@ -104,8 +104,8 @@ function confirm() {
           >
             <span class="font-medium text-text">Enviar o valor pelo link de pagamento</span>
             <span class="text-sm text-text-muted">
-              Você paga {{ formatCents(gift.priceCents!) }} pelo link de pagamento da InfinitePay (Pix
-              e/ou cartão, conforme a conta do casal) e o casal compra o item.
+              Você paga {{ formatCentsToBRL(gift.priceCents!) }} pelo link de pagamento da
+              InfinitePay (Pix e/ou cartão, conforme a conta do casal) e o casal compra o item.
             </span>
           </button>
 

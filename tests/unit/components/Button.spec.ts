@@ -33,7 +33,7 @@ describe('UiButton', () => {
     const pill = mount(Button, { slots: { default: 'Confirmar' } })
     expect(pill.classes()).toContain('hover:scale-[1.03]')
     expect(pill.classes()).toContain('uppercase')
-    expect(pill.classes().some((c) => c.startsWith('shadow-['))).toBe(true)
+    expect(pill.classes()).toContain('shadow-glow-primary')
 
     const mdButton = mount(Button, { props: { rounded: 'md' }, slots: { default: 'Salvar' } })
     expect(mdButton.classes()).not.toContain('hover:scale-[1.03]')
@@ -54,7 +54,7 @@ describe('UiButton', () => {
     expect(wrapper.classes()).not.toContain('hover:scale-[1.03]')
     expect(wrapper.classes()).toContain('active:scale-95')
     expect(wrapper.classes()).toContain('uppercase')
-    expect(wrapper.classes().some((c) => c.startsWith('shadow-['))).toBe(true)
+    expect(wrapper.classes()).toContain('shadow-glow-primary')
   })
 
   it('fica desabilitado quando a prop disabled é verdadeira', () => {
@@ -86,7 +86,10 @@ describe('UiButton', () => {
       slots: { default: 'Abrir no mapa' },
       global: {
         stubs: {
-          NuxtLink: { template: '<a :href="to" :target="target" :rel="rel"><slot /></a>', props: ['to', 'target', 'rel'] },
+          NuxtLink: {
+            template: '<a :href="to" :target="target" :rel="rel"><slot /></a>',
+            props: ['to', 'target', 'rel'],
+          },
         },
       },
     })

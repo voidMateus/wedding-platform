@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatCentsToBRL } from '#shared/utils/format-currency'
 import type { PublicGift } from '~/types/gift-public'
 
 interface Props {
@@ -37,10 +38,6 @@ const quotaCount = ref(1)
 
 const isQuotaMode = computed(() => Boolean(gift.quotaAmountCents))
 
-function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 function selectSuggestedAmount(amountCents: number) {
   selectedAmountCents.value = amountCents
   customAmountReaisText.value = ''
@@ -56,7 +53,9 @@ const effectiveAmountCents = computed(() => {
 
 const quotaTotalCents = computed(() => (gift.quotaAmountCents ?? 0) * quotaCount.value)
 
-const canSubmit = computed(() => (isQuotaMode.value ? quotaCount.value > 0 : Boolean(effectiveAmountCents.value)))
+const canSubmit = computed(() =>
+  isQuotaMode.value ? quotaCount.value > 0 : Boolean(effectiveAmountCents.value),
+)
 
 function submit() {
   if (!canSubmit.value) return
@@ -91,7 +90,8 @@ function submit() {
 
       <template v-if="isQuotaMode">
         <p class="text-sm text-text-muted">
-          Cada cota vale {{ formatCents(gift.quotaAmountCents!) }}. Escolha quantas cotas quer comprar.
+          Cada cota vale {{ formatCentsToBRL(gift.quotaAmountCents!) }}. Escolha quantas cotas quer
+          comprar.
         </p>
         <div class="flex items-center gap-3">
           <UiButton
@@ -107,27 +107,21 @@ function submit() {
           <UiButton type="button" variant="ghost" size="sm" @click="quotaCount++">
             <Icon name="lucide:plus" class="h-4 w-4" />
           </UiButton>
-          <span class="text-sm text-text-muted">= {{ formatCents(quotaTotalCents) }}</span>
+          <span class="text-sm text-text-muted">= {{ formatCentsToBRL(quotaTotalCents) }}</span>
         </div>
       </template>
 
       <template v-else>
         <p class="text-sm text-text-muted">Contribua com qualquer valor.</p>
         <div class="flex flex-wrap gap-2">
-          <button
+          <UiChip
             v-for="amount in SUGGESTED_AMOUNTS_CENTS"
             :key="amount"
-            type="button"
-            class="rounded-full border px-3 py-1 text-sm transition-brand"
-            :class="
-              selectedAmountCents === amount
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border text-text-muted hover:border-primary/50'
-            "
+            :label="formatCentsToBRL(amount)"
+            clickable
+            :selected="selectedAmountCents === amount"
             @click="selectSuggestedAmount(amount)"
-          >
-            {{ formatCents(amount) }}
-          </button>
+          />
         </div>
         <UiInput v-model="customAmountReaisText" label="Outro valor, em R$" placeholder="0,00" />
       </template>

@@ -1,8 +1,8 @@
-# Arquitetura Técnica — Wedding Platform
+# Arquitetura Técnica — MeuSiteCasamento
 
 > Este documento detalha, em nível de execução, como o [CLAUDE.md](../CLAUDE.md) se traduz em arquitetura de software. O CLAUDE.md continua sendo a fonte única de verdade para decisões de produto, modelagem de dados e convenções — este documento **não redefine** nada do que já está lá, apenas aprofunda a camada técnica (estrutura de diretórios, ciclo de vida de requisição, fluxos ponta a ponta, estratégia de testes) para orientar a implementação. Nenhum código foi escrito — é especificação de arquitetura.
 
-**Pré-requisito de leitura**: seções 3 (Stack), 4 (Arquitetura), 5 (Estrutura de Pastas), 11–13 (Banco de Dados), 14 (Autenticação) e 28 (Segurança) do CLAUDE.md.
+**Pré-requisito de leitura**: seções 1 (O Projeto), 2 (Stack) e 4 (Arquitetura — especialmente o Modelo de Confiança) do CLAUDE.md, além de docs/DATABASE.md (Banco de Dados) e docs/PRODUCT.md (regras de negócio dos fluxos abaixo).
 
 ---
 
@@ -22,10 +22,10 @@
 
 ## 1. Estrutura de Diretórios do Projeto
 
-A árvore abaixo estende a estrutura já definida no CLAUDE.md (seção 5) com o nível de detalhe necessário para começar a implementação — em particular, o mapeamento completo de `server/api` por domínio (refletindo as tabelas definidas em 11–12) e a organização de `supabase/`.
+A árvore abaixo estende a estrutura já definida no CLAUDE.md (seção 5) com o nível de detalhe necessário para começar a implementação — em particular, o mapeamento completo de `server/api` por domínio (refletindo as tabelas definidas em docs/DATABASE.md, seções 2–3) e a organização de `supabase/`.
 
 ```
-wedding-platform/
+meusitecasamento/
 ├── app/
 │   ├── assets/css/                    # Tailwind v4 CSS-first (@theme) — sem tailwind.config.ts
 │   ├── components/
@@ -63,15 +63,15 @@ wedding-platform/
 │   │   └── admin/
 │   │       ├── index.vue              # dashboard
 │   │       ├── convidados/[id].vue, index.vue, novo.vue
-│   │       ├── convites/[id].vue, index.vue    # invites — unidade de RSVP (CLAUDE.md 17)
-│   │       ├── grupos/index.vue                # groups — etiqueta livre (CLAUDE.md 17)
+│   │       ├── convites/[id].vue, index.vue    # invites — unidade de RSVP (docs/PRODUCT.md seção 5)
+│   │       ├── grupos/index.vue                # groups — etiqueta livre (docs/PRODUCT.md seção 5)
 │   │       ├── presentes/index.vue
 │   │       ├── cronograma/index.vue
 │   │       ├── galeria/index.vue
 │   │       └── configuracoes/index.vue
 │   ├── stores/
 │   │   ├── auth.store.ts
-│   │   └── ui.store.ts                # guests/gifts NÃO são Pinia — server state via composables (CLAUDE.md 10)
+│   │   └── ui.store.ts                # guests/gifts NÃO são Pinia — server state via composables (CLAUDE.md seção 9)
 │   ├── types/                         # 1:1 por entidade (guest.ts, invite.ts, group.ts, gift.ts, rsvp.ts...),
 │   │                                   # + database.types.ts gerado via Supabase CLI, nunca editado à mão
 │   └── utils/
@@ -84,8 +84,8 @@ wedding-platform/
 │   │   ├── groups/                    # etiqueta livre — CRUD
 │   │   ├── guest-access-tokens/
 │   │   ├── invite-tags/
-│   │   ├── event-segments/            # exclusão física — ver CLAUDE.md 11
-│   │   ├── public/                    # sem autenticação e sem token — site público (CLAUDE.md 4.5)
+│   │   ├── event-segments/            # exclusão física — ver docs/DATABASE.md seção 3.2
+│   │   ├── public/                    # sem autenticação e sem token — site público (CLAUDE.md seção 4.2)
 │   │   │   └── [slug]/                # wedding, event-segments, gifts, photos, rsvp-search
 │   │   ├── rsvp/
 │   │   │   ├── [code].get.ts                     # link/QR direto — resolve token, retorna o convite
@@ -109,14 +109,14 @@ wedding-platform/
 │   ├── schemas/                       # Zod por domínio (guests, invites, groups, gifts, theme, content...)
 │   └── utils/                         # contrast, filter-gifts, mask-name, event-datetime, guest-age...
 ├── supabase/
-│   ├── migrations/                    # schema + funções Postgres transacionais, ver CLAUDE.md 13
+│   ├── migrations/                    # schema + funções Postgres transacionais, ver docs/DATABASE.md seção 4
 │   └── seed.sql
 ├── tests/
 │   ├── unit/                          # composables, utils, schemas Zod, componentes
 │   └── e2e/                           # Playwright — fluxos críticos ponta a ponta
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   └── CHANGELOG.md                   # histórico de decisões/incidentes (CLAUDE.md 32)
+│   └── CHANGELOG.md                   # histórico de decisões/incidentes (docs/ROADMAP.md)
 ├── .env.example
 ├── nuxt.config.ts
 ├── vercel.json                        # cron da sincronização de galeria
@@ -124,11 +124,11 @@ wedding-platform/
 └── CLAUDE.md
 ```
 
-**Nota sobre `jobs`/worker assíncrono**: a tabela `jobs` (CLAUDE.md 11.1) e o worker descrito na seção 3.4 abaixo permanecem como desenho de arquitetura para a Fase 2 (importação de CSV, lembretes em lote) — `server/utils/jobs/` e um processo/rota de worker dedicado **ainda não foram implementados**; hoje não há nenhuma fila assíncrona real no código. Tratar a seção 3.4 como especificação a implementar, não como descrição do estado atual. `communications` (CLAUDE.md 11.1) é a mesma situação — tabela reservada no schema, sem `server/api/communications/` ainda.
+**Nota sobre `jobs`/worker assíncrono**: a tabela `jobs` (docs/DATABASE.md seção 2) e o worker descrito na seção 3.4 abaixo permanecem como desenho de arquitetura para a Fase 2 (importação de CSV, lembretes em lote) — `server/utils/jobs/` e um processo/rota de worker dedicado **ainda não foram implementados**; hoje não há nenhuma fila assíncrona real no código. Tratar a seção 3.4 como especificação a implementar, não como descrição do estado atual. `communications` (docs/DATABASE.md seção 2) é a mesma situação — tabela reservada no schema, sem `server/api/communications/` ainda.
 
 ### 1.1 Notas sobre a estrutura
 
-- `server/api` é organizado **por recurso de domínio**, espelhando 1:1 as tabelas descritas no CLAUDE.md (11.1) — facilita localizar rapidamente onde uma regra de negócio de uma tabela específica está implementada. Alguns domínios (RSVP, presentes) têm rotas espalhadas entre um namespace autenticado e um em `public/`, refletindo o modelo de confiança por fluxo (CLAUDE.md 4.5), não um desvio da convenção.
+- `server/api` é organizado **por recurso de domínio**, espelhando 1:1 as tabelas descritas no docs/DATABASE.md (seção 2) — facilita localizar rapidamente onde uma regra de negócio de uma tabela específica está implementada. Alguns domínios (RSVP, presentes) têm rotas espalhadas entre um namespace autenticado e um em `public/`, refletindo o modelo de confiança por fluxo (CLAUDE.md seção 4.2), não um desvio da convenção.
 - **Correção sobre `supabase/functions/`**: esse diretório é reservado pela própria Supabase CLI para *Edge Functions* (Deno/TypeScript) — um arquivo `.sql` ali dentro nunca seria aplicado ao banco. As funções Postgres com controle de concorrência explícito (reserva de presente, `finalize_invite_rsvp`) por isso vivem como migrations normais em `supabase/migrations/`, na ordem em que passam a existir no schema (ver 4.4). `supabase/functions/` fica vazio (só `.gitkeep`) até o projeto realmente precisar de uma Edge Function.
 - `supabase/policies/` **não duplica** o SQL das RLS policies (isso criaria duas fontes de verdade divergentes) — mantém um README que documenta a convenção de nomenclatura e indexa em qual migration cada tabela tem suas policies definidas, que é o único artefato que efetivamente governa o banco.
 - `supabase/policies/` **não duplica** o SQL das RLS policies (isso criaria duas fontes de verdade divergentes) — mantém um README que documenta a convenção de nomenclatura e indexa em qual migration cada tabela tem suas policies definidas, que é o único artefato que efetivamente governa o banco.
@@ -145,7 +145,7 @@ wedding-platform/
 | Camada | Responsabilidade | Nunca faz |
 |---|---|---|
 | `pages/` | Orquestra composables, decide o que renderizar, trata estados de loading/erro/vazio | Lógica de negócio, chamadas de rede diretas |
-| `components/{public,rsvp,gifts,admin}/` | Renderiza uma fatia de UI de domínio, recebe dados via props | Fetch/mutação direta (exceto componentes "self-contained" documentados no CLAUDE.md 9.2) |
+| `components/{public,rsvp,gifts,admin}/` | Renderiza uma fatia de UI de domínio, recebe dados via props | Fetch/mutação direta (exceto componentes "self-contained" documentados no CLAUDE.md seção 9) |
 | `components/ui/` | Átomos do Design System, sem conhecimento de domínio | Qualquer referência a `Guest`, `Gift`, etc. |
 | `composables/` | Busca/mutação de dados, regras de apresentação reutilizáveis | Renderização |
 | `stores/` (Pinia) | Cache de última versão conhecida de entidades de uso global | Ser a fonte de verdade (isso é o servidor) |
@@ -154,7 +154,7 @@ wedding-platform/
 
 | Rota | Modo | Justificativa |
 |---|---|---|
-| `/` (home pública) | SSR | SEO, Open Graph para compartilhamento no WhatsApp (CLAUDE.md 26) |
+| `/` (home pública) | SSR | SEO, Open Graph para compartilhamento no WhatsApp (docs/DESIGN-SYSTEM.md seção 7) |
 | `/presentes` | SSR | Mesma razão — pode ser compartilhada diretamente |
 | `/rsvp/[code]` | SSR para o carregamento inicial dos dados do convite; interações subsequentes client-side | Precisa carregar rápido a partir de um link direto, mas não precisa de SEO (`noindex`) |
 | `/login` | SSR simples | Página leve, sem dados sensíveis pré-carregados |
@@ -165,18 +165,18 @@ Definido via `routeRules` no `nuxt.config.ts`, mantendo a decisão centralizada 
 ### 2.3 Padrão de busca de dados
 
 - Toda leitura que define conteúdo de primeira renderização usa `useAsyncData` com chave estável e descritiva (`wedding-${slug}`, `rsvp-${code}`, `guests-page-${page}`), nunca chave gerada aleatoriamente — chaves estáveis são o que permite ao Nuxt evitar refetch duplicado entre server e client durante a hidratação.
-- Toda mutação passa por uma action de composable (`useGuests().createGuest(...)`), nunca por `$fetch` direto em um componente — mantém a regra do CLAUDE.md (5.1/10.1) de que rede é responsabilidade do composable.
+- Toda mutação passa por uma action de composable (`useGuests().createGuest(...)`), nunca por `$fetch` direto em um componente — mantém a regra do CLAUDE.md (seção 5/9) de que rede é responsabilidade do composable.
 - Após uma mutação, a invalidação de cache é explícita (`refreshNuxtData` na chave afetada), nunca um `location.reload()` ou recarregamento de página inteira.
 
 ### 2.4 Pipeline de middleware de rota (client)
 
 - `auth.global.ts` — se a rota estiver sob `/admin/**`, verifica sessão Supabase; sem sessão válida, redireciona para `/login` preservando a rota de destino.
 
-**Correção sobre `guest-access.global.ts`**: o desenho original desta seção propunha um middleware global que resolveria o token do convidado em `/rsvp/[code]` e `/presentes`. Na implementação real (CLAUDE.md, seção 14.3, PR do fluxo de RSVP), isso não existe como middleware — cada página resolve o próprio código via composable (`useRsvp(code).getRsvp()`) dentro do `<script setup>`, do mesmo jeito que o caminho administrativo resolve `wedding_id` via função explícita (`wedding-context.ts`, não middleware — ver correção equivalente em 1.1). Um middleware global rodaria em toda navegação, inclusive `/admin/**`, sem necessidade; a resolução por página é mais simples de auditar e não risca vazar lógica de convidado para rotas que não precisam dela. Desde a "Rodada 4" da Fase Presentes 2.0 (CLAUDE.md, seção 32), `/presentes` não resolve token nenhum — a menção acima já não se aplica a esse caminho, só a `/rsvp/[code]`.
+**Correção sobre `guest-access.global.ts`**: o desenho original desta seção propunha um middleware global que resolveria o token do convidado em `/rsvp/[code]` e `/presentes`. Na implementação real (seção 6.2 abaixo, PR do fluxo de RSVP), isso não existe como middleware — cada página resolve o próprio código via composable (`useRsvp(code).getRsvp()`) dentro do `<script setup>`, do mesmo jeito que o caminho administrativo resolve `wedding_id` via função explícita (`wedding-context.ts`, não middleware — ver correção equivalente em 1.1). Um middleware global rodaria em toda navegação, inclusive `/admin/**`, sem necessidade; a resolução por página é mais simples de auditar e não risca vazar lógica de convidado para rotas que não precisam dela. Desde a "Rodada 4" da Fase Presentes 2.0 (docs/ROADMAP.md), `/presentes` não resolve token nenhum — a menção acima já não se aplica a esse caminho, só a `/rsvp/[code]`.
 
 ### 2.5 Módulos Nuxt esperados
 
-`@tailwindcss/vite` (Tailwind v4, CSS-first — tokens em `app/assets/css/main.css` via `@theme`, sem `tailwind.config.ts`; ver Fase B), `@pinia/nuxt`, `@nuxt/eslint`, `@nuxt/image` (para `NuxtImg`/`NuxtPicture`, ver CLAUDE.md 24/27), módulo de sitemap/robots (ver CLAUDE.md 26), e o módulo oficial do Supabase (ou um wrapper fino próprio sobre `@supabase/supabase-js`) restrito ao client anônimo — o client com `service_role key` só existe em `server/utils/supabase-admin.ts`, nunca em módulo carregado no bundle do browser.
+`@tailwindcss/vite` (Tailwind v4, CSS-first — tokens em `app/assets/css/main.css` via `@theme`, sem `tailwind.config.ts`; ver Fase B), `@pinia/nuxt`, `@nuxt/eslint`, `@nuxt/image` (para `NuxtImg`/`NuxtPicture`, ver docs/DESIGN-SYSTEM.md seção 5/8), módulo de sitemap/robots (ver docs/DESIGN-SYSTEM.md seção 7), e o módulo oficial do Supabase (ou um wrapper fino próprio sobre `@supabase/supabase-js`) restrito ao client anônimo — o client com `service_role key` só existe em `server/utils/supabase-admin.ts`, nunca em módulo carregado no bundle do browser.
 
 ### 2.6 Tratamento de erro na apresentação
 
@@ -219,13 +219,13 @@ Definido via `routeRules` no `nuxt.config.ts`, mantendo a decisão centralizada 
 
 ### 3.2 Organização de `server/api`
 
-Reflete a lista de tabelas do CLAUDE.md (11.1), com uma pasta por recurso de domínio. Cada pasta segue a convenção de nomes de arquivo do Nuxt (`index.get.ts`, `[id].patch.ts`, `[id]/ação.post.ts`). Endpoints que representam uma **operação de negócio** (não um CRUD genérico) usam um verbo explícito no path — `reserve`, `contribute`, `cancel`, `import`, `reminders` — em vez de forçar tudo em `PATCH` genérico, deixando a intenção auditável só de olhar a rota.
+Reflete a lista de tabelas do docs/DATABASE.md (seção 2), com uma pasta por recurso de domínio. Cada pasta segue a convenção de nomes de arquivo do Nuxt (`index.get.ts`, `[id].patch.ts`, `[id]/ação.post.ts`). Endpoints que representam uma **operação de negócio** (não um CRUD genérico) usam um verbo explícito no path — `reserve`, `contribute`, `cancel`, `import`, `reminders` — em vez de forçar tudo em `PATCH` genérico, deixando a intenção auditável só de olhar a rota.
 
 ### 3.3 `server/utils` — responsabilidades
 
 | Módulo | Responsabilidade |
 |---|---|
-| `supabase-admin.ts` | Único ponto de criação do client com `service_role key`; qualquer novo uso passa por revisão explícita, já que é a credencial mais crítica (CLAUDE.md 28) |
+| `supabase-admin.ts` | Único ponto de criação do client com `service_role key`; qualquer novo uso passa por revisão explícita, já que é a credencial mais crítica (CLAUDE.md seção 11) |
 | `wedding-context.ts` | Resolve wedding_id/role do usuário autenticado via `wedding_members`, usando o client da própria requisição (RLS como defesa em profundidade, não o client admin) — chamada explicitamente pelos handlers do caminho administrativo, não é middleware |
 | `errors.ts` | Vocabulário fechado de erros de domínio (`NotFoundError`, `ValidationError`, `ConcurrencyConflictError`, `TokenRevokedError`, `RateLimitedError`) mapeado para status HTTP de forma consistente em todos os endpoints |
 | `jobs/enqueue.ts` | Único ponto de escrita na tabela `jobs` — nenhum endpoint insere na fila diretamente sem passar por essa função (garante formato de `payload` consistente) |
@@ -233,7 +233,7 @@ Reflete a lista de tabelas do CLAUDE.md (11.1), com uma pasta por recurso de dom
 
 ### 3.4 Worker de jobs assíncronos
 
-Processo (ou rota Nitro protegida, disparada por cron do provedor de hosting) que consulta `jobs` por linhas `pending` com `run_at <= now()`, marca como `processing`, executa o handler correspondente, e atualiza para `completed`/`failed` com contagem de tentativas. Usado para: importação de CSV (CLAUDE.md 27), envio de lembretes em lote (CLAUDE.md 16.4/19), e, futuramente, qualquer integração de billing (CLAUDE.md 33). Mantém os endpoints HTTP síncronos curtos, compatíveis com o tempo de vida de uma função serverless.
+Processo (ou rota Nitro protegida, disparada por cron do provedor de hosting) que consulta `jobs` por linhas `pending` com `run_at <= now()`, marca como `processing`, executa o handler correspondente, e atualiza para `completed`/`failed` com contagem de tentativas. Usado para: importação de CSV (docs/DESIGN-SYSTEM.md seção 8), envio de lembretes em lote (docs/PRODUCT.md seção 4.4/7), e, futuramente, qualquer integração de billing (docs/ROADMAP.md). Mantém os endpoints HTTP síncronos curtos, compatíveis com o tempo de vida de uma função serverless.
 
 ### 3.5 Formato de erro padronizado
 
@@ -245,9 +245,9 @@ Toda resposta de erro do backend segue a mesma forma (código de domínio, mensa
 
 ### 4.1 Projetos por ambiente
 
-Um projeto Supabase por ambiente, nunca compartilhado — evita que dados de teste/desenvolvimento se misturem com dados reais de convidados, o que seria particularmente grave dado o caráter sensível dessa informação (CLAUDE.md 28.1).
+Um projeto Supabase por ambiente, nunca compartilhado — evita que dados de teste/desenvolvimento se misturem com dados reais de convidados, o que seria particularmente grave dado o caráter sensível dessa informação (CLAUDE.md seção 11).
 
-**Decisão atual (produção inicial): 2 ambientes — `dev` e `prod`**, não 3. `dev` é o projeto já usado desde a Fase 0 (onde toda a implementação é validada contra dados reais de schema, mas fictícios); `prod` é um projeto novo, separado, criado só quando a plataforma foi ao ar pela primeira vez (CLAUDE.md 33/4.4 — múltiplos casamentos por instância, cada um com sua própria URL `/{slug}`). Ambos cabem no plano gratuito do Supabase (2 projetos ativos por organização). Mapeamento para a Vercel: `Production` (branch `main` publicada) aponta para `prod`; `Preview` + `Development` (qualquer outra branch/PR) apontam para `dev` — assim uma preview deployment nunca toca dado real.
+**Decisão atual (produção inicial): 2 ambientes — `dev` e `prod`**, não 3. `dev` é o projeto já usado desde a Fase 0 (onde toda a implementação é validada contra dados reais de schema, mas fictícios); `prod` é um projeto novo, separado, criado só quando a plataforma foi ao ar pela primeira vez (docs/ROADMAP.md; CLAUDE.md seção 1 — múltiplos casamentos por instância, cada um com sua própria URL `/{slug}`). Ambos cabem no plano gratuito do Supabase (2 projetos ativos por organização). Mapeamento para a Vercel: `Production` (branch `main` publicada) aponta para `prod`; `Preview` + `Development` (qualquer outra branch/PR) apontam para `dev` — assim uma preview deployment nunca toca dado real.
 
 **Exceção deliberada — Redis (Upstash, rate limiting) é compartilhado entre `dev` e `prod`**, não replicado por ambiente: o plano gratuito da Upstash só inclui 1 banco, e criar um segundo custa uma taxa mensal — cadastrar cartão de crédito na Upstash converte *todos* os bancos da conta para cobrança por uso, não só o novo. Como o Redis aqui guarda só contadores de rate-limit (nunca dado de convidado), o risco de compartilhar é baixo (no pior caso, um teste em `dev` consome parte da cota de `prod`) — desproporcional ao custo de separar. Reavaliar se algum dia isso causar um problema real; separar depois é uma mudança pontual e barata.
 
@@ -256,26 +256,26 @@ Um terceiro ambiente (`staging`, entre `dev` e `prod`) é uma extensão natural 
 ### 4.2 Fluxo de migrations
 
 1. Toda mudança de schema nasce como uma migration local (Supabase CLI), testada contra o ambiente `dev`.
-2. Migration é revisada em PR como qualquer mudança de código (CLAUDE.md 29) — incluindo revisão explícita de qualquer nova RLS policy.
+2. Migration é revisada em PR como qualquer mudança de código (CLAUDE.md seção 14) — incluindo revisão explícita de qualquer nova RLS policy.
 3. Promoção para `prod` é uma etapa manual e deliberada (nunca automática), dado que envolve dados reais de casamentos ativos: `supabase link --project-ref <ref-prod>` + `supabase db push`, feito só depois da migration já validada em `dev`. (Se/quando `staging` existir como terceiro ambiente, ele entra nesse fluxo como uma promoção automática intermediária, antes da promoção manual para `prod` — ver 4.1.)
 4. Migrations são estritamente aditivas/reversíveis quando possível; mudanças destrutivas (`DROP COLUMN`, `NOT NULL` retroativo) seguem um processo de duas etapas (deploy que tolera ambos os estados → migration de limpeza posterior) para nunca quebrar uma versão de código já em produção.
-5. `supabase/seed.sql` nunca roda em `prod` — é dado fictício de desenvolvimento local (CLAUDE.md 11, seção 9.4 abaixo). Casamentos reais em `prod` são cadastrados manualmente (`weddings` + `wedding_members`, CLAUDE.md 33.2) — sem tela de self-service ainda.
+5. `supabase/seed.sql` nunca roda em `prod` — é dado fictício de desenvolvimento local (docs/DATABASE.md, seção 9.4 abaixo). Casamentos reais em `prod` são cadastrados manualmente (`weddings` + `wedding_members`, docs/ROADMAP.md seção 5.1) — sem tela de self-service ainda.
 
 ### 4.3 Padrão de autoria de RLS
 
 - Uma policy por operação (`select`/`insert`/`update`/`delete`), nunca uma policy genérica "para tudo" — mais fácil de auditar individualmente.
 - Toda nova tabela nasce com RLS habilitada e **nenhuma policy** (deny-by-default); policies são adicionadas explicitamente, nunca o inverso (nascer aberta e depois restringir).
-- Cada policy nova exige um teste correspondente na suíte `tests/integration/rls/` antes do merge — é a aplicação prática da exigência já registrada no CLAUDE.md (33.4).
+- Cada policy nova exige um teste correspondente na suíte `tests/integration/rls/` antes do merge — é a aplicação prática da exigência já registrada no docs/ROADMAP.md (seção 7).
 
 ### 4.4 Funções Postgres para operações transacionais
 
-Operações com controle de concorrência explícito (CLAUDE.md 13/16.4/18.3) — reserva de presente, acompanhante avulso contra `invites.max_companions` — são implementadas como funções Postgres versionadas em `supabase/migrations/` (`reserve_gift`, `upsert_guest_rsvp`, `finalize_invite_rsvp`, `sync_guest_party`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas. Nenhuma é `SECURITY DEFINER`: rodam com o papel de quem chama, para que o caminho administrativo continue protegido por RLS como defesa em profundidade (o caminho do convidado já ignora RLS via `service_role`, ver 4.5). `confirm_rsvp()` (Fase 1) foi dropada e substituída pelas duas funções de RSVP acima quando o modelo virou sempre-por-convidado (CLAUDE.md, "Fase 7" no roadmap); `cancel_gift_reservation()` permanece no schema mas está órfã desde que o cancelamento self-service de presentes foi removido (ver 8.4) — nenhum código a chama mais.
+Operações com controle de concorrência explícito (docs/DATABASE.md seção 4; docs/PRODUCT.md seção 4.4/6.3) — reserva de presente, acompanhante avulso contra `invites.max_companions` — são implementadas como funções Postgres versionadas em `supabase/migrations/` (`reserve_gift`, `upsert_guest_rsvp`, `finalize_invite_rsvp`, `sync_guest_party`), chamadas via RPC pelo backend, e não como uma sequência de `SELECT`+`INSERT` orquestrada em TypeScript. Isso garante que o bloqueio (`SELECT ... FOR UPDATE`) e a escrita aconteçam na mesma transação, sem round-trip de rede entre as duas etapas. Nenhuma é `SECURITY DEFINER`: rodam com o papel de quem chama, para que o caminho administrativo continue protegido por RLS como defesa em profundidade (o caminho do convidado já ignora RLS via `service_role`, ver CLAUDE.md seção 4.2). `confirm_rsvp()` (Fase 1) foi dropada e substituída pelas duas funções de RSVP acima quando o modelo virou sempre-por-convidado (CLAUDE.md, "Fase 7" no roadmap); `cancel_gift_reservation()` permanece no schema mas está órfã desde que o cancelamento self-service de presentes foi removido (ver 8.4) — nenhum código a chama mais.
 
-`confirm_gift_payment()` (CLAUDE.md 18.4/28.3) segue o mesmo padrão, com uma nuance: o `SELECT ... FOR UPDATE` na própria linha de `gift_payments` funciona como gate de **idempotência**, não de controle de estoque — e uma falha de domínio esperada dentro dela (`GIFT_UNAVAILABLE`, capturada via bloco `EXCEPTION`) é gravada como `status='failed'` em vez de propagada como exceção, porque uma exceção não tratada reverteria a transação inteira da chamada RPC, apagando justamente o registro que precisa ficar visível pro casal resolver manualmente.
+`confirm_gift_payment()` (seção 8.3/8.4 abaixo; docs/PRODUCT.md seção 6.4) segue o mesmo padrão, com uma nuance: o `SELECT ... FOR UPDATE` na própria linha de `gift_payments` funciona como gate de **idempotência**, não de controle de estoque — e uma falha de domínio esperada dentro dela (`GIFT_UNAVAILABLE`, capturada via bloco `EXCEPTION`) é gravada como `status='failed'` em vez de propagada como exceção, porque uma exceção não tratada reverteria a transação inteira da chamada RPC, apagando justamente o registro que precisa ficar visível pro casal resolver manualmente.
 
 ### 4.5 Storage
 
-Buckets dedicados a imagens **próprias do casal** (foto de capa `wedding-covers`, foto da seção Nossa História, imagem de `event_segments`), particionados por `wedding_id` no path do objeto, com leitura pública (site do casamento é público) e escrita restrita a membros autenticados do respectivo `wedding_id`. Validação de tipo/tamanho de arquivo (CLAUDE.md 28) acontece no `server/api` antes do upload — o client nunca faz upload direto sem essa checagem prévia.
+Buckets dedicados a imagens **próprias do casal** (foto de capa `wedding-covers`, foto da seção Nossa História, imagem de `event_segments`), particionados por `wedding_id` no path do objeto, com leitura pública (site do casamento é público) e escrita restrita a membros autenticados do respectivo `wedding_id`. Validação de tipo/tamanho de arquivo (CLAUDE.md seção 11) acontece no `server/api` antes do upload — o client nunca faz upload direto sem essa checagem prévia.
 
 **Galeria não usa mais Storage** (CLAUDE.md, Fase Galeria via Google Drive): `photos` deixou de guardar bytes no nosso Storage e passou a **referenciar** arquivos de uma fonte externa espelhada (Google Drive), servidos direto do Google (thumbnail). O bucket `wedding-photos` deixou de receber escrita (policies de escrita removidas; DROP em limpeza posterior). O upload manual (`POST /api/photos`) foi removido. Ver o fluxo de sincronização abaixo.
 
@@ -285,7 +285,7 @@ A conexão do casamento com a fonte vive em `gallery_source_connections` (uma po
 
 ### 4.6 Autenticação
 
-Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com duração de sessão e política de refresh token padrão do provedor, cookies `httpOnly`/`secure` (CLAUDE.md 28) definidos pela integração Nuxt-Supabase no server, nunca manipulados diretamente pelo client.
+Supabase Auth configurado para e-mail/senha + magic link (seção 6.1 acima), com duração de sessão e política de refresh token padrão do provedor, cookies `httpOnly`/`secure` (CLAUDE.md seção 11) definidos pela integração Nuxt-Supabase no server, nunca manipulados diretamente pelo client.
 
 ### 4.7 Geração de tipos e ambiente local
 
@@ -307,37 +307,37 @@ Supabase Auth configurado para e-mail/senha + magic link (CLAUDE.md 14.2), com d
 | Grupos (etiqueta livre) | `/api/groups` | Admin (JWT) | Não |
 | Cronograma | `/api/event-segments` | Admin (JWT) | Não |
 | Galeria (fotos) | `/api/photos/*` | Admin (JWT) | Não |
-| Site público (evento, cronograma, presentes, fotos, busca de RSVP) | `/api/public/[slug]/*` | Pública (sem auth, sem token — CLAUDE.md 4.5) | Busca de RSVP: **sim** |
+| Site público (evento, cronograma, presentes, fotos, busca de RSVP) | `/api/public/[slug]/*` | Pública (sem auth, sem token — CLAUDE.md seção 4.2) | Busca de RSVP: **sim** |
 | RSVP — link/QR direto | `/api/rsvp/[code]` | Convidado (token) | **Sim** |
 | RSVP — busca por nome | `/api/public/rsvp-search/*` | Convidado (sem token, ver 6.2) | **Sim** |
 | RSVP — resposta/finalização | `/api/rsvp/guests/[guestId]`, `/api/rsvp/invites/[inviteId]/finalize` | Convidado (token ou busca) | **Sim** |
 | Presentes (CRUD/leitura admin) | `/api/gifts`, `/api/gift-categories` | Admin (JWT) | Não |
-| Presentes (reserva grátis/checkout online) | `/api/public/gifts/[id]/*` | Pública (sem token — CLAUDE.md 4.5/18/32) | **Sim** |
-| Pagamento online (status/webhook) | `/api/public/gifts/payments/*` | Pública (paymentId como credencial) / InfinitePay (sem auth) | Status: **sim**. Webhook: não (defesa é `payment_check`, não IP — CLAUDE.md 28.3) |
+| Presentes (reserva grátis/checkout online) | `/api/public/gifts/[id]/*` | Pública (sem token — CLAUDE.md seção 4.2; docs/PRODUCT.md seção 6) | **Sim** |
+| Pagamento online (status/webhook) | `/api/public/gifts/payments/*` | Pública (paymentId como credencial) / InfinitePay (sem auth) | Status: **sim**. Webhook: não (defesa é `payment_check`, não IP — seção 8.3 abaixo) |
 | Cron de sincronização de galeria | `/api/cron/sync-galleries` | Vercel Cron (`CRON_SECRET`) | Não |
 | Administração | `/api/admin/*` | Admin (JWT, `owner`) | Não |
 | Comunicações | *(não implementado ainda — Fase 2 do roadmap)* | — | — |
 
-`/api/wedding` e `/api/event-segments` (admin) são endpoints **distintos** de `/api/public/[slug]/wedding` e `/api/public/[slug]/event-segments`: a leitura administrativa resolve `wedding_id` a partir do JWT e usa o client da requisição (RLS como defesa em profundidade — 5.3); a leitura pública não recebe nenhuma credencial e depende da policy `select_public` (CLAUDE.md 4.5) para não vazar nada além do que já é público por natureza. Endpoints separados, em vez de um único handler com lógica condicional por autenticação, mantêm cada um com um único modelo de autorização para raciocinar.
+`/api/wedding` e `/api/event-segments` (admin) são endpoints **distintos** de `/api/public/[slug]/wedding` e `/api/public/[slug]/event-segments`: a leitura administrativa resolve `wedding_id` a partir do JWT e usa o client da requisição (RLS como defesa em profundidade — 5.3); a leitura pública não recebe nenhuma credencial e depende da policy `select_public` (CLAUDE.md seção 4.2) para não vazar nada além do que já é público por natureza. Endpoints separados, em vez de um único handler com lógica condicional por autenticação, mantêm cada um com um único modelo de autorização para raciocinar.
 
 ### 5.2 Convenções de request/response
 
 - Respostas de sucesso sempre retornam o recurso (ou lista) diretamente, sem envelope desnecessário; listagens paginadas retornam metadados de paginação em um objeto irmão (`{ data, meta: { page, pageSize, total } }|`), nunca misturado no mesmo nível dos itens.
 - Erros seguem o formato único descrito em 3.5 — o client tem um único parser de erro para toda a aplicação, nunca um por endpoint.
-- Paginação por parâmetros de query (`page`, `pageSize`), com `pageSize` máximo travado no servidor (evita que um client mal-intencionado peça a base inteira de uma vez, reforça CLAUDE.md 27).
+- Paginação por parâmetros de query (`page`, `pageSize`), com `pageSize` máximo travado no servidor (evita que um client mal-intencionado peça a base inteira de uma vez, reforça docs/DESIGN-SYSTEM.md seção 8).
 
 ### 5.3 Quatro personas de API, quatro modelos de autorização
 
-Espelhando o modelo de confiança do CLAUDE.md (4.5/14.6):
+Espelhando o modelo de confiança do CLAUDE.md (seção 4.2):
 
 - **API administrativa**: cada handler resolve `wedding_id` a partir do JWT (via `wedding_members`) e nunca aceita `wedding_id` vindo do body/query da requisição para decidir o que é acessível — o JWT é a única fonte de verdade sobre qual evento o usuário pode tocar.
 - **API do convidado (RSVP)**: dois caminhos (ver 6.2) — o handler resolve o registro a partir do hash do token recebido na URL (link/QR) **ou** a partir de uma busca por nome sem credencial (`rsvp-search`, fricção via nomes mascarados, não prova de identidade). Em ambos, todo o restante da autorização (esse `guest`/`invite` pertence a esse `wedding`) é revalidado explicitamente dentro do handler — nunca assumida a partir de um único join solto.
-- **API de presentes** (`/api/gifts/[id]/*`, `/api/gifts/payments/*`): sem token nenhum (CLAUDE.md 4.5/18/32) — qualquer requisição bem-formada é aceita, rate limitada por IP. `wedding_id` é resolvido a partir do próprio `gift_id`/`paymentId` da URL (que já o determina unicamente), nunca de uma credencial de identidade. A "autorização" aqui não é "esse recurso pertence a este usuário", é "o valor/quantidade envolvidos são sempre recalculados no servidor, nunca aceitos do client" — um modelo qualitativamente diferente dos dois anteriores.
-- **API pública** (`/api/public/*`, leitura): nenhum handler recebe ou valida credencial — a autorização é inteiramente delegada à policy RLS `select_public` da tabela consultada (CLAUDE.md 4.5). Por isso esse handler só pode existir para tabelas sem nenhum dado sensível; adicionar um novo endpoint em `/api/public/*` exige confirmar antes que a tabela alvo realmente não expõe dado pessoal de convidado.
+- **API de presentes** (`/api/gifts/[id]/*`, `/api/gifts/payments/*`): sem token nenhum (CLAUDE.md seção 4.2; docs/PRODUCT.md seção 6; docs/ROADMAP.md) — qualquer requisição bem-formada é aceita, rate limitada por IP. `wedding_id` é resolvido a partir do próprio `gift_id`/`paymentId` da URL (que já o determina unicamente), nunca de uma credencial de identidade. A "autorização" aqui não é "esse recurso pertence a este usuário", é "o valor/quantidade envolvidos são sempre recalculados no servidor, nunca aceitos do client" — um modelo qualitativamente diferente dos dois anteriores.
+- **API pública** (`/api/public/*`, leitura): nenhum handler recebe ou valida credencial — a autorização é inteiramente delegada à policy RLS `select_public` da tabela consultada (CLAUDE.md seção 4.2). Por isso esse handler só pode existir para tabelas sem nenhum dado sensível; adicionar um novo endpoint em `/api/public/*` exige confirmar antes que a tabela alvo realmente não expõe dado pessoal de convidado.
 
 ### 5.4 Idempotência
 
-Endpoints de mutação voltados ao convidado/visitante (`rsvp/[code].post`, `gifts/[id]/reserve.post`, `gifts/[id]/checkout.post`) são desenhados para tolerar reenvio de rede (retry automático do browser em conexão instável) sem efeito duplicado — resposta de RSVP usa o token como chave de upsert (CLAUDE.md 16.4); reserva/checkout de presente é naturalmente idempotente porque a segunda tentativa encontra o recurso já indisponível (ou já reservado por outra pessoa) e retorna um erro de domínio claro, não uma duplicata — sem token nenhum de por trás, já que esse caminho não usa `guest_access_tokens` (5.3). O pagamento Pix (CLAUDE.md 18.4/28.3) leva isso mais longe: `confirmGiftPayment` é idempotente por construção (`gift_payments.status` como gate), e é o único ponto que efetiva `gift_reservations`/`gift_contributions` — webhook duplicado ou corrida entre webhook e "pull" do convidado nunca duplicam o efeito.
+Endpoints de mutação voltados ao convidado/visitante (`rsvp/[code].post`, `gifts/[id]/reserve.post`, `gifts/[id]/checkout.post`) são desenhados para tolerar reenvio de rede (retry automático do browser em conexão instável) sem efeito duplicado — resposta de RSVP usa o token como chave de upsert (docs/PRODUCT.md seção 4.4); reserva/checkout de presente é naturalmente idempotente porque a segunda tentativa encontra o recurso já indisponível (ou já reservado por outra pessoa) e retorna um erro de domínio claro, não uma duplicata — sem token nenhum de por trás, já que esse caminho não usa `guest_access_tokens` (5.3). O pagamento Pix (seção 8.3/8.4 abaixo; docs/PRODUCT.md seção 6.4) leva isso mais longe: `confirmGiftPayment` é idempotente por construção (`gift_payments.status` como gate), e é o único ponto que efetiva `gift_reservations`/`gift_contributions` — webhook duplicado ou corrida entre webhook e "pull" do convidado nunca duplicam o efeito.
 
 ---
 
@@ -368,13 +368,13 @@ Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por 
    falha no refresh → sessão encerrada, redirecionamento para /login
 ```
 
-**Não há tela de cadastro/signup**: a criação do `wedding` é manual/via seed nesta fase (CLAUDE.md 33.2), e por consequência a conta do primeiro `owner` também é provisionada manualmente (Supabase Dashboard ou Admin API + um `insert` em `wedding_members`) — nunca por um formulário público. Um fluxo de convite para colaboradores é um recurso de produto separado, não parte da autenticação básica.
+**Não há tela de cadastro/signup**: a criação do `wedding` é manual/via seed nesta fase (docs/ROADMAP.md seção 5.1), e por consequência a conta do primeiro `owner` também é provisionada manualmente (Supabase Dashboard ou Admin API + um `insert` em `wedding_members`) — nunca por um formulário público. Um fluxo de convite para colaboradores é um recurso de produto separado, não parte da autenticação básica.
 
 **Nota para testes/dev**: `serverSupabaseUser()` retorna o payload cru do JWT — o id do usuário vem na claim `sub`, não em `id` (esse é o formato do objeto `User` da API de Admin, um tipo diferente). Usar `.id` silenciosamente quebra qualquer query filtrada por esse valor.
 
 ### 6.2 Caminho do convidado (RSVP) — dois pontos de entrada
 
-> Presentes **não** segue este fluxo desde a "Rodada 4" da Fase Presentes 2.0 (CLAUDE.md, seção 4.5/18/32) — é público, sem token; identificação é só nome/telefone coletados no modal. Ver seção 8.
+> Presentes **não** segue este fluxo desde a "Rodada 4" da Fase Presentes 2.0 (CLAUDE.md seção 4.2; docs/PRODUCT.md seção 6; docs/ROADMAP.md) — é público, sem token; identificação é só nome/telefone coletados no modal. Ver seção 8.
 
 **A — Link/QR direto**:
 ```
@@ -387,6 +387,7 @@ Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por 
       para permitir uma tela clara de "link inválido ou expirado")
    d. encontrado → resolve invite + todos os guests do convite + wedding + event_segments,
       retorna apenas esse recorte de dados
+   e. emite o cookie de sessão de RSVP (issueRsvpSession, ver 6.2.1)
 ```
 
 **B — Busca por nome, sem código** (`/{slug}/rsvp`):
@@ -397,27 +398,39 @@ Implementado sobre `@nuxtjs/supabase` (módulo oficial, usa `@supabase/ssr` por 
 2. POST /api/public/rsvp-search/select { guestId } → "confirmação leve": retorna os nomes
    MASCARADOS dos demais membros do mesmo convite, sem revelar guestId de terceiros
 3. Convidado confirma "sim, sou eu" → POST /api/public/rsvp-search/confirm { guestId } →
-   retorna o mesmo payload completo do caminho A (equivalente a GET /api/rsvp/[code])
+   retorna o mesmo payload completo do caminho A (equivalente a GET /api/rsvp/[code]) e
+   emite o cookie de sessão de RSVP (issueRsvpSession, ver 6.2.1)
 ```
 
 Os dois caminhos convergem na mesma tela (lista de convidados do convite). Cada convidado responde de forma independente:
 ```
-4. PUT /api/rsvp/guests/[guestId] (upsert_guest_rsvp) — autosave a cada toque em
+4. PUT /api/rsvp/guests/[guestId] (upsert_guest_rsvp) — exige a sessão de RSVP vinculada a
+   esse invite (requireRsvpSessionForInvite, ver 6.2.1); autosave a cada toque em
    confirmar/recusar, sem lock de convite; grava evento em invite_events
-5. POST /api/rsvp/invites/[inviteId]/finalize (finalize_invite_rsvp) — revisão final:
-   acompanhante avulso (só se guest_list_mode='open', SELECT ... FOR UPDATE na linha do
-   convite contra max_companions) + mensagem única ao casal
+5. POST /api/rsvp/invites/[inviteId]/finalize (finalize_invite_rsvp) — mesma exigência de
+   sessão; revisão final: acompanhante avulso (só se guest_list_mode='open', SELECT ... FOR
+   UPDATE na linha do convite contra max_companions) + mensagem única ao casal
 ```
+
+### 6.2.1 Sessão de RSVP (posse do invite)
+
+Emitida em `server/utils/rsvp-session.ts`, sobre o núcleo puro de assinatura de `server/utils/rsvp-token.ts` (HMAC-SHA256, comparação em tempo constante via `timingSafeEqual`, testado isoladamente em `tests/unit/server/rsvp-token.spec.ts`):
+
+- **Cookie** `rsvp_session` — httpOnly, `sameSite=lax`, `secure` fora de dev, TTL 6h, path `/`.
+- **Payload assinado**: `{ weddingId, inviteId, exp }` — nunca um `guestId` isolado, porque a unidade de posse é o convite, não o convidado individual (RSVP continua sendo por convidado, mas a sessão autoriza qualquer convidado *daquele* invite).
+- **Emitida** por `issueRsvpSession()` nos dois pontos de entrada (`server/api/rsvp/[code].get.ts`, `server/api/public/rsvp-search/confirm.post.ts`).
+- **Exigida** por `requireRsvpSessionForInvite()` nos dois endpoints de mutação (`server/api/rsvp/guests/[guestId].put.ts`, `server/api/rsvp/invites/[inviteId]/finalize.post.ts`) — 403 se a sessão faltar, estiver expirada/adulterada, ou apontar para um `inviteId` diferente do recurso sendo alterado.
+- Só ler o convite (os dois GETs de identificação) não exige a sessão — ela é checada apenas nas mutações, o ponto em que "saber um id" deixava de ser suficiente (CLAUDE.md seção 4.2).
 
 ### 6.3 Diferença de postura entre os caminhos
 
-O caminho administrativo tem duas camadas de checagem (client para UX, RLS no banco como última linha — CLAUDE.md 4.5). Os dois caminhos do convidado têm uma única camada real de enforcement, inteiramente no `server/api` — por isso todo endpoint desses caminhos é tratado, na suíte de testes (seção 9), com o mesmo rigor que se testaria uma policy de RLS. Entre si, os dois caminhos do convidado também têm posturas diferentes: o link/QR prova posse de uma credencial (o token); a busca por nome não prova nada, só adiciona fricção (nomes mascarados) — um trade-off deliberado de UX sobre segurança, aceito na "Fase Jornada do Convidado" (CLAUDE.md, seção 32/14.5).
+O caminho administrativo tem duas camadas de checagem (client para UX, RLS no banco como última linha — CLAUDE.md seção 4.2). Os dois caminhos do convidado têm uma única camada real de enforcement, inteiramente no `server/api` — por isso todo endpoint desses caminhos é tratado, na suíte de testes (seção 9), com o mesmo rigor que se testaria uma policy de RLS. Entre si, os dois caminhos do convidado também têm posturas diferentes: o link/QR prova posse de uma credencial (o token); a busca por nome não prova nada, só adiciona fricção (nomes mascarados) — um trade-off deliberado de UX sobre segurança, aceito na "Fase Jornada do Convidado" (docs/ROADMAP.md; CLAUDE.md seção 4.2).
 
 ---
 
 ## 7. Fluxo de RSVP
 
-RSVP é sempre **por convidado** — não existe mais um envio único que cobre todo um grupo de uma vez (ver CLAUDE.md, seção 16, e "Fase 7" no roadmap).
+RSVP é sempre **por convidado** — não existe mais um envio único que cobre todo um grupo de uma vez (ver docs/PRODUCT.md seção 4, e "Fase 7" no roadmap).
 
 ### 7.1 Carregamento inicial
 
@@ -444,7 +457,7 @@ RSVP é sempre **por convidado** — não existe mais um envio único que cobre 
 6. Job assíncrono (opcional, Fase 2): enfileira e-mail de confirmação, registrado em communications
 ```
 
-Recusar (`status: 'declined'`) usa o mesmo endpoint — não coleta `dietaryRestrictions` no client (CLAUDE.md 16.3), mas a validação de negócio real (não há acompanhante avulso a checar aqui) só entra na revisão final (7.3).
+Recusar (`status: 'declined'`) usa o mesmo endpoint — não coleta `dietaryRestrictions` no client (docs/PRODUCT.md seção 4.3), mas a validação de negócio real (não há acompanhante avulso a checar aqui) só entra na revisão final (7.3).
 
 ### 7.3 Revisão final do convite (acompanhante avulso + mensagem)
 
@@ -464,17 +477,17 @@ Recusar (`status: 'declined'`) usa o mesmo endpoint — não coleta `dietaryRest
 
 ### 7.4 Edição de resposta já enviada
 
-Reenvio do formulário até `rsvp_deadline` segue exatamente os mesmos dois endpoints (upsert por `guest_id`, revisão final idempotente) — não existe um endpoint separado de "editar", o que elimina uma classe inteira de bugs de divergência entre "criar" e "editar". Após `rsvp_deadline`, os handlers recusam a escrita com um erro de domínio específico (`RsvpClosedError`), e a UI já havia colocado a tela em somente leitura preventivamente (CLAUDE.md 16.2).
+Reenvio do formulário até `rsvp_deadline` segue exatamente os mesmos dois endpoints (upsert por `guest_id`, revisão final idempotente) — não existe um endpoint separado de "editar", o que elimina uma classe inteira de bugs de divergência entre "criar" e "editar". Após `rsvp_deadline`, os handlers recusam a escrita com um erro de domínio específico (`RsvpClosedError`), e a UI já havia colocado a tela em somente leitura preventivamente (docs/PRODUCT.md seção 4.2).
 
 ### 7.5 Reflexo no dashboard administrativo
 
-O dashboard (CLAUDE.md 19) não recebe push em tempo real (CLAUDE.md 16.4/27) — os contadores são computados em memória a cada carregamento/refetch da página administrativa, em `server/api/dashboard/summary.get.ts` (via `serverSupabaseClient`, respeitando RLS). A view `wedding_rsvp_summary` que fazia isso na Fase 1 foi removida por achado de segurança (CLAUDE.md 28.4) — estava órfã desde a reescrita do dashboard.
+O dashboard (docs/PRODUCT.md seção 7) não recebe push em tempo real (docs/PRODUCT.md seção 4.4; docs/DESIGN-SYSTEM.md seção 8) — os contadores são computados em memória a cada carregamento/refetch da página administrativa, em `server/api/dashboard/summary.get.ts` (via `serverSupabaseClient`, respeitando RLS). A view `wedding_rsvp_summary` que fazia isso na Fase 1 foi removida por achado de segurança (docs/DATABASE.md seção 4) — estava órfã desde a reescrita do dashboard.
 
 ---
 
 ## 8. Fluxo de Presentes
 
-> Reescrito na "Fase Presentes 2.0" (CLAUDE.md 18/32) — a vitrine pública ganhou três seções (Lista de Presentes, Contribuições, Presentes Emocionais) e um caminho de pagamento online real via InfinitePay, que convive com o caminho gratuito original. **Rodada 4** removeu o token de convite do módulo inteiro (CLAUDE.md 4.5/18/32) — diferente de RSVP (seção 7), presentes não usa `guest_access_token`: a página é pública a qualquer momento, e a identificação de quem presenteia é só nome/telefone, coletados no modal antes de qualquer ação.
+> Reescrito na "Fase Presentes 2.0" (docs/PRODUCT.md seção 6; docs/ROADMAP.md) — a vitrine pública ganhou três seções (Lista de Presentes, Contribuições, Presentes Emocionais) e um caminho de pagamento online real via InfinitePay, que convive com o caminho gratuito original. **Rodada 4** removeu o token de convite do módulo inteiro (CLAUDE.md seção 4.2; docs/PRODUCT.md seção 6; docs/ROADMAP.md) — diferente de RSVP (seção 7), presentes não usa `guest_access_token`: a página é pública a qualquer momento, e a identificação de quem presenteia é só nome/telefone, coletados no modal antes de qualquer ação.
 
 ### 8.1 Navegação e listagem pública
 
@@ -535,7 +548,7 @@ O dashboard (CLAUDE.md 19) não recebe push em tempo real (CLAUDE.md 16.4/27) �
    — NUNCA confia no corpo do webhook, no retorno do navegador, nem no
    próprio paymentId isoladamente como prova de pagamento; sempre reverifica
    servidor-a-servidor via payment_check (com transaction_nsu/slug) antes de
-   qualquer efeito (CLAUDE.md 28.3, detalhamento completo). O paymentId em si
+   qualquer efeito (regra geral desta seção). O paymentId em si
    funciona como credencial de leitura de status (UUID não enumerável), mas
    nunca como prova de pagamento
 6. Pago confirmado → RPC confirm_gift_payment() chama reserve_gift() (kind
@@ -550,11 +563,11 @@ O dashboard (CLAUDE.md 19) não recebe push em tempo real (CLAUDE.md 16.4/27) �
 
 ### 8.4 Cancelamento
 
-Não existe mais self-service (CLAUDE.md 18.3/32) — `POST /api/gifts/[id]/cancel` e `giftCancelSchema` foram removidos junto com o token de convite: sem ele, não haveria como autenticar com segurança que quem está pedindo o cancelamento é a mesma pessoa que presenteou (nome/telefone sozinhos são triviais de forjar). Qualquer cancelamento — pago ou grátis — é resolvido falando direto com o casal, que ajusta manualmente pelo painel administrativo se necessário.
+Não existe mais self-service (docs/PRODUCT.md seção 6.3; docs/ROADMAP.md) — `POST /api/gifts/[id]/cancel` e `giftCancelSchema` foram removidos junto com o token de convite: sem ele, não haveria como autenticar com segurança que quem está pedindo o cancelamento é a mesma pessoa que presenteou (nome/telefone sozinhos são triviais de forjar). Qualquer cancelamento — pago ou grátis — é resolvido falando direto com o casal, que ajusta manualmente pelo painel administrativo se necessário.
 
 ### 8.5 Visão administrativa
 
-`/api/gifts` (variante autenticada) devolve, além da lista, um `paymentsSummary` mínimo (bruto arrecadado online confirmado, contagem de pagamentos com falha) e um `activity` — as até 20 reservas/contribuições mais recentes do casamento inteiro, cross-presente, com nome, telefone, presente, valor (quando pago) e mensagem — sem relatório completo de taxas/estornos, que dependeria de a InfinitePay documentar publicamente esses dados (CLAUDE.md 18.5/18.6). A listagem administrativa por item (CLAUDE.md 19) expõe quem reservou/contribuiu o quê, mensagem do convidado e status de pagamento — informação propositalmente **não exposta** na vitrine pública (CLAUDE.md 18.2), usada apenas para agradecimento pós-evento e resolução manual de pagamentos com falha.
+`/api/gifts` (variante autenticada) devolve, além da lista, um `paymentsSummary` mínimo (bruto arrecadado online confirmado, contagem de pagamentos com falha) e um `activity` — as até 20 reservas/contribuições mais recentes do casamento inteiro, cross-presente, com nome, telefone, presente, valor (quando pago) e mensagem — sem relatório completo de taxas/estornos, que dependeria de a InfinitePay documentar publicamente esses dados (docs/PRODUCT.md seção 6.5/6.6). A listagem administrativa por item (docs/PRODUCT.md seção 7) expõe quem reservou/contribuiu o quê, mensagem do convidado e status de pagamento — informação propositalmente **não exposta** na vitrine pública (docs/PRODUCT.md seção 6.2), usada apenas para agradecimento pós-evento e resolução manual de pagamentos com falha.
 
 ---
 
@@ -567,14 +580,14 @@ Não existe mais self-service (CLAUDE.md 18.3/32) — `POST /api/gifts/[id]/canc
 | Unitário | Vitest | Composables (`useRsvp`, `useGifts`...), utils (`formatters`, `validators`), schemas Zod (casos válidos/inválidos) |
 | Integração — API | Vitest + Supabase local | Cada endpoint de `server/api`, contra um banco real (local), incluindo casos de erro de domínio |
 | Integração — RLS | Vitest + Supabase local | Suíte dedicada (`tests/integration/rls/`): para cada tabela, confirma que um `auth.uid()` de um `wedding_id` nunca lê/escreve dado de outro `wedding_id` |
-| Integração — caminho do convidado | Vitest + Supabase local | Suíte dedicada (`tests/integration/guest-path/`): para cada endpoint público-facing, confirma que um token só acessa o próprio `guest`/`group`/`wedding_id` — cobre exatamente o que RLS não cobre nesse caminho (CLAUDE.md 4.5) |
+| Integração — caminho do convidado | Vitest + Supabase local | Suíte dedicada (`tests/integration/guest-path/`): para cada endpoint público-facing, confirma que um token só acessa o próprio `guest`/`group`/`wedding_id` — cobre exatamente o que RLS não cobre nesse caminho (CLAUDE.md seção 4.2) |
 | E2E | Playwright | Fluxos críticos ponta a ponta, navegador real |
 
-**Estado real (não aspiracional)**: `tests/integration/{api,rls,guest-path}/` existem como pastas escafoldadas (só `.gitkeep`) — nenhum teste de integração/RLS/caminho-do-convidado foi escrito ainda. A cobertura de segurança hoje vem de `tests/unit/server/` (ex.: `guest-access-token.spec.ts`, `gift-payment.spec.ts`) e de `tests/e2e/` (3 specs: `smoke`, `login`, `guests-invites-rsvp`), não das três suítes dedicadas descritas abaixo. Preencher `rls/` e `guest-path/` continua sendo pré-requisito explícito antes da abertura multi-tenant (CLAUDE.md 33.4) — a ausência delas é uma lacuna real, não só de documentação.
+**Estado real (não aspiracional)**: `tests/integration/{api,rls,guest-path}/` existem como pastas escafoldadas (só `.gitkeep`) — nenhum teste de integração/RLS/caminho-do-convidado foi escrito ainda. A cobertura de segurança hoje vem de `tests/unit/server/` (ex.: `guest-access-token.spec.ts`, `gift-payment.spec.ts`) e de `tests/e2e/` (3 specs: `smoke`, `login`, `guests-invites-rsvp`), não das três suítes dedicadas descritas abaixo. Preencher `rls/` e `guest-path/` continua sendo pré-requisito explícito antes da abertura multi-tenant (docs/ROADMAP.md seção 7) — a ausência delas é uma lacuna real, não só de documentação.
 
 ### 9.2 Por que duas suítes de integração separadas (RLS vs. caminho do convidado)
 
-Essa separação não é redundância — são dois mecanismos de enforcement diferentes (CLAUDE.md 4.5/14.6), cada um podendo falhar de forma independente. Um teste de RLS que passa não diz nada sobre a segurança do `server/api/rsvp/[code]`, porque esse endpoint usa a `service_role key` e nunca é avaliado por RLS. Tratar as duas como a mesma suíte esconderia essa lacuna.
+Essa separação não é redundância — são dois mecanismos de enforcement diferentes (CLAUDE.md seção 4.2), cada um podendo falhar de forma independente. Um teste de RLS que passa não diz nada sobre a segurança do `server/api/rsvp/[code]`, porque esse endpoint usa a `service_role key` e nunca é avaliado por RLS. Tratar as duas como a mesma suíte esconderia essa lacuna.
 
 ### 9.3 Fluxos cobertos por E2E (mínimo obrigatório antes de qualquer release)
 
@@ -585,7 +598,7 @@ Essa separação não é redundância — são dois mecanismos de enforcement di
 - Convidado tenta responder após `rsvp_deadline` — formulário em somente leitura.
 - Convidado se identifica (nome/telefone) e reserva presente simples sem custo ("vou comprar e entregar"); segunda tentativa concorrente ao mesmo item vê "esgotado".
 - Convidado paga um presente físico ou contribui (valor livre ou cotas) via checkout online; volta pra `/presentes/pagamento/[paymentId]` e vê o status confirmado após o `payment_check` real.
-- Convidado tenta cancelar um item já pago — não há caminho self-service (CLAUDE.md 18.4/32); a orientação exibida é contato direto com o casal.
+- Convidado tenta cancelar um item já pago — não há caminho self-service (docs/PRODUCT.md seção 6.4; docs/ROADMAP.md); a orientação exibida é contato direto com o casal.
 - Casal faz login, importa CSV de convidados, acompanha o job de importação até concluir.
 - Casal exclui um convidado e confirma que o histórico de RSVP associado é preservado (soft delete).
 - Colaborador sem permissão de `owner` tenta acessar configurações restritas e é bloqueado.
@@ -596,7 +609,7 @@ Fábricas de dados (`tests/factories` — não confundir com seed de produto) ge
 
 ### 9.5 Acessibilidade e visual
 
-Testes E2E críticos do site público e do fluxo de RSVP rodam uma checagem automatizada de acessibilidade (axe-core) como parte da mesma execução Playwright — falha de contraste ou de rótulo ausente quebra o build, coerente com a meta WCAG 2.1 AA do CLAUDE.md (25).
+Testes E2E críticos do site público e do fluxo de RSVP rodam uma checagem automatizada de acessibilidade (axe-core) como parte da mesma execução Playwright — falha de contraste ou de rótulo ausente quebra o build, coerente com a meta WCAG 2.1 AA de docs/DESIGN-SYSTEM.md (seção 6).
 
 ### 9.6 Pipeline de CI (ordem de execução)
 
@@ -617,4 +630,4 @@ Cobertura de linha não é meta em si — as metas reais são: 100% dos endpoint
 
 ---
 
-*Este documento evolui junto com o CLAUDE.md. Qualquer mudança de modelagem de dados ou de modelo de confiança no CLAUDE.md deve ser refletida aqui antes da implementação correspondente.*
+*Este documento evolui junto com o CLAUDE.md, docs/PRODUCT.md e docs/DATABASE.md. Qualquer mudança de modelagem de dados ou de modelo de confiança deve ser refletida aqui antes da implementação correspondente.*

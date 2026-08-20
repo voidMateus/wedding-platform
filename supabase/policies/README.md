@@ -14,10 +14,10 @@ SQL. Ver nota de revisão no PR que introduziu o schema inicial.
 
 ## Convenção de nomenclatura
 
-`<tabela>_<operação>_<regra>` (CLAUDE.md, seção 13), por exemplo:
+`<tabela>_<operação>_<regra>` (docs/DATABASE.md, seção 4), por exemplo:
 `guests_select_wedding_members`, `wedding_members_delete_owner_only`.
 
-## Modelo de confiança (CLAUDE.md, seção 4.5 / 14.6)
+## Modelo de confiança (CLAUDE.md, seção 4.2)
 
 RLS protege **exclusivamente o caminho administrativo** (Supabase Auth,
 `auth.uid()`). O caminho do convidado (RSVP, presentes) é atendido pelo Nitro
@@ -45,7 +45,7 @@ precise consultar a si mesma sob a própria RLS.
 
 | Tabela                                                     | Migration           | Regra                                                                                                             |
 | ---------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `weddings`                                                 | `20260730120002/03` | select/update: qualquer membro · delete: só owner · sem insert (criação é manual/seed nesta fase, CLAUDE.md 33.2) |
+| `weddings`                                                 | `20260730120002/03` | select/update: qualquer membro · delete: só owner · sem insert (criação é manual/seed nesta fase, docs/ROADMAP.md seção 5.1) |
 | `wedding_members`                                          | `20260730120003`    | select: qualquer membro · insert/update/delete: só owner                                                          |
 | `event_segments`                                           | `20260730120004`    | CRUD completo para qualquer membro                                                                                |
 | `guest_groups`                                             | `20260730120005`    | CRUD completo para qualquer membro                                                                                |
@@ -61,16 +61,17 @@ precise consultar a si mesma sob a própria RLS.
 | `photos`                                                   | `20260730120015`    | CRUD completo para qualquer membro                                                                                |
 | `jobs`                                                     | `20260730120016`    | select/insert (enfileirar) · sem update/delete — só o worker (`service_role`) muda status                         |
 | `audit_logs`                                               | `20260730120017`    | select/insert · sem update/delete — log imutável                                                                  |
-| `plans`, `subscriptions`, `usage_counters`, `entitlements` | `20260730120018`    | RLS habilitada, **nenhuma policy** — sem UI/feature usando ainda (CLAUDE.md, seção 33.5)                          |
+| `plans`, `subscriptions`, `usage_counters`, `entitlements` | `20260730120018`    | RLS habilitada, **nenhuma policy** — sem UI/feature usando ainda (docs/ROADMAP.md, seção 8)                          |
 
 ### Simplificação assumida — sem ACL granular por colaborador
 
-CLAUDE.md (seção 14.4) descreve o `collaborator` como tendo "acesso de
-leitura/escrita configurável por recurso", mas o schema atual não modela uma
-tabela de permissões por recurso — só o papel (`owner`/`collaborator`) em
-`wedding_members.role`. Por isso, nesta fase, **qualquer membro do wedding
-(owner ou collaborator) tem CRUD completo** nas tabelas operacionais; só as
-ações explicitamente reservadas a `owner` pelo CLAUDE.md (gerenciar
-colaboradores, excluir o evento) usam `is_wedding_owner`. Uma ACL granular
-por recurso é um schema novo (tabela de permissões), não uma alteração de
-policy — fica para quando essa necessidade de produto for confirmada.
+docs/PRODUCT.md (seção 1.1, Personas) descreve o `collaborator` como tendo
+"acesso limitado ao painel administrativo (permissões)", mas o schema atual
+não modela uma tabela de permissões por recurso — só o papel
+(`owner`/`collaborator`) em `wedding_members.role`. Por isso, nesta fase,
+**qualquer membro do wedding (owner ou collaborator) tem CRUD completo** nas
+tabelas operacionais; só as ações explicitamente reservadas a `owner`
+(docs/PRODUCT.md, seção 7.3 — gerenciar colaboradores, excluir o evento)
+usam `is_wedding_owner`. Uma ACL granular por recurso é um schema novo
+(tabela de permissões), não uma alteração de policy — fica para quando essa
+necessidade de produto for confirmada.

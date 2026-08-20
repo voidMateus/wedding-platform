@@ -17,7 +17,7 @@ function isApiError(err: unknown): err is ApiError {
 }
 
 const { listGroups, createGroup, updateGroup, deleteGroup } = useGroups()
-const { data, status, refresh } = listGroups({ pageSize: 100 })
+const { data, status, error, refresh } = listGroups({ pageSize: 100 })
 
 // --- criar/editar ---
 
@@ -108,6 +108,15 @@ async function confirmDelete() {
     </div>
 
     <UiEmptyState
+      v-else-if="error"
+      icon="lucide:alert-triangle"
+      title="Não foi possível carregar os grupos"
+      description="Verifique sua conexão e tente novamente."
+    >
+      <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+    </UiEmptyState>
+
+    <UiEmptyState
       v-else-if="!data?.data.length"
       icon="lucide:users-round"
       title="Nenhum grupo cadastrado ainda"
@@ -160,9 +169,7 @@ async function confirmDelete() {
         />
 
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-text" for="group-color">
-            Cor (opcional)
-          </label>
+          <label class="text-sm font-medium text-text" for="group-color"> Cor (opcional) </label>
           <div class="flex items-center gap-3">
             <input
               id="group-color"
@@ -178,7 +185,8 @@ async function confirmDelete() {
             :class="contrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
           >
             Contraste: {{ contrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
-            {{ WCAG_AA_MIN_CONTRAST }}:1 — {{ contrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
+            {{ WCAG_AA_MIN_CONTRAST }}:1 —
+            {{ contrastPreview.meetsMinimum ? 'ok' : 'insuficiente' }})
           </p>
         </div>
 
@@ -196,8 +204,8 @@ async function confirmDelete() {
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir grupo">
       <p class="text-sm text-text">
-        Tem certeza que deseja excluir o grupo <strong>{{ deleteTarget?.name }}</strong>? Os
-        convidados só perdem a etiqueta — nada mais é afetado.
+        Tem certeza que deseja excluir o grupo <strong>{{ deleteTarget?.name }}</strong
+        >? Os convidados só perdem a etiqueta — nada mais é afetado.
       </p>
       <template #footer>
         <UiButton variant="ghost" :disabled="isDeleting" @click="isDeleteModalOpen = false">

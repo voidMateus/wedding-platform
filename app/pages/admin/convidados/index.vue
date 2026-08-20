@@ -23,7 +23,7 @@ const listParams = computed(() => ({
   groupId: groupFilter.value || undefined,
 }))
 
-const { data, status, refresh } = listGuests(listParams)
+const { data, status, error, refresh } = listGuests(listParams)
 
 const { data: groupsData } = listGroups({ pageSize: 100 })
 const groupOptions = computed(
@@ -83,14 +83,22 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <AdminSection title="Convidados" description="Cadastre convidados e seus acompanhantes em um único fluxo.">
+  <AdminSection
+    title="Convidados"
+    description="Cadastre convidados e seus acompanhantes em um único fluxo."
+  >
     <template #actions>
       <UiButton to="/admin/convidados/novo">Novo convidado</UiButton>
     </template>
 
     <UiCard padding="md" class="flex flex-col gap-4">
       <div class="flex flex-wrap gap-3">
-        <UiInput v-model="search" placeholder="Buscar por nome" class="max-w-xs" @keyup.enter="page = 1" />
+        <UiInput
+          v-model="search"
+          placeholder="Buscar por nome"
+          class="max-w-xs"
+          @keyup.enter="page = 1"
+        />
         <UiSelect
           v-model="groupFilter"
           placeholder="Todos os grupos"
@@ -102,6 +110,15 @@ async function confirmDelete() {
       <div v-if="status === 'pending'" class="flex flex-col gap-2">
         <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
       </div>
+
+      <UiEmptyState
+        v-else-if="error"
+        icon="lucide:alert-triangle"
+        title="Não foi possível carregar os convidados"
+        description="Verifique sua conexão e tente novamente."
+      >
+        <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+      </UiEmptyState>
 
       <UiEmptyState
         v-else-if="!data?.data.length"
@@ -125,7 +142,11 @@ async function confirmDelete() {
             <tr class="border-t border-border transition-brand hover:bg-surface-muted/60">
               <td class="px-4 py-2 text-text">
                 {{ guest.full_name }}
-                <UiBadge v-if="computeIsChild(guest.birth_date, childMaxAge)" tone="neutral" class="ml-2">
+                <UiBadge
+                  v-if="computeIsChild(guest.birth_date, childMaxAge)"
+                  tone="neutral"
+                  class="ml-2"
+                >
                   criança
                 </UiBadge>
                 <UiBadge v-if="guest.wedding_role" tone="success" class="ml-2">
@@ -144,7 +165,11 @@ async function confirmDelete() {
                   @click="togglePartyExpand(guest)"
                 >
                   <Icon
-                    :name="expandedPartyId === guest.party_id ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+                    :name="
+                      expandedPartyId === guest.party_id
+                        ? 'lucide:chevron-up'
+                        : 'lucide:chevron-down'
+                    "
                     class="h-3.5 w-3.5"
                   />
                   👥 {{ companionCount(guest) }}
@@ -162,7 +187,10 @@ async function confirmDelete() {
                 </div>
               </td>
             </tr>
-            <tr v-if="expandedPartyId === guest.party_id && companionCount(guest) > 0" class="bg-surface-muted">
+            <tr
+              v-if="expandedPartyId === guest.party_id && companionCount(guest) > 0"
+              class="bg-surface-muted"
+            >
               <td colspan="5" class="px-4 py-2 text-sm text-text-muted">
                 <ul class="flex flex-col gap-1">
                   <li
