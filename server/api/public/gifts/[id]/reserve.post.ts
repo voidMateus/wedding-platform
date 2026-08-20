@@ -17,6 +17,31 @@ export default defineEventHandler(async (event) => {
 
   const client = supabaseAdmin(event)
 
+  // O modo de entrega (CLAUDE.md, seção 18.2) é decidido pelo casal e só era
+  // respeitado pela UI (GiftCard.vue esconde o botão) — reforçado aqui pra
+  // uma chamada direta a este endpoint não conseguir contornar 'payment_only'
+  // (achado de segurança, varredura de 2026-08-19).
+  const { data: gift, error: giftError } = await client
+    .from('gifts')
+    .select('wedding_id')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (giftError) throw badRequestError(giftError.message)
+  if (!gift) throw notFoundError('Presente não encontrado.')
+
+  const { data: wedding, error: weddingError } = await client
+    .from('weddings')
+    .select('physical_gift_delivery_mode')
+    .eq('id', gift.wedding_id)
+    .single()
+
+  if (weddingError) throw badRequestError(weddingError.message)
+  if (wedding.physical_gift_delivery_mode === 'payment_only') {
+    throw badRequestError('Este presente só pode ser presenteado via pagamento online.')
+  }
+
   const { data, error } = await client.rpc('reserve_gift', {
     p_gift_id: id,
     p_guest_id: null,

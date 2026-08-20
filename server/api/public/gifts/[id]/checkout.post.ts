@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
-    .select('slug, infinitepay_handle')
+    .select('slug, infinitepay_handle, physical_gift_delivery_mode')
     .eq('id', gift.wedding_id)
     .single()
   if (weddingError) {
@@ -56,6 +56,13 @@ export default defineEventHandler(async (event) => {
   let quotaCount: number | null = null
 
   if (kind === 'reservation') {
+    // Modo de entrega (CLAUDE.md, seção 18.2) — reforçado aqui pra uma
+    // chamada direta a este endpoint não contornar 'self_purchase_only'
+    // (achado de segurança, varredura de 2026-08-19). Não se aplica a
+    // contribuições/cotas, que sempre exigem pagamento online.
+    if (wedding.physical_gift_delivery_mode === 'self_purchase_only') {
+      throw badRequestError('Pagamento online não está disponível para este presente.')
+    }
     if (gift.price_cents === null) {
       throw badRequestError('Este presente não tem preço definido para pagamento online.')
     }

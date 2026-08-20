@@ -1,0 +1,22 @@
+-- Remove a view wedding_rsvp_summary — achado do Supabase Security Advisor
+-- ("Security Definer View", CRITICAL). Views Postgres executam com o
+-- privilégio do dono (o role que rodou a migration, com BYPASSRLS) a menos
+-- que security_invoker=true seja setado; sem isso, e sem nenhum revoke
+-- explícito nesta view, ela herdava os grants default do Supabase
+-- (SELECT liberado a anon/authenticated) e ignorava por completo o RLS de
+-- weddings/guests/invites/rsvp_responses/companions — qualquer usuário
+-- autenticado conseguiria ler contadores agregados de RSVP de TODOS os
+-- casamentos via PostgREST (/rest/v1/wedding_rsvp_summary), não só do
+-- próprio wedding_id.
+--
+-- O comentário original da migration 20260731110001 afirmava que "uma view
+-- herda as policies das tabelas subjacentes quando consultada pelo client"
+-- — isso está incorreto sobre a semântica do Postgres (é o oposto do
+-- default) e foi a causa raiz deste achado.
+--
+-- Removida em vez de corrigida com security_invoker=true porque está
+-- órfã: nenhum código em server/ a consulta mais. O dashboard
+-- administrativo foi reescrito (ver server/api/dashboard/summary.get.ts)
+-- para calcular os contadores em memória a partir das tabelas via
+-- serverSupabaseClient, que respeita RLS corretamente.
+drop view if exists wedding_rsvp_summary;

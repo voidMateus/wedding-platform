@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
   }
 
   await recordFirstAccessIfNeeded(client, guest.wedding_id, guest.invite_id)
+  issueRsvpSession(event, { weddingId: guest.wedding_id, inviteId: guest.invite_id })
 
   return buildRsvpInvitePayload(client, guest.wedding_id, guest.invite_id)
 })

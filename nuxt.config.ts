@@ -51,6 +51,9 @@ export default defineNuxtConfig({
     // dá pra depender de getRequestURL em produção (URLs de preview não
     // devem virar webhook_url permanente por engano).
     siteUrl: process.env.NUXT_SITE_URL,
+    // Assina o cookie de sessão do RSVP (server/utils/rsvp-session.ts) — só
+    // server-side, nunca exposta ao bundle client (CLAUDE.md, seção 28).
+    rsvpSessionSecret: process.env.RSVP_SESSION_SECRET,
     // Galeria via Google Drive (CLAUDE.md, Fase Galeria via Google Drive) —
     // todos server-only. O secret do OAuth, a API key da listagem pública, a
     // chave de cifra dos tokens em repouso e o segredo do cron nunca vão pro

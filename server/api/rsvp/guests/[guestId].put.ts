@@ -16,13 +16,15 @@ export default defineEventHandler(async (event) => {
 
   const { data: guest, error: guestError } = await client
     .from('guests')
-    .select('wedding_id')
+    .select('wedding_id, invite_id')
     .eq('id', guestId)
     .is('deleted_at', null)
     .maybeSingle()
 
   if (guestError) throw badRequestError(guestError.message)
   if (!guest) throw notFoundError('Convidado não encontrado.')
+
+  requireRsvpSessionForInvite(event, guest.invite_id)
 
   const { data: wedding, error: weddingError } = await client
     .from('weddings')
