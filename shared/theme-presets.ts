@@ -137,7 +137,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   },
 ]
 
-export const DEFAULT_THEME_PRESET_ID = 'classico-elegante'
 export const DEFAULT_FONT_PAIR_ID = 'playfair-inter'
 
 export function findThemePreset(presetId: string | undefined): ThemePreset | undefined {

@@ -28,8 +28,6 @@ export const HERO_BUTTON_CATALOG: HeroButtonDefinition[] = [
   { id: 'faq', label: 'Perguntas frequentes', icon: 'lucide:help-circle', href: '/#faq' },
 ]
 
-export const HERO_BUTTON_IDS = HERO_BUTTON_CATALOG.map((button) => button.id) as [string, ...string[]]
-
 // Seleção padrão para casamentos que ainda não personalizaram (mesmos 4
 // atalhos já lançados na PR 1 desta fase) — "presentes" é o destaque padrão.
 export const DEFAULT_HERO_BUTTONS = ['presentes', 'confirmar-presenca', 'cronograma', 'manual-convidados']
