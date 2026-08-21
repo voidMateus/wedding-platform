@@ -4,10 +4,10 @@ import type { Database } from '~/types/database.types'
 type SupabaseClient = Awaited<ReturnType<typeof serverSupabaseClient<Database>>>
 
 /**
- * Valida o alvo de `same_venue_as` (CLAUDE.md, seção 12.2 — cerimônia e
+ * Valida o alvo de `mesmo_local_que` (CLAUDE.md, seção 12.2 — cerimônia e
  * recepção no mesmo local): precisa existir, pertencer ao mesmo casamento,
  * não ser o próprio segmento (auto-referência) e não ter, ele mesmo, um
- * `same_venue_as` definido — só um nível de indireção, nunca uma corrente.
+ * `mesmo_local_que` definido — só um nível de indireção, nunca uma corrente.
  * Lança badRequestError quando inválido; não retorna nada quando ok.
  */
 export async function validateSameVenueTarget(
@@ -21,18 +21,18 @@ export async function validateSameVenueTarget(
   }
 
   const { data: target, error } = await client
-    .from('event_segments')
-    .select('id, wedding_id, same_venue_as')
+    .from('etapas_evento')
+    .select('id, casamento_id, mesmo_local_que')
     .eq('id', sameVenueAs)
     .maybeSingle()
 
   if (error) {
     throw badRequestError(error.message)
   }
-  if (!target || target.wedding_id !== weddingId) {
+  if (!target || target.casamento_id !== weddingId) {
     throw badRequestError('Item do cronograma referenciado não encontrado.')
   }
-  if (target.same_venue_as) {
+  if (target.mesmo_local_que) {
     throw badRequestError(
       'Esse item já reaproveita o local de outro — aponte diretamente para o item com o endereço original.',
     )

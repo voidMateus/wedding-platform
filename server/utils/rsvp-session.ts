@@ -21,8 +21,8 @@ const COOKIE_NAME = 'rsvp_session'
 const TTL_SECONDS = 6 * 60 * 60 // 6h — dá tempo de preencher o formulário sem precisar buscar de novo
 
 export interface RsvpSession {
-  weddingId: string
-  inviteId: string
+  casamentoId: string
+  conviteId: string
 }
 
 function getSecret(): string {
@@ -33,7 +33,7 @@ function getSecret(): string {
   return secret
 }
 
-/** Emite/renova o cookie de sessão de RSVP para um invite específico. */
+/** Emite/renova o cookie de sessão de RSVP para um convite específico. */
 export function issueRsvpSession(event: H3Event, session: RsvpSession): void {
   const token = signRsvpToken({ ...session, exp: Date.now() + TTL_SECONDS * 1000 }, getSecret())
   setCookie(event, COOKIE_NAME, token, {
@@ -45,7 +45,7 @@ export function issueRsvpSession(event: H3Event, session: RsvpSession): void {
   })
 }
 
-/** Lê e valida a sessão de RSVP da requisição, sem exigir um invite específico. */
+/** Lê e valida a sessão de RSVP da requisição, sem exigir um convite específico. */
 export function readRsvpSession(event: H3Event): RsvpSession | null {
   const token = getCookie(event, COOKIE_NAME)
   if (!token) {
@@ -55,19 +55,19 @@ export function readRsvpSession(event: H3Event): RsvpSession | null {
   if (!payload) {
     return null
   }
-  return { weddingId: payload.weddingId, inviteId: payload.inviteId }
+  return { casamentoId: payload.casamentoId, conviteId: payload.conviteId }
 }
 
 /**
- * Exige uma sessão de RSVP válida vinculada exatamente a `inviteId` — usada
+ * Exige uma sessão de RSVP válida vinculada exatamente a `conviteId` — usada
  * pelas rotas de mutação. Lança 403 se a sessão estiver ausente, expirada,
- * adulterada, ou apontar para outro invite (inclui o caso de `inviteId`
- * vazio/nulo, ex.: convidado ainda sem invite_id — nunca bate com uma
+ * adulterada, ou apontar para outro convite (inclui o caso de `conviteId`
+ * vazio/nulo, ex.: convidado ainda sem convite_id — nunca bate com uma
  * sessão real).
  */
-export function requireRsvpSessionForInvite(event: H3Event, inviteId: string | null | undefined): RsvpSession {
+export function requireRsvpSessionForInvite(event: H3Event, conviteId: string | null | undefined): RsvpSession {
   const session = readRsvpSession(event)
-  if (!session || !inviteId || session.inviteId !== inviteId) {
+  if (!session || !conviteId || session.conviteId !== conviteId) {
     throw forbiddenError('Você precisa confirmar sua identidade antes de alterar este RSVP.')
   }
   return session

@@ -11,8 +11,8 @@ interface AuditLogInput {
 /**
  * Registra uma ação administrativa sensível (CLAUDE.md, seções 19.3, 28).
  * Escreve com o client autenticado da própria requisição — a RLS de
- * audit_logs (insert restrito a wedding members) garante que só quem tem
- * acesso ao wedding consegue inserir.
+ * trilha_auditoria (insert restrito a membros do casamento) garante que só
+ * quem tem acesso ao casamento consegue inserir.
  *
  * Falha ao auditar nunca derruba a operação principal — só é logada.
  */
@@ -24,14 +24,14 @@ export async function recordAuditLog(
 ): Promise<void> {
   const client = await serverSupabaseClient(event)
 
-  const { error } = await client.from('audit_logs').insert({
-    wedding_id: weddingId,
-    actor_id: memberId,
-    actor_type: 'member',
-    action: input.action,
-    entity_type: input.entityType,
-    entity_id: input.entityId,
-    metadata: input.metadata ?? {},
+  const { error } = await client.from('trilha_auditoria').insert({
+    casamento_id: weddingId,
+    autor_id: memberId,
+    tipo_autor: 'membro',
+    acao: input.action,
+    tipo_entidade: input.entityType,
+    entidade_id: input.entityId,
+    metadados: input.metadata ?? {},
   })
 
   if (error) {

@@ -5,9 +5,9 @@ import type { GiftPayment } from '~/types/gift-payment'
 type AdminClient = Awaited<ReturnType<typeof supabaseAdmin>>
 
 interface ConfirmGiftPaymentHints {
-  /** transaction_nsu devolvido pela InfinitePay (redirect ou webhook). */
+  /** nsu_transacao_provedor devolvido pela InfinitePay (redirect ou webhook). */
   transactionNsu?: string
-  /** slug devolvido pela InfinitePay (redirect ou webhook). */
+  /** slug_fatura_provedor devolvido pela InfinitePay (redirect ou webhook). */
   invoiceSlug?: string
 }
 
@@ -19,8 +19,8 @@ interface ConfirmGiftPaymentHints {
  * A única prova de pagamento é `payment_check`, chamado servidor-a-servidor
  * aqui dentro — nunca decidido a partir do payload recebido de fora.
  *
- * Idempotente: se o pagamento já está confirmed/failed/expired, retorna sem
- * fazer nenhuma chamada externa nova.
+ * Idempotente: se o pagamento já está confirmado/falhou/expirado, retorna
+ * sem fazer nenhuma chamada externa nova.
  *
  * `hints` — achado real (CLAUDE.md, seção 28.3): `payment_check` não
  * confirma com `order_nsu` sozinho, a InfinitePay exige também
@@ -35,7 +35,7 @@ export async function confirmGiftPayment(
   hints?: ConfirmGiftPaymentHints,
 ): Promise<GiftPayment | null> {
   const { data: payment, error: fetchError } = await client
-    .from('gift_payments')
+    .from('pagamentos_presentes')
     .select('*')
     .eq('id', paymentId)
     .maybeSingle()
@@ -46,44 +46,44 @@ export async function confirmGiftPayment(
   if (!payment) {
     return null
   }
-  if (payment.status !== 'pending') {
+  if (payment.status_pagamento !== 'pendente') {
     return payment
   }
 
-  const transactionNsu = hints?.transactionNsu ?? payment.provider_transaction_nsu ?? undefined
-  const invoiceSlug = hints?.invoiceSlug ?? payment.provider_invoice_slug ?? undefined
+  const transactionNsu = hints?.transactionNsu ?? payment.nsu_transacao_provedor ?? undefined
+  const invoiceSlug = hints?.invoiceSlug ?? payment.slug_fatura_provedor ?? undefined
 
   if (
-    (hints?.transactionNsu && hints.transactionNsu !== payment.provider_transaction_nsu) ||
-    (hints?.invoiceSlug && hints.invoiceSlug !== payment.provider_invoice_slug)
+    (hints?.transactionNsu && hints.transactionNsu !== payment.nsu_transacao_provedor) ||
+    (hints?.invoiceSlug && hints.invoiceSlug !== payment.slug_fatura_provedor)
   ) {
     await client
-      .from('gift_payments')
+      .from('pagamentos_presentes')
       .update({
-        provider_transaction_nsu: transactionNsu ?? null,
-        provider_invoice_slug: invoiceSlug ?? null,
+        nsu_transacao_provedor: transactionNsu ?? null,
+        slug_fatura_provedor: invoiceSlug ?? null,
       })
       .eq('id', paymentId)
   }
 
   const { data: wedding, error: weddingError } = await client
-    .from('weddings')
-    .select('infinitepay_handle')
-    .eq('id', payment.wedding_id)
+    .from('casamentos')
+    .select('handle_infinitepay')
+    .eq('id', payment.casamento_id)
     .maybeSingle()
 
   if (weddingError) {
     throw badRequestError(weddingError.message)
   }
-  if (!wedding?.infinitepay_handle) {
+  if (!wedding?.handle_infinitepay) {
     // Não deveria acontecer (o checkout só é criado com handle configurado),
-    // mas sem handle não há como reverificar — permanece pending.
+    // mas sem handle não há como reverificar — permanece pendente.
     return payment
   }
 
   const check = await checkInfinitePayPayment({
-    handle: wedding.infinitepay_handle,
-    orderNsu: payment.provider_order_nsu,
+    handle: wedding.handle_infinitepay,
+    orderNsu: payment.nsu_pedido_provedor,
     transactionNsu,
     slug: invoiceSlug,
   })
@@ -95,30 +95,30 @@ export async function confirmGiftPayment(
   }
 
   await client
-    .from('gift_payments')
-    .update({ last_provider_response: check.raw })
+    .from('pagamentos_presentes')
+    .update({ ultima_resposta_provedor: check.raw })
     .eq('id', paymentId)
 
   if (!check.paid) {
     // Uma única checagem negativa não é prova de falha — o Pix pode ainda
     // estar em processamento. Só payment_check confirmando paid=true efetiva
-    // o pagamento; nunca marcamos failed por ausência de confirmação.
-    return { ...payment, last_provider_response: check.raw }
+    // o pagamento; nunca marcamos falhou por ausência de confirmação.
+    return { ...payment, ultima_resposta_provedor: check.raw }
   }
 
-  const { data: confirmed, error: confirmError } = await client.rpc('confirm_gift_payment', {
-    p_payment_id: paymentId,
+  const { data: confirmed, error: confirmError } = await client.rpc('confirmar_pagamento_presente', {
+    p_pagamento_id: paymentId,
   })
 
   if (confirmError) {
     throw badRequestError(confirmError.message)
   }
 
-  await recordSystemAuditLog(client, confirmed.wedding_id, {
-    action: confirmed.status === 'confirmed' ? 'gift_payment.confirmed' : 'gift_payment.failed',
+  await recordSystemAuditLog(client, confirmed.casamento_id, {
+    action: confirmed.status_pagamento === 'confirmado' ? 'gift_payment.confirmed' : 'gift_payment.failed',
     entityType: 'gift_payment',
     entityId: paymentId,
-    metadata: { giftId: confirmed.gift_id, amountCents: confirmed.amount_cents },
+    metadata: { giftId: confirmed.presente_id, amountCents: confirmed.valor_centavos },
   })
 
   return confirmed
@@ -134,8 +134,8 @@ interface SystemAuditLogInput {
 /**
  * Variante de recordAuditLog (server/utils/audit-log.ts) para gatilhos sem
  * H3Event/sessão — o webhook da InfinitePay não é uma requisição autenticada
- * (CLAUDE.md, seção 19.3/28: ações automatizadas usam actor_type='system',
- * actor_id nulo). Mesma regra de "falha ao auditar nunca derruba a operação
+ * (CLAUDE.md, seção 19.3/28: ações automatizadas usam tipo_autor='sistema',
+ * autor_id nulo). Mesma regra de "falha ao auditar nunca derruba a operação
  * principal".
  */
 async function recordSystemAuditLog(
@@ -143,14 +143,14 @@ async function recordSystemAuditLog(
   weddingId: string,
   input: SystemAuditLogInput,
 ): Promise<void> {
-  const { error } = await client.from('audit_logs').insert({
-    wedding_id: weddingId,
-    actor_id: null,
-    actor_type: 'system',
-    action: input.action,
-    entity_type: input.entityType,
-    entity_id: input.entityId,
-    metadata: input.metadata ?? {},
+  const { error } = await client.from('trilha_auditoria').insert({
+    casamento_id: weddingId,
+    autor_id: null,
+    tipo_autor: 'sistema',
+    acao: input.action,
+    tipo_entidade: input.entityType,
+    entidade_id: input.entityId,
+    metadados: input.metadata ?? {},
   })
 
   if (error) {

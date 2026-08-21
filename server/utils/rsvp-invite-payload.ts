@@ -12,21 +12,21 @@ export async function buildRsvpInvitePayload(
 ) {
   const [weddingResult, inviteResult, membersResult] = await Promise.all([
     client
-      .from('weddings')
-      .select('couple_names, event_date, rsvp_deadline, guest_list_mode')
+      .from('casamentos')
+      .select('nomes_noivos, data_evento, prazo_rsvp, modo_lista_convidados')
       .eq('id', weddingId)
       .single(),
     client
-      .from('invites')
-      .select('id, name, max_companions, rsvp_message')
+      .from('convites')
+      .select('id, nome, max_acompanhantes, mensagem_rsvp')
       .eq('id', inviteId)
       .single(),
     client
-      .from('guests')
-      .select('id, full_name, nickname, dietary_restrictions, party_order')
-      .eq('invite_id', inviteId)
-      .is('deleted_at', null)
-      .order('party_order', { ascending: true }),
+      .from('convidados')
+      .select('id, nome_completo, apelido, restricoes_alimentares, ordem_nucleo')
+      .eq('convite_id', inviteId)
+      .is('excluido_em', null)
+      .order('ordem_nucleo', { ascending: true }),
   ])
 
   if (weddingResult.error || !weddingResult.data) {
@@ -41,43 +41,43 @@ export async function buildRsvpInvitePayload(
 
   const memberIds = (membersResult.data ?? []).map((m) => m.id)
   const { data: responses, error: responsesError } = memberIds.length
-    ? await client.from('rsvp_responses').select('guest_id, status').in('guest_id', memberIds)
+    ? await client.from('respostas_rsvp').select('convidado_id, status_rsvp').in('convidado_id', memberIds)
     : { data: [], error: null }
 
   if (responsesError) {
     throw badRequestError(responsesError.message)
   }
 
-  const statusByGuest = new Map(responses?.map((r) => [r.guest_id, r.status]) ?? [])
+  const statusByGuest = new Map(responses?.map((r) => [r.convidado_id, r.status_rsvp]) ?? [])
   const wedding = weddingResult.data
   const invite = inviteResult.data
 
   const isPastDeadline = Boolean(
-    wedding.rsvp_deadline && new Date(wedding.rsvp_deadline).getTime() < Date.now(),
+    wedding.prazo_rsvp && new Date(wedding.prazo_rsvp).getTime() < Date.now(),
   )
 
   return {
     inviteId: invite.id,
     wedding: {
-      coupleNames: wedding.couple_names,
-      eventDate: wedding.event_date,
-      rsvpDeadline: wedding.rsvp_deadline,
-      guestListMode: wedding.guest_list_mode,
+      coupleNames: wedding.nomes_noivos,
+      eventDate: wedding.data_evento,
+      rsvpDeadline: wedding.prazo_rsvp,
+      guestListMode: wedding.modo_lista_convidados,
     },
     isPastDeadline,
-    maxCompanions: invite.max_companions,
-    message: invite.rsvp_message,
+    maxCompanions: invite.max_acompanhantes,
+    message: invite.mensagem_rsvp,
     members: (membersResult.data ?? []).map((guest) => ({
       guestId: guest.id,
-      fullName: guest.full_name,
-      nickname: guest.nickname,
-      dietaryRestrictions: guest.dietary_restrictions,
-      status: (statusByGuest.get(guest.id) ?? 'pending') as
-        | 'pending'
-        | 'confirmed'
-        | 'declined'
-        | 'waitlisted'
-        | 'removed',
+      fullName: guest.nome_completo,
+      nickname: guest.apelido,
+      dietaryRestrictions: guest.restricoes_alimentares,
+      status: (statusByGuest.get(guest.id) ?? 'pendente') as
+        | 'pendente'
+        | 'confirmado'
+        | 'recusado'
+        | 'lista_espera'
+        | 'removido',
     })),
   }
 }
@@ -89,19 +89,19 @@ export async function recordFirstAccessIfNeeded(
   inviteId: string,
 ) {
   const { data: existing } = await client
-    .from('invite_events')
+    .from('historico_convite')
     .select('id')
-    .eq('invite_id', inviteId)
-    .eq('event_type', 'rsvp.first_access')
+    .eq('convite_id', inviteId)
+    .eq('tipo_evento', 'rsvp.first_access')
     .limit(1)
     .maybeSingle()
 
   if (existing) return
 
-  await client.from('invite_events').insert({
-    wedding_id: weddingId,
-    invite_id: inviteId,
-    event_type: 'rsvp.first_access',
-    metadata: { source: 'public_site' },
+  await client.from('historico_convite').insert({
+    casamento_id: weddingId,
+    convite_id: inviteId,
+    tipo_evento: 'rsvp.first_access',
+    metadados: { source: 'public_site' },
   })
 }
