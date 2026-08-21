@@ -1,14 +1,15 @@
 import { z } from 'zod'
 
 // Compartilhado entre client (formulário de presente) e server (revalidação
-// — CLAUDE.md, seção 8/20.1). Espelha o CHECK gifts_mode_fields
-// (supabase/migrations, 20260730120010): presente de cota (isGroupGift=true)
-// exige targetAmountCents; presente simples exige quantityAvailable — nunca
-// os dois ao mesmo tempo (CLAUDE.md, seção 12.2/18.2).
+// — CLAUDE.md, seção 8/20.1). Espelha o CHECK presentes_mode_fields
+// (supabase/migrations, 20260730120010/20260821090001): presente de cota
+// (ePresenteCota=true) exige valorMetaCentavos; presente simples exige
+// quantidadeDisponivel — nunca os dois ao mesmo tempo (CLAUDE.md, seção
+// 12.2/18.2).
 
-// Catálogo fixo de ícones para "presente emocional" (display_style, CLAUDE.md
-// seção 18) — reaproveitado pelo UiSelect do admin, mesmo padrão de
-// shared/hero-buttons.ts.
+// Catálogo fixo de ícones para "presente emocional" (estilo_exibicao,
+// CLAUDE.md seção 18) — reaproveitado pelo UiSelect do admin, mesmo padrão
+// de shared/hero-buttons.ts.
 export const EMOTIONAL_GIFT_ICONS = [
   { value: 'home', label: 'Casa' },
   { value: 'plane', label: 'Viagem' },
@@ -27,29 +28,29 @@ const EMOTIONAL_GIFT_ICON_VALUES = EMOTIONAL_GIFT_ICONS.map((icon) => icon.value
 
 export const giftInputSchema = z
   .object({
-    title: z.string().trim().min(1, 'Informe o título do presente.').max(200),
-    description: z.string().trim().max(2000).optional().or(z.literal('')),
-    priceCents: z.coerce.number().int().min(0).optional(),
-    imageUrl: z.string().trim().max(2000).optional().or(z.literal('')),
-    categoryId: z.string().uuid().optional().or(z.literal('')),
-    isGroupGift: z.boolean(),
-    quantityAvailable: z.coerce.number().int().min(0).optional(),
-    targetAmountCents: z.coerce.number().int().min(1).optional(),
-    quotaAmountCents: z.coerce.number().int().min(1).optional(),
-    displayStyle: z.enum(['standard', 'emotional']).default('standard'),
-    emotionalIcon: z.enum(EMOTIONAL_GIFT_ICON_VALUES).optional().or(z.literal('')),
-    isActive: z.boolean().default(true),
+    titulo: z.string().trim().min(1, 'Informe o título do presente.').max(200),
+    descricao: z.string().trim().max(2000).optional().or(z.literal('')),
+    precoCentavos: z.coerce.number().int().min(0).optional(),
+    urlImagem: z.string().trim().max(2000).optional().or(z.literal('')),
+    categoriaId: z.string().uuid().optional().or(z.literal('')),
+    ePresenteCota: z.boolean(),
+    quantidadeDisponivel: z.coerce.number().int().min(0).optional(),
+    valorMetaCentavos: z.coerce.number().int().min(1).optional(),
+    valorCotaCentavos: z.coerce.number().int().min(1).optional(),
+    estiloExibicao: z.enum(['padrao', 'emocional']).default('padrao'),
+    iconeEmocional: z.enum(EMOTIONAL_GIFT_ICON_VALUES).optional().or(z.literal('')),
+    estaAtivo: z.boolean().default(true),
   })
   .refine(
-    (value) => !value.isGroupGift || (value.targetAmountCents ?? 0) > 0,
+    (value) => !value.ePresenteCota || (value.valorMetaCentavos ?? 0) > 0,
     {
       message: 'Informe o valor-alvo da cota.',
-      path: ['targetAmountCents'],
+      path: ['valorMetaCentavos'],
     },
   )
-  .refine((value) => value.isGroupGift || value.quantityAvailable !== undefined, {
+  .refine((value) => value.ePresenteCota || value.quantidadeDisponivel !== undefined, {
     message: 'Informe a quantidade disponível.',
-    path: ['quantityAvailable'],
+    path: ['quantidadeDisponivel'],
   })
 
 export type GiftInput = z.infer<typeof giftInputSchema>
