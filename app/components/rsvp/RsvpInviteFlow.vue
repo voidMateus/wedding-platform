@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDebounceFn } from '@vueuse/core'
 import type { RsvpInvitePayload, RsvpMember } from '~/types/rsvp'
 
 interface Props {
@@ -47,16 +48,16 @@ async function setStatus(guest: GuestState, status: 'confirmed' | 'declined') {
   }
 }
 
-let dietaryTimeout: ReturnType<typeof setTimeout> | undefined
+const debouncedDietarySave = useDebounceFn((guest: GuestState) => {
+  autosaveGuestStatus(guest.guestId, {
+    status: 'confirmed',
+    dietaryRestrictions: guest.dietaryRestrictions,
+  }).catch(() => toast.error('Não foi possível salvar a restrição alimentar.'))
+}, 600)
+
 function onDietaryChange(guest: GuestState) {
   if (guest.status !== 'confirmed') return
-  clearTimeout(dietaryTimeout)
-  dietaryTimeout = setTimeout(() => {
-    autosaveGuestStatus(guest.guestId, {
-      status: 'confirmed',
-      dietaryRestrictions: guest.dietaryRestrictions,
-    }).catch(() => toast.error('Não foi possível salvar a restrição alimentar.'))
-  }, 600)
+  debouncedDietarySave(guest)
 }
 
 // --- acompanhante avulso (só guest_list_mode='open') ---
