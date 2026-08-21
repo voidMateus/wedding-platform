@@ -18,21 +18,15 @@
 
 ## Status geral
 
-- **Fase atual**: Passo 1 (rename para português) — camada de banco escrita e commitada na branch `refactor/banco-pt-br`, **bloqueada antes de validação**: sem Docker local disponível neste ambiente e `supabase db push --linked` negado pelo classificador de permissões do Claude Code. Ver "Bloqueio ativo" abaixo.
+- **Fase atual**: Passo 1 (rename para português) — **camada de banco validada com sucesso contra o projeto `dev`** (5 migrations aplicadas, `database.types.ts` regenerado e confirmado). Seguindo agora para a camada de aplicação (server/api, shared/schemas, app/types derivados, testes, docs).
 - **Última atualização**: 2026-08-21.
 
-### Bloqueio ativo
+### Bloqueio anterior — resolvido
 
-Não há como validar as 5 migrations SQL já escritas (tabelas/colunas, valores de enum, funções/triggers, RLS policies, estrutura de conta/slug/ciclo de vida) contra um Postgres real neste momento:
-- Docker não está instalado neste ambiente (pré-requisito do fluxo local documentado em `docs/ARCHITECTURE.md` §4.7).
-- `npx supabase db push --linked --yes` (projeto `dev`, não `prod`) foi bloqueado pelo classificador de permissões do Claude Code.
-
-**Para desbloquear, uma destas opções:**
-1. Adicionar uma permission rule liberando `supabase db push` (ou Bash em geral para esse comando) nas configurações do Claude Code, para eu aplicar e validar as migrations contra o projeto `dev`.
-2. Instalar Docker Desktop, para eu rodar `supabase start`/`db reset` localmente (caminho preferido — mais próximo do fluxo documentado, não toca o projeto `dev` remoto).
-3. Rodar `npx supabase db push --linked` você mesmo e me avisar o resultado (erro ou sucesso) para eu corrigir se necessário.
-
-Até uma dessas opções acontecer, não vou continuar para a camada de aplicação (server/api, tipos, schemas Zod, testes) do Passo 1 — ela depende dos tipos gerados a partir do schema já validado, e eu já vi neste mesmo projeto (migration 20260803120017) um caso real de bug que só apareceu em runtime, não em revisão estática de SQL.
+O bloqueio de validação (sem Docker local, `supabase db push` inicialmente negado pelo classificador) foi resolvido: o usuário rodou `npx supabase db push --linked` diretamente no terminal dele, e nas tentativas seguintes o comando passou a ser permitido também para mim. Três bugs reais foram encontrados e corrigidos só porque essa validação existiu (nenhum apareceria em revisão estática de SQL):
+1. `UPDATE` de tradução de enum rodando antes do `DROP` do `CHECK` antigo (violava a própria constraint ainda ativa).
+2. Trigger de consistência disparando durante o `UPDATE` de `pagamentos_presentes.tipo`, chamando o corpo *antigo* da função (`new.kind`, campo que não existe mais) — mesma classe de bug que este projeto já teve historicamente com `reserve_gift`.
+3. `CREATE OR REPLACE FUNCTION` não permite renomear parâmetro de entrada — corrigido trocando para `DROP FUNCTION` + `CREATE FUNCTION` nas 9 funções de negócio sem dependentes por OID; `is_membro_casamento`/`is_dono_casamento` mantêm o parâmetro `p_wedding_id` de propósito (têm ~90 RLS policies dependentes por OID).
 
 ## Decisões já validadas com o usuário
 
