@@ -53,13 +53,22 @@ Corte coordenado único (banco + API + tipos + schemas + testes + docs), validad
 - [ ] Trocar `service_role` por `serverSupabaseClient` em `wedding/gallery/connection.delete.ts` e `wedding/gallery/sync.post.ts`
 - [ ] Renomear policies de storage (`is_wedding_member`→`is_membro_casamento` já propaga por OID; só o nome do objeto fica pendente, baixa prioridade)
 - [ ] Regenerar `database.types.ts` a partir do schema novo (depende da validação acima)
-- [ ] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`, `gifts/`→`presentes/`)
+- [x] Traduzir `shared/schemas/**` e `shared/utils/**` (campos que espelham colunas do banco) — branch `refactor/pt-br-shared-e-utils`
+- [x] Traduzir `server/utils/**` (todas as chamadas `.from`/`.select`/`.eq`/`.rpc`) — mesma branch
+- [ ] Traduzir `server/api/**` (76 endpoints) — **próximo**
+- [ ] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`, `gifts/`→`presentes/`) — decisão: fazer junto com o item acima ou como passo separado de puro rename de arquivo, avaliar ao começar
 - [ ] Renomear composables (`useInvites`→`useConvites` etc.)
 - [ ] Renomear pastas de componente (`components/gifts/`→`components/presentes/`; `components/rsvp/` mantém — RSVP é termo universal)
-- [ ] Atualizar `shared/schemas/**` (Zod) com os novos nomes de campo/tabela
-- [ ] Atualizar `app/types/**` derivados
+- [ ] Atualizar `app/types/**` derivados (`Guest`, `Wedding`, `GiftPayment`, `auth.ts#WeddingContext`, etc.)
 - [ ] Atualizar os 57 testes unitários existentes para os novos nomes
 - [ ] Atualizar `docs/DATABASE.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCT.md` com a nomenclatura nova
+- [ ] Atualizar `supabase/seed.sql` para os novos nomes
+
+### Escopo deliberadamente deixado em inglês nesta etapa (registrar, não esquecer)
+- Nomes de constraint de FK/PK no banco (ex.: `event_segments_wedding_id_fkey`) — identificadores internos de catálogo, sem ganho funcional em renomear.
+- Chaves internas de `theme_config`/`content_config` (JSONB — não são colunas).
+- Campos técnicos de integração com Google Drive (`code`, `folderId`, `folderName`) e da API externa da InfinitePay (`order_nsu`, `redirect_url` etc. — contrato de terceiro, não nosso).
+- Alguns DTOs locais de baixo risco (ex.: `AuditLogInput.entityType/entityId`) — a escrita no banco já está 100% correta; o nome do parâmetro TS é cosmético e pode ser revisitado depois sem risco.
 - [ ] Gate de CI: falhar build se view nova/alterada não tiver `security_invoker = true`
 - [ ] Gate de CI: falhar build se `database.types.ts` estiver desatualizado em relação às migrations
 - [ ] Validar `lint`/`typecheck`/testes unitários/`build` passando com o schema novo em `dev`
