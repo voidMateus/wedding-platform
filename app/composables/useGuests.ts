@@ -1,7 +1,7 @@
 import type { GuestPartyReorderInput, GuestPartySyncInput } from '#shared/schemas/guests'
 import type { Guest } from '~/types/guest'
 
-interface GuestListResponse {
+export interface GuestListResponse {
   data: Guest[]
   meta: { page: number; pageSize: number; total: number }
 }
@@ -12,6 +12,7 @@ interface GuestListParams {
   search?: string
   groupId?: string
   unassigned?: boolean
+  withoutParty?: boolean
 }
 
 export interface GuestDetail extends Guest {
@@ -40,6 +41,16 @@ export function useGuests() {
     })
   }
 
+  /** Versão imperativa de listGuests, pra busca/autocomplete que dispara sob demanda em vez de reativo. */
+  async function fetchGuests(params: GuestListParams): Promise<GuestListResponse> {
+    return $fetch<GuestListResponse>('/api/guests', { query: params })
+  }
+
+  /** Versão imperativa de getGuest, pra buscar o detalhe de um candidato selecionado num autocomplete. */
+  async function fetchGuestDetail(id: string): Promise<GuestDetail> {
+    return $fetch<GuestDetail>(`/api/guests/${id}`)
+  }
+
   async function syncGuestParty(input: GuestPartySyncInput): Promise<GuestPartySyncResult> {
     return $fetch<GuestPartySyncResult>('/api/guests/party', { method: 'PUT', body: input })
   }
@@ -52,5 +63,5 @@ export function useGuests() {
     return $fetch<{ id: string }>(`/api/guests/${id}`, { method: 'DELETE' })
   }
 
-  return { listGuests, getGuest, syncGuestParty, reorderGuestParty, deleteGuest }
+  return { listGuests, getGuest, fetchGuests, fetchGuestDetail, syncGuestParty, reorderGuestParty, deleteGuest }
 }

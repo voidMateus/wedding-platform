@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { useDebounceFn } from '@vueuse/core'
 import type { GuestPersonInput } from '#shared/schemas/guests'
+import type { GuestDetail } from '~/composables/useGuests'
 import type { Group } from '~/types/group'
+
+const COMPANION_SEARCH_MIN_CHARS = 2
+const COMPANION_SEARCH_PAGE_SIZE = 6
 
 export interface CompanionEntry {
   key: string
@@ -35,19 +40,21 @@ function emptyPerson(): GuestPersonInput {
   }
 }
 
-function personFromGuest(guest: Record<string, unknown>): GuestPersonInput {
+function personFromGuest(guest: GuestDetail): GuestPersonInput {
   return {
-    id: guest.id as string,
-    fullName: (guest.full_name as string) ?? '',
-    nickname: (guest.nickname as string) ?? '',
+    id: guest.id,
+    fullName: guest.full_name ?? '',
+    nickname: guest.nickname ?? '',
     sex: (guest.sex as GuestPersonInput['sex']) ?? undefined,
-    birthDate: (guest.birth_date as string) ?? '',
+    birthDate: guest.birth_date ?? '',
     weddingRole: (guest.wedding_role as GuestPersonInput['weddingRole']) ?? undefined,
-    dietaryRestrictions: (guest.dietary_restrictions as string) ?? '',
-    notes: (guest.notes as string) ?? '',
-    groupId: (guest.group_id as string) ?? '',
+    dietaryRestrictions: guest.dietary_restrictions ?? '',
+    notes: guest.notes ?? '',
+    groupId: guest.group_id ?? '',
   }
 }
+
+const { fetchGuests, fetchGuestDetail } = useGuests()
 
 const isAddingCompanion = ref(false)
 const companionDraft = ref<GuestPersonInput>(emptyPerson())
@@ -58,30 +65,29 @@ const companionDraftError = ref<string | null>(null)
 // pessoa nova (CLAUDE.md, seção 12.1) — evita duplicar quem já existe.
 const companionSearchQuery = ref('')
 const companionSearchResults = ref<Array<{ id: string; full_name: string }>>([])
-let companionSearchTimeout: ReturnType<typeof setTimeout> | undefined
+
+const debouncedCompanionSearch = useDebounceFn(async (value: string) => {
+  const excludeIds = new Set(
+    [props.primaryId, ...props.modelValue.map((c) => c.person.id)].filter(Boolean),
+  )
+  const response = await fetchGuests({
+    search: value,
+    withoutParty: true,
+    pageSize: COMPANION_SEARCH_PAGE_SIZE,
+  })
+  companionSearchResults.value = response.data.filter((g) => !excludeIds.has(g.id))
+}, 300)
 
 watch(companionSearchQuery, (value) => {
-  clearTimeout(companionSearchTimeout)
-  if (value.trim().length < 2) {
+  if (value.trim().length < COMPANION_SEARCH_MIN_CHARS) {
     companionSearchResults.value = []
     return
   }
-  companionSearchTimeout = setTimeout(async () => {
-    const excludeIds = new Set(
-      [props.primaryId, ...props.modelValue.map((c) => c.person.id)].filter(Boolean),
-    )
-    const response = await $fetch<{ data: Array<{ id: string; full_name: string }> }>(
-      '/api/guests',
-      {
-        query: { search: value.trim(), withoutParty: true, pageSize: 6 },
-      },
-    )
-    companionSearchResults.value = response.data.filter((g) => !excludeIds.has(g.id))
-  }, 300)
+  debouncedCompanionSearch(value.trim())
 })
 
 async function selectExistingCompanion(guestId: string) {
-  const detail = await $fetch<Record<string, unknown>>(`/api/guests/${guestId}`)
+  const detail = await fetchGuestDetail(guestId)
   companionDraft.value = personFromGuest(detail)
   companionDraftError.value = null
   companionSearchQuery.value = ''
