@@ -12,6 +12,11 @@ describe('classifyRateLimitPath', () => {
     expect(classifyRateLimitPath('/api/public/ana-carlos-2027/rsvp-search')).toBe('rsvp-search')
   })
 
+  it('classifica a busca por nome mesmo com query string (achado real do Passo 2: event.path do h3 inclui "?q=...", e a rota real de busca sempre tem query string — sem isso o rate limit nunca era aplicado)', () => {
+    expect(classifyRateLimitPath('/api/public/joao-e-maria/rsvp-search?q=maria')).toBe('rsvp-search')
+    expect(classifyRateLimitPath('/api/public/rsvp-search/select?foo=bar')).toBe('rsvp-search')
+  })
+
   it('classifica os passos seguintes da busca por nome (sem slug)', () => {
     expect(classifyRateLimitPath('/api/public/rsvp-search/select')).toBe('rsvp-search')
     expect(classifyRateLimitPath('/api/public/rsvp-search/confirm')).toBe('rsvp-search')
