@@ -1,27 +1,11 @@
 <script setup lang="ts">
 import { filterAndSortGifts, segmentGifts } from '#shared/utils/filter-gifts'
+import { getApiErrorMessage, isApiError } from '~/utils/api-error'
 
 const { getPublicGifts, reserveGift, createCheckout } = usePublicGifts()
 const { data, status, error, refresh } = getPublicGifts()
 const toast = useToast()
 const identity = useGiftGiverIdentity()
-
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isConflict(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as ApiError).statusCode === 409
-}
-
-function errorMessage(err: unknown, fallback: string): string {
-  if (typeof err === 'object' && err !== null) {
-    const message = (err as ApiError).data?.message
-    if (message) return message
-  }
-  return fallback
-}
 
 const segments = computed(() => segmentGifts(data.value?.data ?? []))
 const hasPixOption = computed(() => data.value?.data[0]?.hasPixOption ?? false)
@@ -47,6 +31,10 @@ const filteredPhysicalGifts = computed(() =>
     sortBy: sortBy.value,
   }),
 )
+
+function isConflict(err: unknown): boolean {
+  return isApiError(err) && err.statusCode === 409
+}
 
 async function handleReserve(giftId: string, message: string) {
   try {
@@ -77,7 +65,7 @@ async function handleCheckout(
     toast.error(
       isConflict(err)
         ? 'Esse presente acabou de ser reservado por outra pessoa.'
-        : errorMessage(err, 'Não foi possível iniciar o pagamento. Tente novamente.'),
+        : getApiErrorMessage(err, 'Não foi possível iniciar o pagamento. Tente novamente.'),
     )
   }
 }

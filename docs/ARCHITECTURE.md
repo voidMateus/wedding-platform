@@ -150,6 +150,10 @@ meusitecasamento/
 | `composables/` | Busca/mutação de dados, regras de apresentação reutilizáveis | Renderização |
 | `stores/` (Pinia) | Cache de última versão conhecida de entidades de uso global | Ser a fonte de verdade (isso é o servidor) |
 
+### 2.1.1 Organização interna de `<script setup>` em componentes multi-etapa
+
+A ordem padrão de um `<script setup>` (CLAUDE.md §7 — imports → props/emits → composables/stores → estado local → computed → watchers → handlers → lifecycle) vale por padrão. Componentes multi-etapa/wizard (formulário com passos distintos, ex.: `GuestPartyWizard.vue`, `rsvp/index.vue`, `CoverImageUploader.vue`) têm uma exceção aceita: organizar o código por **seção/passo** (bloco de estado+computed+watch+handler de cada etapa, demarcado por comentário `// --- passo N: rótulo ---`), em vez de agrupar por categoria. Isso vale quando o componente tem etapas logicamente independentes o suficiente para que agrupar por categoria espalhasse a lógica de uma mesma etapa por várias seções distantes do arquivo — a organização por seção mantém cada etapa legível de ponta a ponta. Não é uma licença geral: um componente sem etapas reais distintas segue a ordem padrão.
+
 ### 2.2 Estratégia de renderização por rota
 
 | Rota | Modo | Justificativa |

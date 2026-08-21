@@ -17,31 +17,17 @@ const emit = defineEmits<{
 // Identificação de quem está presenteando (CLAUDE.md, seção 18) — passo 1,
 // pulado se já coletado nesta sessão (ver useGiftGiverIdentity).
 const identity = useGiftGiverIdentity()
+
 const step = ref<'identify' | 'choose'>('choose')
-
-watch(
-  () => modelValue,
-  (open) => {
-    if (!open) return
-    step.value = identity.value.name.trim() ? 'choose' : 'identify'
-  },
-)
-
 // Sugestões rápidas de valor (CLAUDE.md, seção 18) — só usadas no modo de
 // contribuição livre (sem gift.quotaAmountCents).
 const SUGGESTED_AMOUNTS_CENTS = [5000, 10000, 20000, 30000]
-
 const message = ref('')
 const selectedAmountCents = ref<number | null>(null)
 const customAmountReaisText = ref('')
 const quotaCount = ref(1)
 
 const isQuotaMode = computed(() => Boolean(gift.quotaAmountCents))
-
-function selectSuggestedAmount(amountCents: number) {
-  selectedAmountCents.value = amountCents
-  customAmountReaisText.value = ''
-}
 
 const effectiveAmountCents = computed(() => {
   if (customAmountReaisText.value !== '') {
@@ -56,6 +42,19 @@ const quotaTotalCents = computed(() => (gift.quotaAmountCents ?? 0) * quotaCount
 const canSubmit = computed(() =>
   isQuotaMode.value ? quotaCount.value > 0 : Boolean(effectiveAmountCents.value),
 )
+
+watch(
+  () => modelValue,
+  (open) => {
+    if (!open) return
+    step.value = identity.value.name.trim() ? 'choose' : 'identify'
+  },
+)
+
+function selectSuggestedAmount(amountCents: number) {
+  selectedAmountCents.value = amountCents
+  customAmountReaisText.value = ''
+}
 
 function submit() {
   if (!canSubmit.value) return

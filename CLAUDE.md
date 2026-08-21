@@ -102,7 +102,7 @@ docs/                          # ver seção 15
 - **Variáveis/funções**: `camelCase`. Constantes globais: `UPPER_SNAKE_CASE`. **Sem números mágicos** — valor de negócio (prazo, limite) é sempre constante nomeada.
 - **Tipos/interfaces**: `PascalCase`, sem prefixo `I` (`Guest`, não `IGuest`).
 - **Formatação**: 100% Prettier — nenhuma discussão manual de estilo em review.
-- **Imports**: ordenados via ESLint (built-in → externos → internos `~/` → relativos).
+- **Imports**: ordem por convenção manual, não imposta por regra de lint (built-in → externos → internos `~/` → relativos) — seguir o padrão dos arquivos vizinhos.
 - **Comentários**: só quando o "porquê" não é óbvio (decisão não trivial, workaround, restrição de negócio). Proibido comentário que só repete o que o código já diz.
 - **Tamanho**: componente `.vue` passando de ~200 linhas de `<script setup>` é sinal de dividir ou extrair pra composable.
 
