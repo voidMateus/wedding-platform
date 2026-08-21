@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await client.rpc('sincronizar_nucleo_convidado', {
     p_casamento_id: weddingId,
-    p_primary: input.primary,
-    p_companions: input.companions,
+    p_principal: input.primary,
+    p_acompanhantes: input.companions,
     p_ids_convidados_removidos: input.removedGuestIds,
     p_convite: input.invite ?? null,
   })
