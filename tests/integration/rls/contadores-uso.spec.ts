@@ -5,28 +5,31 @@ import { createTestWedding, deleteTestWedding } from '../../factories/wedding'
 import { createTestMember, deleteTestMember, type TestMember } from '../../factories/member'
 
 /**
- * `contadores_uso` tem RLS habilitada e ZERO policies definidas (deny-by-
- * default — supabase/policies/README.md, "sem UI/feature usando ainda",
- * docs/ROADMAP.md seção 8). Guarda de regressão: mesmo um membro `dono` do
- * casamento dono da linha não enxerga nem altera nada — só `service_role`.
- * `casamento_id` é a própria PK da tabela (não tem `id` próprio), então o
- * teste de INSERT usa um segundo casamento (`weddingB`) sem contador ainda
- * — evita que uma tentativa de insert falhe por violação da PK em vez de
- * pela RLS, o que daria um falso positivo nesta guarda. Insere só o mínimo
- * necessário e apaga explicitamente por `casamento_id` no `afterAll`, sem
- * depender de cascade.
+ * `contadores_uso` ganhou a primeira policy real no Passo 4
+ * (docs/PLANO-SAAS.md, migration `20260821120001`): SELECT liberado pra
+ * membro do casamento dono da linha (`casamento_id`, que também é a
+ * própria PK da tabela — não tem `id` próprio). Sem XOR de conta aqui
+ * (contador é sempre por casamento). Mutação continua deny-by-default —
+ * contador é materializado só por trigger/job do lado do servidor, nunca
+ * por escrita direta do client. O teste de INSERT usa um segundo casamento
+ * (`weddingB`) sem contador ainda — evita que a tentativa falhe por
+ * violação da PK em vez de pela RLS, o que daria um falso positivo nesta
+ * guarda. Insere só o mínimo necessário e apaga explicitamente por
+ * `casamento_id` no `afterAll`, sem depender de cascade.
  */
-describe('RLS: contadores_uso (deny-by-default)', () => {
+describe('RLS: contadores_uso (select por casamento, mutação deny-by-default)', () => {
   const admin = getServiceRoleClient()
 
   let weddingA: Awaited<ReturnType<typeof createTestWedding>>
   let weddingB: Awaited<ReturnType<typeof createTestWedding>>
   let memberA: TestMember
+  let memberB: TestMember
 
   beforeAll(async () => {
     weddingA = await createTestWedding(admin)
     weddingB = await createTestWedding(admin)
     memberA = await createTestMember(admin, weddingA.id, 'dono')
+    memberB = await createTestMember(admin, weddingB.id, 'dono')
 
     const { error } = await admin
       .from('contadores_uso')
@@ -51,6 +54,7 @@ describe('RLS: contadores_uso (deny-by-default)', () => {
     }
     await cleanupAll([
       ...(memberA ? [() => deleteTestMember(admin, memberA.userId)] : []),
+      ...(memberB ? [() => deleteTestMember(admin, memberB.userId)] : []),
       ...(weddingA ? [() => deleteTestWedding(admin, weddingA.id)] : []),
       ...(weddingB ? [() => deleteTestWedding(admin, weddingB.id)] : []),
     ])
@@ -66,8 +70,18 @@ describe('RLS: contadores_uso (deny-by-default)', () => {
     expect(data?.casamento_id).toBe(weddingA.id)
   })
 
-  it('membro autenticado não enxerga o contador via SELECT (sem nenhuma policy), mesmo sendo dono do casamento', async () => {
+  it('membro do casamento dono da linha enxerga o contador via SELECT', async () => {
     const { data, error } = await memberA.client
+      .from('contadores_uso')
+      .select('*')
+      .eq('casamento_id', weddingA.id)
+      .maybeSingle()
+    expect(error).toBeNull()
+    expect(data?.casamento_id).toBe(weddingA.id)
+  })
+
+  it('membro de outro casamento (sem vínculo) não enxerga o contador', async () => {
+    const { data, error } = await memberB.client
       .from('contadores_uso')
       .select('*')
       .eq('casamento_id', weddingA.id)
