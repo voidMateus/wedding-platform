@@ -19,7 +19,7 @@ const backToSiteLink = computed(() => `/${slug}`)
 interface GuestState {
   guestId: string
   fullName: string
-  status: 'pending' | 'confirmed' | 'declined'
+  status: 'pendente' | 'confirmado' | 'recusado'
   dietaryRestrictions: string
 }
 
@@ -27,7 +27,7 @@ const guestStates = ref<GuestState[]>(
   props.payload.members.map((m) => ({
     guestId: m.guestId,
     fullName: m.fullName,
-    status: m.status === 'waitlisted' || m.status === 'removed' ? 'pending' : m.status,
+    status: m.status === 'lista_espera' || m.status === 'removido' ? 'pendente' : m.status,
     dietaryRestrictions: m.dietaryRestrictions ?? '',
   })),
 )
@@ -35,7 +35,7 @@ const guestStates = ref<GuestState[]>(
 const isPastDeadline = props.payload.isPastDeadline
 const step = ref<'guests' | 'review' | 'success'>('guests')
 
-async function setStatus(guest: GuestState, status: 'confirmed' | 'declined') {
+async function setStatus(guest: GuestState, status: 'confirmado' | 'recusado') {
   if (isPastDeadline) return
   guest.status = status
   try {
@@ -50,17 +50,17 @@ async function setStatus(guest: GuestState, status: 'confirmed' | 'declined') {
 
 const debouncedDietarySave = useDebounceFn((guest: GuestState) => {
   autosaveGuestStatus(guest.guestId, {
-    status: 'confirmed',
+    status: 'confirmado',
     dietaryRestrictions: guest.dietaryRestrictions,
   }).catch(() => toast.error('Não foi possível salvar a restrição alimentar.'))
 }, 600)
 
 function onDietaryChange(guest: GuestState) {
-  if (guest.status !== 'confirmed') return
+  if (guest.status !== 'confirmado') return
   debouncedDietarySave(guest)
 }
 
-// --- acompanhante avulso (só guest_list_mode='open') ---
+// --- acompanhante avulso (só modo_lista_convidados='aberta') ---
 
 interface CompanionDraft {
   fullName: string
@@ -82,7 +82,7 @@ function removeCompanion(index: number) {
 
 const message = ref(props.payload.message ?? '')
 
-const allAnswered = computed(() => guestStates.value.every((g) => g.status !== 'pending'))
+const allAnswered = computed(() => guestStates.value.every((g) => g.status !== 'pendente'))
 
 const isSubmitting = ref(false)
 async function handleFinalize() {
@@ -101,8 +101,8 @@ async function handleFinalize() {
 }
 
 function statusLabel(status: RsvpMember['status'] | GuestState['status']): string {
-  if (status === 'confirmed') return 'Estará lá'
-  if (status === 'declined') return 'Não poderá ir'
+  if (status === 'confirmado') return 'Estará lá'
+  if (status === 'recusado') return 'Não poderá ir'
   return 'Pendente'
 }
 </script>
@@ -139,9 +139,9 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
             type="button"
             class="flex-1 whitespace-nowrap"
             rounded="full"
-            :variant="guest.status === 'confirmed' ? 'primary' : 'outline'"
+            :variant="guest.status === 'confirmado' ? 'primary' : 'outline'"
             :disabled="isPastDeadline"
-            @click="setStatus(guest, 'confirmed')"
+            @click="setStatus(guest, 'confirmado')"
           >
             <Icon name="lucide:check" class="h-4 w-4" />
             Estarei lá
@@ -151,9 +151,9 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
             class="flex-1 whitespace-nowrap"
             rounded="full"
             variant="outline"
-            :class="guest.status === 'declined' ? '!border-text !bg-text !text-surface' : ''"
+            :class="guest.status === 'recusado' ? '!border-text !bg-text !text-surface' : ''"
             :disabled="isPastDeadline"
-            @click="setStatus(guest, 'declined')"
+            @click="setStatus(guest, 'recusado')"
           >
             <Icon name="lucide:x" class="h-4 w-4" />
             Não poderei ir
@@ -161,7 +161,7 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
         </div>
 
         <UiTextarea
-          v-if="guest.status === 'confirmed'"
+          v-if="guest.status === 'confirmado'"
           v-model="guest.dietaryRestrictions"
           label="Restrição alimentar (opcional)"
           class="mt-4"
@@ -170,7 +170,7 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
         />
       </div>
 
-      <template v-if="payload.wedding.guestListMode === 'open'">
+      <template v-if="payload.wedding.guestListMode === 'aberta'">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-text">
             Acompanhantes ({{ companions.length }}<template v-if="payload.maxCompanions !== null">/{{ payload.maxCompanions }}</template>)
@@ -215,7 +215,7 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
           class="flex items-center justify-between gap-2 text-sm"
         >
           <span class="text-text">{{ guest.fullName }}</span>
-          <UiBadge :tone="guest.status === 'confirmed' ? 'success' : 'danger'">
+          <UiBadge :tone="guest.status === 'confirmado' ? 'success' : 'danger'">
             {{ statusLabel(guest.status) }}
           </UiBadge>
         </div>

@@ -21,26 +21,26 @@ const errorMessage = ref<string | null>(null)
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(photoMetadataSchema),
-  initialValues: { caption: '', displayOrder: 0, focalX: 50, focalY: 50 },
+  initialValues: { legenda: '', ordemExibicao: 0, focoX: 50, focoY: 50 },
 })
 
-const [caption] = defineField('caption')
-const [displayOrder] = defineField('displayOrder')
-const [focalX] = defineField('focalX')
-const [focalY] = defineField('focalY')
+const [legenda] = defineField('legenda')
+const [ordemExibicao] = defineField('ordemExibicao')
+const [focoX] = defineField('focoX')
+const [focoY] = defineField('focoY')
 
 const displayOrderText = computed({
-  get: () => (displayOrder.value === undefined ? '' : String(displayOrder.value)),
+  get: () => (ordemExibicao.value === undefined ? '' : String(ordemExibicao.value)),
   set: (value: string) => {
-    displayOrder.value = value === '' ? undefined : Number(value)
+    ordemExibicao.value = value === '' ? undefined : Number(value)
   },
 })
 
 const focalPoint = computed({
-  get: () => ({ x: focalX.value ?? 50, y: focalY.value ?? 50 }),
+  get: () => ({ x: focoX.value ?? 50, y: focoY.value ?? 50 }),
   set: (value: { x: number; y: number }) => {
-    focalX.value = value.x
-    focalY.value = value.y
+    focoX.value = value.x
+    focoY.value = value.y
   },
 })
 
@@ -53,10 +53,10 @@ watch(
     errorMessage.value = null
     resetForm({
       values: {
-        caption: current.caption ?? '',
-        displayOrder: current.display_order,
-        focalX: current.focal_x,
-        focalY: current.focal_y,
+        legenda: current.legenda ?? '',
+        ordemExibicao: current.ordem_exibicao,
+        focoX: current.foco_x,
+        focoY: current.foco_y,
       },
     })
   },
@@ -87,15 +87,15 @@ const onSubmit = handleSubmit(async (values) => {
         v-if="photo"
         v-model="focalPoint"
         :src="photo.url"
-        :alt="photo.caption || 'Foto da galeria'"
+        :alt="photo.legenda || 'Foto da galeria'"
         preview-aspect-class="aspect-square"
       />
-      <UiInput v-model="caption" label="Legenda (opcional)" :error="errors.caption" />
+      <UiInput v-model="legenda" label="Legenda (opcional)" :error="errors.legenda" />
       <UiInput
         v-model="displayOrderText"
         type="number"
         label="Ordem de exibição"
-        :error="errors.displayOrder"
+        :error="errors.ordemExibicao"
       />
       <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
       <div class="mt-2 flex justify-end gap-2">

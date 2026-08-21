@@ -24,22 +24,22 @@ const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(weddingSettingsSchema),
 })
 
-const [coupleNames] = defineField('coupleNames')
-const [eventDate] = defineField('eventDate')
-const [eventTime] = defineField('eventTime')
-const [rsvpDeadline] = defineField('rsvpDeadline')
-const [childMaxAge] = defineField('childMaxAge')
-const [guestListMode] = defineField('guestListMode')
-const [infinitepayHandle] = defineField('infinitepayHandle')
-const [physicalGiftDeliveryMode] = defineField('physicalGiftDeliveryMode')
+const [nomesNoivos] = defineField('nomesNoivos')
+const [dataEvento] = defineField('dataEvento')
+const [horarioEvento] = defineField('horarioEvento')
+const [prazoRsvp] = defineField('prazoRsvp')
+const [idadeMaximaCrianca] = defineField('idadeMaximaCrianca')
+const [modoListaConvidados] = defineField('modoListaConvidados')
+const [handleInfinitepay] = defineField('handleInfinitepay')
+const [modoEntregaPresenteFisico] = defineField('modoEntregaPresenteFisico')
 
-// UiInput só trabalha com string — childMaxAge no form é number (schema com
-// z.coerce.number()), daí o proxy de string aqui (mesmo padrão de
+// UiInput só trabalha com string — idadeMaximaCrianca no form é number (schema
+// com z.coerce.number()), daí o proxy de string aqui (mesmo padrão de
 // maxMembersText no antigo formulário de grupos).
-const childMaxAgeText = computed({
-  get: () => (childMaxAge.value === undefined ? '' : String(childMaxAge.value)),
+const idadeMaximaCriancaText = computed({
+  get: () => (idadeMaximaCrianca.value === undefined ? '' : String(idadeMaximaCrianca.value)),
   set: (value: string) => {
-    childMaxAge.value = value === '' ? undefined : Number(value)
+    idadeMaximaCrianca.value = value === '' ? undefined : Number(value)
   },
 })
 
@@ -49,15 +49,15 @@ watch(
     if (!value) return
     resetForm({
       values: {
-        coupleNames: value.couple_names,
-        eventDate: value.event_date,
-        eventTime: value.event_time ? value.event_time.slice(0, 5) : '',
-        rsvpDeadline: value.rsvp_deadline ? isoToDatetimeLocal(value.rsvp_deadline) : '',
-        childMaxAge: value.child_max_age,
-        guestListMode: value.guest_list_mode as 'closed' | 'open',
-        infinitepayHandle: value.infinitepay_handle ?? '',
-        physicalGiftDeliveryMode: value.physical_gift_delivery_mode as
-          'both' | 'self_purchase_only' | 'payment_only',
+        nomesNoivos: value.nomes_noivos,
+        dataEvento: value.data_evento,
+        horarioEvento: value.horario_evento ? value.horario_evento.slice(0, 5) : '',
+        prazoRsvp: value.prazo_rsvp ? isoToDatetimeLocal(value.prazo_rsvp) : '',
+        idadeMaximaCrianca: value.idade_maxima_crianca,
+        modoListaConvidados: value.modo_lista_convidados as 'fechada' | 'aberta',
+        handleInfinitepay: value.handle_infinitepay ?? '',
+        modoEntregaPresenteFisico: value.modo_entrega_presente_fisico as
+          'ambos' | 'somente_compra_propria' | 'somente_pagamento',
       },
     })
   },
@@ -77,21 +77,21 @@ const onSubmit = handleSubmit(async (values) => {
 <template>
   <UiCard>
     <form class="flex flex-col gap-4" @submit="onSubmit">
-      <UiInput v-model="coupleNames" label="Nome do casal" :error="errors.coupleNames" />
+      <UiInput v-model="nomesNoivos" label="Nome do casal" :error="errors.nomesNoivos" />
       <div class="flex gap-3">
         <UiInput
-          v-model="eventDate"
+          v-model="dataEvento"
           type="date"
           label="Data do casamento"
           class="flex-1"
-          :error="errors.eventDate"
+          :error="errors.dataEvento"
         />
         <UiInput
-          v-model="eventTime"
+          v-model="horarioEvento"
           type="time"
           label="Horário (opcional)"
           class="flex-1"
-          :error="errors.eventTime"
+          :error="errors.horarioEvento"
         />
       </div>
       <p class="-mt-2 text-xs text-text-muted">
@@ -99,31 +99,31 @@ const onSubmit = handleSubmit(async (values) => {
         dia do evento.
       </p>
       <UiInput
-        v-model="rsvpDeadline"
+        v-model="prazoRsvp"
         type="datetime-local"
         label="Prazo final de RSVP (opcional)"
-        :error="errors.rsvpDeadline"
+        :error="errors.prazoRsvp"
       />
       <UiInput
-        v-model="childMaxAgeText"
+        v-model="idadeMaximaCriancaText"
         type="number"
         label="Idade máxima considerada criança"
-        :error="errors.childMaxAge"
+        :error="errors.idadeMaximaCrianca"
       />
       <UiSelect
-        v-model="guestListMode"
+        v-model="modoListaConvidados"
         label="Lista de convidados"
         :options="[
-          { value: 'closed', label: 'Fechada (só convidados pré-cadastrados)' },
-          { value: 'open', label: 'Aberta (permite acompanhante avulso no RSVP)' },
+          { value: 'fechada', label: 'Fechada (só convidados pré-cadastrados)' },
+          { value: 'aberta', label: 'Aberta (permite acompanhante avulso no RSVP)' },
         ]"
-        :error="errors.guestListMode"
+        :error="errors.modoListaConvidados"
       />
       <UiInput
-        v-model="infinitepayHandle"
+        v-model="handleInfinitepay"
         label="InfiniteTag da InfinitePay (opcional)"
         placeholder="seuhandle"
-        :error="errors.infinitepayHandle"
+        :error="errors.handleInfinitepay"
       />
       <p class="-mt-2 text-xs text-text-muted">
         Ativa o pagamento online na lista de presentes (Contribuições, Presentes Emocionais e a
@@ -133,14 +133,14 @@ const onSubmit = handleSubmit(async (values) => {
         InfinitePay, não aqui.
       </p>
       <UiSelect
-        v-model="physicalGiftDeliveryMode"
+        v-model="modoEntregaPresenteFisico"
         label="Como presentear a Lista de Presentes física"
         :options="[
-          { value: 'both', label: 'Convidado escolhe: comprar e entregar, ou pagar online' },
-          { value: 'self_purchase_only', label: 'Só comprar e entregar (sem pagamento online)' },
-          { value: 'payment_only', label: 'Só pagamento online (sem opção de entregar)' },
+          { value: 'ambos', label: 'Convidado escolhe: comprar e entregar, ou pagar online' },
+          { value: 'somente_compra_propria', label: 'Só comprar e entregar (sem pagamento online)' },
+          { value: 'somente_pagamento', label: 'Só pagamento online (sem opção de entregar)' },
         ]"
-        :error="errors.physicalGiftDeliveryMode"
+        :error="errors.modoEntregaPresenteFisico"
       />
 
       <div class="flex justify-end">

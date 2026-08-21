@@ -29,28 +29,28 @@ const emit = defineEmits<{
 
 function emptyPerson(): GuestPersonInput {
   return {
-    fullName: '',
-    nickname: '',
-    sex: undefined,
-    birthDate: '',
-    weddingRole: undefined,
-    dietaryRestrictions: '',
-    notes: '',
-    groupId: '',
+    nomeCompleto: '',
+    apelido: '',
+    sexo: undefined,
+    dataNascimento: '',
+    papelCasamento: undefined,
+    restricoesAlimentares: '',
+    observacoes: '',
+    grupoId: '',
   }
 }
 
 function personFromGuest(guest: GuestDetail): GuestPersonInput {
   return {
     id: guest.id,
-    fullName: guest.full_name ?? '',
-    nickname: guest.nickname ?? '',
-    sex: (guest.sex as GuestPersonInput['sex']) ?? undefined,
-    birthDate: guest.birth_date ?? '',
-    weddingRole: (guest.wedding_role as GuestPersonInput['weddingRole']) ?? undefined,
-    dietaryRestrictions: guest.dietary_restrictions ?? '',
-    notes: guest.notes ?? '',
-    groupId: guest.group_id ?? '',
+    nomeCompleto: guest.nome_completo ?? '',
+    apelido: guest.apelido ?? '',
+    sexo: (guest.sexo as GuestPersonInput['sexo']) ?? undefined,
+    dataNascimento: guest.data_nascimento ?? '',
+    papelCasamento: (guest.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
+    restricoesAlimentares: guest.restricoes_alimentares ?? '',
+    observacoes: guest.observacoes ?? '',
+    grupoId: guest.grupo_id ?? '',
   }
 }
 
@@ -64,7 +64,7 @@ const companionDraftError = ref<string | null>(null)
 // Busca convidados já cadastrados antes de assumir que o acompanhante é uma
 // pessoa nova (CLAUDE.md, seção 12.1) — evita duplicar quem já existe.
 const companionSearchQuery = ref('')
-const companionSearchResults = ref<Array<{ id: string; full_name: string }>>([])
+const companionSearchResults = ref<Array<{ id: string; nome_completo: string }>>([])
 
 const debouncedCompanionSearch = useDebounceFn(async (value: string) => {
   const excludeIds = new Set(
@@ -111,7 +111,7 @@ function startEditCompanion(entry: CompanionEntry) {
 }
 
 function confirmCompanion() {
-  if (!companionDraft.value.fullName.trim()) {
+  if (!companionDraft.value.nomeCompleto.trim()) {
     companionDraftError.value = 'Informe o nome do acompanhante.'
     return
   }
@@ -176,7 +176,7 @@ function moveCompanion(index: number, direction: -1 | 1) {
         :key="entry.key"
         class="flex items-center justify-between rounded-md border border-border px-3 py-2"
       >
-        <span class="text-sm text-text">{{ entry.person.fullName }}</span>
+        <span class="text-sm text-text">{{ entry.person.nomeCompleto }}</span>
         <div class="flex items-center gap-1">
           <UiButton
             size="sm"
@@ -215,7 +215,7 @@ function moveCompanion(index: number, direction: -1 | 1) {
               class="w-full rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-surface-muted"
               @click="selectExistingCompanion(result.id)"
             >
-              {{ result.full_name }}
+              {{ result.nome_completo }}
             </button>
           </li>
         </ul>
