@@ -36,26 +36,51 @@ export async function createTestMember(
     throw new Error(`Falha ao criar usuário de teste: ${userError?.message}`)
   }
 
-  const { error: memberError } = await admin.from('membros_casamento').insert({
-    casamento_id: casamentoId,
-    usuario_id: userData.user.id,
-    papel,
-  })
-  if (memberError) {
+  // A partir daqui o usuário de auth já existe de verdade — qualquer falha
+  // nas próximas etapas (rate limit do Supabase Auth incluso, observado sob
+  // carga concorrente) precisa desfazer esse usuário antes de propagar o
+  // erro, senão ele fica órfão pra sempre (nenhum casamento referencia
+  // auth.users por cascata).
+  try {
+    const { error: memberError } = await admin.from('membros_casamento').insert({
+      casamento_id: casamentoId,
+      usuario_id: userData.user.id,
+      papel,
+    })
+    if (memberError) {
+      throw new Error(`Falha ao vincular membro de teste: ${memberError.message}`)
+    }
+
+    const client = getAnonClient()
+    const { error: signInError } = await client.auth.signInWithPassword({ email, password: TEST_MEMBER_PASSWORD })
+    if (signInError) {
+      throw new Error(`Falha ao autenticar usuário de teste: ${signInError.message}`)
+    }
+
+    return { userId: userData.user.id, email, client }
+  } catch (err) {
     await admin.auth.admin.deleteUser(userData.user.id)
-    throw new Error(`Falha ao vincular membro de teste: ${memberError.message}`)
+    throw err
   }
-
-  const client = getAnonClient()
-  const { error: signInError } = await client.auth.signInWithPassword({ email, password: TEST_MEMBER_PASSWORD })
-  if (signInError) {
-    throw new Error(`Falha ao autenticar usuário de teste: ${signInError.message}`)
-  }
-
-  return { userId: userData.user.id, email, client }
 }
 
-/** `membros_casamento` já saiu por cascata da exclusão do casamento — só falta o usuário de auth. */
+/**
+ * `membros_casamento` já saiu por cascata da exclusão do casamento — só
+ * falta o usuário de auth. A API de admin do Supabase Auth rate-limita sob
+ * carga (achado real: rodar a suíte de integração inteira de uma vez, com
+ * dezenas de create/deleteUser em sequência, dispara "Database error
+ * deleting user" esporádico) — 3 tentativas com backoff curto absorve isso
+ * sem mascarar uma falha genuinamente persistente.
+ */
 export async function deleteTestMember(admin: AdminClient, userId: string): Promise<void> {
-  await admin.auth.admin.deleteUser(userId)
+  let lastError: string | undefined
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (!error) return
+    lastError = error.message
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500))
+    }
+  }
+  throw new Error(`Falha ao excluir usuário de teste ${userId} após 3 tentativas: ${lastError}`)
 }

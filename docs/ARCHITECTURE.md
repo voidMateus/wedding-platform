@@ -619,14 +619,20 @@ Testes E2E críticos do site público e do fluxo de RSVP rodam uma checagem auto
 
 ```
 1. Lint + type-check (falha rápida, mais barato)
-2. Testes unitários (Vitest)
-3. Subida do Supabase local (Docker) + aplicação de migrations
-4. Testes de integração — API, RLS, caminho do convidado (em paralelo entre si)
-5. Build da aplicação
+2. Testes unitários (Vitest, tests/unit/** — sem Supabase, npm run test)
+3. Subida do Supabase local (Docker, supabase start) + aplicação de migrations
+4. Build da aplicação (nuxt build) — os testes de integração de api/ e
+   guest-path/ batem via HTTP real em .output/server/index.mjs, não num
+   handler chamado diretamente (auto-imports do Nitro exigem o pipeline de
+   build), por isso o build precisa existir antes deles
+5. Testes de integração — RLS, API, caminho do convidado (tests/integration/**,
+   npm run test:integration, contra o Supabase local subido no passo 3)
 6. Testes E2E (Playwright) contra o build, com o Supabase local já provisionado
 ```
 
-A ordem prioriza feedback rápido (lint/type-check primeiro) e isola a suíte de RLS/caminho do convidado como um gate obrigatório antes de qualquer merge — nunca tratada como "nice to have" opcional, dado que é a suíte que substitui a ausência de RLS no caminho do convidado.
+Nota: a versão anterior deste documento listava testes de integração antes do build — corrigido para refletir a implementação real (`.github/workflows/ci.yml`), que sobe um servidor Nitro de build de verdade (`tests/integration/global-setup.ts`) em vez de invocar handlers isoladamente. A ordem prioriza feedback rápido (lint/type-check primeiro) e trata a suíte de RLS/caminho do convidado como gate obrigatório antes de qualquer merge — nunca "nice to have" opcional, dado que é a suíte que substitui a ausência de RLS no caminho do convidado. Os testes de integração também exigem `UPSTASH_REDIS_REST_URL`/`TOKEN`, `RSVP_SESSION_SECRET`, `DRIVE_TOKEN_ENCRYPTION_KEY` e `CRON_SECRET` como GitHub Secrets do repositório (mesmos valores do projeto `dev`, nunca os de `prod`) — sem eles, os endpoints com rate limiting real (RSVP, busca por nome, presentes) falham ao inicializar o client Redis.
+
+**Aviso de validação**: o passo de Supabase local via Docker foi implementado seguindo o padrão oficial documentado da Supabase CLI para GitHub Actions, mas não pôde ser executado/validado localmente nesta sessão (o ambiente de desenvolvimento usado não tinha Docker disponível) — os testes de integração em si foram validados de ponta a ponta rodando contra o projeto `dev` na nuvem. A primeira execução real deste workflow no GitHub Actions é a primeira validação de fato do caminho "Supabase local + Docker" — acompanhar esse primeiro run.
 
 ### 9.7 Metas pragmáticas de cobertura
 

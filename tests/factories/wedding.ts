@@ -38,5 +38,8 @@ export async function createTestWedding(
 
 /** Cascata (`on delete cascade`) cuida de convites/convidados/presentes/membros_casamento etc. */
 export async function deleteTestWedding(admin: AdminClient, casamentoId: string): Promise<void> {
-  await admin.from('casamentos').delete().eq('id', casamentoId)
+  const { error } = await admin.from('casamentos').delete().eq('id', casamentoId)
+  if (error) {
+    throw new Error(`Falha ao excluir casamento de teste ${casamentoId}: ${error.message}`)
+  }
 }
