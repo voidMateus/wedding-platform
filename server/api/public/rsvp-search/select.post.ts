@@ -1,5 +1,4 @@
 import { rsvpSelectSchema } from '#shared/schemas/rsvp'
-import { maskName } from '#shared/utils/mask-name'
 
 /**
  * Confirmação leve (CLAUDE.md, seção 12.1) — antes de revelar dados
