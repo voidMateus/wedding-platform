@@ -10,7 +10,7 @@ export interface Toast {
 
 /**
  * Estado de UI global (CLAUDE.md, seção 10): tema ativo do casamento
- * (theme_config bruto — resolvido para CSS vars via useWeddingTheme.ts,
+ * (config_tema bruto — resolvido para CSS vars via useWeddingTheme.ts,
  * aplicado pelos layouts), toasts de feedback (CLAUDE.md, seção 20.1/21 —
  * nunca alert() nativo) e estado da sidebar do admin (colapsável).
  */

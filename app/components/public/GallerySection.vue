@@ -2,7 +2,7 @@
 // "Nossos Momentos" — prévia curta de fotos ao final da home. Desde a Fase
 // Galeria via Google Drive (CLAUDE.md), `photos` espelha uma pasta do Google
 // Drive e a quantidade da prévia é configurável pelo casal
-// (theme_config.galleryPreviewCount). Havendo mais fotos que a prévia, um
+// (config_tema.galleryPreviewCount). Havendo mais fotos que a prévia, um
 // botão "Abrir galeria" leva à página dedicada /{slug}/galeria.
 import { DEFAULT_GALLERY_PREVIEW_COUNT } from '#shared/schemas/gallery'
 import type { ThemeConfig } from '#shared/schemas/theme'

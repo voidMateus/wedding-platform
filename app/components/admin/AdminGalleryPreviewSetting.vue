@@ -3,7 +3,7 @@ import { DEFAULT_GALLERY_PREVIEW_COUNT } from '#shared/schemas/gallery'
 import type { ThemeConfig } from '#shared/schemas/theme'
 
 // Configura quantas fotos aparecem na prévia da Galeria na home antes do botão
-// "Abrir galeria" (página dedicada). Valor vive em theme_config, salvo por
+// "Abrir galeria" (página dedicada). Valor vive em config_tema, salvo por
 // endpoint próprio (CLAUDE.md, Fase Galeria via Google Drive).
 const { getWedding } = useWedding()
 const { updatePreview } = useGalleryConnection()

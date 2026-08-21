@@ -82,7 +82,7 @@ const coverFocalPosition = computed(
 
 // Atalhos de navegação logo abaixo da contagem (gap vs. concorrente —
 // CLAUDE.md, comparativo com mimodocasal.com.br). O casal escolhe quais
-// aparecem e qual fica em destaque (theme_config.heroButtons/
+// aparecem e qual fica em destaque (config_tema.heroButtons/
 // heroFeaturedButton, editável em /admin/configuracoes) — catálogo fixo em
 // shared/hero-buttons.ts, sem seleção salva ainda cai num default sensato.
 // shared/hero-buttons.ts guarda só a âncora ("/#historia" etc.) — precisa do

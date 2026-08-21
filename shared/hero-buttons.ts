@@ -1,6 +1,6 @@
 // Catálogo fixo dos atalhos que podem aparecer no Hero (CLAUDE.md, seção 21
 // — "Fase Vermelho Clássico"). O casal escolhe QUAIS aparecem e QUAL fica em
-// destaque (theme_config.heroButtons/heroFeaturedButton) — o catálogo em si
+// destaque (config_tema.heroButtons/heroFeaturedButton) — o catálogo em si
 // (id, label, ícone, âncora) não é editável, só a seleção.
 
 export interface HeroButtonDefinition {

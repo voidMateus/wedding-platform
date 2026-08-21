@@ -8,7 +8,7 @@ const heroButtonIdSchema = z.string().refine((id) => HERO_BUTTON_ID_SET.has(id),
 // Compartilhado entre client (Aparência, admin) e server (revalidação —
 // CLAUDE.md, seção 8/20.1). Endpoint próprio (PATCH /api/wedding/theme),
 // separado dos dados de negócio do evento (PATCH /api/wedding) — mesma
-// filosofia já documentada em theme_config: "exclusivamente atributos
+// filosofia já documentada em config_tema: "exclusivamente atributos
 // visuais, nunca comportamento de negócio" (CLAUDE.md, seção 22.3).
 
 const hexColorSchema = z
@@ -80,7 +80,7 @@ export const themeFocalPointSchema = z.object({
 
 export type ThemeFocalPointInput = z.infer<typeof themeFocalPointSchema>
 
-/** Shape completo de weddings.theme_config como lido do banco (inclui coverImageUrl, gerido à parte). */
+/** Shape completo de casamentos.config_tema como lido do banco (inclui coverImageUrl, gerido à parte). */
 export interface ThemeConfig {
   presetId?: string
   primaryColor: string

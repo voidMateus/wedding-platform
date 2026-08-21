@@ -4,7 +4,7 @@ import { MANUAL_TOPIC_ICON_VALUES } from '../manual-topic-icons'
 // Personalização das mensagens narrativas do site público (CLAUDE.md,
 // roadmap "Fase Mensagens Personalizáveis") — compartilhado entre client
 // (aba "Conteúdo" do admin) e server (revalidação, CLAUDE.md seção 8/20.1).
-// Endpoint próprio (PATCH /api/wedding/content), separado de theme_config
+// Endpoint próprio (PATCH /api/wedding/content), separado de config_tema
 // (§22.3, exclusivamente visual) e de PATCH /api/wedding (dados de negócio).
 
 export const contentFaqItemSchema = z.object({
@@ -36,7 +36,7 @@ export const weddingContentConfigSchema = z.object({
 
 export type WeddingContentConfigInput = z.infer<typeof weddingContentConfigSchema>
 
-/** Shape completo de weddings.content_config como lido do banco — todo campo é opcional (ausente = usa o default de shared/wedding-content.ts). */
+/** Shape completo de casamentos.config_conteudo como lido do banco — todo campo é opcional (ausente = usa o default de shared/wedding-content.ts). */
 export interface WeddingContentConfig {
   welcomeTitle?: string
   welcomeMessage?: string

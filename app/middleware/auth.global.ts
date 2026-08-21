@@ -16,7 +16,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo({ path: '/login', query: { redirect: to.fullPath } })
   }
 
-  // Popula o cache de wedding_id/role se ainda não veio do login desta
+  // Popula o cache de casamento_id/papel se ainda não veio do login desta
   // mesma sessão de navegador (ex: refresh direto em /admin/algo).
   const authStore = useAuthStore()
   if (!authStore.user) {

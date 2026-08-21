@@ -1,6 +1,6 @@
 // Validação de contraste da cor primária do tema (CLAUDE.md, seção 22.4).
 // Usado tanto no client (preview em tempo real ao escolher a cor) quanto no
-// server (defesa em profundidade antes de salvar theme_config) — por isso
+// server (defesa em profundidade antes de salvar config_tema) — por isso
 // vive em shared/, não em app/utils/.
 
 export const DEFAULT_SURFACE_COLOR = '#ffffff'

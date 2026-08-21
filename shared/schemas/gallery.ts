@@ -26,7 +26,7 @@ export type GalleryGoogleConnectInput = z.infer<typeof galleryGoogleConnectSchem
 export type GalleryPublicLinkInput = z.infer<typeof galleryPublicLinkSchema>
 
 // Prévia da Galeria na home: quantas fotos aparecem antes do botão "Abrir
-// galeria" (página dedicada /{slug}/galeria). Ausente no theme_config = default.
+// galeria" (página dedicada /{slug}/galeria). Ausente no config_tema = default.
 export const DEFAULT_GALLERY_PREVIEW_COUNT = 8
 
 export const galleryPreviewSchema = z.object({

@@ -7,7 +7,7 @@
  * rounded-lg, shadow-md...) a partir delas, mas os valores continuam
  * sendo variáveis CSS reais em :root — por isso permanecem
  * sobrescrevíveis em runtime por casamento a partir de
- * weddings.theme_config (cor primária/secundária e par tipográfico —
+ * casamentos.config_tema (cor primária/secundária e par tipográfico —
  * ver Fase Visual, PR de aplicação global de tema).
  *
  * --color-secondary é o tom complementar da paleta do casal (fundos de

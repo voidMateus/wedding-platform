@@ -14,7 +14,7 @@ interface SessionResponse {
 /**
  * Última versão conhecida da sessão administrativa (CLAUDE.md, seção 10) —
  * não é a fonte de verdade (isso é o cookie de sessão do Supabase Auth,
- * exposto via useSupabaseUser()), só um cache síncrono do wedding_id/role
+ * exposto via useSupabaseUser()), só um cache síncrono do casamento_id/papel
  * resolvido em /api/auth/session, que exige uma query própria.
  */
 export const useAuthStore = defineStore('auth', () => {

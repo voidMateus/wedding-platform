@@ -157,7 +157,7 @@ Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md
 
 Violar qualquer um destes é bug de produto real, não só estilo — se uma tarefa parecer exigir violar um desses, o objetivo provavelmente foi mal entendido:
 
-- **RSVP é sempre por convidado** — não existe "modo grupo". Resposta editável até `rsvp_deadline`, sempre via upsert (nunca duplicata).
+- **RSVP é sempre por convidado** — não existe "modo grupo". Resposta editável até `prazo_rsvp`, sempre via upsert (nunca duplicata).
 - **`convites` (convite/unidade de RSVP), `grupos` (etiqueta livre) e `nucleos_acompanhantes` (Acompanhantes) são três conceitos independentes** — nunca confundir um pelo outro apesar do nome parecido.
 - Presente físico (`e_presente_cota = false`) usa `reservas_presentes`; presente de cota (`true`) usa `contribuicoes_presentes` — nunca os dois pro mesmo `presente_id`.
 - Efeito de negócio de pagamento (`reservas_presentes`/`contribuicoes_presentes`) só nasce dentro de `confirmar_pagamento_presente()`, nunca direto de uma requisição do convidado.

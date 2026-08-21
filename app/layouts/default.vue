@@ -3,9 +3,9 @@ import type { ThemeConfig } from '#shared/schemas/theme'
 
 // Layout do site público (CLAUDE.md, seção 5) — busca o tema uma vez aqui
 // para que /, /presentes e /rsvp/[code] herdem a mesma personalização
-// visual sem precisar buscar theme_config individualmente (CLAUDE.md,
+// visual sem precisar buscar config_tema individualmente (CLAUDE.md,
 // seção 22.3). Aguardado (não só destructuring de useFetch) para que
-// theme_config já esteja resolvido no primeiro render, em SSR e client —
+// config_tema já esteja resolvido no primeiro render, em SSR e client —
 // evita o mesmo mismatch de hidratação já corrigido em /admin/configuracoes.
 const uiStore = useUiStore()
 const slug = useWeddingSlug()
@@ -18,7 +18,7 @@ const route = useRoute()
 const code = computed(() => (typeof route.query.code === 'string' ? route.query.code : undefined))
 
 // Sincroniza o destaque do menu com o atalho em destaque do Hero
-// (theme_config.heroFeaturedButton) — pedido do usuário.
+// (config_tema.heroFeaturedButton) — pedido do usuário.
 const heroFeaturedButton = computed(() => {
   const theme = (wedding.value?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.heroFeaturedButton

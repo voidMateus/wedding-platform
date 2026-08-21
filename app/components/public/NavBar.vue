@@ -19,7 +19,7 @@ interface Props {
    */
   code?: string
   /**
-   * Id do atalho em destaque do Hero (theme_config.heroFeaturedButton) —
+   * Id do atalho em destaque do Hero (config_tema.heroFeaturedButton) —
    * o link correspondente do menu ganha o mesmo destaque visual, pedido
    * do usuário ("o menu tem o destaque sincronizado com o botão do
    * hero"). Resolvido pelo layout, não aqui (mesmo racional dos outros

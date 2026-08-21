@@ -24,7 +24,7 @@ const isDeliveryModalOpen = ref(false)
 const isPaymentModalOpen = ref(false)
 
 // O casal pode restringir a Lista de Presentes física a um só método
-// (CLAUDE.md, seção 18, weddings.physical_gift_delivery_mode) — se nenhum
+// (CLAUDE.md, seção 18, casamentos.modo_entrega_presente_fisico) — se nenhum
 // dos dois ficar disponível (ex.: só pagamento configurado, mas sem
 // infinitepay_handle), não há como presentear esse item por aqui.
 const canPresentPhysical = computed(() => {
