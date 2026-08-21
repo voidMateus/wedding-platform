@@ -9,7 +9,7 @@ interface Props {
 
 const { wedding } = defineProps<Props>()
 
-const content = computed(() => resolveWeddingContent(wedding.content_config))
+const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 
 // Foto própria da seção — independente da foto de capa do Hero (CLAUDE.md,
 // seção 22.3; separadas a pedido do casal, cada uma é uma foto diferente).
@@ -17,14 +17,14 @@ const content = computed(() => resolveWeddingContent(wedding.content_config))
 // versão com foto, é um segundo tratamento pensado de propósito (mesmo
 // princípio já aplicado ao Hero).
 const storyImageUrl = computed(() => {
-  const theme = (wedding.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (wedding.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.storyImageUrl ?? null
 })
 
 // Ponto de foco (enquadramento) escolhido pelo casal no upload — CLAUDE.md,
 // seção 22.2. Default 50/50 = centro.
 const storyFocalPosition = computed(() => {
-  const theme = (wedding.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (wedding.config_tema ?? {}) as Partial<ThemeConfig>
   return `${theme.storyFocalX ?? 50}% ${theme.storyFocalY ?? 50}%`
 })
 </script>
@@ -34,7 +34,7 @@ const storyFocalPosition = computed(() => {
     <div v-if="storyImageUrl" class="grid gap-10 sm:grid-cols-2 sm:items-center">
       <NuxtImg
         :src="storyImageUrl"
-        :alt="`Foto de ${wedding.couple_names}`"
+        :alt="`Foto de ${wedding.nomes_noivos}`"
         class="aspect-[4/5] w-full rounded-xl object-cover shadow-xl"
         :style="{ objectPosition: storyFocalPosition }"
         sizes="sm:100vw md:50vw lg:50vw xl:50vw 2xl:50vw"

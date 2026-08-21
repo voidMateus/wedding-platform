@@ -8,7 +8,7 @@ interface Props {
 
 const { wedding } = defineProps<Props>()
 
-const content = computed(() => resolveWeddingContent(wedding.content_config))
+const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 
 const items = computed(() =>
   content.value.faqItems.map((faq, index) => ({

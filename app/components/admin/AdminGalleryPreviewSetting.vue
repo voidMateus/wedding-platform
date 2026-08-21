@@ -15,7 +15,7 @@ const count = ref<number>(DEFAULT_GALLERY_PREVIEW_COUNT)
 watch(
   wedding,
   (value) => {
-    const themeConfig = value?.theme_config as unknown as ThemeConfig | null
+    const themeConfig = value?.config_tema as unknown as ThemeConfig | null
     count.value = themeConfig?.galleryPreviewCount ?? DEFAULT_GALLERY_PREVIEW_COUNT
   },
   { immediate: true },

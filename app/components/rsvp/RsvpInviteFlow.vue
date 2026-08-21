@@ -41,7 +41,7 @@ async function setStatus(guest: GuestState, status: 'confirmado' | 'recusado') {
   try {
     await autosaveGuestStatus(guest.guestId, {
       status,
-      dietaryRestrictions: guest.dietaryRestrictions,
+      restricoesAlimentares: guest.dietaryRestrictions,
     })
   } catch {
     toast.error('Não foi possível salvar. Tente novamente.')
@@ -51,7 +51,7 @@ async function setStatus(guest: GuestState, status: 'confirmado' | 'recusado') {
 const debouncedDietarySave = useDebounceFn((guest: GuestState) => {
   autosaveGuestStatus(guest.guestId, {
     status: 'confirmado',
-    dietaryRestrictions: guest.dietaryRestrictions,
+    restricoesAlimentares: guest.dietaryRestrictions,
   }).catch(() => toast.error('Não foi possível salvar a restrição alimentar.'))
 }, 600)
 
@@ -89,7 +89,12 @@ async function handleFinalize() {
   isSubmitting.value = true
   try {
     await finalizeInvite(props.payload.inviteId, {
-      companions: companions.value.filter((c) => c.fullName.trim()),
+      companions: companions.value
+        .filter((c) => c.fullName.trim())
+        .map((c) => ({
+          nomeCompleto: c.fullName,
+          restricoesAlimentares: c.dietaryRestrictions,
+        })),
       message: message.value,
     })
     step.value = 'success'

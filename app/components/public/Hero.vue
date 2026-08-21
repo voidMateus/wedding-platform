@@ -19,10 +19,10 @@ interface Props {
 
 const { wedding, segments = [], code } = defineProps<Props>()
 
-const theme = computed(() => (wedding.theme_config ?? {}) as Partial<ThemeConfig>)
+const theme = computed(() => (wedding.config_tema ?? {}) as Partial<ThemeConfig>)
 
 const formattedDate = computed(() =>
-  new Date(`${wedding.event_date}T00:00:00`).toLocaleDateString('pt-BR', {
+  new Date(`${wedding.data_evento}T00:00:00`).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -33,7 +33,7 @@ const formattedDate = computed(() =>
 // ("Nome1" / "&" / "Nome2") para o tratamento tipográfico grande do Hero —
 // nomes fora desse padrão caem no fallback de uma linha só, sem quebrar.
 const coupleNameParts = computed(() => {
-  const parts = wedding.couple_names.split(/\s*&\s*/)
+  const parts = wedding.nomes_noivos.split(/\s*&\s*/)
   return parts.length === 2 ? parts : null
 })
 
@@ -56,14 +56,14 @@ const PAPER_TEXTURE = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2
 // Local em destaque na linha da data — primeiro item do cronograma que tem
 // nome de local cadastrado (normalmente a Cerimônia).
 const primaryVenueName = computed(
-  () => segments.find((segment) => segment.venue_name)?.venue_name ?? null,
+  () => segments.find((segment) => segment.nome_local)?.nome_local ?? null,
 )
 
 // Contagem regressiva embutida no Hero (antes era uma seção própria mais
 // abaixo na página) — mesma regra de exibição de sempre.
 const showCountdown = computed(() => theme.value.showCountdown ?? true)
 const targetDateTime = computed(() =>
-  resolveEventDateTime(wedding.event_date, wedding.event_time).toISOString(),
+  resolveEventDateTime(wedding.data_evento, wedding.horario_evento).toISOString(),
 )
 
 // Foto de capa opcional — desde a Rodada 8 não existe mais um segundo
@@ -117,7 +117,7 @@ const heroButtons = computed(() =>
     <NuxtImg
       v-if="coverImageUrl"
       :src="coverImageUrl"
-      :alt="`Foto de capa de ${wedding.couple_names}`"
+      :alt="`Foto de capa de ${wedding.nomes_noivos}`"
       class="absolute inset-0 h-full w-full scale-105 object-cover opacity-20 blur-[2px]"
       :style="{ objectPosition: coverFocalPosition }"
       sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
@@ -167,7 +167,7 @@ const heroButtons = computed(() =>
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
       <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-8xl">
-        {{ wedding.couple_names }}
+        {{ wedding.nomes_noivos }}
       </h1>
       <span class="h-px w-14 bg-secondary/80" aria-hidden="true" />
       <p class="text-xs uppercase tracking-[0.3em] text-text-muted sm:text-sm">

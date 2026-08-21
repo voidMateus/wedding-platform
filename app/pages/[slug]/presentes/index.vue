@@ -13,7 +13,7 @@ const { getPublicWedding } = usePublicWedding()
 const { data: wedding } = await getPublicWedding()
 
 const giftsIntroMessage = computed(
-  () => resolveWeddingContent(wedding.value?.content_config).giftsIntroMessage,
+  () => resolveWeddingContent(wedding.value?.config_conteudo).giftsIntroMessage,
 )
 
 useSeoMeta({ title: 'Presentes' })
@@ -43,7 +43,7 @@ const SECTION_LINKS = [
       </span>
       <div>
         <h1 class="font-display text-3xl font-semibold text-heading">
-          Presentear{{ wedding?.couple_names ? ` ${wedding.couple_names}` : '' }}
+          Presentear{{ wedding?.nomes_noivos ? ` ${wedding.nomes_noivos}` : '' }}
         </h1>
         <p class="mt-2 max-w-xl text-sm leading-relaxed text-text-muted">
           {{ giftsIntroMessage }}

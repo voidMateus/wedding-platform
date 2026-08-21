@@ -34,15 +34,15 @@ const lastSyncedLabel = computed(() => {
       <span
         class="rounded-full px-3 py-1 text-xs font-medium"
         :class="{
-          'bg-green-100 text-green-800': connection.status === 'active',
-          'bg-amber-100 text-amber-800': connection.status === 'reauth_required',
-          'bg-red-100 text-red-800': connection.status === 'error',
+          'bg-green-100 text-green-800': connection.status === 'ativo',
+          'bg-amber-100 text-amber-800': connection.status === 'reautenticacao_necessaria',
+          'bg-red-100 text-red-800': connection.status === 'erro',
         }"
       >
         {{
-          connection.status === 'active'
+          connection.status === 'ativo'
             ? 'Conectado'
-            : connection.status === 'reauth_required'
+            : connection.status === 'reautenticacao_necessaria'
               ? 'Reconexão necessária'
               : 'Erro na sincronização'
         }}
@@ -60,7 +60,7 @@ const lastSyncedLabel = computed(() => {
       {{ connection.last_sync_error }}
     </p>
 
-    <div v-if="connection.status === 'reauth_required'" class="flex flex-wrap gap-2">
+    <div v-if="connection.status === 'reautenticacao_necessaria'" class="flex flex-wrap gap-2">
       <UiButton size="sm" :disabled="isConnectingGoogle" @click="$emit('reconnect')">
         {{ isConnectingGoogle ? 'Reconectando...' : 'Reconectar Google Drive' }}
       </UiButton>

@@ -15,7 +15,7 @@ const slug = useWeddingSlug()
 
 const photos = computed(() => data.value?.data ?? [])
 const previewCount = computed(() => {
-  const themeConfig = wedding.value?.theme_config as unknown as ThemeConfig | null
+  const themeConfig = wedding.value?.config_tema as unknown as ThemeConfig | null
   return themeConfig?.galleryPreviewCount ?? DEFAULT_GALLERY_PREVIEW_COUNT
 })
 const previewPhotos = computed(() => photos.value.slice(0, previewCount.value))

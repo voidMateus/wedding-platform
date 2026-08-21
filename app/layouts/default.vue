@@ -20,14 +20,14 @@ const code = computed(() => (typeof route.query.code === 'string' ? route.query.
 // Sincroniza o destaque do menu com o atalho em destaque do Hero
 // (theme_config.heroFeaturedButton) — pedido do usuário.
 const heroFeaturedButton = computed(() => {
-  const theme = (wedding.value?.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (wedding.value?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.heroFeaturedButton
 })
 
 watch(
   wedding,
   (value) => {
-    uiStore.setThemeConfig(value?.theme_config ?? null)
+    uiStore.setThemeConfig(value?.config_tema ?? null)
   },
   { immediate: true },
 )
@@ -48,7 +48,7 @@ useHead({
 <template>
   <div class="flex min-h-screen flex-col bg-surface text-text">
     <PublicNavBar
-      :couple-names="wedding?.couple_names"
+      :couple-names="wedding?.nomes_noivos"
       :slug="slug"
       :code="code"
       :featured-button-id="heroFeaturedButton"
@@ -56,7 +56,7 @@ useHead({
     <main class="flex-1">
       <slot />
     </main>
-    <PublicFooter :couple-names="wedding?.couple_names" :event-date="wedding?.event_date" />
+    <PublicFooter :couple-names="wedding?.nomes_noivos" :event-date="wedding?.data_evento" />
     <PublicScrollToTopButton />
   </div>
 </template>

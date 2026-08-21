@@ -1,7 +1,7 @@
 import type { EventSegment } from '~/types/event-segment'
 
 /**
- * Agrupa segmentos que compartilham local via `same_venue_as` (CLAUDE.md,
+ * Agrupa segmentos que compartilham local via `mesmo_local_que` (CLAUDE.md,
  * §12.2) — quando um segmento aponta para outro presente na lista, vira um
  * "momento" dentro do grupo do segmento referenciado (primeiro item do
  * grupo) em vez de gerar seu próprio card duplicando endereço/mapa.
@@ -12,10 +12,10 @@ export function groupEventSegmentsByVenue(segments: EventSegment[]): EventSegmen
   const standalone: EventSegment[] = []
 
   for (const segment of segments) {
-    if (segment.same_venue_as && idSet.has(segment.same_venue_as)) {
-      const list = dependentsByTarget.get(segment.same_venue_as) ?? []
+    if (segment.mesmo_local_que && idSet.has(segment.mesmo_local_que)) {
+      const list = dependentsByTarget.get(segment.mesmo_local_que) ?? []
       list.push(segment)
-      dependentsByTarget.set(segment.same_venue_as, list)
+      dependentsByTarget.set(segment.mesmo_local_que, list)
     } else {
       standalone.push(segment)
     }

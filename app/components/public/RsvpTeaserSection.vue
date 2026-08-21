@@ -15,7 +15,7 @@ const { wedding } = defineProps<Props>()
 const rsvpLink = computed(() => `/${wedding.slug}/rsvp`)
 
 const formattedDate = computed(() =>
-  new Date(`${wedding.event_date}T00:00:00`).toLocaleDateString('pt-BR', {
+  new Date(`${wedding.data_evento}T00:00:00`).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -32,7 +32,7 @@ const formattedDate = computed(() =>
         <Icon name="lucide:party-popper" class="h-7 w-7" />
       </span>
       <div>
-        <p class="font-display text-2xl font-semibold text-heading">{{ wedding.couple_names }}</p>
+        <p class="font-display text-2xl font-semibold text-heading">{{ wedding.nomes_noivos }}</p>
         <p class="text-sm text-text-muted">{{ formattedDate }}</p>
       </div>
       <p class="leading-relaxed text-body">
