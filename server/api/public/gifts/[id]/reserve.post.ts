@@ -2,11 +2,12 @@ import { giftReserveSchema } from '#shared/schemas/gift-mutations'
 
 /**
  * Reserva atômica de um presente simples (CLAUDE.md, seção 18.3) — delega ao
- * RPC reserve_gift (SELECT...FOR UPDATE + decremento + insert na mesma
+ * RPC reservar_presente (SELECT...FOR UPDATE + decremento + insert na mesma
  * transação), nunca um check-then-insert feito aqui.
  *
  * Sem token de convite (CLAUDE.md, seção 18.2/4.5) — identificação é só
- * giverName/giverPhone, coletados no modal antes desta chamada.
+ * nomePresenteador/telefonePresenteador, coletados no modal antes desta
+ * chamada.
  */
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -19,36 +20,36 @@ export default defineEventHandler(async (event) => {
 
   // O modo de entrega (CLAUDE.md, seção 18.2) é decidido pelo casal e só era
   // respeitado pela UI (GiftCard.vue esconde o botão) — reforçado aqui pra
-  // uma chamada direta a este endpoint não conseguir contornar 'payment_only'
-  // (achado de segurança, varredura de 2026-08-19).
+  // uma chamada direta a este endpoint não conseguir contornar
+  // 'somente_pagamento' (achado de segurança, varredura de 2026-08-19).
   const { data: gift, error: giftError } = await client
-    .from('gifts')
-    .select('wedding_id')
+    .from('presentes')
+    .select('casamento_id')
     .eq('id', id)
-    .is('deleted_at', null)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (giftError) throw badRequestError(giftError.message)
   if (!gift) throw notFoundError('Presente não encontrado.')
 
   const { data: wedding, error: weddingError } = await client
-    .from('weddings')
-    .select('physical_gift_delivery_mode')
-    .eq('id', gift.wedding_id)
+    .from('casamentos')
+    .select('modo_entrega_presente_fisico')
+    .eq('id', gift.casamento_id)
     .single()
 
   if (weddingError) throw badRequestError(weddingError.message)
-  if (wedding.physical_gift_delivery_mode === 'payment_only') {
+  if (wedding.modo_entrega_presente_fisico === 'somente_pagamento') {
     throw badRequestError('Este presente só pode ser presenteado via pagamento online.')
   }
 
-  const { data, error } = await client.rpc('reserve_gift', {
-    p_gift_id: id,
-    p_guest_id: null,
-    p_group_id: null,
-    p_contributor_name: input.giverName,
-    p_message: input.message || null,
-    p_giver_phone: input.giverPhone || null,
+  const { data, error } = await client.rpc('reservar_presente', {
+    p_presente_id: id,
+    p_convidado_id: null,
+    p_convite_id: null,
+    p_nome_contribuinte: input.nomePresenteador,
+    p_mensagem: input.message || null,
+    p_telefone_presenteador: input.telefonePresenteador || null,
   })
 
   if (error) {

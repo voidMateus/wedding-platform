@@ -2,8 +2,8 @@ import { giftPaymentStatusQuerySchema } from '#shared/schemas/gift-payments'
 
 /**
  * Status de uma tentativa de pagamento, pra tela de retorno do convidado
- * (CLAUDE.md, seção 18/28) — funciona como "pull": se ainda pending, aciona
- * confirmGiftPayment() como fallback pro caso do webhook nunca chegar.
+ * (CLAUDE.md, seção 18/28) — funciona como "pull": se ainda pendente,
+ * aciona confirmGiftPayment() como fallback pro caso do webhook nunca chegar.
  *
  * Sem token de convite — o próprio `paymentId` (UUID gerado por nós no
  * checkout, nunca listado publicamente) já funciona como credencial de
@@ -20,8 +20,8 @@ export default defineEventHandler(async (event) => {
   const client = supabaseAdmin(event)
 
   const { data: payment, error: paymentError } = await client
-    .from('gift_payments')
-    .select('id, gift_id, status, amount_cents, quota_count, confirmed_at')
+    .from('pagamentos_presentes')
+    .select('id, presente_id, status_pagamento, valor_centavos, quantidade_cotas, confirmado_em')
     .eq('id', paymentId)
     .maybeSingle()
 
@@ -33,20 +33,20 @@ export default defineEventHandler(async (event) => {
   }
 
   const resolved =
-    payment.status === 'pending'
+    payment.status_pagamento === 'pendente'
       ? await confirmGiftPayment(client, paymentId, {
-          transactionNsu: query.transactionNsu,
+          transactionNsu: query.nsuTransacao,
           invoiceSlug: query.slug,
         })
       : payment
 
-  const { data: gift } = await client.from('gifts').select('title').eq('id', payment.gift_id).maybeSingle()
+  const { data: gift } = await client.from('presentes').select('titulo').eq('id', payment.presente_id).maybeSingle()
 
   return {
-    status: resolved?.status ?? payment.status,
-    giftTitle: gift?.title ?? null,
-    amountCents: payment.amount_cents,
-    quotaCount: payment.quota_count,
-    confirmedAt: resolved?.confirmed_at ?? null,
+    status: resolved?.status_pagamento ?? payment.status_pagamento,
+    giftTitle: gift?.titulo ?? null,
+    amountCents: payment.valor_centavos,
+    quotaCount: payment.quantidade_cotas,
+    confirmedAt: resolved?.confirmado_em ?? null,
   }
 })

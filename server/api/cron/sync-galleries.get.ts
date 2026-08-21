@@ -10,12 +10,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const admin = supabaseAdmin(event)
-  // Pula 'reauth_required' — depende de o casal reconectar, não se resolve
-  // sozinho num sync automático.
+  // Pula 'reautenticacao_necessaria' — depende de o casal reconectar, não se
+  // resolve sozinho num sync automático.
   const { data: connections, error } = await admin
-    .from('gallery_source_connections')
+    .from('conexoes_galeria')
     .select('*')
-    .neq('status', 'reauth_required')
+    .neq('status_conexao', 'reautenticacao_necessaria')
 
   if (error) {
     throw badRequestError(error.message)

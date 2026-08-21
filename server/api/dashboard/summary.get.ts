@@ -1,11 +1,11 @@
 import { serverSupabaseClient } from '#supabase/server'
 import { computeIsChild } from '#shared/utils/guest-age'
 
-type ResponseStatus = 'pending' | 'confirmed' | 'declined' | 'waitlisted' | 'removed'
+type ResponseStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 
 function computeInviteStatus(statuses: ResponseStatus[]): 'pending' | 'partial' | 'responded' {
   if (statuses.length === 0) return 'pending'
-  const responded = statuses.filter((s) => s !== 'pending').length
+  const responded = statuses.filter((s) => s !== 'pendente').length
   if (responded === 0) return 'pending'
   if (responded === statuses.length) return 'responded'
   return 'partial'
@@ -21,23 +21,23 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const [weddingResult, invitesResult, guestsResult, responsesResult, firstAccessResult] = await Promise.all([
-    client.from('weddings').select('rsvp_deadline, child_max_age').eq('id', weddingId).single(),
+    client.from('casamentos').select('prazo_rsvp, idade_maxima_crianca').eq('id', weddingId).single(),
     client
-      .from('invites')
-      .select('id, status, sent_at, archived_at')
-      .eq('wedding_id', weddingId)
-      .is('deleted_at', null),
+      .from('convites')
+      .select('id, status_convite, enviado_em, arquivado_em')
+      .eq('casamento_id', weddingId)
+      .is('excluido_em', null),
     client
-      .from('guests')
-      .select('id, invite_id, birth_date, wedding_role')
-      .eq('wedding_id', weddingId)
-      .is('deleted_at', null),
-    client.from('rsvp_responses').select('guest_id, invite_id, status, responded_at').eq('wedding_id', weddingId),
+      .from('convidados')
+      .select('id, convite_id, data_nascimento, papel_casamento')
+      .eq('casamento_id', weddingId)
+      .is('excluido_em', null),
+    client.from('respostas_rsvp').select('convidado_id, convite_id, status_rsvp, respondido_em').eq('casamento_id', weddingId),
     client
-      .from('invite_events')
-      .select('invite_id')
-      .eq('wedding_id', weddingId)
-      .eq('event_type', 'rsvp.first_access'),
+      .from('historico_convite')
+      .select('convite_id')
+      .eq('casamento_id', weddingId)
+      .eq('tipo_evento', 'rsvp.first_access'),
   ])
 
   if (weddingResult.error) throw badRequestError(weddingResult.error.message)
@@ -54,10 +54,10 @@ export default defineEventHandler(async (event) => {
   const statusesByInvite = new Map<string, ResponseStatus[]>()
   const statusByGuest = new Map<string, ResponseStatus>()
   for (const response of responses) {
-    statusByGuest.set(response.guest_id, response.status as ResponseStatus)
-    const list = statusesByInvite.get(response.invite_id) ?? []
-    list.push(response.status as ResponseStatus)
-    statusesByInvite.set(response.invite_id, list)
+    statusByGuest.set(response.convidado_id, response.status_rsvp as ResponseStatus)
+    const list = statusesByInvite.get(response.convite_id) ?? []
+    list.push(response.status_rsvp as ResponseStatus)
+    statusesByInvite.set(response.convite_id, list)
   }
 
   // --- Convites ---
@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
   let invitesPending = 0
   let invitesArchived = 0
   for (const invite of invites) {
-    if (invite.archived_at) invitesArchived += 1
+    if (invite.arquivado_em) invitesArchived += 1
     const inviteStatus = computeInviteStatus(statusesByInvite.get(invite.id) ?? [])
     if (inviteStatus === 'responded') invitesResponded += 1
     else if (inviteStatus === 'partial') invitesPartial += 1
@@ -82,35 +82,35 @@ export default defineEventHandler(async (event) => {
   let padrinhos = 0
   let madrinhas = 0
   for (const guest of guests) {
-    const status = statusByGuest.get(guest.id) ?? 'pending'
-    if (status === 'confirmed') confirmed += 1
-    else if (status === 'declined') declined += 1
-    else if (status === 'waitlisted') waitlisted += 1
+    const status = statusByGuest.get(guest.id) ?? 'pendente'
+    if (status === 'confirmado') confirmed += 1
+    else if (status === 'recusado') declined += 1
+    else if (status === 'lista_espera') waitlisted += 1
     else pending += 1
 
-    if (computeIsChild(guest.birth_date, wedding.child_max_age)) children += 1
-    if (guest.wedding_role === 'padrinho') padrinhos += 1
-    if (guest.wedding_role === 'madrinha') madrinhas += 1
+    if (computeIsChild(guest.data_nascimento, wedding.idade_maxima_crianca)) children += 1
+    if (guest.papel_casamento === 'padrinho') padrinhos += 1
+    if (guest.papel_casamento === 'madrinha') madrinhas += 1
   }
 
   // --- RSVP (comportamento ao longo do tempo) ---
-  const respondedRows = responses.filter((r) => r.status !== 'pending' && r.responded_at)
-  const respondedTimestamps = respondedRows.map((r) => new Date(r.responded_at as string).getTime())
+  const respondedRows = responses.filter((r) => r.status_rsvp !== 'pendente' && r.respondido_em)
+  const respondedTimestamps = respondedRows.map((r) => new Date(r.respondido_em as string).getTime())
   const now = Date.now()
   const oneDayMs = 24 * 60 * 60 * 1000
 
   const sentAtByInvite = new Map(
-    invites.filter((i) => i.sent_at).map((i) => [i.id, new Date(i.sent_at as string).getTime()]),
+    invites.filter((i) => i.enviado_em).map((i) => [i.id, new Date(i.enviado_em as string).getTime()]),
   )
   const responseDurationsHours = respondedRows
     .map((r) => {
-      const sentAt = sentAtByInvite.get(r.invite_id)
-      if (!sentAt || !r.responded_at) return null
-      return (new Date(r.responded_at).getTime() - sentAt) / (1000 * 60 * 60)
+      const sentAt = sentAtByInvite.get(r.convite_id)
+      if (!sentAt || !r.respondido_em) return null
+      return (new Date(r.respondido_em).getTime() - sentAt) / (1000 * 60 * 60)
     })
     .filter((v): v is number => v !== null && v >= 0)
 
-  const firstAccessInviteIds = new Set((firstAccessResult.data ?? []).map((e) => e.invite_id))
+  const firstAccessInviteIds = new Set((firstAccessResult.data ?? []).map((e) => e.convite_id))
   const viewedNotResponded = invites.filter(
     (invite) =>
       firstAccessInviteIds.has(invite.id) &&
@@ -118,10 +118,10 @@ export default defineEventHandler(async (event) => {
   ).length
 
   return {
-    rsvpDeadline: wedding.rsvp_deadline,
+    rsvpDeadline: wedding.prazo_rsvp,
     invites: {
       total: invites.length,
-      sent: invites.filter((i) => i.status === 'sent').length,
+      sent: invites.filter((i) => i.status_convite === 'enviado').length,
       responded: invitesResponded,
       partial: invitesPartial,
       pending: invitesPending,
