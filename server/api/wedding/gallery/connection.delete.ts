@@ -6,8 +6,8 @@ import { serverSupabaseClient } from '#supabase/server'
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
 
-  const admin = supabaseAdmin(event)
-  const { data: connection } = await admin
+  const client = await serverSupabaseClient(event)
+  const { data: connection } = await client
     .from('conexoes_galeria')
     .select('id, modo, token_renovacao_cifrado')
     .eq('casamento_id', weddingId)
@@ -25,7 +25,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const client = await serverSupabaseClient(event)
   const { error } = await client
     .from('conexoes_galeria')
     .delete()
