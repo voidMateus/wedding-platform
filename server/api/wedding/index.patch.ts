@@ -8,16 +8,16 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data, error } = await client
-    .from('weddings')
+    .from('casamentos')
     .update({
-      couple_names: input.coupleNames,
-      event_date: input.eventDate,
-      event_time: input.eventTime || null,
-      rsvp_deadline: input.rsvpDeadline || null,
-      child_max_age: input.childMaxAge,
-      guest_list_mode: input.guestListMode,
-      infinitepay_handle: input.infinitepayHandle || null,
-      physical_gift_delivery_mode: input.physicalGiftDeliveryMode,
+      nomes_noivos: input.nomesNoivos,
+      data_evento: input.dataEvento,
+      horario_evento: input.horarioEvento || null,
+      prazo_rsvp: input.prazoRsvp || null,
+      idade_maxima_crianca: input.idadeMaximaCrianca,
+      modo_lista_convidados: input.modoListaConvidados,
+      handle_infinitepay: input.handleInfinitepay || null,
+      modo_entrega_presente_fisico: input.modoEntregaPresenteFisico,
     })
     .eq('id', weddingId)
     .select()

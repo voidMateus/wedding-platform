@@ -7,7 +7,7 @@ import { galleryGoogleConnectSchema } from '#shared/schemas/gallery'
 // O servidor troca o code por refresh/access token, cifra em repouso, grava a
 // conexão já com a pasta e dispara o primeiro sync.
 const SAFE_COLUMNS =
-  'id, provider, mode, folder_id, folder_name, status, last_synced_at, last_sync_error, last_sync_photo_count, created_at, updated_at'
+  'id, provedor, modo, id_pasta, nome_pasta, status_conexao, ultima_sincronizacao_em, ultimo_erro_sincronizacao, ultima_contagem_fotos, created_at, updated_at'
 
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -26,11 +26,11 @@ export default defineEventHandler(async (event) => {
   let refreshTokenEncrypted = exchange.refreshToken ? encryptToken(exchange.refreshToken) : null
   if (!refreshTokenEncrypted) {
     const { data: current } = await client
-      .from('gallery_source_connections')
-      .select('refresh_token_encrypted')
-      .eq('wedding_id', weddingId)
+      .from('conexoes_galeria')
+      .select('token_renovacao_cifrado')
+      .eq('casamento_id', weddingId)
       .maybeSingle()
-    refreshTokenEncrypted = current?.refresh_token_encrypted ?? null
+    refreshTokenEncrypted = current?.token_renovacao_cifrado ?? null
   }
   if (!refreshTokenEncrypted) {
     throw badRequestError(
@@ -43,22 +43,22 @@ export default defineEventHandler(async (event) => {
     (await fetchDriveFolderName({ folderId: input.folderId, accessToken: exchange.accessToken })) ??
     null
 
-  const { error: upsertError } = await client.from('gallery_source_connections').upsert(
+  const { error: upsertError } = await client.from('conexoes_galeria').upsert(
     {
-      wedding_id: weddingId,
-      provider: 'google_drive',
-      mode: 'oauth',
-      folder_id: input.folderId,
-      folder_name: folderName,
-      access_token_encrypted: encryptToken(exchange.accessToken),
-      refresh_token_encrypted: refreshTokenEncrypted,
-      token_expires_at: new Date(Date.now() + exchange.expiresInSeconds * 1000).toISOString(),
-      token_scope: exchange.scope ?? null,
-      status: 'active',
-      last_sync_error: null,
-      created_by: memberId,
+      casamento_id: weddingId,
+      provedor: 'google_drive',
+      modo: 'oauth',
+      id_pasta: input.folderId,
+      nome_pasta: folderName,
+      token_acesso_cifrado: encryptToken(exchange.accessToken),
+      token_renovacao_cifrado: refreshTokenEncrypted,
+      token_expira_em: new Date(Date.now() + exchange.expiresInSeconds * 1000).toISOString(),
+      escopo_token: exchange.scope ?? null,
+      status_conexao: 'ativo',
+      ultimo_erro_sincronizacao: null,
+      criado_por: memberId,
     },
-    { onConflict: 'wedding_id' },
+    { onConflict: 'casamento_id' },
   )
   if (upsertError) {
     throw badRequestError(upsertError.message)
@@ -73,9 +73,9 @@ export default defineEventHandler(async (event) => {
   })
 
   const { data: connection } = await client
-    .from('gallery_source_connections')
+    .from('conexoes_galeria')
     .select(SAFE_COLUMNS)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .maybeSingle()
 
   return { connection: connection ?? null, sync }

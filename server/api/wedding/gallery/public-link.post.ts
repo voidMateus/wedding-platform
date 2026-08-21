@@ -6,7 +6,7 @@ import { galleryPublicLinkSchema } from '#shared/schemas/gallery'
 // OAuth: a listagem usa a API key do projeto (cota compartilhada entre todos
 // os casamentos nesse modo — limitação documentada no CLAUDE.md).
 const SAFE_COLUMNS =
-  'id, provider, mode, folder_id, folder_name, status, last_synced_at, last_sync_error, last_sync_photo_count, created_at, updated_at'
+  'id, provedor, modo, id_pasta, nome_pasta, status_conexao, ultima_sincronizacao_em, ultimo_erro_sincronizacao, ultima_contagem_fotos, created_at, updated_at'
 
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -35,22 +35,22 @@ export default defineEventHandler(async (event) => {
   const folderName = await fetchDriveFolderName({ folderId, apiKey })
 
   const client = await serverSupabaseClient(event)
-  const { error: upsertError } = await client.from('gallery_source_connections').upsert(
+  const { error: upsertError } = await client.from('conexoes_galeria').upsert(
     {
-      wedding_id: weddingId,
-      provider: 'google_drive',
-      mode: 'public_link',
-      folder_id: folderId,
-      folder_name: folderName,
-      access_token_encrypted: null,
-      refresh_token_encrypted: null,
-      token_expires_at: null,
-      token_scope: null,
-      status: 'active',
-      last_sync_error: null,
-      created_by: memberId,
+      casamento_id: weddingId,
+      provedor: 'google_drive',
+      modo: 'public_link',
+      id_pasta: folderId,
+      nome_pasta: folderName,
+      token_acesso_cifrado: null,
+      token_renovacao_cifrado: null,
+      token_expira_em: null,
+      escopo_token: null,
+      status_conexao: 'ativo',
+      ultimo_erro_sincronizacao: null,
+      criado_por: memberId,
     },
-    { onConflict: 'wedding_id' },
+    { onConflict: 'casamento_id' },
   )
   if (upsertError) {
     throw badRequestError(upsertError.message)
@@ -65,9 +65,9 @@ export default defineEventHandler(async (event) => {
   })
 
   const { data: connection } = await client
-    .from('gallery_source_connections')
+    .from('conexoes_galeria')
     .select(SAFE_COLUMNS)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .maybeSingle()
 
   return { connection: connection ?? null, sync }
