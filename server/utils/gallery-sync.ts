@@ -1,5 +1,6 @@
 import type { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database } from '~/types/database.types'
+import type { GallerySyncResult } from '~/types/gallery'
 
 /**
  * Motor de espelhamento da galeria (Fase Galeria via Google Drive — CLAUDE.md).
@@ -15,13 +16,6 @@ import type { Database } from '~/types/database.types'
 
 type AdminClient = Awaited<ReturnType<typeof serverSupabaseServiceRole<Database>>>
 type GalleryConnection = Database['public']['Tables']['gallery_source_connections']['Row']
-
-export interface GallerySyncResult {
-  ok: boolean
-  photoCount?: number
-  reason?: string
-  reauthRequired?: boolean
-}
 
 // Renova o access token com folga: um token perto de expirar seria inútil no
 // meio da listagem paginada.
