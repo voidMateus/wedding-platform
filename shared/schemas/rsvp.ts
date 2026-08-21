@@ -5,8 +5,10 @@ import { z } from 'zod'
 // código como caminho principal (CLAUDE.md, seção 12.1) — o link/QR direto
 // (/rsvp/[code]) continua existindo como atalho.
 
+export const RSVP_SEARCH_MIN_CHARS = 3
+
 export const rsvpSearchQuerySchema = z.object({
-  q: z.string().trim().min(3, 'Digite ao menos 3 letras.').max(100),
+  q: z.string().trim().min(RSVP_SEARCH_MIN_CHARS, 'Digite ao menos 3 letras.').max(100),
 })
 
 export const rsvpSelectSchema = z.object({

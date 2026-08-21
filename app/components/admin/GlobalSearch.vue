@@ -1,31 +1,27 @@
 <script setup lang="ts">
-interface SearchResult {
-  type: 'guest' | 'invite' | 'group'
-  id: string
-  label: string
-  sublabel: string | null
-  href: string
-}
+import { useDebounceFn } from '@vueuse/core'
+import type { AdminSearchResult } from '~/composables/useAdminSearch'
+
+const SEARCH_MIN_CHARS = 2
+
+const { search } = useAdminSearch()
 
 const query = ref('')
-const results = ref<SearchResult[]>([])
+const results = ref<AdminSearchResult[]>([])
 const isOpen = ref(false)
 
-let searchTimeout: ReturnType<typeof setTimeout> | undefined
+const debouncedSearch = useDebounceFn(async (value: string) => {
+  results.value = await search(value)
+  isOpen.value = true
+}, 250)
+
 watch(query, (value) => {
-  clearTimeout(searchTimeout)
-  if (value.trim().length < 2) {
+  if (value.trim().length < SEARCH_MIN_CHARS) {
     results.value = []
     isOpen.value = false
     return
   }
-  searchTimeout = setTimeout(async () => {
-    const response = await $fetch<{ data: SearchResult[] }>('/api/admin/search', {
-      query: { q: value.trim() },
-    })
-    results.value = response.data
-    isOpen.value = true
-  }, 250)
+  debouncedSearch(value.trim())
 })
 
 function handleSelect() {

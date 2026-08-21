@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useDebounceFn } from '@vueuse/core'
+import { RSVP_SEARCH_MIN_CHARS } from '#shared/schemas/rsvp'
 import type { RsvpInvitePayload, RsvpSearchResult } from '~/types/rsvp'
 
 definePageMeta({ layout: 'default' })
@@ -39,25 +41,25 @@ const results = ref<RsvpSearchResult[]>([])
 const isSearching = ref(false)
 const searchError = ref<string | null>(null)
 
-let searchTimeout: ReturnType<typeof setTimeout> | undefined
+const debouncedSearch = useDebounceFn(async (value: string) => {
+  isSearching.value = true
+  try {
+    const response = await searchGuests(value)
+    results.value = response.data
+  } catch {
+    searchError.value = 'Não foi possível buscar agora. Tente novamente.'
+  } finally {
+    isSearching.value = false
+  }
+}, 300)
+
 watch(query, (value) => {
-  clearTimeout(searchTimeout)
   searchError.value = null
-  if (value.trim().length < 3) {
+  if (value.trim().length < RSVP_SEARCH_MIN_CHARS) {
     results.value = []
     return
   }
-  searchTimeout = setTimeout(async () => {
-    isSearching.value = true
-    try {
-      const response = await searchGuests(value.trim())
-      results.value = response.data
-    } catch {
-      searchError.value = 'Não foi possível buscar agora. Tente novamente.'
-    } finally {
-      isSearching.value = false
-    }
-  }, 300)
+  debouncedSearch(value.trim())
 })
 
 // --- passo 2: confirmação leve ---
@@ -158,7 +160,10 @@ async function handleConfirmIdentity() {
               </button>
             </li>
           </ul>
-          <p v-else-if="query.trim().length >= 3 && !isSearching" class="text-center text-sm text-text-muted">
+          <p
+            v-else-if="query.trim().length >= RSVP_SEARCH_MIN_CHARS && !isSearching"
+            class="text-center text-sm text-text-muted"
+          >
             Nenhum convidado encontrado com esse nome.
           </p>
         </div>

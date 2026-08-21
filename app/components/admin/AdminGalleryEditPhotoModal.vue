@@ -83,7 +83,7 @@ const onSubmit = handleSubmit(async (values) => {
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <form class="flex flex-col gap-4" @submit="onSubmit">
-      <AdminImageFocalPointPicker
+      <UiImageFocalPointPicker
         v-if="photo"
         v-model="focalPoint"
         :src="photo.url"

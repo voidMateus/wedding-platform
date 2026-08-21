@@ -16,44 +16,19 @@ const emit = defineEmits<{
 
 const { uploadEventSegmentImage, removeEventSegmentImage } = useEventSegmentImageUpload()
 
-const fileInput = ref<HTMLInputElement | null>(null)
-const isUploading = ref(false)
-const isRemoving = ref(false)
-const errorMessage = ref<string | null>(null)
+const { fileInput, isUploading, isRemoving, errorMessage, openFilePicker, handleFileChange, handleRemove } =
+  useImageUploader({
+    upload: (file) => uploadEventSegmentImage(segmentId, file),
+    remove: () => removeEventSegmentImage(segmentId),
+  })
 
-function openFilePicker() {
-  fileInput.value?.click()
+async function onFileChange(event: Event) {
+  const url = await handleFileChange(event)
+  if (url !== undefined) emit('update:modelValue', url)
 }
 
-async function handleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  errorMessage.value = null
-  isUploading.value = true
-  try {
-    const { url } = await uploadEventSegmentImage(segmentId, file)
-    emit('update:modelValue', url)
-  } catch {
-    errorMessage.value = 'Não foi possível enviar a foto. Verifique o formato (JPEG/PNG/WebP) e o tamanho (máx. 5MB).'
-  } finally {
-    isUploading.value = false
-    input.value = ''
-  }
-}
-
-async function handleRemove() {
-  errorMessage.value = null
-  isRemoving.value = true
-  try {
-    await removeEventSegmentImage(segmentId)
-    emit('update:modelValue', null)
-  } catch {
-    errorMessage.value = 'Não foi possível remover a foto.'
-  } finally {
-    isRemoving.value = false
-  }
+async function onRemove() {
+  if (await handleRemove()) emit('update:modelValue', null)
 }
 </script>
 
@@ -66,7 +41,7 @@ async function handleRemove() {
       type="file"
       accept="image/jpeg,image/png,image/webp"
       class="hidden"
-      @change="handleFileChange"
+      @change="onFileChange"
     />
 
     <div v-if="!modelValue">
@@ -81,7 +56,7 @@ async function handleRemove() {
         <UiButton type="button" size="sm" variant="ghost" :disabled="isUploading" @click="openFilePicker">
           {{ isUploading ? 'Enviando...' : 'Trocar foto' }}
         </UiButton>
-        <UiButton type="button" size="sm" variant="destructive" :disabled="isRemoving" @click="handleRemove">
+        <UiButton type="button" size="sm" variant="destructive" :disabled="isRemoving" @click="onRemove">
           Remover
         </UiButton>
       </div>

@@ -9,6 +9,7 @@ import {
   DEFAULT_HERO_FEATURED_BUTTON,
   HERO_BUTTON_CATALOG,
 } from '#shared/hero-buttons'
+import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -21,15 +22,6 @@ const emit = defineEmits<{
   /** Tema salvo, ou foto/foco de capa/história atualizados — o pai recarrega o `wedding` compartilhado. */
   refresh: []
 }>()
-
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
 
 const toast = useToast()
 const { updateWeddingTheme } = useWedding()
@@ -165,11 +157,7 @@ const onSubmit = handleSubmit(async (values) => {
     emit('refresh')
     toast.success('Aparência salva.')
   } catch (err) {
-    toast.error(
-      isApiError(err)
-        ? (err.data?.message ?? 'Não foi possível salvar a aparência.')
-        : 'Não foi possível salvar a aparência.',
-    )
+    toast.error(getApiErrorMessage(err, 'Não foi possível salvar a aparência.'))
   }
 })
 </script>

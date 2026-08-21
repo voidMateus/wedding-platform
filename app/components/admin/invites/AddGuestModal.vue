@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getApiErrorMessage } from '~/utils/api-error'
+
 interface Props {
   modelValue: boolean
   inviteId: string
@@ -12,7 +14,7 @@ const emit = defineEmits<{
 }>()
 
 const { addGuestsToInvite } = useInvites()
-const { listGuests } = useGuests()
+const { listGuests, fetchGuestDetail } = useGuests()
 const toast = useToast()
 
 const guestSearch = ref('')
@@ -30,9 +32,7 @@ const checkedSiblingIds = ref<Set<string>>(new Set())
 
 async function selectCandidate(id: string) {
   selectedCandidateId.value = id
-  const detail = await $fetch<{ partyMembers: Array<{ id: string; full_name: string }> }>(
-    `/api/guests/${id}`,
-  )
+  const detail = await fetchGuestDetail(id)
   suggestedSiblings.value = detail.partyMembers ?? []
   checkedSiblingIds.value = new Set(suggestedSiblings.value.map((s) => s.id))
 }
@@ -47,8 +47,7 @@ async function confirm() {
     emit('update:modelValue', false)
     emit('added')
   } catch (err) {
-    const apiError = err as { data?: { message?: string } }
-    toast.error(apiError.data?.message ?? 'Não foi possível adicionar o convidado.')
+    toast.error(getApiErrorMessage(err, 'Não foi possível adicionar o convidado.'))
   }
 }
 </script>

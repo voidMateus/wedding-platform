@@ -5,6 +5,8 @@ const querySchema = z.object({
   q: z.string().trim().min(2).max(100),
 })
 
+const SEARCH_RESULTS_PER_TYPE_LIMIT = 8
+
 interface SearchResult {
   type: 'guest' | 'invite' | 'group'
   id: string
@@ -25,9 +27,25 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const [guestsResult, invitesResult, groupsResult] = await Promise.all([
-    client.rpc('search_guests_by_name', { p_wedding_id: weddingId, p_query: q, p_limit: 8 }),
-    client.from('invites').select('id, name').eq('wedding_id', weddingId).is('deleted_at', null).ilike('name', `%${q}%`).limit(8),
-    client.from('groups').select('id, name').eq('wedding_id', weddingId).is('deleted_at', null).ilike('name', `%${q}%`).limit(8),
+    client.rpc('search_guests_by_name', {
+      p_wedding_id: weddingId,
+      p_query: q,
+      p_limit: SEARCH_RESULTS_PER_TYPE_LIMIT,
+    }),
+    client
+      .from('invites')
+      .select('id, name')
+      .eq('wedding_id', weddingId)
+      .is('deleted_at', null)
+      .ilike('name', `%${q}%`)
+      .limit(SEARCH_RESULTS_PER_TYPE_LIMIT),
+    client
+      .from('groups')
+      .select('id, name')
+      .eq('wedding_id', weddingId)
+      .is('deleted_at', null)
+      .ilike('name', `%${q}%`)
+      .limit(SEARCH_RESULTS_PER_TYPE_LIMIT),
   ])
 
   if (guestsResult.error) throw badRequestError(guestsResult.error.message)

@@ -3,18 +3,10 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { groupInputSchema } from '#shared/schemas/groups'
 import { WCAG_AA_MIN_CONTRAST, checkColorContrast, isValidHexColor } from '#shared/utils/contrast'
+import { getApiErrorMessage } from '~/utils/api-error'
 import type { Group } from '~/types/group'
 
 definePageMeta({ layout: 'admin' })
-
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
 
 const { listGroups, createGroup, updateGroup, deleteGroup } = useGroups()
 const { data, status, error, refresh } = listGroups({ pageSize: 100 })
@@ -63,9 +55,7 @@ const onSubmit = handleSubmit(async (values) => {
     isFormModalOpen.value = false
     await refresh()
   } catch (err) {
-    formErrorMessage.value = isApiError(err)
-      ? (err.data?.message ?? 'Não foi possível salvar o grupo.')
-      : 'Não foi possível salvar o grupo.'
+    formErrorMessage.value = getApiErrorMessage(err, 'Não foi possível salvar o grupo.')
   }
 })
 

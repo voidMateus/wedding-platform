@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import ImageFocalPointPicker from '~/components/admin/ImageFocalPointPicker.vue'
+import ImageFocalPointPicker from '~/components/ui/ImageFocalPointPicker.vue'
 
 function mountPicker(modelValue = { x: 50, y: 50 }) {
   return mount(ImageFocalPointPicker, {
