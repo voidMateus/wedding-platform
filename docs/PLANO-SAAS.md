@@ -18,8 +18,21 @@
 
 ## Status geral
 
-- **Fase atual**: nenhum passo iniciado ainda.
+- **Fase atual**: Passo 1 (rename para português) — camada de banco escrita e commitada na branch `refactor/banco-pt-br`, **bloqueada antes de validação**: sem Docker local disponível neste ambiente e `supabase db push --linked` negado pelo classificador de permissões do Claude Code. Ver "Bloqueio ativo" abaixo.
 - **Última atualização**: 2026-08-21.
+
+### Bloqueio ativo
+
+Não há como validar as 5 migrations SQL já escritas (tabelas/colunas, valores de enum, funções/triggers, RLS policies, estrutura de conta/slug/ciclo de vida) contra um Postgres real neste momento:
+- Docker não está instalado neste ambiente (pré-requisito do fluxo local documentado em `docs/ARCHITECTURE.md` §4.7).
+- `npx supabase db push --linked --yes` (projeto `dev`, não `prod`) foi bloqueado pelo classificador de permissões do Claude Code.
+
+**Para desbloquear, uma destas opções:**
+1. Adicionar uma permission rule liberando `supabase db push` (ou Bash em geral para esse comando) nas configurações do Claude Code, para eu aplicar e validar as migrations contra o projeto `dev`.
+2. Instalar Docker Desktop, para eu rodar `supabase start`/`db reset` localmente (caminho preferido — mais próximo do fluxo documentado, não toca o projeto `dev` remoto).
+3. Rodar `npx supabase db push --linked` você mesmo e me avisar o resultado (erro ou sucesso) para eu corrigir se necessário.
+
+Até uma dessas opções acontecer, não vou continuar para a camada de aplicação (server/api, tipos, schemas Zod, testes) do Passo 1 — ela depende dos tipos gerados a partir do schema já validado, e eu já vi neste mesmo projeto (migration 20260803120017) um caso real de bug que só apareceu em runtime, não em revisão estática de SQL.
 
 ## Decisões já validadas com o usuário
 
@@ -32,17 +45,20 @@
 
 Corte coordenado único (banco + API + tipos + schemas + testes + docs), validado inteiramente em `dev` antes de promover. Absorve as correções P0 da auditoria no mesmo movimento.
 
-- [ ] Migration: renomear as 27 tabelas (mapeamento completo na seção 5 do artifact)
-- [ ] Migration: renomear colunas centrais (`wedding_id`→`casamento_id` em toda tabela filha, etc.)
-- [ ] Migration: corrigir `group_id`→`convite_id` em `gift_reservations`/`gift_contributions` (renomeadas para `reservas_presentes`/`contribuicoes_presentes`) — achado da auditoria, absorvido aqui
-- [ ] Migration: recriar trigger de consistência `casamento_id`/`convite_id` ausente em `companions` (→ `acompanhantes_avulsos`)
-- [ ] Migration: recriar trigger de consistência ausente em `photos.source_connection_id` (→ `fotos.conexao_id`)
-- [ ] Migration: traduzir valores de `CHECK`/status (`role`→`papel` com `'owner'/'collaborator'`→`'dono'/'colaborador'`, `status` de RSVP, etc.)
-- [ ] Migration: renomear RLS policies (mantendo `select`/`insert`/`update`/`delete` como estão — são operação SQL, não vocabulário de negócio)
-- [ ] Migration: renomear funções Postgres (`is_wedding_member`→`is_membro_casamento`, `is_wedding_owner`→`is_dono_casamento`, `reserve_gift`, `confirm_gift_payment`, `upsert_guest_rsvp`, `finalize_invite_rsvp`, `sync_guest_party`, `guest_is_child`, `guest_name_matches`, `search_guests_by_name`)
-- [ ] Migration: adicionar `is_slug_reservado(text)` + `CHECK` em `casamentos.slug`
+- [x] Migration: renomear as 27 tabelas (`20260821090001`)
+- [x] Migration: renomear colunas centrais (`wedding_id`→`casamento_id` em toda tabela filha, etc.) (`20260821090001`)
+- [x] Migration: corrigir `group_id`→`convite_id` em `gift_reservations`/`gift_contributions` (renomeadas para `reservas_presentes`/`contribuicoes_presentes`) (`20260821090001`)
+- [x] Migration: recriar trigger de consistência `casamento_id`/`convite_id` ausente em `companions` (→ `acompanhantes_avulsos`) (`20260821090003`)
+- [x] Migration: recriar trigger de consistência ausente em `photos.source_connection_id` (→ `fotos.conexao_id`) (`20260821090003`)
+- [x] Migration: traduzir valores de `CHECK`/status (`20260821090002`)
+- [x] Migration: renomear RLS policies (`20260821090004`)
+- [x] Migration: renomear/recriar funções Postgres (`20260821090003`) — inclui limpeza dos 2 overloads obsoletos de `reserve_gift`
+- [x] Migration: adicionar `is_slug_reservado(text)` + `CHECK` em `casamentos.slug` (`20260821090005`)
+- [x] Migration: escopo de conta em `assinaturas`/`funcionalidades_habilitadas` + `planos.max_casamentos` + ciclo de vida (`20260821090005`)
+- [ ] **Validar as 5 migrations acima contra Postgres real — bloqueado, ver "Bloqueio ativo"**
 - [ ] Trocar `service_role` por `serverSupabaseClient` em `wedding/gallery/connection.delete.ts` e `wedding/gallery/sync.post.ts`
-- [ ] Regenerar `database.types.ts` a partir do schema novo
+- [ ] Renomear policies de storage (`is_wedding_member`→`is_membro_casamento` já propaga por OID; só o nome do objeto fica pendente, baixa prioridade)
+- [ ] Regenerar `database.types.ts` a partir do schema novo (depende da validação acima)
 - [ ] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`, `gifts/`→`presentes/`)
 - [ ] Renomear composables (`useInvites`→`useConvites` etc.)
 - [ ] Renomear pastas de componente (`components/gifts/`→`components/presentes/`; `components/rsvp/` mantém — RSVP é termo universal)
