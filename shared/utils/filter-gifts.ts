@@ -5,8 +5,8 @@
 
 export interface FilterableGift {
   categoryName: string | null
-  precoCentavos: number | null
-  valorMetaCentavos: number | null
+  priceCents: number | null
+  targetAmountCents: number | null
 }
 
 export interface GiftFilterOptions {
@@ -14,15 +14,15 @@ export interface GiftFilterOptions {
   sortBy: string
 }
 
-// Presente de cota (e_presente_cota) não tem precoCentavos — o "preço"
+// Presente de cota (isGroupGift) não tem priceCents — o "preço"
 // efetivo para filtro/ordenação é o valor-alvo da cota (CLAUDE.md, seção 18.2).
 export function effectiveGiftPriceCents(gift: FilterableGift): number | null {
-  return gift.precoCentavos ?? gift.valorMetaCentavos ?? null
+  return gift.priceCents ?? gift.targetAmountCents ?? null
 }
 
 export interface SegmentableGift {
-  ePresenteCota: boolean
-  estiloExibicao: 'padrao' | 'emocional'
+  isGroupGift: boolean
+  displayStyle: 'padrao' | 'emocional'
 }
 
 export interface GiftSegments<T> {
@@ -33,16 +33,16 @@ export interface GiftSegments<T> {
 
 // Separa a vitrine em Lista de Presentes / Contribuições / Presentes
 // Emocionais ("Presentes 2.0", CLAUDE.md seção 18) — presente emocional não
-// é uma entidade nova, é um presente de cota com estiloExibicao='emocional'.
+// é uma entidade nova, é um presente de cota com displayStyle='emocional'.
 export function segmentGifts<T extends SegmentableGift>(gifts: T[]): GiftSegments<T> {
   const physical: T[] = []
   const contributions: T[] = []
   const emotional: T[] = []
 
   for (const gift of gifts) {
-    if (!gift.ePresenteCota) {
+    if (!gift.isGroupGift) {
       physical.push(gift)
-    } else if (gift.estiloExibicao === 'emocional') {
+    } else if (gift.displayStyle === 'emocional') {
       emotional.push(gift)
     } else {
       contributions.push(gift)

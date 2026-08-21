@@ -36,11 +36,11 @@ const statusTone: Record<string, 'neutral' | 'warning' | 'success'> = {
   responded: 'success',
 }
 const rsvpStatusLabel: Record<string, string> = {
-  pending: 'Pendente',
-  confirmed: 'Estará lá',
-  declined: 'Não poderá ir',
-  waitlisted: 'Em espera',
-  removed: 'Removido',
+  pendente: 'Pendente',
+  confirmado: 'Estará lá',
+  recusado: 'Não poderá ir',
+  lista_espera: 'Em espera',
+  removido: 'Removido',
 }
 
 // --- responsável ---
@@ -48,9 +48,9 @@ const rsvpStatusLabel: Record<string, string> = {
 async function makeResponsible(guestId: string) {
   if (!invite.value) return
   await updateInvite(invite.value.id, {
-    name: invite.value.name,
-    notes: invite.value.notes ?? '',
-    responsibleGuestId: guestId,
+    nome: invite.value.nome,
+    observacoes: invite.value.observacoes ?? '',
+    convidadoResponsavelId: guestId,
   })
   await refreshInvite()
   toast.success('Responsável atualizado.')
@@ -74,7 +74,7 @@ const notesDraft = ref('')
 watch(
   invite,
   (value) => {
-    if (value) notesDraft.value = value.notes ?? ''
+    if (value) notesDraft.value = value.observacoes ?? ''
   },
   { immediate: true },
 )
@@ -82,9 +82,9 @@ watch(
 async function saveNotes() {
   if (!invite.value) return
   await updateInvite(invite.value.id, {
-    name: invite.value.name,
-    notes: notesDraft.value,
-    responsibleGuestId: invite.value.responsible_guest_id ?? '',
+    nome: invite.value.nome,
+    observacoes: notesDraft.value,
+    convidadoResponsavelId: invite.value.convidado_responsavel_id ?? '',
     tagIds: invite.value.tags.map((t) => t.id),
   })
   await refreshInvite()
@@ -103,7 +103,7 @@ async function handleMarkSent() {
 
 async function handleToggleArchive() {
   if (!invite.value) return
-  await setInviteArchived(invite.value.id, !invite.value.archived_at)
+  await setInviteArchived(invite.value.id, !invite.value.arquivado_em)
   await refreshInvite()
   await refreshTimeline()
 }
@@ -126,14 +126,14 @@ const eventIcon: Record<string, string> = {
 </script>
 
 <template>
-  <AdminSection v-if="invite" :title="invite.name">
+  <AdminSection v-if="invite" :title="invite.nome">
     <template #actions>
       <UiButton variant="outline" @click="isAccessLinkModalOpen = true">Link de acesso</UiButton>
-      <UiButton v-if="invite.status !== 'sent'" variant="outline" @click="handleMarkSent">
+      <UiButton v-if="invite.status_convite !== 'enviado'" variant="outline" @click="handleMarkSent">
         Marcar como enviado
       </UiButton>
       <UiButton variant="ghost" @click="handleToggleArchive">
-        {{ invite.archived_at ? 'Desarquivar' : 'Arquivar' }}
+        {{ invite.arquivado_em ? 'Desarquivar' : 'Arquivar' }}
       </UiButton>
     </template>
 
@@ -141,8 +141,8 @@ const eventIcon: Record<string, string> = {
       <UiBadge :tone="statusTone[invite.responseStatus]">{{
         statusLabel[invite.responseStatus]
       }}</UiBadge>
-      <UiBadge v-if="invite.archived_at" tone="neutral">arquivado</UiBadge>
-      <UiBadge v-if="invite.status === 'sent'" tone="success">enviado</UiBadge>
+      <UiBadge v-if="invite.arquivado_em" tone="neutral">arquivado</UiBadge>
+      <UiBadge v-if="invite.status_convite === 'enviado'" tone="success">enviado</UiBadge>
     </div>
 
     <UiCard>
@@ -206,12 +206,12 @@ const eventIcon: Record<string, string> = {
       <ol class="flex flex-col gap-3">
         <li v-for="ev in timeline?.data ?? []" :key="ev.id" class="flex items-start gap-3 text-sm">
           <Icon
-            :name="eventIcon[ev.event_type] ?? 'lucide:circle'"
+            :name="eventIcon[ev.tipo_evento] ?? 'lucide:circle'"
             class="mt-0.5 h-4 w-4 text-text-muted"
           />
           <div>
-            <p class="text-text">{{ ev.event_type }}</p>
-            <p class="text-xs text-text-muted">{{ formatDateTimePtBR(ev.occurred_at) }}</p>
+            <p class="text-text">{{ ev.tipo_evento }}</p>
+            <p class="text-xs text-text-muted">{{ formatDateTimePtBR(ev.ocorrido_em) }}</p>
           </div>
         </li>
         <li v-if="!timeline?.data.length" class="text-sm text-text-muted">

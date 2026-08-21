@@ -35,18 +35,18 @@ const { createGift, updateGift } = useGifts()
 const errorMessage = ref<string | null>(null)
 
 const EMPTY_VALUES = {
-  title: '',
-  description: '',
-  priceCents: undefined,
-  imageUrl: '',
-  categoryId: '',
-  isGroupGift: false,
-  quantityAvailable: 1,
-  targetAmountCents: undefined,
-  quotaAmountCents: undefined,
-  displayStyle: 'standard' as const,
-  emotionalIcon: '',
-  isActive: true,
+  titulo: '',
+  descricao: '',
+  precoCentavos: undefined,
+  urlImagem: '',
+  categoriaId: '',
+  ePresenteCota: false,
+  quantidadeDisponivel: 1,
+  valorMetaCentavos: undefined,
+  valorCotaCentavos: undefined,
+  estiloExibicao: 'padrao' as const,
+  iconeEmocional: '',
+  estaAtivo: true,
 }
 
 const {
@@ -60,48 +60,48 @@ const {
   initialValues: EMPTY_VALUES,
 })
 
-const [title] = defineField('title')
-const [description] = defineField('description')
-const [priceCents] = defineField('priceCents')
-const [imageUrl] = defineField('imageUrl')
-const [categoryId] = defineField('categoryId')
-const [isGroupGift] = defineField('isGroupGift')
-const [quantityAvailable] = defineField('quantityAvailable')
-const [targetAmountCents] = defineField('targetAmountCents')
-const [quotaAmountCents] = defineField('quotaAmountCents')
-const [displayStyle] = defineField('displayStyle')
-const [emotionalIcon] = defineField('emotionalIcon')
-const [isActive] = defineField('isActive')
+const [titulo] = defineField('titulo')
+const [descricao] = defineField('descricao')
+const [precoCentavos] = defineField('precoCentavos')
+const [urlImagem] = defineField('urlImagem')
+const [categoriaId] = defineField('categoriaId')
+const [ePresenteCota] = defineField('ePresenteCota')
+const [quantidadeDisponivel] = defineField('quantidadeDisponivel')
+const [valorMetaCentavos] = defineField('valorMetaCentavos')
+const [valorCotaCentavos] = defineField('valorCotaCentavos')
+const [estiloExibicao] = defineField('estiloExibicao')
+const [iconeEmocional] = defineField('iconeEmocional')
+const [estaAtivo] = defineField('estaAtivo')
 
 const priceReaisText = computed({
-  get: () => centsToReaisText(priceCents.value),
+  get: () => centsToReaisText(precoCentavos.value),
   set: (value: string) => {
-    priceCents.value = reaisTextToCents(value)
+    precoCentavos.value = reaisTextToCents(value)
   },
 })
 const targetAmountReaisText = computed({
-  get: () => centsToReaisText(targetAmountCents.value),
+  get: () => centsToReaisText(valorMetaCentavos.value),
   set: (value: string) => {
-    targetAmountCents.value = reaisTextToCents(value)
+    valorMetaCentavos.value = reaisTextToCents(value)
   },
 })
 const quotaAmountReaisText = computed({
-  get: () => centsToReaisText(quotaAmountCents.value),
+  get: () => centsToReaisText(valorCotaCentavos.value),
   set: (value: string) => {
-    quotaAmountCents.value = reaisTextToCents(value)
+    valorCotaCentavos.value = reaisTextToCents(value)
   },
 })
 const quantityAvailableText = computed({
-  get: () => (quantityAvailable.value === undefined ? '' : String(quantityAvailable.value)),
+  get: () => (quantidadeDisponivel.value === undefined ? '' : String(quantidadeDisponivel.value)),
   set: (value: string) => {
-    quantityAvailable.value = value === '' ? undefined : Number(value)
+    quantidadeDisponivel.value = value === '' ? undefined : Number(value)
   },
 })
 
 const giftTypeValue = computed({
-  get: () => (isGroupGift.value ? 'group' : 'simple'),
+  get: () => (ePresenteCota.value ? 'group' : 'simple'),
   set: (value: string) => {
-    isGroupGift.value = value === 'group'
+    ePresenteCota.value = value === 'group'
   },
 })
 
@@ -111,14 +111,14 @@ const emotionalIconOptions = EMOTIONAL_GIFT_ICONS.map((icon) => ({ value: icon.v
 // enviar um valor "fantasma" de uma seção escondida (a Zod schema não proíbe
 // isso, ela é deliberadamente permissiva aqui e confia no mapeamento do
 // server pra nulificar; isto é só higiene de formulário).
-watch(isGroupGift, (isGroup) => {
+watch(ePresenteCota, (isGroup) => {
   if (isGroup) {
-    quantityAvailable.value = undefined
+    quantidadeDisponivel.value = undefined
   } else {
-    targetAmountCents.value = undefined
-    quotaAmountCents.value = undefined
-    displayStyle.value = 'standard'
-    emotionalIcon.value = ''
+    valorMetaCentavos.value = undefined
+    valorCotaCentavos.value = undefined
+    estiloExibicao.value = 'padrao'
+    iconeEmocional.value = ''
   }
 })
 
@@ -130,18 +130,18 @@ watch(
     resetForm({
       values: gift
         ? {
-            title: gift.title,
-            description: gift.description ?? '',
-            priceCents: gift.price_cents ?? undefined,
-            imageUrl: gift.image_url ?? '',
-            categoryId: gift.category_id ?? '',
-            isGroupGift: gift.is_group_gift,
-            quantityAvailable: gift.quantity_available ?? undefined,
-            targetAmountCents: gift.target_amount_cents ?? undefined,
-            quotaAmountCents: gift.quota_amount_cents ?? undefined,
-            displayStyle: (gift.display_style as 'standard' | 'emotional') ?? 'standard',
-            emotionalIcon: gift.emotional_icon ?? '',
-            isActive: gift.is_active,
+            titulo: gift.titulo,
+            descricao: gift.descricao ?? '',
+            precoCentavos: gift.preco_centavos ?? undefined,
+            urlImagem: gift.url_imagem ?? '',
+            categoriaId: gift.categoria_id ?? '',
+            ePresenteCota: gift.e_presente_cota,
+            quantidadeDisponivel: gift.quantidade_disponivel ?? undefined,
+            valorMetaCentavos: gift.valor_meta_centavos ?? undefined,
+            valorCotaCentavos: gift.valor_cota_centavos ?? undefined,
+            estiloExibicao: (gift.estilo_exibicao as 'padrao' | 'emocional') ?? 'padrao',
+            iconeEmocional: gift.icone_emocional ?? '',
+            estaAtivo: gift.esta_ativo,
           }
         : EMPTY_VALUES,
     })
@@ -172,15 +172,15 @@ const onSubmit = handleSubmit(async (values) => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <form class="flex flex-col gap-4" @submit="onSubmit">
-      <UiInput v-model="title" label="Título" :error="errors.title" />
-      <UiTextarea v-model="description" label="Descrição (opcional)" :error="errors.description" />
+      <UiInput v-model="titulo" label="Título" :error="errors.titulo" />
+      <UiTextarea v-model="descricao" label="Descrição (opcional)" :error="errors.descricao" />
       <UiSelect
-        v-model="categoryId"
+        v-model="categoriaId"
         label="Categoria (opcional)"
         placeholder="Sem categoria"
-        :options="categories.map((c) => ({ value: c.id, label: c.name }))"
+        :options="categories.map((c) => ({ value: c.id, label: c.nome }))"
       />
-      <UiInput v-model="imageUrl" label="URL da imagem (opcional)" :error="errors.imageUrl" />
+      <UiInput v-model="urlImagem" label="URL da imagem (opcional)" :error="errors.urlImagem" />
       <UiSelect
         v-model="giftTypeValue"
         label="Tipo"
@@ -191,55 +191,55 @@ const onSubmit = handleSubmit(async (values) => {
       />
 
       <UiInput
-        v-if="!isGroupGift"
+        v-if="!ePresenteCota"
         v-model="quantityAvailableText"
         type="number"
         label="Quantidade disponível"
-        :error="errors.quantityAvailable"
+        :error="errors.quantidadeDisponivel"
       />
       <UiInput
-        v-if="!isGroupGift"
+        v-if="!ePresenteCota"
         v-model="priceReaisText"
         label="Preço estimado, em R$ (opcional — necessário para permitir pagamento online)"
         placeholder="0,00"
-        :error="errors.priceCents"
+        :error="errors.precoCentavos"
       />
 
-      <template v-if="isGroupGift">
+      <template v-if="ePresenteCota">
         <UiInput
           v-model="targetAmountReaisText"
           label="Valor-alvo da cota, em R$"
           placeholder="0,00"
-          :error="errors.targetAmountCents"
+          :error="errors.valorMetaCentavos"
         />
         <UiInput
           v-model="quotaAmountReaisText"
           label="Valor de cada cota fixa, em R$ (opcional)"
           placeholder="0,00"
-          :error="errors.quotaAmountCents"
+          :error="errors.valorCotaCentavos"
         />
         <p class="-mt-2 text-xs text-text-muted">
           Preenchido, o convidado escolhe quantidade de cotas em vez de digitar um valor livre.
         </p>
         <UiSelect
-          v-model="displayStyle"
+          v-model="estiloExibicao"
           label="Estilo de exibição"
           :options="[
-            { value: 'standard', label: 'Padrão (foto do produto)' },
-            { value: 'emotional', label: 'Emocional (ícone + frase, sem foto)' },
+            { value: 'padrao', label: 'Padrão (foto do produto)' },
+            { value: 'emocional', label: 'Emocional (ícone + frase, sem foto)' },
           ]"
         />
         <UiSelect
-          v-if="displayStyle === 'emotional'"
-          v-model="emotionalIcon"
+          v-if="estiloExibicao === 'emocional'"
+          v-model="iconeEmocional"
           label="Ícone"
           placeholder="Escolha um ícone"
           :options="emotionalIconOptions"
-          :error="errors.emotionalIcon"
+          :error="errors.iconeEmocional"
         />
       </template>
 
-      <UiCheckbox v-model="isActive" label="Visível na vitrine pública" />
+      <UiCheckbox v-model="estaAtivo" label="Visível na vitrine pública" />
 
       <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
       <div class="mt-2 flex justify-end gap-2">

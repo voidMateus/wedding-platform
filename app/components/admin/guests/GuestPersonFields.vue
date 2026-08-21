@@ -20,9 +20,9 @@ function update<K extends keyof GuestPersonInput>(key: K, value: GuestPersonInpu
 }
 
 const sexOptions = [
-  { value: 'female', label: 'Feminino' },
-  { value: 'male', label: 'Masculino' },
-  { value: 'other', label: 'Outro' },
+  { value: 'feminino', label: 'Feminino' },
+  { value: 'masculino', label: 'Masculino' },
+  { value: 'outro', label: 'Outro' },
 ]
 
 const weddingRoleOptions = [
@@ -48,8 +48,8 @@ async function handleCreateGroup() {
   if (!name) return
   isSavingGroup.value = true
   try {
-    const group = await createGroup({ name })
-    update('groupId', group.id)
+    const group = await createGroup({ nome: name })
+    update('grupoId', group.id)
     emit('group-created', group)
     isCreatingGroup.value = false
   } finally {
@@ -62,50 +62,50 @@ async function handleCreateGroup() {
   <div class="flex flex-col gap-4">
     <div class="grid gap-4 sm:grid-cols-2">
       <UiInput
-        :model-value="modelValue.fullName"
+        :model-value="modelValue.nomeCompleto"
         label="Nome completo"
         :error="fullNameError ?? undefined"
-        @update:model-value="update('fullName', $event)"
+        @update:model-value="update('nomeCompleto', $event)"
       />
       <UiInput
-        :model-value="modelValue.nickname"
+        :model-value="modelValue.apelido"
         label="Apelido (opcional)"
-        @update:model-value="update('nickname', $event)"
+        @update:model-value="update('apelido', $event)"
       />
     </div>
 
     <div class="grid gap-4 sm:grid-cols-3">
       <UiSelect
-        :model-value="modelValue.sex"
+        :model-value="modelValue.sexo"
         label="Sexo (opcional)"
         placeholder="Não informar"
         :options="sexOptions"
-        @update:model-value="update('sex', $event as GuestPersonInput['sex'])"
+        @update:model-value="update('sexo', $event as GuestPersonInput['sexo'])"
       />
       <div class="flex flex-col gap-1">
         <label class="text-sm font-medium text-text">Data de nascimento (opcional)</label>
         <input
           type="date"
-          :value="modelValue.birthDate"
+          :value="modelValue.dataNascimento"
           class="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text"
-          @change="update('birthDate', ($event.target as HTMLInputElement).value)"
+          @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
         />
       </div>
       <UiSelect
-        :model-value="modelValue.weddingRole"
+        :model-value="modelValue.papelCasamento"
         label="Padrinho/Madrinha"
         :options="weddingRoleOptions"
-        @update:model-value="update('weddingRole', $event as GuestPersonInput['weddingRole'])"
+        @update:model-value="update('papelCasamento', $event as GuestPersonInput['papelCasamento'])"
       />
     </div>
 
     <div class="flex flex-col gap-1">
       <UiSelect
-        :model-value="modelValue.groupId"
+        :model-value="modelValue.grupoId"
         label="Grupo (opcional)"
         placeholder="Sem grupo"
         :options="groupOptions"
-        @update:model-value="update('groupId', $event)"
+        @update:model-value="update('grupoId', $event)"
       />
       <button
         v-if="!isCreatingGroup"
@@ -132,16 +132,16 @@ async function handleCreateGroup() {
     </div>
 
     <UiTextarea
-      :model-value="modelValue.dietaryRestrictions"
+      :model-value="modelValue.restricoesAlimentares"
       label="Restrição alimentar (opcional)"
-      @update:model-value="update('dietaryRestrictions', $event)"
+      @update:model-value="update('restricoesAlimentares', $event)"
     />
 
     <UiTextarea
-      :model-value="modelValue.notes"
+      :model-value="modelValue.observacoes"
       label="Observações internas (opcional)"
       placeholder="Nunca exibidas ao convidado"
-      @update:model-value="update('notes', $event)"
+      @update:model-value="update('observacoes', $event)"
     />
   </div>
 </template>

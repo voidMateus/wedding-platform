@@ -23,12 +23,12 @@ const selectedMethod = ref<'free' | 'pix' | null>(null)
 const message = ref('')
 
 // O casal decide quais formas ficam disponíveis (CLAUDE.md, seção 18,
-// weddings.physical_gift_delivery_mode) — não se aplica a presente de cota,
+// casamentos.modo_entrega_presente_fisico) — não se aplica a presente de cota,
 // sempre pago online.
-const allowSelfPurchase = computed(() => gift.physicalDeliveryMode !== 'payment_only')
+const allowSelfPurchase = computed(() => gift.physicalDeliveryMode !== 'somente_pagamento')
 const allowOnlinePayment = computed(
   () =>
-    gift.physicalDeliveryMode !== 'self_purchase_only' &&
+    gift.physicalDeliveryMode !== 'somente_compra_propria' &&
     gift.hasPixOption &&
     !gift.isGroupGift &&
     gift.priceCents !== null,

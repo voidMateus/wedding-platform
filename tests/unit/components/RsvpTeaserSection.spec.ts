@@ -11,13 +11,18 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
   return {
     id: '11111111-1111-1111-1111-111111111111',
     slug: 'ana-e-joao',
-    couple_names: 'Ana & João',
-    event_date: '2027-05-16',
-    event_time: '20:30:00',
-    child_max_age: 11,
-    guest_list_mode: 'closed',
-    rsvp_deadline: null,
-    theme_config: {},
+    nomes_noivos: 'Ana & João',
+    data_evento: '2027-05-16',
+    horario_evento: '20:30:00',
+    idade_maxima_crianca: 11,
+    modo_lista_convidados: 'fechada',
+    modo_entrega_presente_fisico: 'ambos',
+    prazo_rsvp: null,
+    config_tema: {},
+    config_conteudo: null,
+    handle_infinitepay: null,
+    status_ciclo_vida: 'publicado',
+    arquivado_em: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -45,7 +50,7 @@ describe('PublicRsvpTeaserSection', () => {
   })
 
   it('mostra o nome do casal e a data formatada', () => {
-    const wrapper = mountSection(makeWedding({ couple_names: 'Ana & João', event_date: '2027-05-16' }))
+    const wrapper = mountSection(makeWedding({ nomes_noivos: 'Ana & João', data_evento: '2027-05-16' }))
     expect(wrapper.text()).toContain('Ana & João')
     expect(wrapper.text()).toContain('16 de maio de 2027')
   })

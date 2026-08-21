@@ -27,7 +27,7 @@ const { data: candidatesData } = listGuests(
 )
 
 const selectedCandidateId = ref<string | null>(null)
-const suggestedSiblings = ref<Array<{ id: string; full_name: string }>>([])
+const suggestedSiblings = ref<Array<{ id: string; nome_completo: string }>>([])
 const checkedSiblingIds = ref<Set<string>>(new Set())
 
 async function selectCandidate(id: string) {
@@ -73,7 +73,7 @@ async function confirm() {
             "
             @click="selectCandidate(candidate.id)"
           >
-            {{ candidate.full_name }}
+            {{ candidate.nome_completo }}
           </button>
         </li>
       </ul>
@@ -87,7 +87,7 @@ async function confirm() {
           v-for="sibling in suggestedSiblings"
           :key="sibling.id"
           :model-value="checkedSiblingIds.has(sibling.id)"
-          :label="sibling.full_name"
+          :label="sibling.nome_completo"
           @update:model-value="
             (checked) =>
               checked ? checkedSiblingIds.add(sibling.id) : checkedSiblingIds.delete(sibling.id)

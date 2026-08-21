@@ -10,13 +10,13 @@ export interface PublicGift {
   quantityAvailable: number | null
   targetAmountCents: number | null
   quotaAmountCents: number | null
-  displayStyle: 'standard' | 'emotional'
+  displayStyle: 'padrao' | 'emocional'
   emotionalIcon: string | null
   collectedAmountCents: number | null
-  /** true quando o casal configurou infinitepay_handle (CLAUDE.md, §18/28) — controla se a opção de pagamento online (Pix e/ou cartão, conforme a conta InfinitePay do casal) aparece. */
+  /** true quando o casal configurou handle_infinitepay (CLAUDE.md, §18/28) — controla se a opção de pagamento online (Pix e/ou cartão, conforme a conta InfinitePay do casal) aparece. */
   hasPixOption: boolean
   /** Quais formas de presentear um item físico o casal disponibiliza (CLAUDE.md, §18) — não se aplica a presentes de cota, sempre pagos online. */
-  physicalDeliveryMode: 'both' | 'self_purchase_only' | 'payment_only'
+  physicalDeliveryMode: 'ambos' | 'somente_compra_propria' | 'somente_pagamento'
 }
 
 export interface GiftReservationEntry {

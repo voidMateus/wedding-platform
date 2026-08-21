@@ -45,7 +45,7 @@ export function useGalleryConnection() {
     return $fetch<{ ok: boolean }>('/api/wedding/gallery/connection', { method: 'DELETE' })
   }
 
-  // Quantas fotos aparecem na prévia da Galeria na home (theme_config.galleryPreviewCount).
+  // Quantas fotos aparecem na prévia da Galeria na home (config_tema.galleryPreviewCount).
   async function updatePreview(count: number): Promise<void> {
     await $fetch('/api/wedding/gallery/preview', { method: 'PATCH', body: { count } })
   }

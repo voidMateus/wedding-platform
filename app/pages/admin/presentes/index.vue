@@ -41,7 +41,7 @@ async function openReservationsModal(gift: Gift) {
 
 function categoryName(categoryId: string | null): string {
   if (!categoryId) return '—'
-  return categoriesData.value?.data.find((c) => c.id === categoryId)?.name ?? '—'
+  return categoriesData.value?.data.find((c) => c.id === categoryId)?.nome ?? '—'
 }
 
 // --- categorias (CRUD compacto) ---
@@ -58,11 +58,11 @@ const {
   isSubmitting: isCategorySubmitting,
 } = useForm({
   validationSchema: toTypedSchema(giftCategoryInputSchema),
-  initialValues: { name: '', displayOrder: 0 },
+  initialValues: { nome: '', ordemExibicao: 0 },
 })
 
-const [categoryName_, categoryNameAttrs] = defineCategoryField('name')
-const [categoryDisplayOrder] = defineCategoryField('displayOrder')
+const [categoryName_, categoryNameAttrs] = defineCategoryField('nome')
+const [categoryDisplayOrder] = defineCategoryField('ordemExibicao')
 void categoryNameAttrs
 
 const categoryDisplayOrderText = computed({
@@ -76,14 +76,14 @@ function openCategoryModal() {
   editingCategory.value = null
   categoryErrorMessage.value = null
   const nextOrder = (categoriesData.value?.data.length ?? 0) + 1
-  resetCategoryForm({ values: { name: '', displayOrder: nextOrder } })
+  resetCategoryForm({ values: { nome: '', ordemExibicao: nextOrder } })
   isCategoryModalOpen.value = true
 }
 
 function openEditCategoryModal(category: GiftCategory) {
   editingCategory.value = category
   categoryErrorMessage.value = null
-  resetCategoryForm({ values: { name: category.name, displayOrder: category.display_order } })
+  resetCategoryForm({ values: { nome: category.nome, ordemExibicao: category.ordem_exibicao } })
   isCategoryModalOpen.value = true
 }
 
@@ -226,7 +226,7 @@ async function confirmDelete() {
         <UiChip
           v-for="category in categoriesData.data"
           :key="category.id"
-          :label="category.name"
+          :label="category.nome"
           removable
           @remove="handleDeleteCategory(category)"
         >
@@ -284,25 +284,25 @@ async function confirmDelete() {
             class="border-t border-border transition-brand hover:bg-surface-muted/60"
           >
             <td class="px-4 py-2 text-text">
-              {{ gift.title }}
-              <UiBadge v-if="gift.display_style === 'emotional'" tone="neutral" class="ml-1"
+              {{ gift.titulo }}
+              <UiBadge v-if="gift.estilo_exibicao === 'emocional'" tone="neutral" class="ml-1"
                 >Emocional</UiBadge
               >
             </td>
-            <td class="px-4 py-2 text-text-muted">{{ categoryName(gift.category_id) }}</td>
+            <td class="px-4 py-2 text-text-muted">{{ categoryName(gift.categoria_id) }}</td>
             <td class="px-4 py-2 text-text-muted">
-              {{ gift.is_group_gift ? 'Cota' : 'Simples' }}
+              {{ gift.e_presente_cota ? 'Cota' : 'Simples' }}
             </td>
             <td class="px-4 py-2 text-text-muted">
               {{
-                gift.is_group_gift
-                  ? formatCentsToBRLOrDash(gift.target_amount_cents)
-                  : `${formatCentsToBRLOrDash(gift.price_cents)} (${gift.quantity_available} disp.)`
+                gift.e_presente_cota
+                  ? formatCentsToBRLOrDash(gift.valor_meta_centavos)
+                  : `${formatCentsToBRLOrDash(gift.preco_centavos)} (${gift.quantidade_disponivel} disp.)`
               }}
             </td>
             <td class="px-4 py-2">
-              <UiBadge :tone="gift.is_active ? 'success' : 'neutral'">
-                {{ gift.is_active ? 'Ativo' : 'Inativo' }}
+              <UiBadge :tone="gift.esta_ativo ? 'success' : 'neutral'">
+                {{ gift.esta_ativo ? 'Ativo' : 'Inativo' }}
               </UiBadge>
             </td>
             <td class="px-4 py-2">
@@ -328,12 +328,12 @@ async function confirmDelete() {
       :title="editingCategory ? 'Editar categoria' : 'Nova categoria'"
     >
       <form class="flex flex-col gap-4" @submit="onCategorySubmit">
-        <UiInput v-model="categoryName_" label="Nome" :error="categoryErrors.name" />
+        <UiInput v-model="categoryName_" label="Nome" :error="categoryErrors.nome" />
         <UiInput
           v-model="categoryDisplayOrderText"
           type="number"
           label="Ordem de exibição"
-          :error="categoryErrors.displayOrder"
+          :error="categoryErrors.ordemExibicao"
         />
         <p v-if="categoryErrorMessage" class="text-sm text-red-600" role="alert">
           {{ categoryErrorMessage }}
@@ -356,7 +356,7 @@ async function confirmDelete() {
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir presente">
       <p class="text-sm text-text">
-        Tem certeza que deseja excluir <strong>{{ deleteTarget?.title }}</strong
+        Tem certeza que deseja excluir <strong>{{ deleteTarget?.titulo }}</strong
         >? Reservas já feitas continuam registradas para consulta, mas o item some da lista.
       </p>
       <template #footer>
@@ -371,13 +371,13 @@ async function confirmDelete() {
 
     <UiModal
       v-model="isReservationsModalOpen"
-      :title="`Reservas — ${reservationsTarget?.title ?? ''}`"
+      :title="`Reservas — ${reservationsTarget?.titulo ?? ''}`"
     >
       <div v-if="isLoadingReservations" class="flex flex-col gap-2">
         <UiSkeleton class="h-8 w-full" />
         <UiSkeleton class="h-8 w-full" />
       </div>
-      <div v-else-if="reservationsTarget?.is_group_gift" class="flex flex-col gap-2">
+      <div v-else-if="reservationsTarget?.e_presente_cota" class="flex flex-col gap-2">
         <p v-if="!reservationsData?.contributions.length" class="text-sm text-text-muted">
           Nenhuma contribuição ainda.
         </p>

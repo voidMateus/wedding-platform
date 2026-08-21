@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
     nickname: guest.apelido,
     partyOrder: guest.ordem_nucleo,
     isResponsible: guest.id === invite.convidado_responsavel_id,
-    rsvpStatus: (statusByGuest.get(guest.id) ?? 'pending') as InviteMember['rsvpStatus'],
+    rsvpStatus: (statusByGuest.get(guest.id) ?? 'pendente') as InviteMember['rsvpStatus'],
   }))
 
   const tags = (tagLinksResult.data ?? [])

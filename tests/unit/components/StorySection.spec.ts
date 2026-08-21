@@ -10,14 +10,18 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
   return {
     id: '11111111-1111-1111-1111-111111111111',
     slug: 'ana-e-joao',
-    couple_names: 'Ana & João',
-    event_date: '2027-05-16',
-    event_time: '20:30:00',
-    child_max_age: 11,
-    guest_list_mode: 'closed',
-    rsvp_deadline: null,
-    theme_config: {},
-    content_config: null,
+    nomes_noivos: 'Ana & João',
+    data_evento: '2027-05-16',
+    horario_evento: '20:30:00',
+    idade_maxima_crianca: 11,
+    modo_lista_convidados: 'fechada',
+    modo_entrega_presente_fisico: 'ambos',
+    status_ciclo_vida: 'publicado',
+    prazo_rsvp: null,
+    arquivado_em: null,
+    handle_infinitepay: null,
+    config_tema: {},
+    config_conteudo: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -43,13 +47,13 @@ describe('PublicStorySection', () => {
   })
 
   it('layout centralizado sem foto (nenhuma imagem renderizada)', () => {
-    const wrapper = mountStory(makeWedding({ theme_config: {} }))
+    const wrapper = mountStory(makeWedding({ config_tema: {} }))
     expect(wrapper.find('img').exists()).toBe(false)
   })
 
   it('layout com foto quando storyImageUrl está definido, com alt descritivo', () => {
     const wrapper = mountStory(
-      makeWedding({ theme_config: { storyImageUrl: 'https://example.com/story.jpg' } }),
+      makeWedding({ config_tema: { storyImageUrl: 'https://example.com/story.jpg' } }),
     )
     const img = wrapper.find('img')
     expect(img.exists()).toBe(true)
@@ -58,7 +62,7 @@ describe('PublicStorySection', () => {
 
   it('ignora coverImageUrl — a foto da história é independente da foto de capa', () => {
     const wrapper = mountStory(
-      makeWedding({ theme_config: { coverImageUrl: 'https://example.com/cover.jpg' } }),
+      makeWedding({ config_tema: { coverImageUrl: 'https://example.com/cover.jpg' } }),
     )
     expect(wrapper.find('img').exists()).toBe(false)
   })
@@ -69,8 +73,8 @@ describe('PublicStorySection', () => {
     expect(wrapper.find('#historia').exists()).toBe(true)
   })
 
-  it('usa a mensagem customizada pelo casal quando presente em content_config', () => {
-    const wrapper = mountStory(makeWedding({ content_config: { storyMessage: 'Nossa história, do nosso jeito.' } }))
+  it('usa a mensagem customizada pelo casal quando presente em config_conteudo', () => {
+    const wrapper = mountStory(makeWedding({ config_conteudo: { storyMessage: 'Nossa história, do nosso jeito.' } }))
     expect(wrapper.text()).toContain('Nossa história, do nosso jeito.')
     expect(wrapper.text()).not.toContain(STORY_CONTENT.paragraphs[0])
   })

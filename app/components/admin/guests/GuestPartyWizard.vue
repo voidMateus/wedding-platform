@@ -15,19 +15,19 @@ const { listGroups } = useGroups()
 
 const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
 const groupOptions = computed(() => [
-  ...(groupsData.value?.data.map((g) => ({ value: g.id, label: g.name })) ?? []),
+  ...(groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? []),
 ])
 
 function emptyPerson(): GuestPersonInput {
   return {
-    fullName: '',
-    nickname: '',
-    sex: undefined,
-    birthDate: '',
-    weddingRole: undefined,
-    dietaryRestrictions: '',
-    notes: '',
-    groupId: '',
+    nomeCompleto: '',
+    apelido: '',
+    sexo: undefined,
+    dataNascimento: '',
+    papelCasamento: undefined,
+    restricoesAlimentares: '',
+    observacoes: '',
+    grupoId: '',
   }
 }
 
@@ -35,14 +35,14 @@ function personFromGuest(guest: GuestDetail | Record<string, unknown>): GuestPer
   const g = guest as Record<string, unknown>
   return {
     id: g.id as string,
-    fullName: (g.full_name as string) ?? '',
-    nickname: (g.nickname as string) ?? '',
-    sex: (g.sex as GuestPersonInput['sex']) ?? undefined,
-    birthDate: (g.birth_date as string) ?? '',
-    weddingRole: (g.wedding_role as GuestPersonInput['weddingRole']) ?? undefined,
-    dietaryRestrictions: (g.dietary_restrictions as string) ?? '',
-    notes: (g.notes as string) ?? '',
-    groupId: (g.group_id as string) ?? '',
+    nomeCompleto: (g.nome_completo as string) ?? '',
+    apelido: (g.apelido as string) ?? '',
+    sexo: (g.sexo as GuestPersonInput['sexo']) ?? undefined,
+    dataNascimento: (g.data_nascimento as string) ?? '',
+    papelCasamento: (g.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
+    restricoesAlimentares: (g.restricoes_alimentares as string) ?? '',
+    observacoes: (g.observacoes as string) ?? '',
+    grupoId: (g.grupo_id as string) ?? '',
   }
 }
 
@@ -93,7 +93,7 @@ const primaryNameError = ref<string | null>(null)
 
 function goNext() {
   if (currentStepId.value === 'dados') {
-    if (!primary.value.fullName.trim()) {
+    if (!primary.value.nomeCompleto.trim()) {
       primaryNameError.value = 'Informe o nome do convidado.'
       return
     }
@@ -114,7 +114,7 @@ function handleRemoveExisting(guestId: string) {
 const inviteDraft = ref<InviteDraft>({ choice: 'create', name: '', notes: '', tagIds: [] })
 
 watch(
-  () => primary.value.fullName,
+  () => primary.value.nomeCompleto,
   (name) => {
     if (!inviteDraft.value.name && name) {
       const firstName = name.trim().split(/\s+/)[0]
@@ -140,8 +140,8 @@ async function handleSubmit() {
       invite:
         showInviteStep.value && inviteDraft.value.choice === 'create'
           ? {
-              name: inviteDraft.value.name || 'Convite',
-              notes: inviteDraft.value.notes,
+              nome: inviteDraft.value.name || 'Convite',
+              observacoes: inviteDraft.value.notes,
               tagIds: inviteDraft.value.tagIds,
             }
           : undefined,
@@ -235,11 +235,11 @@ async function handleSubmit() {
         <ul class="flex flex-col gap-2 text-sm">
           <li class="flex items-center gap-2">
             <Icon name="lucide:star" class="h-4 w-4 text-amber-500" />
-            {{ primary.fullName }}
+            {{ primary.nomeCompleto }}
             <UiBadge tone="neutral">responsável</UiBadge>
           </li>
           <li v-for="entry in companions" :key="entry.key" class="flex items-center gap-2 pl-6">
-            {{ entry.person.fullName }}
+            {{ entry.person.nomeCompleto }}
           </li>
         </ul>
         <p

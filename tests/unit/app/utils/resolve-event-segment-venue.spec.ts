@@ -5,17 +5,17 @@ import type { EventSegment } from '~/types/event-segment'
 function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
   return {
     id: 'seg-1',
-    wedding_id: '11111111-1111-1111-1111-111111111111',
-    title: 'Cerimônia',
-    venue_name: 'Igreja São José',
-    venue_address: 'Rua das Flores, 100',
-    venue_latitude: -15.6,
-    venue_longitude: -56.1,
-    same_venue_as: null,
-    image_url: null,
-    starts_at: null,
-    ends_at: null,
-    display_order: 0,
+    casamento_id: '11111111-1111-1111-1111-111111111111',
+    titulo: 'Cerimônia',
+    nome_local: 'Igreja São José',
+    endereco_local: 'Rua das Flores, 100',
+    latitude_local: -15.6,
+    longitude_local: -56.1,
+    mesmo_local_que: null,
+    url_imagem: null,
+    inicia_em: null,
+    termina_em: null,
+    ordem_exibicao: 0,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -23,34 +23,34 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
 }
 
 describe('resolveEventSegmentVenue', () => {
-  it('retorna o segmento sem alterações quando same_venue_as não está definido', () => {
+  it('retorna o segmento sem alterações quando mesmo_local_que não está definido', () => {
     const segment = makeSegment()
     expect(resolveEventSegmentVenue(segment, [segment])).toBe(segment)
   })
 
   it('substitui os campos de local pelos do segmento referenciado', () => {
-    const source = makeSegment({ id: 'source', title: 'Cerimônia' })
+    const source = makeSegment({ id: 'source', titulo: 'Cerimônia' })
     const dependent = makeSegment({
       id: 'dependent',
-      title: 'Recepção',
-      same_venue_as: 'source',
-      venue_name: null,
-      venue_address: null,
-      venue_latitude: null,
-      venue_longitude: null,
+      titulo: 'Recepção',
+      mesmo_local_que: 'source',
+      nome_local: null,
+      endereco_local: null,
+      latitude_local: null,
+      longitude_local: null,
     })
 
     const resolved = resolveEventSegmentVenue(dependent, [source, dependent])
 
-    expect(resolved.venue_name).toBe(source.venue_name)
-    expect(resolved.venue_address).toBe(source.venue_address)
-    expect(resolved.venue_latitude).toBe(source.venue_latitude)
-    expect(resolved.venue_longitude).toBe(source.venue_longitude)
-    expect(resolved.title).toBe('Recepção') // mantém os próprios dados que não são de local
+    expect(resolved.nome_local).toBe(source.nome_local)
+    expect(resolved.endereco_local).toBe(source.endereco_local)
+    expect(resolved.latitude_local).toBe(source.latitude_local)
+    expect(resolved.longitude_local).toBe(source.longitude_local)
+    expect(resolved.titulo).toBe('Recepção') // mantém os próprios dados que não são de local
   })
 
   it('retorna o segmento original quando o segmento referenciado não é encontrado na lista', () => {
-    const segment = makeSegment({ same_venue_as: 'não-existe' })
+    const segment = makeSegment({ mesmo_local_que: 'não-existe' })
     expect(resolveEventSegmentVenue(segment, [segment])).toBe(segment)
   })
 })

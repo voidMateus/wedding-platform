@@ -1,3 +1,3 @@
 import type { Database } from './database.types'
 
-export type Guest = Database['public']['Tables']['guests']['Row']
+export type Guest = Database['public']['Tables']['convidados']['Row']

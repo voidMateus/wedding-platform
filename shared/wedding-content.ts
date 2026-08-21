@@ -2,7 +2,7 @@
 // CLAUDE.md, seção 22.3/32). Nenhum texto aqui inventa fatos específicos
 // sobre um casal real — é copy genérico de placeholder. Desde o roadmap
 // "Fase Mensagens Personalizáveis", esses textos viraram a MENSAGEM PADRÃO:
-// cada casamento pode sobrescrevê-los via weddings.content_config (aba
+// cada casamento pode sobrescrevê-los via casamentos.config_conteudo (aba
 // "Conteúdo" do admin) — ver resolveWeddingContent() no fim deste arquivo,
 // que resolve o config bruto do banco + esses defaults no shape final
 // consumido pelos componentes públicos.
@@ -122,7 +122,7 @@ export interface ResolvedWeddingContent {
 }
 
 /**
- * Resolve weddings.content_config (bruto, do banco) + os defaults acima no
+ * Resolve casamentos.config_conteudo (bruto, do banco) + os defaults acima no
  * shape final consumido pelos componentes públicos — mesmo espírito de
  * useWeddingTheme.ts (função pura, sem estado).
  *

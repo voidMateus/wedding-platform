@@ -8,7 +8,7 @@
 
 ## 1. O Projeto
 
-**MeuSiteCasamento** é uma aplicação web para casais organizarem o site do casamento, lista de convidados, RSVP e lista de presentes, com um painel administrativo para o casal acompanhar tudo. Single-tenant hoje (um casamento por instância, mas todo o modelo de dados já é particionado por `wedding_id`, preparando uma transição futura para SaaS multi-tenant — ver `docs/ROADMAP.md`). Visão completa de produto, personas e regras de negócio: **[`docs/PRODUCT.md`](docs/PRODUCT.md)**.
+**MeuSiteCasamento** é uma aplicação web para casais organizarem o site do casamento, lista de convidados, RSVP e lista de presentes, com um painel administrativo para o casal acompanhar tudo. Single-tenant hoje (um casamento por instância, mas todo o modelo de dados já é particionado por `casamento_id`, preparando uma transição futura para SaaS multi-tenant — ver `docs/ROADMAP.md`). Visão completa de produto, personas e regras de negócio: **[`docs/PRODUCT.md`](docs/PRODUCT.md)**.
 
 ## 2. Stack Tecnológica
 
@@ -59,13 +59,13 @@ A arquitetura tem **quatro modelos de enforcement de segurança diferentes**. Co
 
 | Caminho | Autenticação | Quem garante isolamento entre dados |
 |---|---|---|
-| Administrativo (casal/colaboradores) | Supabase Auth (JWT) | **RLS no Postgres** — última linha de defesa; um bug em `server/api` não vaza dado de outro `wedding_id` |
+| Administrativo (casal/colaboradores) | Supabase Auth (JWT) | **RLS no Postgres** — última linha de defesa; um bug em `server/api` não vaza dado de outro `casamento_id` |
 | Convidado (RSVP) — link/QR ou busca por nome | Token opaco, ou nenhuma (busca = só fricção, nomes mascarados) | **Código do `server/api`** — usa `service_role key`, que ignora RLS. Mutação (não leitura) exige também a sessão `rsvp_session` emitida na identificação |
 | Presentes (público, sem token) | Nenhuma — qualquer visitante | **Código do `server/api`**, mas a garantia não é "só o dono pode" — é "valor/quantidade são sempre recalculados no servidor, nunca aceitos do client" |
 | Público (site do casamento) | Nenhuma — link direto | **RLS** com policy de leitura explícita (`select using (true)`), só em tabelas sem dado sensível |
 
 Regras que decorrem disso, sempre:
-- **Nunca** aceitar `wedding_id` vindo do body/query de uma requisição administrativa para decidir o que é acessível — sempre resolver a partir do JWT (`wedding_members`).
+- **Nunca** aceitar `casamento_id` vindo do body/query de uma requisição administrativa para decidir o que é acessível — sempre resolver a partir do JWT (`membros_casamento`).
 - **Nunca** confiar em `guestId`/`inviteId` sozinho vindo de uma URL/busca pública para autorizar uma mutação — endpoints de mutação do caminho do convidado exigem `requireRsvpSessionForInvite()` (sessão emitida só depois de identificação real).
 - **Nunca** aceitar valor/quantidade do client em endpoints de presente — sempre recalcular no servidor a partir do `gift_id`.
 - **Nunca** tratar o corpo do webhook da InfinitePay como prova de pagamento — a única prova é a reverificação servidor-a-servidor (`payment_check`).
@@ -97,7 +97,7 @@ docs/                          # ver seção 15
 
 ## 6. Convenções de Código
 
-- **Idioma**: identificadores (variáveis, funções, componentes, tabelas) em **inglês**. Textos visíveis ao usuário em **português (pt-BR)**.
+- **Idioma**: desde a remodelagem para português de 2026-08-21 (aprovada mesmo contra a recomendação técnica original da auditoria — ver `docs/CHANGELOG.md`), identificador que **espelha vocabulário de banco/domínio** (tabelas, colunas, tipos derivados de `Row` do Supabase, campos de schema Zod que validam entrada para essas tabelas, enums de negócio) é em **português**, casando 1:1 com o nome da coluna Postgres — nunca uma tradução livre divergente. Duas exceções deliberadas e permanentes: (1) DTOs computados/agregados que um endpoint monta especificamente para exibição (ex.: `PublicGift`, o `wedding` de `RsvpInvitePayload`) permanecem em **inglês** — não espelham uma linha de tabela 1:1, e misturar os dois padrões no mesmo objeto seria pior que escolher um; (2) nomes de composable (`useGuests`, `useInvites`...), pastas de componente (`components/gifts/`) e pastas de rota de `server/api/**` permanecem em **inglês** — são organização interna de código/infraestrutura de protocolo, não vocabulário de dados do domínio (mesmo raciocínio já aplicado às rotas de API, decisão confirmada com o usuário em 2026-08-21). Termos universais (RSVP, CPF, CNPJ, UUID, URL) nunca são traduzidos. Identificador genérico/técnico sem ligação a vocabulário de negócio (loop, helper, nome de variável local) segue inglês, como de costume. Textos visíveis ao usuário sempre em **português (pt-BR)**.
 - **Nomenclatura de arquivos**: componentes Vue `PascalCase.vue`; composables `camelCase.ts` com prefixo `use`; stores Pinia `kebab-case.store.ts`; rotas de API seguem a convenção do Nuxt (`index.get.ts`, `[id].patch.ts`).
 - **Variáveis/funções**: `camelCase`. Constantes globais: `UPPER_SNAKE_CASE`. **Sem números mágicos** — valor de negócio (prazo, limite) é sempre constante nomeada.
 - **Tipos/interfaces**: `PascalCase`, sem prefixo `I` (`Guest`, não `IGuest`).
@@ -134,10 +134,10 @@ docs/                          # ver seção 15
 
 - PK sempre `uuid` (`gen_random_uuid()`), nunca `serial`. `snake_case` plural em tabelas, singular em colunas.
 - **RLS habilitado em 100% das tabelas**, sempre. Toda tabela nova nasce com RLS + nenhuma policy (deny-by-default); policies adicionadas explicitamente.
-- `wedding_id` é **denormalizado** em toda tabela filha (mesmo quando derivável via join) — nunca definido de forma independente da hierarquia real (`invite_id`/`group_id`/`party_id`), sempre via trigger.
-- Soft delete (`deleted_at`) para entidades com valor histórico (convidados, presentes, convites, grupos); exclusão física só onde não há referência de terceiros nem valor histórico próprio.
-- Credencial (código de acesso) sempre armazenada como hash (`code_hash`), nunca texto plano.
-- Concorrência em operação de estoque/limite (reserva de presente, `max_companions`) é **sempre** função Postgres com `SELECT ... FOR UPDATE` numa transação — nunca `check-then-insert` na aplicação.
+- `casamento_id` é **denormalizado** em toda tabela filha (mesmo quando derivável via join) — nunca definido de forma independente da hierarquia real (`convite_id`/`grupo_id`/`nucleo_id`), sempre via trigger.
+- Soft delete (`excluido_em`) para entidades com valor histórico (convidados, presentes, convites, grupos); exclusão física só onde não há referência de terceiros nem valor histórico próprio.
+- Credencial (código de acesso) sempre armazenada como hash (`codigo_hash`), nunca texto plano.
+- Concorrência em operação de estoque/limite (reserva de presente, `max_acompanhantes`) é **sempre** função Postgres com `SELECT ... FOR UPDATE` numa transação — nunca `check-then-insert` na aplicação.
 - View nova **precisa** de `security_invoker = true` — sem isso roda com privilégio do dono (ignora RLS). Não há nenhuma view em produção hoje (achado de segurança real, ver `docs/CHANGELOG.md`).
 
 Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md)**.
@@ -148,7 +148,7 @@ Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md
 - Rate limiting via Upstash Redis (store durável) em todo endpoint público sensível (`/api/rsvp/**`, busca por nome, mutações de presente) — nunca contador em memória de processo.
 - Upload de arquivo: allowlist explícita de MIME type, limite de tamanho, nome regenerado no servidor (nunca reaproveitado do upload original).
 - **Proibido `v-html` sobre conteúdo gerado por usuário** (mensagem de RSVP, notas) — só sobre conteúdo controlado pela própria equipe.
-- Dado pessoal de convidado (nome, telefone, e-mail, restrição alimentar — pode revelar saúde/religião) nunca logado em texto pleno; acesso de leitura restrito a membros autenticados do respectivo `wedding_id`. Exclusão definitiva (hard delete) sob pedido formal é processo manual, não ação de UI self-service (base legal: legítimo interesse do casal organizador).
+- Dado pessoal de convidado (nome, telefone, e-mail, restrição alimentar — pode revelar saúde/religião) nunca logado em texto pleno; acesso de leitura restrito a membros autenticados do respectivo `casamento_id`. Exclusão definitiva (hard delete) sob pedido formal é processo manual, não ação de UI self-service (base legal: legítimo interesse do casal organizador).
 - PITR habilitado em produção (retenção 30 dias); restauração de backup testada manualmente antes de cada casamento com data próxima.
 - Secrets nunca commitados — geridos via variável de ambiente/secret manager do provedor. `service_role key` tem rotação periódica documentada.
 - Ação administrativa sensível (exclusão, mudança de permissão) registrada em `audit_logs` com ator/ação/timestamp; ação automatizada do sistema usa `actor_type = 'system'`.
@@ -157,12 +157,12 @@ Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md
 
 Violar qualquer um destes é bug de produto real, não só estilo — se uma tarefa parecer exigir violar um desses, o objetivo provavelmente foi mal entendido:
 
-- **RSVP é sempre por convidado** — não existe "modo grupo". Resposta editável até `rsvp_deadline`, sempre via upsert (nunca duplicata).
-- **`invites` (convite/unidade de RSVP), `groups` (etiqueta livre) e `guest_parties` (Acompanhantes) são três conceitos independentes** — nunca confundir um pelo outro apesar do nome parecido.
-- Presente físico (`is_group_gift = false`) usa `gift_reservations`; presente de cota (`true`) usa `gift_contributions` — nunca os dois pro mesmo `gift_id`.
-- Efeito de negócio de pagamento (`gift_reservations`/`gift_contributions`) só nasce dentro de `confirm_gift_payment()`, nunca direto de uma requisição do convidado.
+- **RSVP é sempre por convidado** — não existe "modo grupo". Resposta editável até `prazo_rsvp`, sempre via upsert (nunca duplicata).
+- **`convites` (convite/unidade de RSVP), `grupos` (etiqueta livre) e `nucleos_acompanhantes` (Acompanhantes) são três conceitos independentes** — nunca confundir um pelo outro apesar do nome parecido.
+- Presente físico (`e_presente_cota = false`) usa `reservas_presentes`; presente de cota (`true`) usa `contribuicoes_presentes` — nunca os dois pro mesmo `presente_id`.
+- Efeito de negócio de pagamento (`reservas_presentes`/`contribuicoes_presentes`) só nasce dentro de `confirmar_pagamento_presente()`, nunca direto de uma requisição do convidado.
 - Não existe cancelamento self-service de presente (removido deliberadamente — sem token, não há como provar posse com segurança).
-- `is_child` nunca é campo manual — sempre `guest_is_child(birth_date, wedding_id)`.
+- `is_child` nunca é campo manual — sempre `convidado_e_crianca(data_nascimento, casamento_id)`.
 
 Regras de negócio completas por sistema (Convidados, RSVP, Convites/Grupos, Presentes, Admin): **[`docs/PRODUCT.md`](docs/PRODUCT.md)**.
 
@@ -170,7 +170,7 @@ Regras de negócio completas por sistema (Convidados, RSVP, Convites/Grupos, Pre
 
 - Nenhum estilo visual (cor, espaçamento, tipografia, raio, sombra) direto em componente de domínio — sempre classe Tailwind mapeada a token, ou componente de `components/ui/`. Nenhum valor arbitrário (`shadow-[...]`, `rounded-[Npx]`) fora de `components/ui/`.
 - Toda nova variante visual passa pelo Design System antes de virar feature específica — proibido "botão especial" isolado numa página.
-- `theme_config` (jsonb em `weddings`) é **exclusivamente visual** — nunca comportamento de negócio (isso é `guest_list_mode` e afins, colunas próprias). Campo novo do schema precisa entrar também na lista explícita de `server/api/wedding/theme.patch.ts` (bug de campo descartado silenciosamente já ocorreu duas vezes).
+- `config_tema` (jsonb em `casamentos`) é **exclusivamente visual** — nunca comportamento de negócio (isso é `modo_lista_convidados` e afins, colunas próprias). Campo novo do schema precisa entrar também na lista explícita de `server/api/wedding/theme.patch.ts` (bug de campo descartado silenciosamente já ocorreu duas vezes).
 - Cor customizada (`primaryColor`/`secondaryColor`/`titleColor`/`bodyColor`) é sempre validada por contraste (≥4.5:1, WCAG AA) antes de salvar.
 
 Tokens, catálogo de componentes, UX, responsividade, acessibilidade e SEO: **[`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md)**.

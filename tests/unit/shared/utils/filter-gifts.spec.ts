@@ -86,7 +86,7 @@ describe('segmentGifts', () => {
   }
 
   function makeSegmentGift(overrides: Partial<TestSegmentGift> = {}): TestSegmentGift {
-    return { title: 'Presente', isGroupGift: false, displayStyle: 'standard', ...overrides }
+    return { title: 'Presente', isGroupGift: false, displayStyle: 'padrao', ...overrides }
   }
 
   it('separa presente físico em physical', () => {
@@ -98,7 +98,7 @@ describe('segmentGifts', () => {
 
   it('separa presente de cota padrão em contributions', () => {
     const result = segmentGifts([
-      makeSegmentGift({ title: 'Geladeira', isGroupGift: true, displayStyle: 'standard' }),
+      makeSegmentGift({ title: 'Geladeira', isGroupGift: true, displayStyle: 'padrao' }),
     ])
     expect(result.contributions.map((g) => g.title)).toEqual(['Geladeira'])
     expect(result.physical).toEqual([])
@@ -107,7 +107,7 @@ describe('segmentGifts', () => {
 
   it('separa presente de cota emocional em emotional', () => {
     const result = segmentGifts([
-      makeSegmentGift({ title: 'Primeira compra', isGroupGift: true, displayStyle: 'emotional' }),
+      makeSegmentGift({ title: 'Primeira compra', isGroupGift: true, displayStyle: 'emocional' }),
     ])
     expect(result.emotional.map((g) => g.title)).toEqual(['Primeira compra'])
     expect(result.physical).toEqual([])
@@ -117,7 +117,7 @@ describe('segmentGifts', () => {
   it('preserva a ordem original dentro de cada segmento', () => {
     const result = segmentGifts([
       makeSegmentGift({ title: 'A', isGroupGift: false }),
-      makeSegmentGift({ title: 'B', isGroupGift: true, displayStyle: 'standard' }),
+      makeSegmentGift({ title: 'B', isGroupGift: true, displayStyle: 'padrao' }),
       makeSegmentGift({ title: 'C', isGroupGift: false }),
     ])
     expect(result.physical.map((g) => g.title)).toEqual(['A', 'C'])

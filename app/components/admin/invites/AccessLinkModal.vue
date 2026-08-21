@@ -32,7 +32,7 @@ watch(
     qrCodeDataUrl.value = null
     isLoadingStatus.value = true
     try {
-      status.value = await getStatus({ inviteId: props.inviteId })
+      status.value = await getStatus({ conviteId: props.inviteId })
     } catch {
       errorMessage.value = 'Não foi possível consultar o status do link.'
     } finally {
@@ -45,7 +45,7 @@ async function handleGenerate() {
   isGenerating.value = true
   errorMessage.value = null
   try {
-    const result = await generate({ inviteId: props.inviteId })
+    const result = await generate({ conviteId: props.inviteId })
     generatedLink.value = `${window.location.origin}/${props.weddingSlug}/rsvp/${result.code}`
     qrCodeDataUrl.value = await QRCode.toDataURL(generatedLink.value)
     status.value = { active: true, id: result.id, createdAt: result.createdAt }

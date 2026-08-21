@@ -17,37 +17,37 @@ const { listEventSegments } = useEventSegments()
 const { data, status, error, refresh } = listEventSegments()
 
 const ceremony = computed(
-  () => data.value?.data.find((s) => classifyEventSegmentTitle(s.title) === 'ceremony') ?? null,
+  () => data.value?.data.find((s) => classifyEventSegmentTitle(s.titulo) === 'ceremony') ?? null,
 )
 const reception = computed(
-  () => data.value?.data.find((s) => classifyEventSegmentTitle(s.title) === 'reception') ?? null,
+  () => data.value?.data.find((s) => classifyEventSegmentTitle(s.titulo) === 'reception') ?? null,
 )
 
 function emptyValues(title: string, displayOrder: number) {
   return {
-    title,
-    venueName: '',
-    venueAddress: '',
-    startsAt: '',
-    endsAt: '',
-    displayOrder,
-    venueLatitude: '',
-    venueLongitude: '',
-    sameVenueAs: '',
+    titulo: title,
+    nomeLocal: '',
+    enderecoLocal: '',
+    iniciaEm: '',
+    terminaEm: '',
+    ordemExibicao: displayOrder,
+    latitudeLocal: '',
+    longitudeLocal: '',
+    mesmoLocalQue: '',
   }
 }
 
 function valuesFromSegment(segment: EventSegment) {
   return {
-    title: segment.title,
-    venueName: segment.venue_name ?? '',
-    venueAddress: segment.venue_address ?? '',
-    startsAt: segment.starts_at ?? '',
-    endsAt: segment.ends_at ?? '',
-    displayOrder: segment.display_order,
-    venueLatitude: segment.venue_latitude ?? '',
-    venueLongitude: segment.venue_longitude ?? '',
-    sameVenueAs: segment.same_venue_as ?? '',
+    titulo: segment.titulo,
+    nomeLocal: segment.nome_local ?? '',
+    enderecoLocal: segment.endereco_local ?? '',
+    iniciaEm: segment.inicia_em ?? '',
+    terminaEm: segment.termina_em ?? '',
+    ordemExibicao: segment.ordem_exibicao,
+    latitudeLocal: segment.latitude_local ?? '',
+    longitudeLocal: segment.longitude_local ?? '',
+    mesmoLocalQue: segment.mesmo_local_que ?? '',
   }
 }
 
@@ -56,12 +56,12 @@ const ceremonyForm = useForm({
   validationSchema: toTypedSchema(eventSegmentInputSchema),
   initialValues: emptyValues('Cerimônia', 1),
 })
-const [ceremonyVenueName] = ceremonyForm.defineField('venueName')
-const [ceremonyVenueAddress] = ceremonyForm.defineField('venueAddress')
-const [ceremonyStartsAt] = ceremonyForm.defineField('startsAt')
-const [ceremonyEndsAt] = ceremonyForm.defineField('endsAt')
-const [ceremonyLat] = ceremonyForm.defineField('venueLatitude')
-const [ceremonyLng] = ceremonyForm.defineField('venueLongitude')
+const [ceremonyVenueName] = ceremonyForm.defineField('nomeLocal')
+const [ceremonyVenueAddress] = ceremonyForm.defineField('enderecoLocal')
+const [ceremonyStartsAt] = ceremonyForm.defineField('iniciaEm')
+const [ceremonyEndsAt] = ceremonyForm.defineField('terminaEm')
+const [ceremonyLat] = ceremonyForm.defineField('latitudeLocal')
+const [ceremonyLng] = ceremonyForm.defineField('longitudeLocal')
 const ceremonyLatText = computed({
   get: () => (ceremonyLat.value === undefined ? '' : String(ceremonyLat.value)),
   set: (v: string) => (ceremonyLat.value = v),
@@ -76,12 +76,12 @@ const receptionForm = useForm({
   validationSchema: toTypedSchema(eventSegmentInputSchema),
   initialValues: emptyValues('Recepção', 2),
 })
-const [receptionVenueName] = receptionForm.defineField('venueName')
-const [receptionVenueAddress] = receptionForm.defineField('venueAddress')
-const [receptionStartsAt] = receptionForm.defineField('startsAt')
-const [receptionEndsAt] = receptionForm.defineField('endsAt')
-const [receptionLat] = receptionForm.defineField('venueLatitude')
-const [receptionLng] = receptionForm.defineField('venueLongitude')
+const [receptionVenueName] = receptionForm.defineField('nomeLocal')
+const [receptionVenueAddress] = receptionForm.defineField('enderecoLocal')
+const [receptionStartsAt] = receptionForm.defineField('iniciaEm')
+const [receptionEndsAt] = receptionForm.defineField('terminaEm')
+const [receptionLat] = receptionForm.defineField('latitudeLocal')
+const [receptionLng] = receptionForm.defineField('longitudeLocal')
 const receptionLatText = computed({
   get: () => (receptionLat.value === undefined ? '' : String(receptionLat.value)),
   set: (v: string) => (receptionLat.value = v),
@@ -103,7 +103,7 @@ watch(
     receptionForm.resetForm({
       values: reception.value ? valuesFromSegment(reception.value) : emptyValues('Recepção', 2),
     })
-    sameAddress.value = Boolean(reception.value?.same_venue_as)
+    sameAddress.value = Boolean(reception.value?.mesmo_local_que)
   },
   { immediate: true },
 )
@@ -209,7 +209,7 @@ async function saveAll() {
               </UiAccordion>
               <AdminEventSegmentImageUploader
                 v-if="ceremony"
-                :model-value="ceremony.image_url"
+                :model-value="ceremony.url_imagem"
                 :segment-id="ceremony.id"
                 @update:model-value="() => refresh()"
               />
@@ -277,7 +277,7 @@ async function saveAll() {
               </div>
               <AdminEventSegmentImageUploader
                 v-if="reception"
-                :model-value="reception.image_url"
+                :model-value="reception.url_imagem"
                 :segment-id="reception.id"
                 @update:model-value="() => refresh()"
               />

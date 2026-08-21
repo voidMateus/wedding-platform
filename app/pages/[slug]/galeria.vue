@@ -11,7 +11,7 @@ const slug = useWeddingSlug()
 const photos = computed(() => data.value?.data ?? [])
 
 useSeoMeta({
-  title: () => (wedding.value ? `Galeria — ${wedding.value.couple_names}` : 'Galeria'),
+  title: () => (wedding.value ? `Galeria — ${wedding.value.nomes_noivos}` : 'Galeria'),
   description: 'Todas as fotos do nosso casamento.',
 })
 </script>

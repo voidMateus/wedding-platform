@@ -55,7 +55,7 @@ function onDrop(targetIndex: number) {
 }
 
 function focalStyle(photo: PhotoWithUrl) {
-  return { objectPosition: `${photo.focal_x}% ${photo.focal_y}%` }
+  return { objectPosition: `${photo.foco_x}% ${photo.foco_y}%` }
 }
 </script>
 
@@ -85,7 +85,7 @@ function focalStyle(photo: PhotoWithUrl) {
         v-for="(photo, index) in localPhotos"
         :key="photo.id"
         draggable="true"
-        :title="photo.caption || undefined"
+        :title="photo.legenda || undefined"
         class="group relative cursor-move overflow-hidden rounded-lg border border-border transition-brand"
         :class="{
           'opacity-40': dragIndex === index,
@@ -98,7 +98,7 @@ function focalStyle(photo: PhotoWithUrl) {
       >
         <img
           :src="photo.url"
-          :alt="photo.caption || 'Foto da galeria'"
+          :alt="photo.legenda || 'Foto da galeria'"
           class="aspect-square w-full object-cover"
           :style="focalStyle(photo)"
           loading="lazy"
@@ -107,7 +107,7 @@ function focalStyle(photo: PhotoWithUrl) {
         <span
           class="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-xs font-medium leading-none text-white"
         >
-          {{ photo.display_order }}
+          {{ photo.ordem_exibicao }}
         </span>
         <div
           class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition-brand group-hover:pointer-events-auto group-hover:opacity-100"

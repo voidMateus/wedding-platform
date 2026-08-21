@@ -41,19 +41,19 @@ const experienciaItems = [
 ]
 
 const coverImageUrl = computed(() => {
-  const theme = (props.wedding?.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.coverImageUrl ?? null
 })
 const storyImageUrl = computed(() => {
-  const theme = (props.wedding?.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.storyImageUrl ?? null
 })
 const coverFocalPoint = computed(() => {
-  const theme = (props.wedding?.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return { x: theme.coverFocalX ?? 50, y: theme.coverFocalY ?? 50 }
 })
 const storyFocalPoint = computed(() => {
-  const theme = (props.wedding?.theme_config ?? {}) as Partial<ThemeConfig>
+  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return { x: theme.storyFocalX ?? 50, y: theme.storyFocalY ?? 50 }
 })
 
@@ -103,7 +103,7 @@ watch(
   () => props.wedding,
   (value) => {
     if (!value) return
-    const theme = (value.theme_config ?? {}) as Partial<ThemeConfig>
+    const theme = (value.config_tema ?? {}) as Partial<ThemeConfig>
     resetForm({
       values: {
         presetId: theme.presetId ?? '',

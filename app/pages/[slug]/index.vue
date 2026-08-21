@@ -35,12 +35,12 @@ const eventSegmentGroups = computed(() => groupEventSegmentsByVenue(resolvedSegm
 // preview correto ao compartilhar o link no WhatsApp. Slug inexistente
 // nunca deve ser indexado (não há conteúdo real por trás dele).
 useSeoMeta({
-  title: () => (wedding.value ? `${wedding.value.couple_names} — Casamento` : 'Casamento não encontrado'),
+  title: () => (wedding.value ? `${wedding.value.nomes_noivos} — Casamento` : 'Casamento não encontrado'),
   description: () =>
     wedding.value
       ? `Confira as informações do nosso casamento e confirme presença.`
       : undefined,
-  ogTitle: () => (wedding.value ? `${wedding.value.couple_names} — Casamento` : undefined),
+  ogTitle: () => (wedding.value ? `${wedding.value.nomes_noivos} — Casamento` : undefined),
   robots: () => (wedding.value ? undefined : 'noindex, nofollow'),
 })
 </script>
@@ -63,7 +63,7 @@ useSeoMeta({
       <PublicHero :wedding="wedding" :segments="resolvedSegments" :code="code" />
       <PublicWelcomeSection :wedding="wedding" />
       <PublicStorySection :wedding="wedding" />
-      <PublicGrandeDiaSection :groups="eventSegmentGroups" :event-date="wedding.event_date" />
+      <PublicGrandeDiaSection :groups="eventSegmentGroups" :event-date="wedding.data_evento" />
       <PublicDressCodeSection :wedding="wedding" />
       <PublicGuestManualSection :wedding="wedding" />
       <PublicRsvpTeaserSection :wedding="wedding" />

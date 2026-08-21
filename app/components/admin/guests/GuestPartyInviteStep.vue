@@ -37,7 +37,7 @@ async function addNewTag() {
   const name = newTagName.value.trim()
   if (!name) return
   try {
-    const tag = await createInviteTag({ name })
+    const tag = await createInviteTag({ nome: name })
     await refreshTags()
     update('tagIds', [...props.modelValue.tagIds, tag.id])
     newTagName.value = ''
@@ -81,7 +81,7 @@ async function addNewTag() {
           <UiChip
             v-for="tag in tagsData?.data ?? []"
             :key="tag.id"
-            :label="tag.name"
+            :label="tag.nome"
             :selected="modelValue.tagIds.includes(tag.id)"
             clickable
             @click="toggleTag(tag.id)"

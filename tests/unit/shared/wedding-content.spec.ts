@@ -10,7 +10,7 @@ import {
 } from '#shared/wedding-content'
 
 describe('resolveWeddingContent', () => {
-  it('sem content_config (null), usa 100% do texto padrão da plataforma', () => {
+  it('sem config_conteudo (null), usa 100% do texto padrão da plataforma', () => {
     const resolved = resolveWeddingContent(null)
     expect(resolved.welcomeTitle).toBe(WELCOME_CONTENT.title)
     expect(resolved.welcomeParagraphs).toEqual(WELCOME_CONTENT.paragraphs)

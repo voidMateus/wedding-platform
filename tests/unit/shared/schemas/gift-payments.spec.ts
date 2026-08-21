@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { giftCheckoutSchema, giftPaymentStatusQuerySchema } from '#shared/schemas/gift-payments'
 
-const BASE = { giverName: 'Maria' }
+const BASE = { nomePresenteador: 'Maria' }
 
 describe('giftCheckoutSchema', () => {
   it('aceita só o nome (reserva paga de presente simples — valor vem do gift no servidor)', () => {
@@ -9,17 +9,17 @@ describe('giftCheckoutSchema', () => {
   })
 
   it('aceita nome + valor livre', () => {
-    expect(giftCheckoutSchema.safeParse({ ...BASE, amountCents: 5000 }).success).toBe(true)
+    expect(giftCheckoutSchema.safeParse({ ...BASE, valorCentavos: 5000 }).success).toBe(true)
   })
 
   it('aceita nome + quantidade de cotas', () => {
-    expect(giftCheckoutSchema.safeParse({ ...BASE, quotaCount: 3 }).success).toBe(true)
+    expect(giftCheckoutSchema.safeParse({ ...BASE, quantidadeCotas: 3 }).success).toBe(true)
   })
 
   it('aceita telefone e mensagem opcionais', () => {
     const result = giftCheckoutSchema.safeParse({
       ...BASE,
-      giverPhone: '(11) 99999-9999',
+      telefonePresenteador: '(11) 99999-9999',
       message: 'Parabéns!',
     })
     expect(result.success).toBe(true)
@@ -29,17 +29,21 @@ describe('giftCheckoutSchema', () => {
     expect(giftCheckoutSchema.safeParse({}).success).toBe(false)
   })
 
-  it('rejeita amountCents e quotaCount juntos', () => {
-    const result = giftCheckoutSchema.safeParse({ ...BASE, amountCents: 5000, quotaCount: 2 })
+  it('rejeita valorCentavos e quantidadeCotas juntos', () => {
+    const result = giftCheckoutSchema.safeParse({
+      ...BASE,
+      valorCentavos: 5000,
+      quantidadeCotas: 2,
+    })
     expect(result.success).toBe(false)
   })
 
   it('rejeita valor zero', () => {
-    expect(giftCheckoutSchema.safeParse({ ...BASE, amountCents: 0 }).success).toBe(false)
+    expect(giftCheckoutSchema.safeParse({ ...BASE, valorCentavos: 0 }).success).toBe(false)
   })
 
   it('rejeita quantidade de cotas zero', () => {
-    expect(giftCheckoutSchema.safeParse({ ...BASE, quotaCount: 0 }).success).toBe(false)
+    expect(giftCheckoutSchema.safeParse({ ...BASE, quantidadeCotas: 0 }).success).toBe(false)
   })
 })
 
@@ -48,9 +52,9 @@ describe('giftPaymentStatusQuerySchema', () => {
     expect(giftPaymentStatusQuerySchema.safeParse({}).success).toBe(true)
   })
 
-  it('aceita transactionNsu/slug opcionais', () => {
+  it('aceita nsuTransacao/slug opcionais', () => {
     const result = giftPaymentStatusQuerySchema.safeParse({
-      transactionNsu: 'abc',
+      nsuTransacao: 'abc',
       slug: 'xyz',
     })
     expect(result.success).toBe(true)

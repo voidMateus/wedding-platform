@@ -55,7 +55,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 - **Fase Linguagem Visual**: padronização visual do site público (cabeçalho de seção, alternância de fundo, tier de cartão "premium", Hero reconstruído em 13 rodadas).
 - **Fase Admin Premium**: painel administrativo ganhou o mesmo polimento visual do site público.
 - **Fase Presentes 2.0**: refatoração completa do módulo de presentes — vitrine em três seções, pagamento Pix real via InfinitePay, cotas fixas, identificação por nome/telefone, cancelamento self-service removido. Estado atual em [`PRODUCT.md`](PRODUCT.md) seção 6.
-- **Fase Mensagens Personalizáveis**: `weddings.content_config` permite ao casal reescrever as mensagens narrativas do site público sem tocar em código.
+- **Fase Mensagens Personalizáveis**: `casamentos.config_conteudo` permite ao casal reescrever as mensagens narrativas do site público sem tocar em código.
 - **Fase Galeria via Google Drive**: upload manual substituído por sincronização com uma pasta do Google Drive do casal.
 - **Reorganização de documentação (2026-08)**: CLAUDE.md reduzido a índice operacional; conteúdo de produto/banco/design system/roadmap movido para `docs/PRODUCT.md`, `docs/DATABASE.md`, `docs/DESIGN-SYSTEM.md` e este arquivo. `docs/ARCHITECTURE.md` e `docs/CHANGELOG.md` mantidos como já estavam (já tinham o escopo certo).
 
@@ -73,8 +73,8 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 
 ## 5. Premissa arquitetural (por que a transição é evolutiva, não uma reescrita)
 
-- Toda entidade relevante já carrega `wedding_id`.
-- RLS já opera filtrando por `wedding_id` acessível ao usuário autenticado, mesmo que hoje só exista um `wedding_id` "vivo" por deploy.
+- Toda entidade relevante já carrega `casamento_id`.
+- RLS já opera filtrando por `casamento_id` acessível ao usuário autenticado, mesmo que hoje só exista um `casamento_id` "vivo" por deploy.
 - Autenticação já é multiusuário (`wedding_members`), permitindo múltiplos papéis por evento desde o início.
 
 ### 5.1 O que muda na transição
@@ -98,7 +98,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 ## 7. Riscos técnicos a mitigar antes da abertura multi-tenant
 
 1. **Vazamento de dados entre tenants**: exige suíte de testes automatizados específica validando que toda query respeita RLS, incluindo endpoints novos adicionados ao longo do tempo — e, separadamente, testes do caminho do convidado (não coberto por RLS, ver [`CLAUDE.md`](../CLAUDE.md), Modelo de Confiança).
-2. **Ruído de performance de um tenant afetando outro**: a denormalização de `wedding_id` em tabelas filhas (ver [`DATABASE.md`](DATABASE.md)) já prepara o particionamento declarativo por `wedding_id` em `guests`, `rsvp_responses` e `gift_reservations`. Gatilho de decisão sugerido: avaliar particionamento quando qualquer uma dessas tabelas ultrapassar ~5 milhões de linhas agregadas, ou quando queries de dashboard de um único tenant começarem a competir visivelmente por I/O com outros tenants.
+2. **Ruído de performance de um tenant afetando outro**: a denormalização de `casamento_id` em tabelas filhas (ver [`DATABASE.md`](DATABASE.md)) já prepara o particionamento declarativo por `casamento_id` em `convidados`, `respostas_rsvp` e `reservas_presentes`. Gatilho de decisão sugerido: avaliar particionamento quando qualquer uma dessas tabelas ultrapassar ~5 milhões de linhas agregadas, ou quando queries de dashboard de um único tenant começarem a competir visivelmente por I/O com outros tenants.
 3. **Suporte ao cliente em escala**: painel interno de operação precisa existir antes de abrir cadastro self-service, para permitir suporte, reembolsos e resolução de disputas sem acesso direto ao banco de produção.
 4. **Escalabilidade de e-mail transacional**: volume de convites/lembretes cresce proporcionalmente ao número de tenants — revisar limites e reputação de envio do provedor (Resend) antes da Fase 5.
 
@@ -108,10 +108,10 @@ Para evitar retrofitar limites de plano em cima de dados de produção já exist
 
 | Tabela | Propósito |
 |---|---|
-| `plans` | Catálogo de planos (nome, limites — nº de convidados, storage, presentes) |
-| `subscriptions` | Vínculo entre `wedding` e `plan` (mesmo que hoje todo `wedding` esteja em um único plano padrão "interno") |
-| `usage_counters` | Contadores materializados por `wedding_id` (nº de convidados ativos, storage usado) para checagem rápida de limite sem `count(*)` sob demanda |
-| `entitlements` | Feature flags por `wedding_id`/plano (ex.: domínio customizado habilitado) — evita espalhar `if (plan === 'pro')` pelo código quando o billing chegar |
+| `planos` | Catálogo de planos (nome, limites — nº de convidados, storage, presentes, `max_casamentos`) |
+| `assinaturas` | Vínculo entre casamento/conta e plano (mesmo que hoje todo casamento esteja em um único plano padrão "interno"); `casamento_id`/`conta_id` são mutuamente exclusivos (XOR) |
+| `contadores_uso` | Contadores materializados por `casamento_id` (nº de convidados ativos, storage usado) para checagem rápida de limite sem `count(*)` sob demanda |
+| `funcionalidades_habilitadas` | Feature flags por `casamento_id`/`conta_id`/plano (ex.: domínio customizado habilitado) — evita espalhar `if (plan === 'pro')` pelo código quando o billing chegar |
 
 Essas tabelas não têm UI de gestão na v1 — existem apenas para que o modelo de dados não precise de uma migration estrutural disruptiva no momento da transição da Fase 5.
 

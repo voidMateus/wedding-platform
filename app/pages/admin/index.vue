@@ -14,7 +14,7 @@ const { data: wedding } = getWedding()
 
 const targetDateTime = computed(() =>
   wedding.value
-    ? resolveEventDateTime(wedding.value.event_date, wedding.value.event_time).toISOString()
+    ? resolveEventDateTime(wedding.value.data_evento, wedding.value.horario_evento).toISOString()
     : null,
 )
 

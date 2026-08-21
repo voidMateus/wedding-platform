@@ -12,7 +12,7 @@ export interface WeddingThemeStyle {
 }
 
 /**
- * Resolve theme_config (shape em shared/schemas/theme.ts) para CSS vars
+ * Resolve config_tema (shape em shared/schemas/theme.ts) para CSS vars
  * (CLAUDE.md, seção 22.3). Função pura, sem estado — chamada tanto pelo
  * layout público (cores + fonte) quanto pelo admin (só cores; --font-sans
  * nunca varia por casamento, CLAUDE.md seção 21).

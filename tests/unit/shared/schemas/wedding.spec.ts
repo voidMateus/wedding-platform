@@ -4,118 +4,118 @@ import { weddingSettingsSchema } from '#shared/schemas/wedding'
 describe('weddingSettingsSchema', () => {
   it('aceita configurações válidas', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      rsvpDeadline: '2026-11-01T00:00',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      prazoRsvp: '2026-11-01T00:00',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('aceita eventTime válido (HH:MM)', () => {
+  it('aceita horarioEvento válido (HH:MM)', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      eventTime: '16:00',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      horarioEvento: '16:00',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('aceita eventTime ausente (contagem regressiva usa meia-noite como fallback)', () => {
+  it('aceita horarioEvento ausente (contagem regressiva usa meia-noite como fallback)', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('rejeita eventTime em formato inválido', () => {
+  it('rejeita horarioEvento em formato inválido', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      eventTime: 'às quatro da tarde',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      horarioEvento: 'às quatro da tarde',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(false)
   })
 
-  it('rejeita guestListMode fora do enum', () => {
+  it('rejeita modoListaConvidados fora do enum', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'qualquer-coisa',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'qualquer-coisa',
     })
 
     expect(result.success).toBe(false)
   })
 
-  it('aceita infinitepayHandle opcional', () => {
+  it('aceita handleInfinitepay opcional', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
-      infinitepayHandle: 'anaejoao',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
+      handleInfinitepay: 'anaejoao',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('aceita ausência de infinitepayHandle (Pix desativado)', () => {
+  it('aceita ausência de handleInfinitepay (Pix desativado)', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('physicalGiftDeliveryMode tem "both" como default', () => {
+  it('modoEntregaPresenteFisico tem "ambos" como default', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.physicalGiftDeliveryMode).toBe('both')
+      expect(result.data.modoEntregaPresenteFisico).toBe('ambos')
     }
   })
 
-  it('aceita physicalGiftDeliveryMode explícito', () => {
+  it('aceita modoEntregaPresenteFisico explícito', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
-      physicalGiftDeliveryMode: 'payment_only',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
+      modoEntregaPresenteFisico: 'somente_pagamento',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('rejeita physicalGiftDeliveryMode fora do enum', () => {
+  it('rejeita modoEntregaPresenteFisico fora do enum', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: 'Ana & João',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
-      physicalGiftDeliveryMode: 'qualquer-coisa',
+      nomesNoivos: 'Ana & João',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
+      modoEntregaPresenteFisico: 'qualquer-coisa',
     })
 
     expect(result.success).toBe(false)
@@ -123,10 +123,10 @@ describe('weddingSettingsSchema', () => {
 
   it('rejeita nome do casal vazio', () => {
     const result = weddingSettingsSchema.safeParse({
-      coupleNames: '  ',
-      eventDate: '2026-12-12',
-      childMaxAge: 11,
-      guestListMode: 'closed',
+      nomesNoivos: '  ',
+      dataEvento: '2026-12-12',
+      idadeMaximaCrianca: 11,
+      modoListaConvidados: 'fechada',
     })
 
     expect(result.success).toBe(false)

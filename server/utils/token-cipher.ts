@@ -6,7 +6,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
  * autenticada). A chave vem só do ambiente do servidor
  * (DRIVE_TOKEN_ENCRYPTION_KEY), nunca do banco.
  *
- * Por que cifra e não hash como `code_hash` (guest-access-token.ts, SHA-256):
+ * Por que cifra e não hash como `codigo_hash` (guest-access-token.ts, SHA-256):
  * o código do convidado só precisa ser COMPARADO, então um hash de mão única
  * basta; um refresh token do Google precisa ser USADO (descifrado) para
  * renovar o acesso — logo exige cifra reversível. A propriedade de segurança

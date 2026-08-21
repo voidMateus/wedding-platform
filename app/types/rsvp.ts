@@ -13,7 +13,7 @@ export interface RsvpMember {
   fullName: string
   nickname: string | null
   dietaryRestrictions: string | null
-  status: 'pending' | 'confirmed' | 'declined' | 'waitlisted' | 'removed'
+  status: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 }
 
 export interface RsvpInvitePayload {
@@ -22,7 +22,7 @@ export interface RsvpInvitePayload {
     coupleNames: string
     eventDate: string
     rsvpDeadline: string | null
-    guestListMode: 'closed' | 'open'
+    guestListMode: 'fechada' | 'aberta'
   }
   isPastDeadline: boolean
   maxCompanions: number | null

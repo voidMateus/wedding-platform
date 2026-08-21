@@ -55,7 +55,7 @@ watch(
   () => props.wedding,
   (value) => {
     if (!value) return
-    const resolved = resolveWeddingContent(value.content_config)
+    const resolved = resolveWeddingContent(value.config_conteudo)
     resetForm({
       values: {
         welcomeTitle: resolved.welcomeTitle,

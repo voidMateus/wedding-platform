@@ -38,9 +38,9 @@ function openLightbox(photo: PhotoWithUrl) {
       >
         <img
           :src="photo.url"
-          :alt="photo.caption || 'Foto da galeria'"
+          :alt="photo.legenda || 'Foto da galeria'"
           class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          :style="{ objectPosition: `${photo.focal_x}% ${photo.focal_y}%` }"
+          :style="{ objectPosition: `${photo.foco_x}% ${photo.foco_y}%` }"
           loading="lazy"
         />
       </button>
@@ -49,12 +49,12 @@ function openLightbox(photo: PhotoWithUrl) {
     <UiModal
       v-model="isLightboxOpen"
       size="lg"
-      :title="selectedPhoto?.caption || 'Foto da galeria'"
+      :title="selectedPhoto?.legenda || 'Foto da galeria'"
     >
       <img
         v-if="selectedPhoto"
         :src="selectedPhoto.url"
-        :alt="selectedPhoto.caption || 'Foto da galeria'"
+        :alt="selectedPhoto.legenda || 'Foto da galeria'"
         class="max-h-[70vh] w-full rounded-md object-contain"
         loading="lazy"
       />

@@ -12,7 +12,7 @@ const { data: wedding } = await getWedding()
 watch(
   wedding,
   (value) => {
-    uiStore.setThemeConfig(value?.theme_config ?? null)
+    uiStore.setThemeConfig(value?.config_tema ?? null)
   },
   { immediate: true },
 )

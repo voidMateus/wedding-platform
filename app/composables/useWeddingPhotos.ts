@@ -20,7 +20,7 @@ export function useWeddingPhotos() {
     return $fetch<PhotoWithUrl>(`/api/photos/${id}`, { method: 'PATCH', body: input })
   }
 
-  // Reordenação por drag-and-drop — grava display_order = posição na lista.
+  // Reordenação por drag-and-drop — grava ordem_exibicao = posição na lista.
   async function reorderPhotos(ids: string[]): Promise<{ ok: boolean }> {
     return $fetch<{ ok: boolean }>('/api/photos/reorder', { method: 'PATCH', body: { ids } })
   }

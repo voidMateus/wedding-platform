@@ -9,7 +9,7 @@ const { listGroups } = useGroups()
 const { getWedding } = useWedding()
 
 const { data: wedding } = getWedding()
-const childMaxAge = computed(() => wedding.value?.child_max_age ?? 11)
+const childMaxAge = computed(() => wedding.value?.idade_maxima_crianca ?? 11)
 
 const page = ref(1)
 const search = ref('')
@@ -27,7 +27,7 @@ const { data, status, error, refresh } = listGuests(listParams)
 
 const { data: groupsData } = listGroups({ pageSize: 100 })
 const groupOptions = computed(
-  () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.name })) ?? [],
+  () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? [],
 )
 
 const totalPages = computed(() => {
@@ -35,26 +35,26 @@ const totalPages = computed(() => {
   return Math.max(1, Math.ceil(total / PAGE_SIZE))
 })
 
-// 👥 acompanhantes — contagem por party_id na página atual (sem round-trip
-// extra: a listagem já traz party_id, só precisa agrupar).
+// 👥 acompanhantes — contagem por nucleo_id na página atual (sem round-trip
+// extra: a listagem já traz nucleo_id, só precisa agrupar).
 const companionCountByParty = computed(() => {
   const counts = new Map<string, number>()
   for (const guest of data.value?.data ?? []) {
-    if (!guest.party_id) continue
-    counts.set(guest.party_id, (counts.get(guest.party_id) ?? 0) + 1)
+    if (!guest.nucleo_id) continue
+    counts.set(guest.nucleo_id, (counts.get(guest.nucleo_id) ?? 0) + 1)
   }
   return counts
 })
 
 function companionCount(guest: Guest): number {
-  if (!guest.party_id) return 0
-  return (companionCountByParty.value.get(guest.party_id) ?? 1) - 1
+  if (!guest.nucleo_id) return 0
+  return (companionCountByParty.value.get(guest.nucleo_id) ?? 1) - 1
 }
 
 const expandedPartyId = ref<string | null>(null)
 function togglePartyExpand(guest: Guest) {
-  if (!guest.party_id) return
-  expandedPartyId.value = expandedPartyId.value === guest.party_id ? null : guest.party_id
+  if (!guest.nucleo_id) return
+  expandedPartyId.value = expandedPartyId.value === guest.nucleo_id ? null : guest.nucleo_id
 }
 
 // --- excluir ---
@@ -141,22 +141,22 @@ async function confirmDelete() {
           <template v-for="guest in data?.data" :key="guest.id">
             <tr class="border-t border-border transition-brand hover:bg-surface-muted/60">
               <td class="px-4 py-2 text-text">
-                {{ guest.full_name }}
+                {{ guest.nome_completo }}
                 <UiBadge
-                  v-if="computeIsChild(guest.birth_date, childMaxAge)"
+                  v-if="computeIsChild(guest.data_nascimento, childMaxAge)"
                   tone="neutral"
                   class="ml-2"
                 >
                   criança
                 </UiBadge>
-                <UiBadge v-if="guest.wedding_role" tone="success" class="ml-2">
-                  {{ guest.wedding_role === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
+                <UiBadge v-if="guest.papel_casamento" tone="success" class="ml-2">
+                  {{ guest.papel_casamento === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
                 </UiBadge>
               </td>
               <td class="px-4 py-2 text-text-muted">
-                {{ groupOptions.find((g) => g.value === guest.group_id)?.label ?? '—' }}
+                {{ groupOptions.find((g) => g.value === guest.grupo_id)?.label ?? '—' }}
               </td>
-              <td class="px-4 py-2 text-text-muted">{{ guest.dietary_restrictions || '—' }}</td>
+              <td class="px-4 py-2 text-text-muted">{{ guest.restricoes_alimentares || '—' }}</td>
               <td class="px-4 py-2 text-text-muted">
                 <button
                   v-if="companionCount(guest) > 0"
@@ -166,7 +166,7 @@ async function confirmDelete() {
                 >
                   <Icon
                     :name="
-                      expandedPartyId === guest.party_id
+                      expandedPartyId === guest.nucleo_id
                         ? 'lucide:chevron-up'
                         : 'lucide:chevron-down'
                     "
@@ -188,18 +188,18 @@ async function confirmDelete() {
               </td>
             </tr>
             <tr
-              v-if="expandedPartyId === guest.party_id && companionCount(guest) > 0"
+              v-if="expandedPartyId === guest.nucleo_id && companionCount(guest) > 0"
               class="bg-surface-muted"
             >
               <td colspan="5" class="px-4 py-2 text-sm text-text-muted">
                 <ul class="flex flex-col gap-1">
                   <li
                     v-for="companion in data?.data.filter(
-                      (g) => g.party_id === guest.party_id && g.id !== guest.id,
+                      (g) => g.nucleo_id === guest.nucleo_id && g.id !== guest.id,
                     )"
                     :key="companion.id"
                   >
-                    • {{ companion.full_name }}
+                    • {{ companion.nome_completo }}
                   </li>
                 </ul>
               </td>
@@ -234,7 +234,7 @@ async function confirmDelete() {
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
       <p class="text-sm text-text">
-        Tem certeza que deseja excluir <strong>{{ deleteTarget?.full_name }}</strong
+        Tem certeza que deseja excluir <strong>{{ deleteTarget?.nome_completo }}</strong
         >? O histórico de RSVP/presentes associados é preservado.
       </p>
       <template #footer>

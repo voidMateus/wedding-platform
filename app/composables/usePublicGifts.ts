@@ -10,7 +10,7 @@ interface GiftCheckoutResponse {
 }
 
 export interface GiftPaymentStatus {
-  status: 'pending' | 'confirmed' | 'failed' | 'expired'
+  status: 'pendente' | 'confirmado' | 'falhou' | 'expirado'
   giftTitle: string | null
   amountCents: number
   quotaCount: number | null
@@ -39,7 +39,7 @@ export function usePublicGifts() {
   ): Promise<unknown> {
     return $fetch(`/api/public/gifts/${giftId}/reserve`, {
       method: 'POST',
-      body: { giverName: giver.name, giverPhone: giver.phone, message },
+      body: { nomePresenteador: giver.name, telefonePresenteador: giver.phone, message },
     })
   }
 
@@ -51,7 +51,13 @@ export function usePublicGifts() {
   ): Promise<GiftCheckoutResponse> {
     return $fetch<GiftCheckoutResponse>(`/api/public/gifts/${giftId}/checkout`, {
       method: 'POST',
-      body: { giverName: giver.name, giverPhone: giver.phone, ...options },
+      body: {
+        nomePresenteador: giver.name,
+        telefonePresenteador: giver.phone,
+        message: options.message,
+        valorCentavos: options.amountCents,
+        quantidadeCotas: options.quotaCount,
+      },
     })
   }
 
@@ -60,7 +66,7 @@ export function usePublicGifts() {
     hints?: { transactionNsu?: string; slug?: string },
   ): Promise<GiftPaymentStatus> {
     return $fetch<GiftPaymentStatus>(`/api/public/gifts/payments/${paymentId}/status`, {
-      query: { transactionNsu: hints?.transactionNsu, slug: hints?.slug },
+      query: { nsuTransacao: hints?.transactionNsu, slug: hints?.slug },
     })
   }
 
