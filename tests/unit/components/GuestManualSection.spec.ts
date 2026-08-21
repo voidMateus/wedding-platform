@@ -59,7 +59,7 @@ describe('PublicGuestManualSection', () => {
     }
   })
 
-  it('usa introdução/tópicos customizados pelo casal quando presentes em content_config', () => {
+  it('usa introdução/tópicos customizados pelo casal quando presentes em config_conteudo', () => {
     const wrapper = mountSection(
       makeWedding({
         config_conteudo: {
@@ -73,7 +73,7 @@ describe('PublicGuestManualSection', () => {
     expect(wrapper.text()).not.toContain(GUEST_MANUAL_CONTENT.intro)
   })
 
-  it('some inteiramente quando o casal esvazia content_config.guestManualTopics', () => {
+  it('some inteiramente quando o casal esvazia config_conteudo.guestManualTopics', () => {
     const wrapper = mountSection(makeWedding({ config_conteudo: { guestManualTopics: [] } }))
     expect(wrapper.find('#manual-convidados').exists()).toBe(false)
   })

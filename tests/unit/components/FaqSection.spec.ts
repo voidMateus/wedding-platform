@@ -58,7 +58,7 @@ describe('PublicFaqSection', () => {
     }
   })
 
-  it('usa a lista de perguntas customizada pelo casal quando presente em content_config', () => {
+  it('usa a lista de perguntas customizada pelo casal quando presente em config_conteudo', () => {
     const wrapper = mountSection(
       makeWedding({ config_conteudo: { faqItems: [{ question: 'Tem estacionamento?', answer: 'Sim.' }] } }),
     )
@@ -66,7 +66,7 @@ describe('PublicFaqSection', () => {
     expect(wrapper.text()).not.toContain(FAQ_CONTENT[0]!.question)
   })
 
-  it('some inteiramente quando o casal esvazia content_config.faqItems', () => {
+  it('some inteiramente quando o casal esvazia config_conteudo.faqItems', () => {
     const wrapper = mountSection(makeWedding({ config_conteudo: { faqItems: [] } }))
     expect(wrapper.find('#faq').exists()).toBe(false)
   })

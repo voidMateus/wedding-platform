@@ -9,17 +9,17 @@ import { ICON_STUBS } from '../test-utils/icon-stubs'
 function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
   return {
     id: 'seg-1',
-    wedding_id: '11111111-1111-1111-1111-111111111111',
-    title: 'Cerimônia',
-    venue_name: 'Igreja São José',
-    venue_address: 'Rua das Flores, 100',
-    starts_at: null,
-    ends_at: null,
-    display_order: 0,
-    venue_latitude: null,
-    venue_longitude: null,
-    same_venue_as: null,
-    image_url: null,
+    casamento_id: '11111111-1111-1111-1111-111111111111',
+    titulo: 'Cerimônia',
+    nome_local: 'Igreja São José',
+    endereco_local: 'Rua das Flores, 100',
+    inicia_em: null,
+    termina_em: null,
+    ordem_exibicao: 0,
+    latitude_local: null,
+    longitude_local: null,
+    mesmo_local_que: null,
+    url_imagem: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -42,7 +42,7 @@ function mountSection(groups: EventSegment[][]) {
 
 describe('PublicGrandeDiaSection', () => {
   it('usa sempre o título fixo "O Grande Dia" e a âncora #grande-dia', () => {
-    const wrapper = mountSection([[makeSegment({ id: 'a', title: 'Cerimônia' })]])
+    const wrapper = mountSection([[makeSegment({ id: 'a', titulo: 'Cerimônia' })]])
     expect(wrapper.find('h2').text()).toBe('O Grande Dia')
     expect(wrapper.find('#grande-dia').exists()).toBe(true)
   })
@@ -54,20 +54,20 @@ describe('PublicGrandeDiaSection', () => {
 
   it('renderiza um cartão por grupo (endereços diferentes → dois cartões)', () => {
     const wrapper = mountSection([
-      [makeSegment({ id: 'a', title: 'Cerimônia' })],
-      [makeSegment({ id: 'b', title: 'Recepção' })],
+      [makeSegment({ id: 'a', titulo: 'Cerimônia' })],
+      [makeSegment({ id: 'b', titulo: 'Recepção' })],
     ])
     expect(wrapper.findAll('[data-test="spotlight-card"]')).toHaveLength(2)
   })
 
   it('renderiza o cartão "save the date" dentro da própria seção', () => {
-    const wrapper = mountSection([[makeSegment({ id: 'a', title: 'Cerimônia' })]])
+    const wrapper = mountSection([[makeSegment({ id: 'a', titulo: 'Cerimônia' })]])
     expect(wrapper.find('[data-test="save-the-date"]').exists()).toBe(true)
   })
 
   it('renderiza um único cartão quando os segmentos já vêm fundidos no mesmo grupo', () => {
     const wrapper = mountSection([
-      [makeSegment({ id: 'a', title: 'Cerimônia' }), makeSegment({ id: 'b', title: 'Recepção', same_venue_as: 'a' })],
+      [makeSegment({ id: 'a', titulo: 'Cerimônia' }), makeSegment({ id: 'b', titulo: 'Recepção', mesmo_local_que: 'a' })],
     ])
     expect(wrapper.findAll('[data-test="spotlight-card"]')).toHaveLength(1)
   })

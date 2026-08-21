@@ -3,7 +3,7 @@ import { useWeddingTheme } from '~/composables/useWeddingTheme'
 import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from '#shared/utils/contrast'
 
 describe('useWeddingTheme', () => {
-  it('usa as cores default quando theme_config é null', () => {
+  it('usa as cores default quando config_tema é null', () => {
     const style = useWeddingTheme(null)
     expect(style['--color-primary']).toBe(DEFAULT_PRIMARY_COLOR)
     expect(style['--color-secondary']).toBe(DEFAULT_SECONDARY_COLOR)

@@ -63,7 +63,7 @@ describe('PublicDressCodeSection', () => {
     expect(wrapper.html()).not.toContain('undefined')
   })
 
-  it('usa descrição/sugestões customizadas pelo casal quando presentes em content_config', () => {
+  it('usa descrição/sugestões customizadas pelo casal quando presentes em config_conteudo', () => {
     const wrapper = mountDressCode(
       makeWedding({
         config_conteudo: { dressCodeDescription: 'Traje esporte fino.', dressCodeSuggestions: ['Use tons pastel.'] },
@@ -74,7 +74,7 @@ describe('PublicDressCodeSection', () => {
     expect(wrapper.text()).not.toContain(DRESS_CODE_CONTENT.description)
   })
 
-  it('esconde a lista de sugestões quando o casal esvazia content_config.dressCodeSuggestions', () => {
+  it('esconde a lista de sugestões quando o casal esvazia config_conteudo.dressCodeSuggestions', () => {
     const wrapper = mountDressCode(
       makeWedding({ config_conteudo: { dressCodeSuggestions: [] } }),
     )

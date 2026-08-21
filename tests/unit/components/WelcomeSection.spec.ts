@@ -54,7 +54,7 @@ describe('PublicWelcomeSection', () => {
     expect(wrapper.text()).toContain('♥')
   })
 
-  it('usa o título/mensagem customizados pelo casal quando presentes em content_config', () => {
+  it('usa o título/mensagem customizados pelo casal quando presentes em config_conteudo', () => {
     const wrapper = mountSection(
       makeWedding({
         config_conteudo: { welcomeTitle: 'Bem-vindos!', welcomeMessage: 'Mensagem custom.' },
