@@ -29,9 +29,9 @@ async function toggleTag(tagId: string) {
     ? currentIds.filter((id) => id !== tagId)
     : [...currentIds, tagId]
   await updateInvite(props.invite.id, {
-    name: props.invite.name,
-    notes: props.invite.notes ?? '',
-    responsibleGuestId: props.invite.responsible_guest_id ?? '',
+    nome: props.invite.nome,
+    observacoes: props.invite.observacoes ?? '',
+    convidadoResponsavelId: props.invite.convidado_responsavel_id ?? '',
     tagIds: nextIds,
   })
   emit('changed')
@@ -41,7 +41,7 @@ async function addNewTag() {
   const name = newTagName.value.trim()
   if (!name) return
   try {
-    const tag = await createInviteTag({ name })
+    const tag = await createInviteTag({ nome: name })
     await refreshTags()
     await toggleTag(tag.id)
     newTagName.value = ''
@@ -50,11 +50,11 @@ async function addNewTag() {
   }
 }
 
-const deleteTarget = ref<{ id: string; name: string } | null>(null)
+const deleteTarget = ref<{ id: string; nome: string } | null>(null)
 const isDeleteModalOpen = ref(false)
 const isDeleting = ref(false)
 
-function openDeleteModal(tag: { id: string; name: string }) {
+function openDeleteModal(tag: { id: string; nome: string }) {
   deleteTarget.value = tag
   isDeleteModalOpen.value = true
 }
@@ -85,7 +85,7 @@ async function confirmDelete() {
       <UiChip
         v-for="tag in tagsData?.data ?? []"
         :key="tag.id"
-        :label="tag.name"
+        :label="tag.nome"
         :selected="isTagSelected(tag.id)"
         clickable
         removable
@@ -100,7 +100,7 @@ async function confirmDelete() {
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir etiqueta">
       <p class="text-sm text-text">
-        Tem certeza que deseja excluir a etiqueta <strong>{{ deleteTarget?.name }}</strong
+        Tem certeza que deseja excluir a etiqueta <strong>{{ deleteTarget?.nome }}</strong
         >? Ela será removida de todos os convites que a usam.
       </p>
       <template #footer>

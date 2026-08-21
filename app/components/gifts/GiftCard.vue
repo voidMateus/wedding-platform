@@ -28,9 +28,9 @@ const isPaymentModalOpen = ref(false)
 // dos dois ficar disponível (ex.: só pagamento configurado, mas sem
 // infinitepay_handle), não há como presentear esse item por aqui.
 const canPresentPhysical = computed(() => {
-  const allowSelfPurchase = gift.physicalDeliveryMode !== 'payment_only'
+  const allowSelfPurchase = gift.physicalDeliveryMode !== 'somente_pagamento'
   const allowOnlinePayment =
-    gift.physicalDeliveryMode !== 'self_purchase_only' &&
+    gift.physicalDeliveryMode !== 'somente_compra_propria' &&
     gift.hasPixOption &&
     gift.priceCents !== null
   return allowSelfPurchase || allowOnlinePayment
@@ -67,7 +67,7 @@ function handlePaymentSubmit(payload: {
 <template>
   <UiCard padding="none" radius="xl" elevation="xl" class="flex h-full flex-col overflow-hidden">
     <div
-      v-if="gift.displayStyle === 'emotional'"
+      v-if="gift.displayStyle === 'emocional'"
       class="flex flex-col items-center gap-2 p-5 pb-0 text-center"
     >
       <span
@@ -91,13 +91,13 @@ function handlePaymentSubmit(payload: {
       </span>
     </div>
     <div class="flex flex-1 flex-col gap-3 p-5">
-      <div :class="gift.displayStyle === 'emotional' ? 'text-center' : ''">
+      <div :class="gift.displayStyle === 'emocional' ? 'text-center' : ''">
         <div
           class="flex items-start justify-between gap-2"
-          :class="gift.displayStyle === 'emotional' ? 'justify-center' : ''"
+          :class="gift.displayStyle === 'emocional' ? 'justify-center' : ''"
         >
           <h3 class="font-display text-base font-semibold text-heading">{{ gift.title }}</h3>
-          <UiBadge v-if="gift.categoryName && gift.displayStyle !== 'emotional'" tone="neutral">
+          <UiBadge v-if="gift.categoryName && gift.displayStyle !== 'emocional'" tone="neutral">
             {{ gift.categoryName }}
           </UiBadge>
         </div>
