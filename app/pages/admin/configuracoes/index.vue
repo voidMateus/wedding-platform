@@ -35,7 +35,7 @@ const { data: wedding, status, refresh } = await getWedding()
       <template #aparencia>
         <AdminSettingsAppearanceTab
           :wedding="wedding"
-          :couple-names="wedding?.couple_names ?? ''"
+          :couple-names="wedding?.nomes_noivos ?? ''"
           @refresh="refresh"
         />
       </template>
