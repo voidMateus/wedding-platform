@@ -17,10 +17,10 @@ export default defineEventHandler(async (event) => {
     .remove(ALL_EXTENSIONS.map((ext) => `${weddingId}/${id}.${ext}`))
 
   const { error } = await client
-    .from('event_segments')
-    .update({ image_url: null })
+    .from('etapas_evento')
+    .update({ url_imagem: null })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
 
   if (error) {
     throw badRequestError(error.message)

@@ -7,26 +7,26 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
 
-  const sameVenueAs = input.sameVenueAs || null
+  const sameVenueAs = input.mesmoLocalQue || null
   if (sameVenueAs) {
     await validateSameVenueTarget(client, weddingId, sameVenueAs)
   }
 
   const { data, error } = await client
-    .from('event_segments')
+    .from('etapas_evento')
     .insert({
-      wedding_id: weddingId,
-      title: input.title,
-      // Com same_venue_as definido, este registro nunca guarda seu próprio
+      casamento_id: weddingId,
+      titulo: input.titulo,
+      // Com mesmo_local_que definido, este registro nunca guarda seu próprio
       // local — evita duas fontes de verdade divergentes (CLAUDE.md, 12.2).
-      venue_name: sameVenueAs ? null : input.venueName || null,
-      venue_address: sameVenueAs ? null : input.venueAddress || null,
-      venue_latitude: sameVenueAs ? null : (input.venueLatitude ?? null),
-      venue_longitude: sameVenueAs ? null : (input.venueLongitude ?? null),
-      same_venue_as: sameVenueAs,
-      starts_at: input.startsAt || null,
-      ends_at: input.endsAt || null,
-      display_order: input.displayOrder,
+      nome_local: sameVenueAs ? null : input.nomeLocal || null,
+      endereco_local: sameVenueAs ? null : input.enderecoLocal || null,
+      latitude_local: sameVenueAs ? null : (input.latitudeLocal ?? null),
+      longitude_local: sameVenueAs ? null : (input.longitudeLocal ?? null),
+      mesmo_local_que: sameVenueAs,
+      inicia_em: input.iniciaEm || null,
+      termina_em: input.terminaEm || null,
+      ordem_exibicao: input.ordemExibicao,
     })
     .select()
     .single()
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     action: 'event_segment.create',
     entityType: 'event_segment',
     entityId: data.id,
-    metadata: { title: data.title },
+    metadata: { title: data.titulo },
   })
 
   setResponseStatus(event, 201)

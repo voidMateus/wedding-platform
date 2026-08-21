@@ -4,7 +4,7 @@ import { serverSupabaseClient } from '#supabase/server'
  * Upload da foto de local de um item do cronograma (CLAUDE.md, seção 28 —
  * allowlist de MIME, limite de tamanho, nome de arquivo sempre regenerado no
  * servidor). Mesmo padrão da foto de capa (cover-upload.post.ts), mas
- * particionado por event_segment.id em vez de um slot fixo por wedding_id —
+ * particionado por etapa_evento.id em vez de um slot fixo por casamento_id —
  * cada item do cronograma tem sua própria foto opcional.
  */
 export default defineEventHandler(async (event) => {
@@ -33,10 +33,10 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: segment, error: fetchError } = await client
-    .from('event_segments')
+    .from('etapas_evento')
     .select('id')
     .eq('id', id)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .maybeSingle()
 
   if (fetchError) {
@@ -68,10 +68,10 @@ export default defineEventHandler(async (event) => {
   const publicUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
 
   const { error: updateError } = await client
-    .from('event_segments')
-    .update({ image_url: publicUrl })
+    .from('etapas_evento')
+    .update({ url_imagem: publicUrl })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
 
   if (updateError) {
     throw badRequestError(updateError.message)

@@ -11,26 +11,26 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
 
-  const sameVenueAs = input.sameVenueAs || null
+  const sameVenueAs = input.mesmoLocalQue || null
   if (sameVenueAs) {
     await validateSameVenueTarget(client, weddingId, sameVenueAs, id)
   }
 
   const { data, error } = await client
-    .from('event_segments')
+    .from('etapas_evento')
     .update({
-      title: input.title,
-      venue_name: sameVenueAs ? null : input.venueName || null,
-      venue_address: sameVenueAs ? null : input.venueAddress || null,
-      venue_latitude: sameVenueAs ? null : (input.venueLatitude ?? null),
-      venue_longitude: sameVenueAs ? null : (input.venueLongitude ?? null),
-      same_venue_as: sameVenueAs,
-      starts_at: input.startsAt || null,
-      ends_at: input.endsAt || null,
-      display_order: input.displayOrder,
+      titulo: input.titulo,
+      nome_local: sameVenueAs ? null : input.nomeLocal || null,
+      endereco_local: sameVenueAs ? null : input.enderecoLocal || null,
+      latitude_local: sameVenueAs ? null : (input.latitudeLocal ?? null),
+      longitude_local: sameVenueAs ? null : (input.longitudeLocal ?? null),
+      mesmo_local_que: sameVenueAs,
+      inicia_em: input.iniciaEm || null,
+      termina_em: input.terminaEm || null,
+      ordem_exibicao: input.ordemExibicao,
     })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .select()
     .maybeSingle()
 
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     action: 'event_segment.update',
     entityType: 'event_segment',
     entityId: data.id,
-    metadata: { title: data.title },
+    metadata: { title: data.titulo },
   })
 
   return data
