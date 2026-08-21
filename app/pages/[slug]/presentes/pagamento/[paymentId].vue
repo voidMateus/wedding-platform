@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { useIntervalFn } from '@vueuse/core'
 import { formatCentsToBRL } from '#shared/utils/format-currency'
-import type { GiftPaymentStatus } from '~/composables/usePublicGifts'
 
 // Tela de retorno do checkout online (CLAUDE.md, seção 18/28) — funciona
 // como "pull": mesmo que o webhook da InfinitePay já tenha confirmado,
@@ -27,31 +25,7 @@ const paymentHints = {
   slug: typeof route.query.slug === 'string' ? route.query.slug : undefined,
 }
 
-const { getPaymentStatus } = usePublicGifts()
-
-const result = ref<GiftPaymentStatus | null>(null)
-const loadError = ref(false)
-
-const POLL_INTERVAL_MS = 2500
-const MAX_POLL_ATTEMPTS = 20
-let attempts = 0
-
-const { pause } = useIntervalFn(
-  async () => {
-    attempts++
-    try {
-      result.value = await getPaymentStatus(paymentId, attempts === 1 ? paymentHints : undefined)
-      loadError.value = false
-    } catch {
-      loadError.value = true
-    }
-    if (result.value?.status !== 'pending' || attempts >= MAX_POLL_ATTEMPTS) {
-      pause()
-    }
-  },
-  POLL_INTERVAL_MS,
-  { immediate: true },
-)
+const { result, loadError } = useGiftPaymentPolling(paymentId, paymentHints)
 
 const backLink = computed(() => `/${slug}/presentes`)
 </script>
