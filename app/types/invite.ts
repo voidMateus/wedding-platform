@@ -1,8 +1,8 @@
 import type { Database } from './database.types'
 
-export type Invite = Database['public']['Tables']['invites']['Row']
-export type InviteTag = Database['public']['Tables']['invite_tags']['Row']
-export type InviteEvent = Database['public']['Tables']['invite_events']['Row']
+export type Invite = Database['public']['Tables']['convites']['Row']
+export type InviteTag = Database['public']['Tables']['etiquetas_convite']['Row']
+export type InviteEvent = Database['public']['Tables']['historico_convite']['Row']
 
 export type InviteResponseStatus = 'pending' | 'partial' | 'responded'
 
@@ -18,7 +18,7 @@ export interface InviteMember {
   nickname: string | null
   partyOrder: number
   isResponsible: boolean
-  rsvpStatus: 'pending' | 'confirmed' | 'declined' | 'waitlisted' | 'removed'
+  rsvpStatus: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 }
 
 export interface InviteDetail extends Invite {

@@ -2,7 +2,7 @@
 // CLAUDE.md). Shape seguro exposto ao client — nunca inclui os tokens cifrados.
 
 export type GalleryConnectionMode = 'oauth' | 'public_link'
-export type GalleryConnectionStatus = 'active' | 'error' | 'reauth_required'
+export type GalleryConnectionStatus = 'ativo' | 'erro' | 'reautenticacao_necessaria'
 
 export interface GallerySourceConnection {
   id: string
