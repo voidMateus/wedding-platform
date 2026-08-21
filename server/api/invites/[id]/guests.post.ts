@@ -18,38 +18,38 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: invite, error: inviteError } = await client
-    .from('invites')
+    .from('convites')
     .select('id')
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (inviteError) throw badRequestError(inviteError.message)
   if (!invite) throw notFoundError('Convite não encontrado.')
 
   const { data: guests, error: guestsError } = await client
-    .from('guests')
-    .select('id, full_name, invite_id')
+    .from('convidados')
+    .select('id, nome_completo, convite_id')
     .in('id', input.guestIds)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
 
   if (guestsError) throw badRequestError(guestsError.message)
 
-  const alreadyElsewhere = (guests ?? []).filter((g) => g.invite_id && g.invite_id !== id)
+  const alreadyElsewhere = (guests ?? []).filter((g) => g.convite_id && g.convite_id !== id)
   if (alreadyElsewhere.length > 0) {
     throw conflictError(
-      `${alreadyElsewhere.map((g) => g.full_name).join(', ')} já pertence a outro convite.`,
+      `${alreadyElsewhere.map((g) => g.nome_completo).join(', ')} já pertence a outro convite.`,
       { guestIds: alreadyElsewhere.map((g) => g.id) },
     )
   }
 
   const { error: updateError } = await client
-    .from('guests')
-    .update({ invite_id: id })
+    .from('convidados')
+    .update({ convite_id: id })
     .in('id', input.guestIds)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
 
   if (updateError) throw badRequestError(updateError.message)
 

@@ -9,11 +9,11 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: members, error: membersError } = await client
-    .from('guests')
+    .from('convidados')
     .select('id')
-    .eq('party_id', input.partyId)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('nucleo_id', input.partyId)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
 
   if (membersError) throw badRequestError(membersError.message)
 
@@ -24,26 +24,26 @@ export default defineEventHandler(async (event) => {
     throw badRequestError('A lista de reordenação precisa incluir todos os membros do grupo.')
   }
 
-  // Duas passagens: (party_id, party_order) tem índice único, então trocar
+  // Duas passagens: (nucleo_id, ordem_nucleo) tem índice único, então trocar
   // posições diretamente (ex.: 0<->1) colidiria em uma UPDATE intermediária.
   // A primeira passagem move todos para um intervalo alto (nunca colide com
   // 0..n-1); a segunda grava os valores finais.
   for (let index = 0; index < validOrderedIds.length; index += 1) {
     const { error } = await client
-      .from('guests')
-      .update({ party_order: 1000 + index })
+      .from('convidados')
+      .update({ ordem_nucleo: 1000 + index })
       .eq('id', validOrderedIds[index])
-      .eq('wedding_id', weddingId)
+      .eq('casamento_id', weddingId)
 
     if (error) throw badRequestError(error.message)
   }
 
   for (let index = 0; index < validOrderedIds.length; index += 1) {
     const { error } = await client
-      .from('guests')
-      .update({ party_order: index })
+      .from('convidados')
+      .update({ ordem_nucleo: index })
       .eq('id', validOrderedIds[index])
-      .eq('wedding_id', weddingId)
+      .eq('casamento_id', weddingId)
 
     if (error) throw badRequestError(error.message)
   }

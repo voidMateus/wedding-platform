@@ -2,9 +2,9 @@ import { serverSupabaseClient } from '#supabase/server'
 
 /**
  * Soft delete do convite — os convidados nunca são excluídos junto, só
- * desvinculados (invite_id = null), voltando ao estado "sem convite" do
+ * desvinculados (convite_id = null), voltando ao estado "sem convite" do
  * wizard (CLAUDE.md, seção 12.1). Diferente do antigo guest_groups, não há
- * necessidade de confirmação em cascata: guests.invite_id é nullable.
+ * necessidade de confirmação em cascata: convidados.convite_id é nullable.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -16,12 +16,12 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data, error } = await client
-    .from('invites')
-    .update({ deleted_at: new Date().toISOString() })
+    .from('convites')
+    .update({ excluido_em: new Date().toISOString() })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
-    .select('id, name')
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
+    .select('id, nome')
     .maybeSingle()
 
   if (error) {
@@ -32,9 +32,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const { error: detachError } = await client
-    .from('guests')
-    .update({ invite_id: null })
-    .eq('invite_id', id)
+    .from('convidados')
+    .update({ convite_id: null })
+    .eq('convite_id', id)
 
   if (detachError) {
     throw badRequestError(detachError.message)
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     action: 'invite.delete',
     entityType: 'invite',
     entityId: id,
-    metadata: { name: data.name },
+    metadata: { name: data.nome },
   })
 
   return { id: data.id }

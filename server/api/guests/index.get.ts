@@ -24,32 +24,32 @@ export default defineEventHandler(async (event) => {
   const to = from + pageSize - 1
 
   let query = client
-    .from('guests')
+    .from('convidados')
     .select('*', { count: 'exact' })
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
 
   if (search) {
-    query = query.ilike('full_name', `%${search}%`)
+    query = query.ilike('nome_completo', `%${search}%`)
   }
   if (groupId) {
-    query = query.eq('group_id', groupId)
+    query = query.eq('grupo_id', groupId)
   }
   // Convidados ainda sem convite — usado pelo seletor "adicionar convidado"
   // na tela de detalhe do convite (CLAUDE.md, seção 12.1).
   if (unassigned) {
-    query = query.is('invite_id', null)
+    query = query.is('convite_id', null)
   }
   // Convidados que ainda não são acompanhantes de ninguém — usado pela busca
   // de "convidado já cadastrado" ao adicionar um acompanhante no wizard
   // (CLAUDE.md, seção 12.1), pra não sugerir alguém que já pertence a outro
-  // grupo (sync_guest_party ainda bloqueia o caso de convite divergente,
-  // este filtro só evita a sugestão ambígua na UI).
+  // grupo (sincronizar_nucleo_convidado ainda bloqueia o caso de convite
+  // divergente, este filtro só evita a sugestão ambígua na UI).
   if (withoutParty) {
-    query = query.is('party_id', null)
+    query = query.is('nucleo_id', null)
   }
 
-  const { data, error, count } = await query.order('full_name', { ascending: true }).range(from, to)
+  const { data, error, count } = await query.order('nome_completo', { ascending: true }).range(from, to)
 
   if (error) {
     throw badRequestError(error.message)

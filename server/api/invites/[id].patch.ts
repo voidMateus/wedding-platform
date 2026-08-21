@@ -13,13 +13,13 @@ export default defineEventHandler(async (event) => {
 
   // Convidado Responsável precisa ser um membro atual do próprio convite
   // (CLAUDE.md, seção 12.1).
-  if (input.responsibleGuestId) {
+  if (input.convidadoResponsavelId) {
     const { data: member, error: memberError } = await client
-      .from('guests')
+      .from('convidados')
       .select('id')
-      .eq('id', input.responsibleGuestId)
-      .eq('invite_id', id)
-      .is('deleted_at', null)
+      .eq('id', input.convidadoResponsavelId)
+      .eq('convite_id', id)
+      .is('excluido_em', null)
       .maybeSingle()
 
     if (memberError) throw badRequestError(memberError.message)
@@ -29,16 +29,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data, error } = await client
-    .from('invites')
+    .from('convites')
     .update({
-      name: input.name,
-      notes: input.notes || null,
-      responsible_guest_id: input.responsibleGuestId || null,
-      max_companions: input.maxCompanions ?? null,
+      nome: input.nome,
+      observacoes: input.observacoes || null,
+      convidado_responsavel_id: input.convidadoResponsavelId || null,
+      max_acompanhantes: input.maxAcompanhantes ?? null,
     })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
     .select()
     .maybeSingle()
 
@@ -50,13 +50,13 @@ export default defineEventHandler(async (event) => {
   }
 
   if (input.tagIds) {
-    const { error: deleteLinksError } = await client.from('invite_tag_links').delete().eq('invite_id', id)
+    const { error: deleteLinksError } = await client.from('vinculos_convite_etiqueta').delete().eq('convite_id', id)
     if (deleteLinksError) throw badRequestError(deleteLinksError.message)
 
     if (input.tagIds.length > 0) {
       const { error: insertLinksError } = await client
-        .from('invite_tag_links')
-        .insert(input.tagIds.map((tagId) => ({ invite_id: id, tag_id: tagId })))
+        .from('vinculos_convite_etiqueta')
+        .insert(input.tagIds.map((tagId) => ({ convite_id: id, etiqueta_id: tagId })))
       if (insertLinksError) throw badRequestError(insertLinksError.message)
     }
   }
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
     action: 'invite.update',
     entityType: 'invite',
     entityId: data.id,
-    metadata: { name: data.name },
+    metadata: { name: data.nome },
   })
 
   return data
