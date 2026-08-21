@@ -13,21 +13,32 @@
 --
 -- Helper local, dropada ao final da migration: encontra e remove qualquer
 -- CHECK constraint que referencie a coluna informada.
-create or replace function _pt_br_drop_check(p_table regclass, p_column text)
+create or replace function _pt_br_drop_check(p_table text, p_column text)
 returns void
 language plpgsql
 as $$
 declare
   v_conname text;
+  v_found boolean := false;
 begin
   for v_conname in
-    select conname from pg_constraint
-    where conrelid = p_table
-      and contype = 'c'
-      and pg_get_constraintdef(oid) ~ ('\y' || p_column || '\y')
+    select tc.constraint_name
+    from information_schema.table_constraints tc
+    join information_schema.constraint_column_usage ccu
+      on ccu.constraint_name = tc.constraint_name
+     and ccu.constraint_schema = tc.constraint_schema
+    where tc.table_schema = 'public'
+      and tc.table_name = p_table
+      and tc.constraint_type = 'CHECK'
+      and ccu.column_name = p_column
   loop
-    execute format('alter table %s drop constraint %I', p_table::text, v_conname);
+    v_found := true;
+    execute format('alter table %I drop constraint %I', p_table, v_conname);
   end loop;
+
+  if not v_found then
+    raise exception '_pt_br_drop_check: nenhum CHECK encontrado para %.%', p_table, p_column;
+  end if;
 end;
 $$;
 
