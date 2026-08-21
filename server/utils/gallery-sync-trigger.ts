@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import type { GallerySyncResult } from './gallery-sync'
+import type { GallerySyncResult } from '~/types/gallery'
 
 /**
  * Dispara o sync da galeria de um casamento (gatilho manual/connect). Resolve
