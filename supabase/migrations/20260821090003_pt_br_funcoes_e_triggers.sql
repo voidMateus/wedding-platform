@@ -28,8 +28,17 @@ $$;
 -- Predicados de RLS (SECURITY DEFINER — reutilizados por praticamente toda
 -- policy do schema)
 -- =========================================================================
+-- Nota: o parâmetro fica com o nome antigo (p_wedding_id) de propósito.
+-- CREATE OR REPLACE FUNCTION não permite renomear parâmetro de entrada
+-- ("cannot change name of input parameter") -- achado real ao validar
+-- contra o banco dev. Trocar o nome exigiria DROP FUNCTION, que por sua vez
+-- falharia por dependência: ~90 RLS policies em todo o schema chamam esta
+-- função dentro de USING/WITH CHECK. Manter ALTER FUNCTION RENAME (preserva
+-- o OID, as policies continuam funcionando sem qualquer alteração) é a
+-- opção de menor risco -- o nome do parâmetro é um detalhe interno, nunca
+-- chamado por nome (sempre posicional: is_membro_casamento(casamento_id)).
 alter function is_wedding_member(uuid) rename to is_membro_casamento;
-create or replace function is_membro_casamento(p_casamento_id uuid)
+create or replace function is_membro_casamento(p_wedding_id uuid)
 returns boolean
 language sql
 stable
@@ -39,13 +48,13 @@ as $$
   select exists (
     select 1
     from membros_casamento
-    where casamento_id = p_casamento_id
+    where casamento_id = p_wedding_id
       and usuario_id = auth.uid()
   );
 $$;
 
 alter function is_wedding_owner(uuid) rename to is_dono_casamento;
-create or replace function is_dono_casamento(p_casamento_id uuid)
+create or replace function is_dono_casamento(p_wedding_id uuid)
 returns boolean
 language sql
 stable
@@ -55,7 +64,7 @@ as $$
   select exists (
     select 1
     from membros_casamento
-    where casamento_id = p_casamento_id
+    where casamento_id = p_wedding_id
       and usuario_id = auth.uid()
       and papel = 'dono'
   );
@@ -408,8 +417,14 @@ comment on function fotos_verificar_conexao_casamento_id() is
 -- Funções de negócio
 -- =========================================================================
 
-alter function guest_name_matches(text, text, text) rename to convidado_nome_corresponde;
-create or replace function convidado_nome_corresponde(p_nome_completo text, p_apelido text, p_busca text)
+-- DROP + CREATE (não ALTER RENAME + CREATE OR REPLACE): os parâmetros
+-- mudam de nome, e CREATE OR REPLACE FUNCTION não permite isso ("cannot
+-- change name of input parameter", achado real ao validar contra o banco
+-- dev). Nenhuma policy/trigger depende destas funções por OID (só chamadas
+-- via RPC nomeado a partir de server/api, que será atualizado no mesmo
+-- Passo 1) -- seguro derrubar e recriar com nome/parâmetros novos.
+drop function guest_name_matches(text, text, text);
+create function convidado_nome_corresponde(p_nome_completo text, p_apelido text, p_busca text)
 returns boolean
 language sql
 stable
@@ -424,8 +439,8 @@ as $$
   );
 $$;
 
-alter function guest_is_child(date, uuid) rename to convidado_e_crianca;
-create or replace function convidado_e_crianca(p_data_nascimento date, p_casamento_id uuid)
+drop function guest_is_child(date, uuid);
+create function convidado_e_crianca(p_data_nascimento date, p_casamento_id uuid)
 returns boolean
 language sql
 stable
@@ -438,8 +453,8 @@ as $$
   end;
 $$;
 
-alter function search_guests_by_name(uuid, text, integer) rename to buscar_convidados_por_nome;
-create or replace function buscar_convidados_por_nome(p_casamento_id uuid, p_busca text, p_limite integer default 8)
+drop function search_guests_by_name(uuid, text, integer);
+create function buscar_convidados_por_nome(p_casamento_id uuid, p_busca text, p_limite integer default 8)
 returns table (id uuid, nome_completo text, apelido text)
 language sql
 stable
@@ -453,8 +468,8 @@ as $$
   limit p_limite;
 $$;
 
-alter function upsert_guest_rsvp(uuid, uuid, text, text, text, text, text) rename to salvar_rsvp_convidado;
-create or replace function salvar_rsvp_convidado(
+drop function upsert_guest_rsvp(uuid, uuid, text, text, text, text, text);
+create function salvar_rsvp_convidado(
   p_casamento_id uuid,
   p_convidado_id uuid,
   p_status text,
@@ -525,8 +540,8 @@ begin
 end;
 $$;
 
-alter function finalize_invite_rsvp(uuid, uuid, jsonb, text, text) rename to finalizar_rsvp_convite;
-create or replace function finalizar_rsvp_convite(
+drop function finalize_invite_rsvp(uuid, uuid, jsonb, text, text);
+create function finalizar_rsvp_convite(
   p_casamento_id uuid,
   p_convite_id uuid,
   p_acompanhantes jsonb default '[]'::jsonb,
@@ -603,8 +618,8 @@ $$;
 -- sync_guest_party: consolida direto para a versão final (com o fix de
 -- colisão de índice da migration 20260803120018) -- as versões
 -- intermediárias nunca chegaram a existir isoladas em produção.
-alter function sync_guest_party(uuid, jsonb, jsonb, uuid[], jsonb) rename to sincronizar_nucleo_convidado;
-create or replace function sincronizar_nucleo_convidado(
+drop function sync_guest_party(uuid, jsonb, jsonb, uuid[], jsonb);
+create function sincronizar_nucleo_convidado(
   p_casamento_id uuid,
   p_principal jsonb,
   p_acompanhantes jsonb default '[]'::jsonb,
@@ -788,13 +803,15 @@ end;
 $$;
 
 -- reserve_gift(): existem 3 overloads acumulados na evolução do produto
--- (docs/PLANO-SAAS.md) -- os dois obsoletos são derrubados explicitamente
--- (função em LANGUAGE plpgsql não segue rename/consolidação automática de
--- overload) e só a assinatura final vira reservar_presente().
+-- (docs/PLANO-SAAS.md) -- todas derrubadas explicitamente (função em
+-- LANGUAGE plpgsql não segue rename/consolidação automática de overload;
+-- parâmetros também mudam de nome, o que CREATE OR REPLACE FUNCTION não
+-- permite -- achado real ao validar contra o banco dev) e só a assinatura
+-- final vira reservar_presente(), criada do zero.
 drop function if exists reserve_gift(uuid, uuid, uuid, text);
 drop function if exists reserve_gift(uuid, uuid, uuid, text, text);
-alter function reserve_gift(uuid, uuid, uuid, text, text, text) rename to reservar_presente;
-create or replace function reservar_presente(
+drop function reserve_gift(uuid, uuid, uuid, text, text, text);
+create function reservar_presente(
   p_presente_id uuid,
   p_convidado_id uuid default null,
   p_convite_id uuid default null,
@@ -859,8 +876,8 @@ begin
 end;
 $$;
 
-alter function cancel_gift_reservation(uuid, uuid, uuid, boolean) rename to cancelar_reserva_presente;
-create or replace function cancelar_reserva_presente(
+drop function cancel_gift_reservation(uuid, uuid, uuid, boolean);
+create function cancelar_reserva_presente(
   p_reserva_id uuid,
   p_convidado_id uuid default null,
   p_convite_id uuid default null,
@@ -893,8 +910,11 @@ begin
 end;
 $$;
 
-alter function confirm_gift_payment(uuid) rename to confirmar_pagamento_presente;
-create or replace function confirmar_pagamento_presente(p_pagamento_id uuid)
+-- p_payment_id -> p_pagamento_id: nome de parâmetro muda, então DROP +
+-- CREATE (não ALTER RENAME + CREATE OR REPLACE, ver nota acima). Chamada
+-- interna a reservar_presente() já usa o nome novo.
+drop function confirm_gift_payment(uuid);
+create function confirmar_pagamento_presente(p_pagamento_id uuid)
 returns pagamentos_presentes
 language plpgsql
 as $$
