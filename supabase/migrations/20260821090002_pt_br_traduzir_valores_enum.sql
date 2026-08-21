@@ -209,4 +209,4 @@ alter table casamentos rename constraint weddings_slug_format to casamentos_slug
 -- todos exigiria uma migration própria sem ganho funcional (ver
 -- docs/PLANO-SAAS.md, escopo do rename).
 
-drop function _pt_br_drop_check(regclass, text);
+drop function _pt_br_drop_check(text, text);
