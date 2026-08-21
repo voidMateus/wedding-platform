@@ -2,7 +2,7 @@ import { serverSupabaseClient } from '#supabase/server'
 import { galleryPreviewSchema } from '#shared/schemas/gallery'
 
 // Quantidade de fotos na prévia da Galeria na home (Fase Galeria via Google
-// Drive). Vive em theme_config (atributo de exibição, como showCountdown), mas
+// Drive). Vive em config_tema (atributo de exibição, como showCountdown), mas
 // com endpoint próprio: fica FORA da lista de chaves de theme.patch.ts, que a
 // preserva pelo spread — assim o formulário de Aparência nunca a apaga (mesmo
 // padrão de coverImageUrl/focal-point, CLAUDE.md seção 22.3).
@@ -13,8 +13,8 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: current, error: fetchError } = await client
-    .from('weddings')
-    .select('theme_config')
+    .from('casamentos')
+    .select('config_tema')
     .eq('id', weddingId)
     .single()
 
@@ -23,13 +23,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const themeConfig = {
-    ...(current.theme_config as Record<string, unknown>),
+    ...(current.config_tema as Record<string, unknown>),
     galleryPreviewCount: count,
   }
 
   const { data, error } = await client
-    .from('weddings')
-    .update({ theme_config: themeConfig })
+    .from('casamentos')
+    .update({ config_tema: themeConfig })
     .eq('id', weddingId)
     .select()
     .single()

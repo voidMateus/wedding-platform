@@ -1,7 +1,7 @@
 import { serverSupabaseClient } from '#supabase/server'
 
 // Mesmo modelo de confiança de wedding.get.ts/event-segments.get.ts: leitura
-// pública, sem token, amparada pela policy `photos_select_public`
+// pública, sem token, amparada pela policy `fotos_select_publico`
 // (20260731160002_photos_select_public.sql). Resolvido por slug (CLAUDE.md,
 // seção 4.4/33).
 export default defineEventHandler(async (event) => {
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: wedding, error: weddingError } = await client
-    .from('weddings')
+    .from('casamentos')
     .select('id')
     .eq('slug', slug)
     .single()
@@ -19,10 +19,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data, error } = await client
-    .from('photos')
+    .from('fotos')
     .select('*')
-    .eq('wedding_id', wedding.id)
-    .order('display_order', { ascending: true })
+    .eq('casamento_id', wedding.id)
+    .order('ordem_exibicao', { ascending: true })
 
   if (error) {
     throw badRequestError(error.message)

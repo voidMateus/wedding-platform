@@ -7,11 +7,11 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('gift_categories')
+    .from('categorias_presentes')
     .insert({
-      wedding_id: weddingId,
-      name: input.name,
-      display_order: input.displayOrder,
+      casamento_id: weddingId,
+      nome: input.nome,
+      ordem_exibicao: input.ordemExibicao,
     })
     .select()
     .single()
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     action: 'gift_category.create',
     entityType: 'gift_category',
     entityId: data.id,
-    metadata: { name: data.name },
+    metadata: { name: data.nome },
   })
 
   setResponseStatus(event, 201)

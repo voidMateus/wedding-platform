@@ -54,8 +54,8 @@ export default defineEventHandler(async (event) => {
   const publicUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
 
   const { data: current, error: fetchError } = await client
-    .from('weddings')
-    .select('theme_config')
+    .from('casamentos')
+    .select('config_tema')
     .eq('id', weddingId)
     .single()
 
@@ -65,14 +65,14 @@ export default defineEventHandler(async (event) => {
 
   // Reseta o ponto de foco: uma foto nova não deve herdar o enquadramento
   // escolhido para a foto anterior (imagens diferentes, focos diferentes).
-  const themeConfig = { ...(current.theme_config as Record<string, unknown>) }
+  const themeConfig = { ...(current.config_tema as Record<string, unknown>) }
   delete themeConfig.coverFocalX
   delete themeConfig.coverFocalY
   themeConfig.coverImageUrl = publicUrl
 
   const { error: updateError } = await client
-    .from('weddings')
-    .update({ theme_config: themeConfig })
+    .from('casamentos')
+    .update({ config_tema: themeConfig })
     .eq('id', weddingId)
 
   if (updateError) {

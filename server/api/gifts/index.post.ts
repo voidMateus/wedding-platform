@@ -7,23 +7,23 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('gifts')
+    .from('presentes')
     .insert({
-      wedding_id: weddingId,
-      category_id: input.categoryId || null,
-      title: input.title,
-      description: input.description || null,
-      price_cents: input.priceCents ?? null,
-      image_url: input.imageUrl || null,
-      is_group_gift: input.isGroupGift,
-      // Espelha o CHECK gifts_mode_fields — nunca os dois preenchidos ao
+      casamento_id: weddingId,
+      categoria_id: input.categoriaId || null,
+      titulo: input.titulo,
+      descricao: input.descricao || null,
+      preco_centavos: input.precoCentavos ?? null,
+      url_imagem: input.urlImagem || null,
+      e_presente_cota: input.ePresenteCota,
+      // Espelha o CHECK presentes_mode_fields — nunca os dois preenchidos ao
       // mesmo tempo (CLAUDE.md, seção 12.2).
-      quantity_available: input.isGroupGift ? null : (input.quantityAvailable ?? 0),
-      target_amount_cents: input.isGroupGift ? (input.targetAmountCents ?? null) : null,
-      quota_amount_cents: input.isGroupGift ? (input.quotaAmountCents ?? null) : null,
-      display_style: input.isGroupGift ? input.displayStyle : 'standard',
-      emotional_icon: input.displayStyle === 'emotional' ? input.emotionalIcon || null : null,
-      is_active: input.isActive,
+      quantidade_disponivel: input.ePresenteCota ? null : (input.quantidadeDisponivel ?? 0),
+      valor_meta_centavos: input.ePresenteCota ? (input.valorMetaCentavos ?? null) : null,
+      valor_cota_centavos: input.ePresenteCota ? (input.valorCotaCentavos ?? null) : null,
+      estilo_exibicao: input.ePresenteCota ? input.estiloExibicao : 'padrao',
+      icone_emocional: input.estiloExibicao === 'emocional' ? input.iconeEmocional || null : null,
+      esta_ativo: input.estaAtivo,
     })
     .select()
     .single()
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     action: 'gift.create',
     entityType: 'gift',
     entityId: data.id,
-    metadata: { title: data.title },
+    metadata: { title: data.titulo },
   })
 
   setResponseStatus(event, 201)

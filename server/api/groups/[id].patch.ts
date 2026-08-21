@@ -11,14 +11,14 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('groups')
+    .from('grupos')
     .update({
-      name: input.name,
-      color: input.color ?? null,
+      nome: input.nome,
+      cor: input.cor ?? null,
     })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
     .select()
     .maybeSingle()
 
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     action: 'group.update',
     entityType: 'group',
     entityId: data.id,
-    metadata: { name: data.name },
+    metadata: { name: data.nome },
   })
 
   return data

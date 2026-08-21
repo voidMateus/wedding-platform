@@ -3,7 +3,7 @@ import type { InviteDetail, InviteMember, InviteResponseStatus } from '~/types/i
 
 function computeResponseStatus(statuses: string[]): InviteResponseStatus {
   if (statuses.length === 0) return 'pending'
-  const responded = statuses.filter((s) => s !== 'pending').length
+  const responded = statuses.filter((s) => s !== 'pendente').length
   if (responded === 0) return 'pending'
   if (responded === statuses.length) return 'responded'
   return 'partial'
@@ -19,11 +19,11 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: invite, error } = await client
-    .from('invites')
+    .from('convites')
     .select('*')
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (error) {
@@ -35,32 +35,32 @@ export default defineEventHandler(async (event) => {
 
   const [guestsResult, responsesResult, tagLinksResult] = await Promise.all([
     client
-      .from('guests')
-      .select('id, full_name, nickname, party_order')
-      .eq('invite_id', id)
-      .is('deleted_at', null)
-      .order('party_order', { ascending: true }),
-    client.from('rsvp_responses').select('guest_id, status').eq('invite_id', id),
-    client.from('invite_tag_links').select('tag_id, invite_tags(id, wedding_id, name, created_at, updated_at)').eq('invite_id', id),
+      .from('convidados')
+      .select('id, nome_completo, apelido, ordem_nucleo')
+      .eq('convite_id', id)
+      .is('excluido_em', null)
+      .order('ordem_nucleo', { ascending: true }),
+    client.from('respostas_rsvp').select('convidado_id, status_rsvp').eq('convite_id', id),
+    client.from('vinculos_convite_etiqueta').select('etiqueta_id, etiquetas_convite(id, casamento_id, nome, created_at, updated_at)').eq('convite_id', id),
   ])
 
   if (guestsResult.error) throw badRequestError(guestsResult.error.message)
   if (responsesResult.error) throw badRequestError(responsesResult.error.message)
   if (tagLinksResult.error) throw badRequestError(tagLinksResult.error.message)
 
-  const statusByGuest = new Map(responsesResult.data?.map((r) => [r.guest_id, r.status]) ?? [])
+  const statusByGuest = new Map(responsesResult.data?.map((r) => [r.convidado_id, r.status_rsvp]) ?? [])
 
   const members: InviteMember[] = (guestsResult.data ?? []).map((guest) => ({
     id: guest.id,
-    fullName: guest.full_name,
-    nickname: guest.nickname,
-    partyOrder: guest.party_order,
-    isResponsible: guest.id === invite.responsible_guest_id,
+    fullName: guest.nome_completo,
+    nickname: guest.apelido,
+    partyOrder: guest.ordem_nucleo,
+    isResponsible: guest.id === invite.convidado_responsavel_id,
     rsvpStatus: (statusByGuest.get(guest.id) ?? 'pending') as InviteMember['rsvpStatus'],
   }))
 
   const tags = (tagLinksResult.data ?? [])
-    .map((link) => link.invite_tags)
+    .map((link) => link.etiquetas_convite)
     .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag))
 
   const result: InviteDetail = {

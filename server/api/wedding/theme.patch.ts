@@ -4,7 +4,7 @@ import { themeConfigSchema } from '#shared/schemas/theme'
 /**
  * Aparência do site (CLAUDE.md, seção 22.3) — endpoint próprio, separado de
  * PATCH /api/wedding (dados de negócio do evento). Só mexe nas chaves de
- * theme_config de sua responsabilidade (as do themeConfigSchema) — nunca
+ * config_tema de sua responsabilidade (as do themeConfigSchema) — nunca
  * toca coverImageUrl/storyImageUrl, geridos à parte pelos endpoints de
  * upload. ATENÇÃO: todo campo novo do schema precisa ser adicionado à lista
  * explícita abaixo, senão é silenciosamente descartado (classe de bug já
@@ -17,8 +17,8 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: current, error: fetchError } = await client
-    .from('weddings')
-    .select('theme_config')
+    .from('casamentos')
+    .select('config_tema')
     .eq('id', weddingId)
     .single()
 
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const themeConfig = {
-    ...(current.theme_config as Record<string, unknown>),
+    ...(current.config_tema as Record<string, unknown>),
     presetId: input.presetId || undefined,
     primaryColor: input.primaryColor,
     secondaryColor: input.secondaryColor,
@@ -40,8 +40,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data, error } = await client
-    .from('weddings')
-    .update({ theme_config: themeConfig })
+    .from('casamentos')
+    .update({ config_tema: themeConfig })
     .eq('id', weddingId)
     .select()
     .single()

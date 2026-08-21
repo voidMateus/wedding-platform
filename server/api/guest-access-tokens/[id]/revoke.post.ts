@@ -11,12 +11,12 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data, error } = await client
-    .from('guest_access_tokens')
-    .update({ revoked_at: new Date().toISOString() })
+    .from('credenciais_acesso_convite')
+    .update({ revogado_em: new Date().toISOString() })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('revoked_at', null)
-    .select('id, invite_id')
+    .eq('casamento_id', weddingId)
+    .is('revogado_em', null)
+    .select('id, convite_id')
     .maybeSingle()
 
   if (error) {
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     action: 'guest_access_token.revoke',
     entityType: 'guest_access_token',
     entityId: id,
-    metadata: { inviteId: data.invite_id },
+    metadata: { inviteId: data.convite_id },
   })
 
   return { id }

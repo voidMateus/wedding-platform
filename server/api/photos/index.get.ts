@@ -1,17 +1,17 @@
 import { serverSupabaseClient } from '#supabase/server'
 
 // Lista curta por natureza (galeria de um único evento) — sem paginação,
-// mesmo raciocínio já aplicado a event_segments (CLAUDE.md, seção 27 mira
-// listas grandes como guests/guest_groups).
+// mesmo raciocínio já aplicado a etapas_evento (CLAUDE.md, seção 27 mira
+// listas grandes como convidados/convites).
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('photos')
+    .from('fotos')
     .select('*')
-    .eq('wedding_id', weddingId)
-    .order('display_order', { ascending: true })
+    .eq('casamento_id', weddingId)
+    .order('ordem_exibicao', { ascending: true })
 
   if (error) {
     throw badRequestError(error.message)

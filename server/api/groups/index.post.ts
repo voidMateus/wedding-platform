@@ -7,11 +7,11 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('groups')
+    .from('grupos')
     .insert({
-      wedding_id: weddingId,
-      name: input.name,
-      color: input.color ?? null,
+      casamento_id: weddingId,
+      nome: input.nome,
+      cor: input.cor ?? null,
     })
     .select()
     .single()
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     action: 'group.create',
     entityType: 'group',
     entityId: data.id,
-    metadata: { name: data.name },
+    metadata: { name: data.nome },
   })
 
   setResponseStatus(event, 201)

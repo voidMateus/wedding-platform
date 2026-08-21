@@ -18,7 +18,7 @@ interface SearchResult {
 /**
  * Busca administrativa global (CLAUDE.md, seção 12.1) — reaproveita a
  * mesma função de correspondência tolerante da busca pública de RSVP
- * (search_guests_by_name), estendida a convite/grupo/responsável.
+ * (buscar_convidados_por_nome), estendida a convite/grupo/responsável.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
@@ -27,24 +27,24 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const [guestsResult, invitesResult, groupsResult] = await Promise.all([
-    client.rpc('search_guests_by_name', {
-      p_wedding_id: weddingId,
-      p_query: q,
-      p_limit: SEARCH_RESULTS_PER_TYPE_LIMIT,
+    client.rpc('buscar_convidados_por_nome', {
+      p_casamento_id: weddingId,
+      p_busca: q,
+      p_limite: SEARCH_RESULTS_PER_TYPE_LIMIT,
     }),
     client
-      .from('invites')
-      .select('id, name')
-      .eq('wedding_id', weddingId)
-      .is('deleted_at', null)
-      .ilike('name', `%${q}%`)
+      .from('convites')
+      .select('id, nome')
+      .eq('casamento_id', weddingId)
+      .is('excluido_em', null)
+      .ilike('nome', `%${q}%`)
       .limit(SEARCH_RESULTS_PER_TYPE_LIMIT),
     client
-      .from('groups')
-      .select('id, name')
-      .eq('wedding_id', weddingId)
-      .is('deleted_at', null)
-      .ilike('name', `%${q}%`)
+      .from('grupos')
+      .select('id, nome')
+      .eq('casamento_id', weddingId)
+      .is('excluido_em', null)
+      .ilike('nome', `%${q}%`)
       .limit(SEARCH_RESULTS_PER_TYPE_LIMIT),
   ])
 
@@ -53,24 +53,24 @@ export default defineEventHandler(async (event) => {
   if (groupsResult.error) throw badRequestError(groupsResult.error.message)
 
   const results: SearchResult[] = [
-    ...(guestsResult.data ?? []).map((guest: { id: string; full_name: string }) => ({
+    ...(guestsResult.data ?? []).map((guest: { id: string; nome_completo: string }) => ({
       type: 'guest' as const,
       id: guest.id,
-      label: guest.full_name,
+      label: guest.nome_completo,
       sublabel: 'Convidado',
       href: `/admin/convidados/${guest.id}`,
     })),
     ...(invitesResult.data ?? []).map((invite) => ({
       type: 'invite' as const,
       id: invite.id,
-      label: invite.name,
+      label: invite.nome,
       sublabel: 'Convite',
       href: `/admin/convites/${invite.id}`,
     })),
     ...(groupsResult.data ?? []).map((group) => ({
       type: 'group' as const,
       id: group.id,
-      label: group.name,
+      label: group.nome,
       sublabel: 'Grupo',
       href: `/admin/convidados?groupId=${group.id}`,
     })),

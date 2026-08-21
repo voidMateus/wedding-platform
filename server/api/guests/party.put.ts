@@ -5,7 +5,7 @@ import { guestPartySyncSchema } from '#shared/schemas/guests'
  * Persistência inteligente em lote do wizard de convidado (CLAUDE.md, seção
  * 12.1) — mesma lógica para criar e editar. Delega toda a sincronização
  * (convidado principal + Acompanhantes + Convite opcional) para
- * sync_guest_party(), rodando em uma única transação no Postgres.
+ * sincronizar_nucleo_convidado(), rodando em uma única transação no Postgres.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -13,12 +13,12 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
 
-  const { data, error } = await client.rpc('sync_guest_party', {
-    p_wedding_id: weddingId,
+  const { data, error } = await client.rpc('sincronizar_nucleo_convidado', {
+    p_casamento_id: weddingId,
     p_primary: input.primary,
     p_companions: input.companions,
-    p_removed_guest_ids: input.removedGuestIds,
-    p_invite: input.invite ?? null,
+    p_ids_convidados_removidos: input.removedGuestIds,
+    p_convite: input.invite ?? null,
   })
 
   if (error) {

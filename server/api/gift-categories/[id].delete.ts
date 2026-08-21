@@ -1,7 +1,7 @@
 import { serverSupabaseClient } from '#supabase/server'
 
 /**
- * Exclusão física — gifts.category_id usa ON DELETE SET NULL, então
+ * Exclusão física — presentes.categoria_id usa ON DELETE SET NULL, então
  * presentes existentes só perdem a categoria, sem quebrar nenhuma
  * referência histórica (diferente de guest_groups, CLAUDE.md seção 11).
  */
@@ -14,11 +14,11 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('gift_categories')
+    .from('categorias_presentes')
     .delete()
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .select('id, name')
+    .eq('casamento_id', weddingId)
+    .select('id, nome')
     .maybeSingle()
 
   if (error) {
@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
     action: 'gift_category.delete',
     entityType: 'gift_category',
     entityId: id,
-    metadata: { name: data.name },
+    metadata: { name: data.nome },
   })
 
   return { id }

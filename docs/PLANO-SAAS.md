@@ -55,8 +55,8 @@ Corte coordenado único (banco + API + tipos + schemas + testes + docs), validad
 - [ ] Regenerar `database.types.ts` a partir do schema novo (depende da validação acima)
 - [x] Traduzir `shared/schemas/**` e `shared/utils/**` (campos que espelham colunas do banco) — branch `refactor/pt-br-shared-e-utils`
 - [x] Traduzir `server/utils/**` (todas as chamadas `.from`/`.select`/`.eq`/`.rpc`) — mesma branch
-- [ ] Traduzir `server/api/**` (76 endpoints) — **próximo**
-- [ ] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`, `gifts/`→`presentes/`) — decisão: fazer junto com o item acima ou como passo separado de puro rename de arquivo, avaliar ao começar
+- [x] Traduzir `server/api/**` (76 endpoints, todos os domínios) — branch `refactor/pt-br-server-api`. `npm run typecheck`/`lint` limpos em `shared/`+`server/` inteiro; erros restantes são só em `app/` (próxima etapa)
+- [ ] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`) — **decisão: NÃO fazer** — nomes de pasta de rota não são "nomenclatura do domínio" visível, e renomear quebraria URLs de API já em uso sem nenhum ganho real (as rotas HTTP não são a "nomenclatura em inglês" que o briefing original pedia para traduzir — o conteúdo/campos já estão traduzidos). Registrar como decisão consciente, não pendência esquecida.
 - [ ] Renomear composables (`useInvites`→`useConvites` etc.)
 - [ ] Renomear pastas de componente (`components/gifts/`→`components/presentes/`; `components/rsvp/` mantém — RSVP é termo universal)
 - [ ] Atualizar `app/types/**` derivados (`Guest`, `Wedding`, `GiftPayment`, `auth.ts#WeddingContext`, etc.)

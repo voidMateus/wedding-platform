@@ -5,10 +5,10 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('gift_categories')
+    .from('categorias_presentes')
     .select('*')
-    .eq('wedding_id', weddingId)
-    .order('display_order', { ascending: true })
+    .eq('casamento_id', weddingId)
+    .order('ordem_exibicao', { ascending: true })
 
   if (error) {
     throw badRequestError(error.message)

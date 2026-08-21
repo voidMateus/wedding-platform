@@ -9,7 +9,7 @@ const querySchema = paginationQuerySchema(25).extend({
 
 function computeResponseStatus(statuses: string[]): InviteResponseStatus {
   if (statuses.length === 0) return 'pending'
-  const responded = statuses.filter((s) => s !== 'pending').length
+  const responded = statuses.filter((s) => s !== 'pendente').length
   if (responded === 0) return 'pending'
   if (responded === statuses.length) return 'responded'
   return 'partial'
@@ -24,16 +24,16 @@ export default defineEventHandler(async (event) => {
   const to = from + pageSize - 1
 
   let query = client
-    .from('invites')
+    .from('convites')
     .select('*', { count: 'exact' })
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
 
   if (!includeArchived) {
-    query = query.is('archived_at', null)
+    query = query.is('arquivado_em', null)
   }
   if (search) {
-    query = query.ilike('name', `%${search}%`)
+    query = query.ilike('nome', `%${search}%`)
   }
 
   const { data: invites, error, count } = await query
@@ -45,17 +45,17 @@ export default defineEventHandler(async (event) => {
   }
 
   const inviteIds = invites.map((i) => i.id)
-  const responsibleIds = invites.map((i) => i.responsible_guest_id).filter((id): id is string => Boolean(id))
+  const responsibleIds = invites.map((i) => i.convidado_responsavel_id).filter((id): id is string => Boolean(id))
 
   const [guestsResult, responsesResult, responsibleResult] = await Promise.all([
     inviteIds.length
-      ? client.from('guests').select('id, invite_id').in('invite_id', inviteIds).is('deleted_at', null)
+      ? client.from('convidados').select('id, convite_id').in('convite_id', inviteIds).is('excluido_em', null)
       : Promise.resolve({ data: [], error: null }),
     inviteIds.length
-      ? client.from('rsvp_responses').select('invite_id, status').in('invite_id', inviteIds)
+      ? client.from('respostas_rsvp').select('convite_id, status_rsvp').in('convite_id', inviteIds)
       : Promise.resolve({ data: [], error: null }),
     responsibleIds.length
-      ? client.from('guests').select('id, full_name').in('id', responsibleIds)
+      ? client.from('convidados').select('id, nome_completo').in('id', responsibleIds)
       : Promise.resolve({ data: [], error: null }),
   ])
 
@@ -65,25 +65,25 @@ export default defineEventHandler(async (event) => {
 
   const memberCountByInvite = new Map<string, number>()
   for (const guest of guestsResult.data ?? []) {
-    memberCountByInvite.set(guest.invite_id, (memberCountByInvite.get(guest.invite_id) ?? 0) + 1)
+    memberCountByInvite.set(guest.convite_id, (memberCountByInvite.get(guest.convite_id) ?? 0) + 1)
   }
 
   const statusesByInvite = new Map<string, string[]>()
   for (const response of responsesResult.data ?? []) {
-    const list = statusesByInvite.get(response.invite_id) ?? []
-    list.push(response.status)
-    statusesByInvite.set(response.invite_id, list)
+    const list = statusesByInvite.get(response.convite_id) ?? []
+    list.push(response.status_rsvp)
+    statusesByInvite.set(response.convite_id, list)
   }
 
   const responsibleNameById = new Map<string, string>()
   for (const guest of responsibleResult.data ?? []) {
-    responsibleNameById.set(guest.id, guest.full_name)
+    responsibleNameById.set(guest.id, guest.nome_completo)
   }
 
   const data: InviteListItem[] = invites.map((invite) => ({
     ...invite,
-    responsibleGuestName: invite.responsible_guest_id
-      ? (responsibleNameById.get(invite.responsible_guest_id) ?? null)
+    responsibleGuestName: invite.convidado_responsavel_id
+      ? (responsibleNameById.get(invite.convidado_responsavel_id) ?? null)
       : null,
     memberCount: memberCountByInvite.get(invite.id) ?? 0,
     responseStatus: computeResponseStatus(statusesByInvite.get(invite.id) ?? []),

@@ -13,15 +13,15 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('photos')
+    .from('fotos')
     .update({
-      caption: input.caption || null,
-      display_order: input.displayOrder,
-      focal_x: input.focalX,
-      focal_y: input.focalY,
+      legenda: input.legenda || null,
+      ordem_exibicao: input.ordemExibicao,
+      foco_x: input.focoX,
+      foco_y: input.focoY,
     })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .select()
     .maybeSingle()
 

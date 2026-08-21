@@ -2,24 +2,24 @@ import { serverSupabaseClient } from '#supabase/server'
 
 // Desconectar a fonte da galeria (Fase Galeria via Google Drive — CLAUDE.md).
 // Revoga o acesso no Google (best-effort) e apaga a conexão; as fotos
-// espelhadas saem por cascata (photos.source_connection_id on delete cascade).
+// espelhadas saem por cascata (fotos.conexao_id on delete cascade).
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
 
   const admin = supabaseAdmin(event)
   const { data: connection } = await admin
-    .from('gallery_source_connections')
-    .select('id, mode, refresh_token_encrypted')
-    .eq('wedding_id', weddingId)
+    .from('conexoes_galeria')
+    .select('id, modo, token_renovacao_cifrado')
+    .eq('casamento_id', weddingId)
     .maybeSingle()
 
   if (!connection) {
     throw notFoundError('Nenhuma fonte de galeria conectada.')
   }
 
-  if (connection.mode === 'oauth' && connection.refresh_token_encrypted) {
+  if (connection.modo === 'oauth' && connection.token_renovacao_cifrado) {
     try {
-      await revokeGoogleToken(decryptToken(connection.refresh_token_encrypted))
+      await revokeGoogleToken(decryptToken(connection.token_renovacao_cifrado))
     } catch {
       // Best-effort: a desconexão local segue mesmo se o Google não responder.
     }
@@ -27,9 +27,9 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { error } = await client
-    .from('gallery_source_connections')
+    .from('conexoes_galeria')
     .delete()
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
 
   if (error) {
     throw badRequestError(error.message)

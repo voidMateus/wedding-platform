@@ -1,8 +1,8 @@
 import { serverSupabaseClient } from '#supabase/server'
 
 /**
- * Detalhe de um convidado + seus Acompanhantes (mesmo party_id, ordenados
- * por party_order) — usado pelo wizard ao editar e pela sugestão automática
+ * Detalhe de um convidado + seus Acompanhantes (mesmo nucleo_id, ordenados
+ * por ordem_nucleo) — usado pelo wizard ao editar e pela sugestão automática
  * na tela de Convites (CLAUDE.md, seção 12.1).
  */
 export default defineEventHandler(async (event) => {
@@ -15,37 +15,37 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: guest, error } = await client
-    .from('guests')
+    .from('convidados')
     .select('*')
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (error) throw badRequestError(error.message)
   if (!guest) throw notFoundError('Convidado não encontrado.')
 
   let partyMembers: typeof guest[] = []
-  let invite: { id: string; name: string } | null = null
+  let invite: { id: string; nome: string } | null = null
 
-  if (guest.party_id) {
+  if (guest.nucleo_id) {
     const { data: members, error: membersError } = await client
-      .from('guests')
+      .from('convidados')
       .select('*')
-      .eq('party_id', guest.party_id)
+      .eq('nucleo_id', guest.nucleo_id)
       .neq('id', id)
-      .is('deleted_at', null)
-      .order('party_order', { ascending: true })
+      .is('excluido_em', null)
+      .order('ordem_nucleo', { ascending: true })
 
     if (membersError) throw badRequestError(membersError.message)
     partyMembers = members ?? []
   }
 
-  if (guest.invite_id) {
+  if (guest.convite_id) {
     const { data: inviteRow, error: inviteError } = await client
-      .from('invites')
-      .select('id, name')
-      .eq('id', guest.invite_id)
+      .from('convites')
+      .select('id, nome')
+      .eq('id', guest.convite_id)
       .maybeSingle()
 
     if (inviteError) throw badRequestError(inviteError.message)

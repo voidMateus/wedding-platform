@@ -13,8 +13,8 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data: current, error: fetchError } = await client
-    .from('weddings')
-    .select('theme_config')
+    .from('casamentos')
+    .select('config_tema')
     .eq('id', weddingId)
     .single()
 
@@ -25,14 +25,14 @@ export default defineEventHandler(async (event) => {
   const xKey = input.target === 'cover' ? 'coverFocalX' : 'storyFocalX'
   const yKey = input.target === 'cover' ? 'coverFocalY' : 'storyFocalY'
   const themeConfig = {
-    ...(current.theme_config as Record<string, unknown>),
+    ...(current.config_tema as Record<string, unknown>),
     [xKey]: input.x,
     [yKey]: input.y,
   }
 
   const { error: updateError } = await client
-    .from('weddings')
-    .update({ theme_config: themeConfig })
+    .from('casamentos')
+    .update({ config_tema: themeConfig })
     .eq('id', weddingId)
 
   if (updateError) {
