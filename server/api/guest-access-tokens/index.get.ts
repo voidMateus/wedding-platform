@@ -14,11 +14,11 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data, error } = await client
-    .from('guest_access_tokens')
+    .from('credenciais_acesso_convite')
     .select('id, created_at')
-    .eq('wedding_id', weddingId)
-    .eq('invite_id', query.inviteId)
-    .is('revoked_at', null)
+    .eq('casamento_id', weddingId)
+    .eq('convite_id', query.conviteId)
+    .is('revogado_em', null)
     .maybeSingle()
 
   if (error) {

@@ -14,11 +14,11 @@ export default defineEventHandler(async (event) => {
   const to = from + pageSize - 1
 
   const { data, error, count } = await client
-    .from('groups')
+    .from('grupos')
     .select('*', { count: 'exact' })
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
-    .order('name', { ascending: true })
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
+    .order('nome', { ascending: true })
     .range(from, to)
 
   if (error) {

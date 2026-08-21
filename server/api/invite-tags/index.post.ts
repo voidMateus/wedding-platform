@@ -8,8 +8,8 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data, error } = await client
-    .from('invite_tags')
-    .insert({ wedding_id: weddingId, name: input.name })
+    .from('etiquetas_convite')
+    .insert({ casamento_id: weddingId, nome: input.nome })
     .select()
     .single()
 
