@@ -2,6 +2,7 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { weddingSettingsSchema } from '#shared/schemas/wedding'
+import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -9,15 +10,6 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
 
 function isoToDatetimeLocal(iso: string): string {
   const date = new Date(iso)
@@ -77,11 +69,7 @@ const onSubmit = handleSubmit(async (values) => {
     await updateWedding(values)
     toast.success('Configurações salvas.')
   } catch (err) {
-    toast.error(
-      isApiError(err)
-        ? (err.data?.message ?? 'Não foi possível salvar as configurações.')
-        : 'Não foi possível salvar as configurações.',
-    )
+    toast.error(getApiErrorMessage(err, 'Não foi possível salvar as configurações.'))
   }
 })
 </script>

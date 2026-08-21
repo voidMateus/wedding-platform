@@ -3,6 +3,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { weddingContentConfigSchema } from '#shared/schemas/content'
 import { resolveWeddingContent } from '#shared/wedding-content'
+import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
 interface Props {
@@ -11,15 +12,6 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{ saved: [] }>()
-
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
 
 const toast = useToast()
 const { updateWeddingContent } = useWedding()
@@ -87,11 +79,7 @@ const onSubmit = handleSubmit(async (values) => {
     emit('saved')
     toast.success('Conteúdo salvo.')
   } catch (err) {
-    toast.error(
-      isApiError(err)
-        ? (err.data?.message ?? 'Não foi possível salvar o conteúdo.')
-        : 'Não foi possível salvar o conteúdo.',
-    )
+    toast.error(getApiErrorMessage(err, 'Não foi possível salvar o conteúdo.'))
   }
 })
 </script>

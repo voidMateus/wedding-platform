@@ -2,6 +2,7 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { EMOTIONAL_GIFT_ICONS, giftInputSchema } from '#shared/schemas/gifts'
+import { getApiErrorMessage } from '~/utils/api-error'
 import type { GiftCategory } from '~/types/gift-category'
 import type { Gift } from '~/types/gift'
 
@@ -17,15 +18,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   saved: []
 }>()
-
-interface ApiError {
-  statusCode?: number
-  data?: { message?: string }
-}
-
-function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null
-}
 
 function centsToReaisText(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return ''
@@ -168,9 +160,7 @@ const onSubmit = handleSubmit(async (values) => {
     emit('update:modelValue', false)
     emit('saved')
   } catch (err) {
-    errorMessage.value = isApiError(err)
-      ? (err.data?.message ?? 'Não foi possível salvar o presente.')
-      : 'Não foi possível salvar o presente.'
+    errorMessage.value = getApiErrorMessage(err, 'Não foi possível salvar o presente.')
   }
 })
 </script>
