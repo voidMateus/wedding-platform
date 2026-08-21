@@ -17,10 +17,10 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('gifts')
+    .from('presentes')
     .select('*')
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -28,63 +28,64 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data: confirmedPayments, error: confirmedError } = await client
-    .from('gift_payments')
-    .select('amount_cents')
-    .eq('wedding_id', weddingId)
-    .eq('status', 'confirmed')
+    .from('pagamentos_presentes')
+    .select('valor_centavos')
+    .eq('casamento_id', weddingId)
+    .eq('status_pagamento', 'confirmado')
   if (confirmedError) {
     throw badRequestError(confirmedError.message)
   }
 
   const { count: failedCount, error: failedError } = await client
-    .from('gift_payments')
+    .from('pagamentos_presentes')
     .select('id', { count: 'exact', head: true })
-    .eq('wedding_id', weddingId)
-    .eq('status', 'failed')
+    .eq('casamento_id', weddingId)
+    .eq('status_pagamento', 'falhou')
   if (failedError) {
     throw badRequestError(failedError.message)
   }
 
-  const giftTitleById = new Map(data.map((gift) => [gift.id, gift.title]))
-  // Reserva paga vale sempre gifts.price_cents (checkout.post.ts nunca aceita
-  // outro valor pra reserva) — gift_reservations em si não guarda valor,
-  // então reaproveitamos o preço do próprio presente pra exibir na atividade.
-  const giftPriceCentsById = new Map(data.map((gift) => [gift.id, gift.price_cents]))
+  const giftTitleById = new Map(data.map((gift) => [gift.id, gift.titulo]))
+  // Reserva paga vale sempre presentes.preco_centavos (checkout.post.ts nunca
+  // aceita outro valor pra reserva) — reservas_presentes em si não guarda
+  // valor, então reaproveitamos o preço do próprio presente pra exibir na
+  // atividade.
+  const giftPriceCentsById = new Map(data.map((gift) => [gift.id, gift.preco_centavos]))
 
   const { data: reservations, error: reservationsError } = await client
-    .from('gift_reservations')
-    .select('id, gift_id, contributor_name, giver_phone, message, reserved_at')
-    .eq('wedding_id', weddingId)
-    .order('reserved_at', { ascending: false })
+    .from('reservas_presentes')
+    .select('id, presente_id, nome_contribuinte, telefone_presenteador, mensagem, reservado_em')
+    .eq('casamento_id', weddingId)
+    .order('reservado_em', { ascending: false })
     .limit(RECENT_ACTIVITY_LIMIT)
   if (reservationsError) {
     throw badRequestError(reservationsError.message)
   }
 
   const { data: contributions, error: contributionsError } = await client
-    .from('gift_contributions')
-    .select('id, gift_id, contributor_name, giver_phone, amount_cents, quota_count, message, contributed_at')
-    .eq('wedding_id', weddingId)
-    .order('contributed_at', { ascending: false })
+    .from('contribuicoes_presentes')
+    .select('id, presente_id, nome_contribuinte, telefone_presenteador, valor_centavos, quantidade_cotas, mensagem, contribuido_em')
+    .eq('casamento_id', weddingId)
+    .order('contribuido_em', { ascending: false })
     .limit(RECENT_ACTIVITY_LIMIT)
   if (contributionsError) {
     throw badRequestError(contributionsError.message)
   }
 
   const { data: confirmedPaymentLinks } = await client
-    .from('gift_payments')
-    .select('resulting_reservation_id, resulting_contribution_id')
-    .eq('wedding_id', weddingId)
-    .eq('status', 'confirmed')
+    .from('pagamentos_presentes')
+    .select('reserva_resultante_id, contribuicao_resultante_id')
+    .eq('casamento_id', weddingId)
+    .eq('status_pagamento', 'confirmado')
 
   const paidReservationIds = new Set(
     (confirmedPaymentLinks ?? [])
-      .map((p) => p.resulting_reservation_id)
+      .map((p) => p.reserva_resultante_id)
       .filter((v): v is string => Boolean(v)),
   )
   const paidContributionIds = new Set(
     (confirmedPaymentLinks ?? [])
-      .map((p) => p.resulting_contribution_id)
+      .map((p) => p.contribuicao_resultante_id)
       .filter((v): v is string => Boolean(v)),
   )
 
@@ -94,29 +95,29 @@ export default defineEventHandler(async (event) => {
       return {
         id: r.id,
         type: 'reservation' as const,
-        giftId: r.gift_id,
-        giftTitle: giftTitleById.get(r.gift_id) ?? 'Presente removido',
-        name: r.contributor_name ?? 'Anônimo',
-        phone: r.giver_phone,
-        amountCents: isPaid ? (giftPriceCentsById.get(r.gift_id) ?? null) : null,
+        giftId: r.presente_id,
+        giftTitle: giftTitleById.get(r.presente_id) ?? 'Presente removido',
+        name: r.nome_contribuinte ?? 'Anônimo',
+        phone: r.telefone_presenteador,
+        amountCents: isPaid ? (giftPriceCentsById.get(r.presente_id) ?? null) : null,
         quotaCount: null,
-        message: r.message,
+        message: r.mensagem,
         isPaid,
-        at: r.reserved_at,
+        at: r.reservado_em,
       }
     }),
     ...(contributions ?? []).map((c) => ({
       id: c.id,
       type: 'contribution' as const,
-      giftId: c.gift_id,
-      giftTitle: giftTitleById.get(c.gift_id) ?? 'Presente removido',
-      name: c.contributor_name ?? 'Anônimo',
-      phone: c.giver_phone,
-      amountCents: c.amount_cents,
-      quotaCount: c.quota_count,
-      message: c.message,
+      giftId: c.presente_id,
+      giftTitle: giftTitleById.get(c.presente_id) ?? 'Presente removido',
+      name: c.nome_contribuinte ?? 'Anônimo',
+      phone: c.telefone_presenteador,
+      amountCents: c.valor_centavos,
+      quotaCount: c.quantidade_cotas,
+      message: c.mensagem,
       isPaid: paidContributionIds.has(c.id),
-      at: c.contributed_at,
+      at: c.contribuido_em,
     })),
   ]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
@@ -125,7 +126,7 @@ export default defineEventHandler(async (event) => {
   return {
     data,
     paymentsSummary: {
-      confirmedTotalCents: (confirmedPayments ?? []).reduce((sum, p) => sum + p.amount_cents, 0),
+      confirmedTotalCents: (confirmedPayments ?? []).reduce((sum, p) => sum + p.valor_centavos, 0),
       failedCount: failedCount ?? 0,
     },
     activity,

@@ -2,8 +2,8 @@ import { serverSupabaseClient } from '#supabase/server'
 
 /**
  * Soft delete (CLAUDE.md, seção 11) — preserva o histórico em
- * gift_reservations/gift_contributions mesmo após o presente ser removido
- * da vitrine/CRUD ativo.
+ * reservas_presentes/contribuicoes_presentes mesmo após o presente ser
+ * removido da vitrine/CRUD ativo.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -14,12 +14,12 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
-    .from('gifts')
-    .update({ deleted_at: new Date().toISOString() })
+    .from('presentes')
+    .update({ excluido_em: new Date().toISOString() })
     .eq('id', id)
-    .eq('wedding_id', weddingId)
-    .is('deleted_at', null)
-    .select('id, title')
+    .eq('casamento_id', weddingId)
+    .is('excluido_em', null)
+    .select('id, titulo')
     .maybeSingle()
 
   if (error) {
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     action: 'gift.delete',
     entityType: 'gift',
     entityId: id,
-    metadata: { title: data.title },
+    metadata: { title: data.titulo },
   })
 
   return { id }

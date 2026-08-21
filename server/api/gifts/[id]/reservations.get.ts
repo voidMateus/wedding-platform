@@ -14,10 +14,10 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
 
   const { data: gift, error: giftError } = await client
-    .from('gifts')
+    .from('presentes')
     .select('id')
     .eq('id', id)
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .maybeSingle()
   if (giftError) {
     throw badRequestError(giftError.message)
@@ -27,58 +27,58 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data: reservations, error: reservationsError } = await client
-    .from('gift_reservations')
-    .select('id, guest_id, group_id, contributor_name, giver_phone, reserved_at, message')
-    .eq('gift_id', id)
-    .order('reserved_at', { ascending: true })
+    .from('reservas_presentes')
+    .select('id, convidado_id, convite_id, nome_contribuinte, telefone_presenteador, reservado_em, mensagem')
+    .eq('presente_id', id)
+    .order('reservado_em', { ascending: true })
   if (reservationsError) {
     throw badRequestError(reservationsError.message)
   }
 
   const { data: contributions, error: contributionsError } = await client
-    .from('gift_contributions')
-    .select('id, guest_id, group_id, contributor_name, giver_phone, amount_cents, contributed_at, message, quota_count')
-    .eq('gift_id', id)
-    .order('contributed_at', { ascending: true })
+    .from('contribuicoes_presentes')
+    .select('id, convidado_id, convite_id, nome_contribuinte, telefone_presenteador, valor_centavos, contribuido_em, mensagem, quantidade_cotas')
+    .eq('presente_id', id)
+    .order('contribuido_em', { ascending: true })
   if (contributionsError) {
     throw badRequestError(contributionsError.message)
   }
 
   const { data: confirmedPayments } = await client
-    .from('gift_payments')
-    .select('resulting_reservation_id, resulting_contribution_id')
-    .eq('gift_id', id)
-    .eq('status', 'confirmed')
+    .from('pagamentos_presentes')
+    .select('reserva_resultante_id, contribuicao_resultante_id')
+    .eq('presente_id', id)
+    .eq('status_pagamento', 'confirmado')
 
   const paidReservationIds = new Set(
-    (confirmedPayments ?? []).map((p) => p.resulting_reservation_id).filter((v): v is string => Boolean(v)),
+    (confirmedPayments ?? []).map((p) => p.reserva_resultante_id).filter((v): v is string => Boolean(v)),
   )
   const paidContributionIds = new Set(
-    (confirmedPayments ?? []).map((p) => p.resulting_contribution_id).filter((v): v is string => Boolean(v)),
+    (confirmedPayments ?? []).map((p) => p.contribuicao_resultante_id).filter((v): v is string => Boolean(v)),
   )
 
   const guestIds = [
-    ...(reservations ?? []).map((r) => r.guest_id),
-    ...(contributions ?? []).map((c) => c.guest_id),
+    ...(reservations ?? []).map((r) => r.convidado_id),
+    ...(contributions ?? []).map((c) => c.convidado_id),
   ].filter((v): v is string => Boolean(v))
   const groupIds = [
-    ...(reservations ?? []).map((r) => r.group_id),
-    ...(contributions ?? []).map((c) => c.group_id),
+    ...(reservations ?? []).map((r) => r.convite_id),
+    ...(contributions ?? []).map((c) => c.convite_id),
   ].filter((v): v is string => Boolean(v))
 
   const guestNames = new Map<string, string>()
   if (guestIds.length > 0) {
-    const { data } = await client.from('guests').select('id, full_name').in('id', guestIds)
-    for (const g of data ?? []) guestNames.set(g.id, g.full_name)
+    const { data } = await client.from('convidados').select('id, nome_completo').in('id', guestIds)
+    for (const g of data ?? []) guestNames.set(g.id, g.nome_completo)
   }
 
   const groupNames = new Map<string, string>()
   if (groupIds.length > 0) {
-    const { data } = await client.from('invites').select('id, name').in('id', groupIds)
-    for (const g of data ?? []) groupNames.set(g.id, g.name)
+    const { data } = await client.from('convites').select('id, nome').in('id', groupIds)
+    for (const g of data ?? []) groupNames.set(g.id, g.nome)
   }
 
-  // contributor_name é o nome da pessoa específica que presenteou (coletada
+  // nome_contribuinte é o nome da pessoa específica que presenteou (coletada
   // no passo de identificação, CLAUDE.md seção 18) — sempre preferido sobre
   // o nome do convidado/convite, que hoje é só o rótulo do grupo (ex.:
   // "Família Silva"), não da pessoa. inviteName fica como contexto adicional.
@@ -100,22 +100,22 @@ export default defineEventHandler(async (event) => {
   return {
     reservations: (reservations ?? []).map((r) => ({
       id: r.id,
-      name: resolveName(r.guest_id, r.group_id, r.contributor_name),
-      inviteName: resolveInviteName(r.group_id),
-      phone: r.giver_phone,
-      reservedAt: r.reserved_at,
-      message: r.message,
+      name: resolveName(r.convidado_id, r.convite_id, r.nome_contribuinte),
+      inviteName: resolveInviteName(r.convite_id),
+      phone: r.telefone_presenteador,
+      reservedAt: r.reservado_em,
+      message: r.mensagem,
       isPaid: paidReservationIds.has(r.id),
     })),
     contributions: (contributions ?? []).map((c) => ({
       id: c.id,
-      name: resolveName(c.guest_id, c.group_id, c.contributor_name),
-      inviteName: resolveInviteName(c.group_id),
-      phone: c.giver_phone,
-      amountCents: c.amount_cents,
-      contributedAt: c.contributed_at,
-      message: c.message,
-      quotaCount: c.quota_count,
+      name: resolveName(c.convidado_id, c.convite_id, c.nome_contribuinte),
+      inviteName: resolveInviteName(c.convite_id),
+      phone: c.telefone_presenteador,
+      amountCents: c.valor_centavos,
+      contributedAt: c.contribuido_em,
+      message: c.mensagem,
+      quotaCount: c.quantidade_cotas,
       isPaid: paidContributionIds.has(c.id),
     })),
   }
