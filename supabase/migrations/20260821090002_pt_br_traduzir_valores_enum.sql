@@ -113,9 +113,21 @@ alter table presentes add constraint presentes_estilo_exibicao_check
 alter table presentes alter column estilo_exibicao set default 'padrao';
 
 -- pagamentos_presentes.tipo: reservation/contribution -> reserva/contribuicao
+--
+-- gift_payments_check_gift_consistency_trigger observa a coluna tipo (antiga
+-- kind) e, neste ponto da migration, ainda chama o corpo ANTIGO da função
+-- (só reescrita na migration 20260821090003) -- que referencia new.kind,
+-- campo que não existe mais no registro após o rename de coluna da
+-- migration anterior. Mesma classe de bug já documentada neste projeto
+-- (reserve_gift, migration 20260803120017): corpo de função é texto
+-- literal e não segue rename. Desabilitar o trigger só para este UPDATE é
+-- seguro -- estamos só traduzindo o rótulo de linhas já válidas, não
+-- alterando nenhuma invariante que o trigger verificaria de qualquer forma.
 select _pt_br_drop_check('pagamentos_presentes', 'tipo');
+alter table pagamentos_presentes disable trigger gift_payments_check_gift_consistency_trigger;
 update pagamentos_presentes set tipo = case tipo
   when 'reservation' then 'reserva' when 'contribution' then 'contribuicao' else tipo end;
+alter table pagamentos_presentes enable trigger gift_payments_check_gift_consistency_trigger;
 alter table pagamentos_presentes add constraint pagamentos_presentes_tipo_check
   check (tipo in ('reserva', 'contribuicao'));
 
