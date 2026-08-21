@@ -19,11 +19,11 @@ const formErrorMessage = ref<string | null>(null)
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(groupInputSchema),
-  initialValues: { name: '', color: '' },
+  initialValues: { nome: '', cor: '' },
 })
 
-const [name] = defineField('name')
-const [color] = defineField('color')
+const [name] = defineField('nome')
+const [color] = defineField('cor')
 
 const contrastPreview = computed(() => {
   if (!color.value || !isValidHexColor(color.value)) return null
@@ -33,14 +33,14 @@ const contrastPreview = computed(() => {
 function openCreateModal() {
   editingGroup.value = null
   formErrorMessage.value = null
-  resetForm({ values: { name: '', color: '' } })
+  resetForm({ values: { nome: '', cor: '' } })
   isFormModalOpen.value = true
 }
 
 function openEditModal(group: Group) {
   editingGroup.value = group
   formErrorMessage.value = null
-  resetForm({ values: { name: group.name, color: group.color ?? '' } })
+  resetForm({ values: { nome: group.nome, cor: group.cor ?? '' } })
   isFormModalOpen.value = true
 }
 
@@ -129,12 +129,12 @@ async function confirmDelete() {
           <td class="px-4 py-2 text-text">
             <span class="inline-flex items-center gap-2">
               <span
-                v-if="group.color"
+                v-if="group.cor"
                 class="h-3 w-3 rounded-full border border-border"
-                :style="{ backgroundColor: group.color }"
+                :style="{ backgroundColor: group.cor }"
                 aria-hidden="true"
               />
-              {{ group.name }}
+              {{ group.nome }}
             </span>
           </td>
           <td class="px-4 py-2">
@@ -155,7 +155,7 @@ async function confirmDelete() {
           v-model="name"
           label="Nome"
           placeholder="Ex.: Família da Noiva"
-          :error="errors.name"
+          :error="errors.nome"
         />
 
         <div class="flex flex-col gap-1">
@@ -167,7 +167,7 @@ async function confirmDelete() {
               type="color"
               class="h-10 w-14 cursor-pointer rounded-md border border-border"
             />
-            <UiInput v-model="color" class="flex-1" placeholder="#6b4a35" :error="errors.color" />
+            <UiInput v-model="color" class="flex-1" placeholder="#6b4a35" :error="errors.cor" />
           </div>
           <p
             v-if="contrastPreview"
@@ -194,7 +194,7 @@ async function confirmDelete() {
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir grupo">
       <p class="text-sm text-text">
-        Tem certeza que deseja excluir o grupo <strong>{{ deleteTarget?.name }}</strong
+        Tem certeza que deseja excluir o grupo <strong>{{ deleteTarget?.nome }}</strong
         >? Os convidados só perdem a etiqueta — nada mais é afetado.
       </p>
       <template #footer>

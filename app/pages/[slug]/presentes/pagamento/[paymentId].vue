@@ -47,7 +47,7 @@ const backLink = computed(() => `/${slug}/presentes`)
       </p>
     </template>
 
-    <template v-else-if="result?.status === 'confirmed'">
+    <template v-else-if="result?.status === 'confirmado'">
       <span
         class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
       >
@@ -60,7 +60,7 @@ const backLink = computed(() => `/${slug}/presentes`)
       </p>
     </template>
 
-    <template v-else-if="result?.status === 'failed'">
+    <template v-else-if="result?.status === 'falhou'">
       <span class="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
         <Icon name="lucide:alert-triangle" class="h-6 w-6" />
       </span>

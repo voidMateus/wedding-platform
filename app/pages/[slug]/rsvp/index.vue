@@ -23,7 +23,7 @@ const { data: wedding } = getPublicWedding()
 
 const formattedDate = computed(() =>
   wedding.value
-    ? new Date(`${wedding.value.event_date}T00:00:00`).toLocaleDateString('pt-BR', {
+    ? new Date(`${wedding.value.data_evento}T00:00:00`).toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
@@ -131,7 +131,7 @@ async function handleConfirmIdentity() {
             <Icon name="lucide:mail-check" class="h-5 w-5" />
           </span>
           <div v-if="wedding">
-            <p class="font-display text-xl font-semibold text-heading">{{ wedding.couple_names }}</p>
+            <p class="font-display text-xl font-semibold text-heading">{{ wedding.nomes_noivos }}</p>
             <p class="text-sm text-text-muted">{{ formattedDate }}</p>
           </div>
           <div>
