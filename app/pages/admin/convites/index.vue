@@ -43,15 +43,15 @@ const formErrorMessage = ref<string | null>(null)
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(inviteInputSchema),
-  initialValues: { name: '', notes: '' },
+  initialValues: { nome: '', observacoes: '' },
 })
 
-const [name] = defineField('name')
-const [notes] = defineField('notes')
+const [name] = defineField('nome')
+const [notes] = defineField('observacoes')
 
 function openCreateModal() {
   formErrorMessage.value = null
-  resetForm({ values: { name: '', notes: '' } })
+  resetForm({ values: { nome: '', observacoes: '' } })
   isFormModalOpen.value = true
 }
 
@@ -142,9 +142,9 @@ async function confirmDelete() {
           >
             <td class="px-4 py-2 text-text">
               <NuxtLink :to="`/admin/convites/${invite.id}`" class="font-medium hover:underline">
-                {{ invite.name }}
+                {{ invite.nome }}
               </NuxtLink>
-              <UiBadge v-if="invite.archived_at" tone="neutral" class="ml-2">arquivado</UiBadge>
+              <UiBadge v-if="invite.arquivado_em" tone="neutral" class="ml-2">arquivado</UiBadge>
             </td>
             <td class="px-4 py-2 text-text-muted">
               <span v-if="invite.responsibleGuestName" class="inline-flex items-center gap-1">
@@ -159,7 +159,7 @@ async function confirmDelete() {
                 {{ statusLabel[invite.responseStatus] }}
               </UiBadge>
             </td>
-            <td class="px-4 py-2 text-text-muted">{{ formatDatePtBR(invite.sent_at) }}</td>
+            <td class="px-4 py-2 text-text-muted">{{ formatDatePtBR(invite.enviado_em) }}</td>
             <td class="px-4 py-2">
               <div class="flex justify-end gap-2">
                 <UiButton size="sm" variant="ghost" :to="`/admin/convites/${invite.id}`">
@@ -204,13 +204,13 @@ async function confirmDelete() {
           v-model="name"
           label="Nome do convite"
           placeholder="Ex.: Família José Silva"
-          :error="errors.name"
+          :error="errors.nome"
         />
         <UiTextarea
           v-model="notes"
           label="Observações internas (opcional)"
           placeholder="Nunca exibidas ao convidado — ex.: Mesa VIP"
-          :error="errors.notes"
+          :error="errors.observacoes"
         />
         <p v-if="formErrorMessage" class="text-sm text-red-600" role="alert">
           {{ formErrorMessage }}
