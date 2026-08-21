@@ -1,4 +1,4 @@
-export type WeddingRole = 'owner' | 'collaborator'
+export type WeddingRole = 'dono' | 'colaborador'
 
 export interface WeddingContext {
   weddingId: string
