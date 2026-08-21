@@ -18,7 +18,8 @@
 
 ## Status geral
 
-- **Fase atual**: Passo 1 (rename para português) — **completo e validado**. Banco, `shared/`, `server/`, `app/` (types/composables/components/pages), `tests/unit/**` (57 arquivos) e documentação (`CLAUDE.md`, `docs/DATABASE.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DESIGN-SYSTEM.md`, `docs/ROADMAP.md`) traduzidos e consistentes. `npm run typecheck`/`lint`/`test` limpos (0 erros, 383/383 testes passando). `supabase/seed.sql` atualizado para o novo esquema. Falta só: build de produção, busca final por referências antigas remanescentes, organização das branches em PRs stacked e o relatório final.
+- **Fase atual**: Passo 1 (rename para português) — **completo, mergeado em `main` e promovido para produção**. Banco, `shared/`, `server/`, `app/` (types/composables/components/pages), `tests/unit/**` (57 arquivos) e documentação (`CLAUDE.md`, `docs/DATABASE.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DESIGN-SYSTEM.md`, `docs/ROADMAP.md`) traduzidos e consistentes. `npm run typecheck`/`lint`/`test`/`build` limpos (0 erros, 383/383 testes passando). `supabase/seed.sql` atualizado para o novo esquema.
+- **Merge e produção (2026-08-21)**: os 4 PRs da pilha (#79→#80→#81→#82) foram mergeados em `main` nessa ordem, com autorização explícita do usuário. As 5 migrations de rename foram aplicadas ao projeto `prod` (`elatoqglxrpqriqphkjy`) logo em seguida. Deploy do Vercel do commit final (`9ef60ef`) concluído com sucesso; usuário confirmou produção funcionando normalmente. Houve uma janela curta (~1-2 min) entre o deploy do código novo e a aplicação da migration em prod, devido a retentativas do classificador de permissão do Claude Code nos comandos `gh pr merge`/`supabase db push` — sem impacto observado, dado que o ambiente ainda está pré-lançamento (sem dado real de casamento).
 - **Última atualização**: 2026-08-21.
 - **Decisão confirmada com o usuário em 2026-08-21**: composables (`useGuests`, `useInvites`...) e pastas de componente (`components/gifts/` etc.) **permanecem em inglês** — mesmo raciocínio já aplicado às pastas de rota de `server/api/**` (organização interna de código/protocolo, não vocabulário de dados do domínio). Os dois itens correspondentes abaixo ficam marcados como decisão consciente, não pendência.
 
@@ -80,8 +81,9 @@ Corte coordenado único (banco + API + tipos + schemas + testes + docs), validad
 - [ ] Gate de CI: falhar build se `database.types.ts` estiver desatualizado em relação às migrations
 - [ ] Validar `build` de produção passando com o schema novo (lint/typecheck/test unitário já validados, ver Status geral)
 - [ ] Busca final por referências antigas remanescentes em todo o repositório (grep sistemático)
-- [ ] Organizar as branches acumuladas (`refactor/banco-pt-br` → `.../pt-br-shared-e-utils` → `.../pt-br-server-api` → `.../pt-br-app-layer`) em PRs stacked reais no GitHub
-- [ ] Promover migrations para `prod` manualmente, só depois de tudo validado e com autorização explícita do usuário
+- [x] Organizar as branches acumuladas em PRs stacked reais no GitHub (#79→#80→#81→#82)
+- [x] Mergear os 4 PRs em `main`, em sequência, com autorização explícita do usuário (2026-08-21)
+- [x] Promover as 5 migrations para `prod` (`elatoqglxrpqriqphkjy`) logo após o merge final — usuário confirmou produção funcionando normalmente
 
 ## Passo 2 — Suíte de testes de isolamento entre tenants
 
@@ -151,5 +153,6 @@ Escrita diretamente contra o schema já em português — nenhum retrabalho de t
 
 _Entradas mais recentes primeiro. Adicionar uma linha a cada item concluído ou marco relevante._
 
+- **2026-08-21** — Passo 1 mergeado em `main` e promovido para produção. Sequência: PR #79 (banco) → #80 (shared/server-utils) → #81 (server/api) → #82 (app/testes/docs), cada um retargeted para `main` e mergeado via `gh pr merge --merge` (sem squash, pra preservar a pilha sem reescrever histórico). CI do GitHub Actions falhou nos merges intermediários de #80/#81 (esperado — código daquele ponto da pilha ainda não estava 100% consistente sozinho) e passou no merge final de #82. Migrations aplicadas ao projeto `prod` logo após o merge de #82; usuário confirmou site funcionando normalmente em produção. `database.types.ts` de prod não precisou ser regenerado à parte — schema idêntico ao de `dev`, mesmas migrations.
 - **2026-08-21** — Passo 1 (rename para português) completo em todas as camadas de código e documentação: banco (5 migrations validadas em `dev`), `shared/`, `server/`, `app/` (types/composables/components/pages/layouts/utils), 57 testes unitários (22 corrigidos), `supabase/seed.sql`, e os 6 documentos de `docs/` + `CLAUDE.md`. `npm run typecheck`/`lint`/`test` limpos (0 erros, 383/383 testes). Decisão confirmada com o usuário: composables e pastas de componente permanecem em inglês (mesmo raciocínio já aplicado às rotas de `server/api/**`). Corrigido também um erro real remanescente na seção 6 do `CLAUDE.md`, que ainda instruía "identificadores em inglês" — o oposto da convenção já aprovada e aplicada. Restam: gates de CI, busca final por referências antigas, validação de `build`, organização das branches em PRs stacked, e promoção manual pra `prod`.
 - **2026-08-21** — Documento criado a partir da Auditoria Arquitetural. Nenhum item de implementação iniciado ainda.
