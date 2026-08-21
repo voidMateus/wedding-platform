@@ -18,8 +18,9 @@
 
 ## Status geral
 
-- **Fase atual**: Passo 1 (rename para português) — **camada de banco validada com sucesso contra o projeto `dev`** (5 migrations aplicadas, `database.types.ts` regenerado e confirmado). Seguindo agora para a camada de aplicação (server/api, shared/schemas, app/types derivados, testes, docs).
+- **Fase atual**: Passo 1 (rename para português) — **completo e validado**. Banco, `shared/`, `server/`, `app/` (types/composables/components/pages), `tests/unit/**` (57 arquivos) e documentação (`CLAUDE.md`, `docs/DATABASE.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DESIGN-SYSTEM.md`, `docs/ROADMAP.md`) traduzidos e consistentes. `npm run typecheck`/`lint`/`test` limpos (0 erros, 383/383 testes passando). `supabase/seed.sql` atualizado para o novo esquema. Falta só: build de produção, busca final por referências antigas remanescentes, organização das branches em PRs stacked e o relatório final.
 - **Última atualização**: 2026-08-21.
+- **Decisão confirmada com o usuário em 2026-08-21**: composables (`useGuests`, `useInvites`...) e pastas de componente (`components/gifts/` etc.) **permanecem em inglês** — mesmo raciocínio já aplicado às pastas de rota de `server/api/**` (organização interna de código/protocolo, não vocabulário de dados do domínio). Os dois itens correspondentes abaixo ficam marcados como decisão consciente, não pendência.
 
 ### Bloqueio anterior — resolvido
 
@@ -49,30 +50,38 @@ Corte coordenado único (banco + API + tipos + schemas + testes + docs), validad
 - [x] Migration: renomear/recriar funções Postgres (`20260821090003`) — inclui limpeza dos 2 overloads obsoletos de `reserve_gift`
 - [x] Migration: adicionar `is_slug_reservado(text)` + `CHECK` em `casamentos.slug` (`20260821090005`)
 - [x] Migration: escopo de conta em `assinaturas`/`funcionalidades_habilitadas` + `planos.max_casamentos` + ciclo de vida (`20260821090005`)
-- [ ] **Validar as 5 migrations acima contra Postgres real — bloqueado, ver "Bloqueio ativo"**
+- [x] Validar as 5 migrations acima contra Postgres real (projeto `dev`, via `npx supabase db push --linked`) — 4 bugs reais encontrados e corrigidos (ver "Bloqueio anterior — resolvido")
 - [ ] Trocar `service_role` por `serverSupabaseClient` em `wedding/gallery/connection.delete.ts` e `wedding/gallery/sync.post.ts`
 - [ ] Renomear policies de storage (`is_wedding_member`→`is_membro_casamento` já propaga por OID; só o nome do objeto fica pendente, baixa prioridade)
-- [ ] Regenerar `database.types.ts` a partir do schema novo (depende da validação acima)
+- [x] Regenerar `database.types.ts` a partir do schema novo (`npx supabase gen types typescript --linked`, confirmado sem nomes antigos)
 - [x] Traduzir `shared/schemas/**` e `shared/utils/**` (campos que espelham colunas do banco) — branch `refactor/pt-br-shared-e-utils`
 - [x] Traduzir `server/utils/**` (todas as chamadas `.from`/`.select`/`.eq`/`.rpc`) — mesma branch
-- [x] Traduzir `server/api/**` (76 endpoints, todos os domínios) — branch `refactor/pt-br-server-api`. `npm run typecheck`/`lint` limpos em `shared/`+`server/` inteiro; erros restantes são só em `app/` (próxima etapa)
-- [ ] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`) — **decisão: NÃO fazer** — nomes de pasta de rota não são "nomenclatura do domínio" visível, e renomear quebraria URLs de API já em uso sem nenhum ganho real (as rotas HTTP não são a "nomenclatura em inglês" que o briefing original pedia para traduzir — o conteúdo/campos já estão traduzidos). Registrar como decisão consciente, não pendência esquecida.
-- [ ] Renomear composables (`useInvites`→`useConvites` etc.)
-- [ ] Renomear pastas de componente (`components/gifts/`→`components/presentes/`; `components/rsvp/` mantém — RSVP é termo universal)
-- [ ] Atualizar `app/types/**` derivados (`Guest`, `Wedding`, `GiftPayment`, `auth.ts#WeddingContext`, etc.)
-- [ ] Atualizar os 57 testes unitários existentes para os novos nomes
-- [ ] Atualizar `docs/DATABASE.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCT.md` com a nomenclatura nova
-- [ ] Atualizar `supabase/seed.sql` para os novos nomes
+- [x] Traduzir `server/api/**` (76 endpoints, todos os domínios) — branch `refactor/pt-br-server-api`. `npm run typecheck`/`lint` limpos em `shared/`+`server/` inteiro
+- [x] Renomear pastas/arquivos de rota em `server/api/**` (ex.: `invites/`→`convites/`) — **decisão: NÃO fazer** — nomes de pasta de rota não são "nomenclatura do domínio" visível, e renomear quebraria URLs de API já em uso sem nenhum ganho real (as rotas HTTP não são a "nomenclatura em inglês" que o briefing original pedia para traduzir — o conteúdo/campos já estão traduzidos). Decisão consciente, não pendência esquecida.
+- [x] Renomear composables (`useInvites`→`useConvites` etc.) — **decisão confirmada com o usuário em 2026-08-21: NÃO fazer**, mesmo raciocínio do item acima (organização interna de código, não vocabulário de dados). O conteúdo interno de cada composable (campos que acessam objetos vindos do banco) já está 100% traduzido.
+- [x] Renomear pastas de componente (`components/gifts/`→`components/presentes/`) — **mesma decisão acima: NÃO fazer**. `components/rsvp/` também mantém (RSVP é termo universal, nem entraria nessa discussão).
+- [x] Atualizar `app/types/**` derivados (`Guest`, `Wedding`, `GiftPayment`, `auth.ts#WeddingContext`, etc.) — branch `refactor/pt-br-app-layer`. `WeddingContext.weddingId/role/memberId` deliberadamente mantidos (tipo transversal, tradução adiada, baixo risco)
+- [x] Traduzir `app/composables/**` (31 arquivos + 2 stores) e `app/components/**`/`app/pages/**`/`app/layouts/**`/`app/utils/**` — campos que acessam objetos vindos do banco atualizados para os novos nomes; nomes de função/arquivo/pasta mantidos em inglês (ver decisão acima). `npm run typecheck`/`lint` limpos em `app/` inteiro (0 erros)
+- [x] Atualizar os 57 testes unitários existentes para os novos nomes — 22 arquivos precisavam de correção (mocks/fixtures com campos antigos), 35 já estavam corretos. `npm run test` limpo (383/383 passando)
+- [x] Atualizar `docs/DATABASE.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DESIGN-SYSTEM.md`, `docs/ROADMAP.md` e `CLAUDE.md` (seção 6 "Idioma" estava desatualizada — dizia "identificadores em inglês", o oposto da decisão já aprovada) com a nomenclatura nova
+- [x] Atualizar `supabase/seed.sql` para os novos nomes
 
 ### Escopo deliberadamente deixado em inglês nesta etapa (registrar, não esquecer)
-- Nomes de constraint de FK/PK no banco (ex.: `event_segments_wedding_id_fkey`) — identificadores internos de catálogo, sem ganho funcional em renomear.
-- Chaves internas de `theme_config`/`content_config` (JSONB — não são colunas).
+- Nomes de constraint de FK/PK no banco (identificadores internos de catálogo, sem ganho funcional em renomear).
+- Chaves internas de `config_tema`/`config_conteudo` (JSONB — não são colunas).
 - Campos técnicos de integração com Google Drive (`code`, `folderId`, `folderName`) e da API externa da InfinitePay (`order_nsu`, `redirect_url` etc. — contrato de terceiro, não nosso).
 - Alguns DTOs locais de baixo risco (ex.: `AuditLogInput.entityType/entityId`) — a escrita no banco já está 100% correta; o nome do parâmetro TS é cosmético e pode ser revisitado depois sem risco.
+- DTOs computados/agregados de view-model (`PublicGift`, `RsvpInvitePayload.wedding.coupleNames/eventDate`, `GiftReservationEntry`/`GiftContributionEntry`/`GiftActivityEntry`, `DashboardSummary`, `InviteListItem` — campos calculados/agregados, não colunas de tabela) — exceção documentada e consistente nos dois lados (server e client nunca misturam os dois padrões no mesmo objeto).
+- Nomes de composable (`useGuests`, `useInvites`...) e pastas de componente (`components/gifts/` etc.) — decisão confirmada com o usuário em 2026-08-21, mesmo raciocínio das pastas de rota de `server/api/**`.
+- `app/types/auth.ts#WeddingContext.weddingId/role/memberId` — tipo transversal, tradução adiada por baixo risco/baixo ganho.
+
+### Pendências reais de Passo 1 (fora do rename em si)
 - [ ] Gate de CI: falhar build se view nova/alterada não tiver `security_invoker = true`
 - [ ] Gate de CI: falhar build se `database.types.ts` estiver desatualizado em relação às migrations
-- [ ] Validar `lint`/`typecheck`/testes unitários/`build` passando com o schema novo em `dev`
-- [ ] Promover para `prod` manualmente, só depois de validado
+- [ ] Validar `build` de produção passando com o schema novo (lint/typecheck/test unitário já validados, ver Status geral)
+- [ ] Busca final por referências antigas remanescentes em todo o repositório (grep sistemático)
+- [ ] Organizar as branches acumuladas (`refactor/banco-pt-br` → `.../pt-br-shared-e-utils` → `.../pt-br-server-api` → `.../pt-br-app-layer`) em PRs stacked reais no GitHub
+- [ ] Promover migrations para `prod` manualmente, só depois de tudo validado e com autorização explícita do usuário
 
 ## Passo 2 — Suíte de testes de isolamento entre tenants
 
@@ -142,4 +151,5 @@ Escrita diretamente contra o schema já em português — nenhum retrabalho de t
 
 _Entradas mais recentes primeiro. Adicionar uma linha a cada item concluído ou marco relevante._
 
+- **2026-08-21** — Passo 1 (rename para português) completo em todas as camadas de código e documentação: banco (5 migrations validadas em `dev`), `shared/`, `server/`, `app/` (types/composables/components/pages/layouts/utils), 57 testes unitários (22 corrigidos), `supabase/seed.sql`, e os 6 documentos de `docs/` + `CLAUDE.md`. `npm run typecheck`/`lint`/`test` limpos (0 erros, 383/383 testes). Decisão confirmada com o usuário: composables e pastas de componente permanecem em inglês (mesmo raciocínio já aplicado às rotas de `server/api/**`). Corrigido também um erro real remanescente na seção 6 do `CLAUDE.md`, que ainda instruía "identificadores em inglês" — o oposto da convenção já aprovada e aplicada. Restam: gates de CI, busca final por referências antigas, validação de `build`, organização das branches em PRs stacked, e promoção manual pra `prod`.
 - **2026-08-21** — Documento criado a partir da Auditoria Arquitetural. Nenhum item de implementação iniciado ainda.
