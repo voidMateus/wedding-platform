@@ -3,20 +3,20 @@ import { giftReserveSchema } from '#shared/schemas/gift-mutations'
 
 describe('giftReserveSchema', () => {
   it('aceita um nome válido', () => {
-    expect(giftReserveSchema.safeParse({ giverName: 'Maria' }).success).toBe(true)
+    expect(giftReserveSchema.safeParse({ nomePresenteador: 'Maria' }).success).toBe(true)
   })
 
   it('aceita telefone e mensagem opcionais', () => {
     const result = giftReserveSchema.safeParse({
-      giverName: 'Maria',
-      giverPhone: '(11) 99999-9999',
+      nomePresenteador: 'Maria',
+      telefonePresenteador: '(11) 99999-9999',
       message: 'Com carinho!',
     })
     expect(result.success).toBe(true)
   })
 
   it('aceita ausência de telefone e mensagem', () => {
-    expect(giftReserveSchema.safeParse({ giverName: 'Maria' }).success).toBe(true)
+    expect(giftReserveSchema.safeParse({ nomePresenteador: 'Maria' }).success).toBe(true)
   })
 
   it('rejeita ausência de nome (identificação obrigatória — CLAUDE.md, seção 18)', () => {
@@ -24,6 +24,6 @@ describe('giftReserveSchema', () => {
   })
 
   it('rejeita nome vazio', () => {
-    expect(giftReserveSchema.safeParse({ giverName: '  ' }).success).toBe(false)
+    expect(giftReserveSchema.safeParse({ nomePresenteador: '  ' }).success).toBe(false)
   })
 })

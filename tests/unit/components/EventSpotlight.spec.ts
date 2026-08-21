@@ -8,17 +8,17 @@ import { ICON_STUBS } from '../test-utils/icon-stubs'
 function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
   return {
     id: 'seg-1',
-    wedding_id: '11111111-1111-1111-1111-111111111111',
-    title: 'Cerimônia',
-    venue_name: 'Igreja São José',
-    venue_address: 'Rua das Flores, 100',
-    starts_at: '2027-05-16T12:00:00Z',
-    ends_at: '2027-05-16T13:00:00Z',
-    display_order: 0,
-    venue_latitude: null,
-    venue_longitude: null,
-    same_venue_as: null,
-    image_url: null,
+    casamento_id: '11111111-1111-1111-1111-111111111111',
+    titulo: 'Cerimônia',
+    nome_local: 'Igreja São José',
+    endereco_local: 'Rua das Flores, 100',
+    inicia_em: '2027-05-16T12:00:00Z',
+    termina_em: '2027-05-16T13:00:00Z',
+    ordem_exibicao: 0,
+    latitude_local: null,
+    longitude_local: null,
+    mesmo_local_que: null,
+    url_imagem: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -42,13 +42,13 @@ function mountSpotlight(props: Record<string, unknown>) {
 
 describe('PublicEventSpotlight', () => {
   it('é apenas o cartão (sem seção/título próprios — vive dentro de "O Grande Dia")', () => {
-    const wrapper = mountSpotlight({ segments: [makeSegment({ title: 'Cerimônia' })] })
+    const wrapper = mountSpotlight({ segments: [makeSegment({ titulo: 'Cerimônia' })] })
     expect(wrapper.find('section').exists()).toBe(false)
     expect(wrapper.find('h2').exists()).toBe(false)
   })
 
   it('a âncora é derivada do título classificado', () => {
-    const wrapper = mountSpotlight({ segments: [makeSegment({ title: 'Cerimônia' })] })
+    const wrapper = mountSpotlight({ segments: [makeSegment({ titulo: 'Cerimônia' })] })
     expect(wrapper.find('#cerimonia').exists()).toBe(true)
   })
 
@@ -58,19 +58,19 @@ describe('PublicEventSpotlight', () => {
   })
 
   it('renderiza a foto do local quando cadastrada', () => {
-    const wrapper = mountSpotlight({ segments: [makeSegment({ image_url: 'https://example.com/foto.jpg' })] })
+    const wrapper = mountSpotlight({ segments: [makeSegment({ url_imagem: 'https://example.com/foto.jpg' })] })
     expect(wrapper.find('img').attributes('src')).toBe('https://example.com/foto.jpg')
   })
 
   it('não renderiza nenhuma imagem quando o local não tem foto', () => {
-    const wrapper = mountSpotlight({ segments: [makeSegment({ image_url: null })] })
+    const wrapper = mountSpotlight({ segments: [makeSegment({ url_imagem: null })] })
     expect(wrapper.find('img').exists()).toBe(false)
   })
 
   describe('fusão quando Cerimônia e Recepção têm o mesmo endereço', () => {
     function makeMergedGroup() {
-      const ceremony = makeSegment({ id: 'a', title: 'Cerimônia', starts_at: '2027-05-16T16:00:00Z' })
-      const reception = makeSegment({ id: 'b', title: 'Recepção', same_venue_as: 'a', starts_at: '2027-05-16T18:00:00Z' })
+      const ceremony = makeSegment({ id: 'a', titulo: 'Cerimônia', inicia_em: '2027-05-16T16:00:00Z' })
+      const reception = makeSegment({ id: 'b', titulo: 'Recepção', mesmo_local_que: 'a', inicia_em: '2027-05-16T18:00:00Z' })
       return [ceremony, reception]
     }
 

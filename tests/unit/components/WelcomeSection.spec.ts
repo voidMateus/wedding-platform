@@ -8,14 +8,18 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
   return {
     id: '11111111-1111-1111-1111-111111111111',
     slug: 'ana-e-joao',
-    couple_names: 'Ana & João',
-    event_date: '2027-05-16',
-    event_time: '20:30:00',
-    child_max_age: 11,
-    guest_list_mode: 'closed',
-    rsvp_deadline: null,
-    theme_config: {},
-    content_config: null,
+    nomes_noivos: 'Ana & João',
+    data_evento: '2027-05-16',
+    horario_evento: '20:30:00',
+    idade_maxima_crianca: 11,
+    modo_lista_convidados: 'fechada',
+    modo_entrega_presente_fisico: 'ambos',
+    status_ciclo_vida: 'publicado',
+    prazo_rsvp: null,
+    arquivado_em: null,
+    handle_infinitepay: null,
+    config_tema: {},
+    config_conteudo: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -53,7 +57,7 @@ describe('PublicWelcomeSection', () => {
   it('usa o título/mensagem customizados pelo casal quando presentes em content_config', () => {
     const wrapper = mountSection(
       makeWedding({
-        content_config: { welcomeTitle: 'Bem-vindos!', welcomeMessage: 'Mensagem custom.' },
+        config_conteudo: { welcomeTitle: 'Bem-vindos!', welcomeMessage: 'Mensagem custom.' },
       }),
     )
     expect(wrapper.find('h2').text()).toBe('Bem-vindos!')

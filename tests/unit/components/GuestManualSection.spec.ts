@@ -12,14 +12,18 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
   return {
     id: '11111111-1111-1111-1111-111111111111',
     slug: 'ana-e-joao',
-    couple_names: 'Ana & João',
-    event_date: '2027-05-16',
-    event_time: '20:30:00',
-    child_max_age: 11,
-    guest_list_mode: 'closed',
-    rsvp_deadline: null,
-    theme_config: {},
-    content_config: null,
+    nomes_noivos: 'Ana & João',
+    data_evento: '2027-05-16',
+    horario_evento: '20:30:00',
+    idade_maxima_crianca: 11,
+    modo_lista_convidados: 'fechada',
+    modo_entrega_presente_fisico: 'ambos',
+    status_ciclo_vida: 'publicado',
+    prazo_rsvp: null,
+    arquivado_em: null,
+    handle_infinitepay: null,
+    config_tema: {},
+    config_conteudo: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -58,7 +62,7 @@ describe('PublicGuestManualSection', () => {
   it('usa introdução/tópicos customizados pelo casal quando presentes em content_config', () => {
     const wrapper = mountSection(
       makeWedding({
-        content_config: {
+        config_conteudo: {
           guestManualIntro: 'Leia com carinho.',
           guestManualTopics: [{ icon: 'lucide:info', title: 'Estacionamento', description: 'Vagas no local.' }],
         },
@@ -70,7 +74,7 @@ describe('PublicGuestManualSection', () => {
   })
 
   it('some inteiramente quando o casal esvazia content_config.guestManualTopics', () => {
-    const wrapper = mountSection(makeWedding({ content_config: { guestManualTopics: [] } }))
+    const wrapper = mountSection(makeWedding({ config_conteudo: { guestManualTopics: [] } }))
     expect(wrapper.find('#manual-convidados').exists()).toBe(false)
   })
 })

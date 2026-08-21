@@ -6,39 +6,39 @@ const validGroupId = '11111111-1111-1111-1111-111111111111'
 describe('guestPersonSchema', () => {
   it('aceita um convidado válido com todos os campos', () => {
     const result = guestPersonSchema.safeParse({
-      fullName: 'Maria Silva',
-      nickname: 'Mari',
-      sex: 'female',
-      birthDate: '1990-01-01',
-      weddingRole: 'madrinha',
-      dietaryRestrictions: 'vegetariana',
-      notes: 'Chegará mais cedo',
-      groupId: validGroupId,
+      nomeCompleto: 'Maria Silva',
+      apelido: 'Mari',
+      sexo: 'feminino',
+      dataNascimento: '1990-01-01',
+      papelCasamento: 'madrinha',
+      restricoesAlimentares: 'vegetariana',
+      observacoes: 'Chegará mais cedo',
+      grupoId: validGroupId,
     })
 
     expect(result.success).toBe(true)
   })
 
   it('aceita um convidado só com o nome (demais campos opcionais)', () => {
-    const result = guestPersonSchema.safeParse({ fullName: 'Maria Silva' })
+    const result = guestPersonSchema.safeParse({ nomeCompleto: 'Maria Silva' })
 
     expect(result.success).toBe(true)
   })
 
   it('rejeita nome vazio', () => {
-    const result = guestPersonSchema.safeParse({ fullName: '  ' })
+    const result = guestPersonSchema.safeParse({ nomeCompleto: '  ' })
 
     expect(result.success).toBe(false)
   })
 
-  it('rejeita sex fora do enum', () => {
-    const result = guestPersonSchema.safeParse({ fullName: 'Maria', sex: 'qualquer-coisa' })
+  it('rejeita sexo fora do enum', () => {
+    const result = guestPersonSchema.safeParse({ nomeCompleto: 'Maria', sexo: 'qualquer-coisa' })
 
     expect(result.success).toBe(false)
   })
 
-  it('rejeita groupId que não é um uuid', () => {
-    const result = guestPersonSchema.safeParse({ fullName: 'Maria', groupId: 'não-é-um-uuid' })
+  it('rejeita grupoId que não é um uuid', () => {
+    const result = guestPersonSchema.safeParse({ nomeCompleto: 'Maria', grupoId: 'não-é-um-uuid' })
 
     expect(result.success).toBe(false)
   })
@@ -46,7 +46,7 @@ describe('guestPersonSchema', () => {
 
 describe('guestPartySyncSchema', () => {
   it('aceita convidado principal sem acompanhantes nem convite', () => {
-    const result = guestPartySyncSchema.safeParse({ primary: { fullName: 'Maria Silva' } })
+    const result = guestPartySyncSchema.safeParse({ primary: { nomeCompleto: 'Maria Silva' } })
 
     expect(result.success).toBe(true)
     if (result.success) {
@@ -57,16 +57,16 @@ describe('guestPartySyncSchema', () => {
 
   it('aceita convidado principal com acompanhantes e convite', () => {
     const result = guestPartySyncSchema.safeParse({
-      primary: { fullName: 'Maria Silva' },
-      companions: [{ fullName: 'Pedro Silva' }],
-      invite: { name: 'Família Silva' },
+      primary: { nomeCompleto: 'Maria Silva' },
+      companions: [{ nomeCompleto: 'Pedro Silva' }],
+      invite: { nome: 'Família Silva' },
     })
 
     expect(result.success).toBe(true)
   })
 
   it('rejeita quando o convidado principal não tem nome', () => {
-    const result = guestPartySyncSchema.safeParse({ primary: { fullName: '' } })
+    const result = guestPartySyncSchema.safeParse({ primary: { nomeCompleto: '' } })
 
     expect(result.success).toBe(false)
   })

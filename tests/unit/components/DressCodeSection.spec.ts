@@ -10,14 +10,18 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
   return {
     id: '11111111-1111-1111-1111-111111111111',
     slug: 'ana-e-joao',
-    couple_names: 'Ana & João',
-    event_date: '2027-05-16',
-    event_time: '20:30:00',
-    child_max_age: 11,
-    guest_list_mode: 'closed',
-    rsvp_deadline: null,
-    theme_config: {},
-    content_config: null,
+    nomes_noivos: 'Ana & João',
+    data_evento: '2027-05-16',
+    horario_evento: '20:30:00',
+    idade_maxima_crianca: 11,
+    modo_lista_convidados: 'fechada',
+    modo_entrega_presente_fisico: 'ambos',
+    status_ciclo_vida: 'publicado',
+    prazo_rsvp: null,
+    arquivado_em: null,
+    handle_infinitepay: null,
+    config_tema: {},
+    config_conteudo: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -55,14 +59,14 @@ describe('PublicDressCodeSection', () => {
   })
 
   it('cai nas cores default quando o tema não define paleta', () => {
-    const wrapper = mountDressCode(makeWedding({ theme_config: {} }))
+    const wrapper = mountDressCode(makeWedding({ config_tema: {} }))
     expect(wrapper.html()).not.toContain('undefined')
   })
 
   it('usa descrição/sugestões customizadas pelo casal quando presentes em content_config', () => {
     const wrapper = mountDressCode(
       makeWedding({
-        content_config: { dressCodeDescription: 'Traje esporte fino.', dressCodeSuggestions: ['Use tons pastel.'] },
+        config_conteudo: { dressCodeDescription: 'Traje esporte fino.', dressCodeSuggestions: ['Use tons pastel.'] },
       }),
     )
     expect(wrapper.text()).toContain('Traje esporte fino.')
@@ -72,7 +76,7 @@ describe('PublicDressCodeSection', () => {
 
   it('esconde a lista de sugestões quando o casal esvazia content_config.dressCodeSuggestions', () => {
     const wrapper = mountDressCode(
-      makeWedding({ content_config: { dressCodeSuggestions: [] } }),
+      makeWedding({ config_conteudo: { dressCodeSuggestions: [] } }),
     )
     expect(wrapper.find('ul').exists()).toBe(false)
   })

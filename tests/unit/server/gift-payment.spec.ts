@@ -53,10 +53,10 @@ describe('confirmGiftPayment', () => {
     expect(result).toBeNull()
   })
 
-  it('é idempotente: pagamento já confirmed não chama payment_check de novo', async () => {
+  it('é idempotente: pagamento já confirmado não chama payment_check de novo', async () => {
     const { checkInfinitePayPayment } = await import('../../../server/utils/infinitepay')
     const { confirmGiftPayment } = await import('../../../server/utils/gift-payment')
-    const confirmedPayment = { id: 'payment-1', status: 'confirmed', wedding_id: 'w1' }
+    const confirmedPayment = { id: 'payment-1', status_pagamento: 'confirmado', casamento_id: 'w1' }
     const client = makeClient([chainable({ data: confirmedPayment, error: null })])
 
     const result = await confirmGiftPayment(client, 'payment-1')
@@ -76,21 +76,21 @@ describe('confirmGiftPayment', () => {
 
     const pendingPayment = {
       id: 'payment-1',
-      status: 'pending',
-      wedding_id: 'w1',
-      gift_id: 'g1',
-      amount_cents: 5000,
-      provider_order_nsu: 'payment-1',
-      provider_transaction_nsu: null,
+      status_pagamento: 'pendente',
+      casamento_id: 'w1',
+      presente_id: 'g1',
+      valor_centavos: 5000,
+      nsu_pedido_provedor: 'payment-1',
+      nsu_transacao_provedor: null,
     }
-    const confirmedPayment = { ...pendingPayment, status: 'confirmed' }
+    const confirmedPayment = { ...pendingPayment, status_pagamento: 'confirmado' }
 
     const client = makeClient(
       [
-        chainable({ data: pendingPayment, error: null }), // select gift_payments
-        chainable({ data: { infinitepay_handle: 'casal' }, error: null }), // select weddings
-        chainable({ data: null, error: null }), // update last_provider_response
-        chainable({ data: null, error: null }), // insert audit_logs
+        chainable({ data: pendingPayment, error: null }), // select pagamentos_presentes
+        chainable({ data: { handle_infinitepay: 'casal' }, error: null }), // select casamentos
+        chainable({ data: null, error: null }), // update ultima_resposta_provedor
+        chainable({ data: null, error: null }), // insert trilha_auditoria
       ],
       { data: confirmedPayment, error: null },
     )
@@ -98,10 +98,10 @@ describe('confirmGiftPayment', () => {
     const result = await confirmGiftPayment(client, 'payment-1')
 
     expect(result).toEqual(confirmedPayment)
-    expect(client.rpc).toHaveBeenCalledWith('confirm_gift_payment', { p_payment_id: 'payment-1' })
+    expect(client.rpc).toHaveBeenCalledWith('confirmar_pagamento_presente', { p_pagamento_id: 'payment-1' })
   })
 
-  it('permanece pending quando payment_check confirma paid:false (sem marcar failed numa única checagem)', async () => {
+  it('permanece pendente quando payment_check confirma paid:false (sem marcar falhou numa única checagem)', async () => {
     const { checkInfinitePayPayment } = await import('../../../server/utils/infinitepay')
     vi.mocked(checkInfinitePayPayment).mockResolvedValue({
       ok: true,
@@ -112,21 +112,21 @@ describe('confirmGiftPayment', () => {
 
     const pendingPayment = {
       id: 'payment-1',
-      status: 'pending',
-      wedding_id: 'w1',
-      provider_order_nsu: 'payment-1',
-      provider_transaction_nsu: null,
+      status_pagamento: 'pendente',
+      casamento_id: 'w1',
+      nsu_pedido_provedor: 'payment-1',
+      nsu_transacao_provedor: null,
     }
 
     const client = makeClient([
       chainable({ data: pendingPayment, error: null }),
-      chainable({ data: { infinitepay_handle: 'casal' }, error: null }),
-      chainable({ data: null, error: null }), // update last_provider_response
+      chainable({ data: { handle_infinitepay: 'casal' }, error: null }),
+      chainable({ data: null, error: null }), // update ultima_resposta_provedor
     ])
 
     const result = await confirmGiftPayment(client, 'payment-1')
 
-    expect(result?.status).toBe('pending')
+    expect(result?.status_pagamento).toBe('pendente')
     expect(client.rpc).not.toHaveBeenCalled()
   })
 
@@ -135,11 +135,11 @@ describe('confirmGiftPayment', () => {
     vi.mocked(checkInfinitePayPayment).mockResolvedValue({ ok: false, reason: 'timeout' })
     const { confirmGiftPayment } = await import('../../../server/utils/gift-payment')
 
-    const pendingPayment = { id: 'payment-1', status: 'pending', wedding_id: 'w1' }
+    const pendingPayment = { id: 'payment-1', status_pagamento: 'pendente', casamento_id: 'w1' }
 
     const client = makeClient([
       chainable({ data: pendingPayment, error: null }),
-      chainable({ data: { infinitepay_handle: 'casal' }, error: null }),
+      chainable({ data: { handle_infinitepay: 'casal' }, error: null }),
     ])
 
     const result = await confirmGiftPayment(client, 'payment-1')
