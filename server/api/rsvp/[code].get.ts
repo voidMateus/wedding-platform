@@ -16,8 +16,8 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Link inválido ou expirado.')
   }
 
-  await recordFirstAccessIfNeeded(client, token.weddingId, token.inviteId)
-  issueRsvpSession(event, { weddingId: token.weddingId, inviteId: token.inviteId })
+  await recordFirstAccessIfNeeded(client, token.casamentoId, token.conviteId)
+  issueRsvpSession(event, { casamentoId: token.casamentoId, conviteId: token.conviteId })
 
-  return buildRsvpInvitePayload(client, token.weddingId, token.inviteId)
+  return buildRsvpInvitePayload(client, token.casamentoId, token.conviteId)
 })

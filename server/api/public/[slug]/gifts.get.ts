@@ -11,8 +11,8 @@ export default defineEventHandler(async (event) => {
   const client = supabaseAdmin(event)
 
   const { data: wedding, error: weddingError } = await client
-    .from('weddings')
-    .select('id, infinitepay_handle, physical_gift_delivery_mode')
+    .from('casamentos')
+    .select('id, handle_infinitepay, modo_entrega_presente_fisico')
     .eq('slug', slug)
     .single()
 
@@ -21,11 +21,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data: gifts, error: giftsError } = await client
-    .from('gifts')
+    .from('presentes')
     .select('*')
-    .eq('wedding_id', wedding.id)
-    .eq('is_active', true)
-    .is('deleted_at', null)
+    .eq('casamento_id', wedding.id)
+    .eq('esta_ativo', true)
+    .is('excluido_em', null)
     .order('created_at', { ascending: true })
 
   if (giftsError) {
@@ -33,24 +33,24 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data: categories, error: categoriesError } = await client
-    .from('gift_categories')
-    .select('id, name')
-    .eq('wedding_id', wedding.id)
+    .from('categorias_presentes')
+    .select('id, nome')
+    .eq('casamento_id', wedding.id)
 
   if (categoriesError) {
     throw badRequestError(categoriesError.message)
   }
 
-  const categoryNameById = new Map(categories.map((category) => [category.id, category.name]))
+  const categoryNameById = new Map(categories.map((category) => [category.id, category.nome]))
 
-  const groupGiftIds = gifts.filter((g) => g.is_group_gift).map((g) => g.id)
+  const groupGiftIds = gifts.filter((g) => g.e_presente_cota).map((g) => g.id)
 
   const collectedByGiftId = new Map<string, number>()
   if (groupGiftIds.length > 0) {
     const { data: contributions, error: contributionsError } = await client
-      .from('gift_contributions')
-      .select('gift_id, amount_cents')
-      .in('gift_id', groupGiftIds)
+      .from('contribuicoes_presentes')
+      .select('presente_id, valor_centavos')
+      .in('presente_id', groupGiftIds)
 
     if (contributionsError) {
       throw badRequestError(contributionsError.message)
@@ -58,33 +58,33 @@ export default defineEventHandler(async (event) => {
 
     for (const contribution of contributions ?? []) {
       collectedByGiftId.set(
-        contribution.gift_id,
-        (collectedByGiftId.get(contribution.gift_id) ?? 0) + contribution.amount_cents,
+        contribution.presente_id,
+        (collectedByGiftId.get(contribution.presente_id) ?? 0) + contribution.valor_centavos,
       )
     }
   }
 
-  const hasPixOption = Boolean(wedding.infinitepay_handle)
-  const physicalDeliveryMode = wedding.physical_gift_delivery_mode as
-    | 'both'
-    | 'self_purchase_only'
-    | 'payment_only'
+  const hasPixOption = Boolean(wedding.handle_infinitepay)
+  const physicalDeliveryMode = wedding.modo_entrega_presente_fisico as
+    | 'ambos'
+    | 'somente_compra_propria'
+    | 'somente_pagamento'
 
   const data = gifts.map((gift) => ({
     id: gift.id,
-    title: gift.title,
-    description: gift.description,
-    priceCents: gift.price_cents,
-    imageUrl: gift.image_url,
-    categoryId: gift.category_id,
-    categoryName: gift.category_id ? (categoryNameById.get(gift.category_id) ?? null) : null,
-    isGroupGift: gift.is_group_gift,
-    quantityAvailable: gift.quantity_available,
-    targetAmountCents: gift.target_amount_cents,
-    quotaAmountCents: gift.quota_amount_cents,
-    displayStyle: gift.display_style as 'standard' | 'emotional',
-    emotionalIcon: gift.emotional_icon,
-    collectedAmountCents: gift.is_group_gift ? (collectedByGiftId.get(gift.id) ?? 0) : null,
+    title: gift.titulo,
+    description: gift.descricao,
+    priceCents: gift.preco_centavos,
+    imageUrl: gift.url_imagem,
+    categoryId: gift.categoria_id,
+    categoryName: gift.categoria_id ? (categoryNameById.get(gift.categoria_id) ?? null) : null,
+    isGroupGift: gift.e_presente_cota,
+    quantityAvailable: gift.quantidade_disponivel,
+    targetAmountCents: gift.valor_meta_centavos,
+    quotaAmountCents: gift.valor_cota_centavos,
+    displayStyle: gift.estilo_exibicao as 'padrao' | 'emocional',
+    emotionalIcon: gift.icone_emocional,
+    collectedAmountCents: gift.e_presente_cota ? (collectedByGiftId.get(gift.id) ?? 0) : null,
     hasPixOption,
     physicalDeliveryMode,
   }))

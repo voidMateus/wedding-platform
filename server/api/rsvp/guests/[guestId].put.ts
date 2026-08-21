@@ -2,7 +2,7 @@ import { rsvpGuestStatusSchema } from '#shared/schemas/rsvp'
 
 /**
  * Salvamento automático do RSVP (CLAUDE.md, seção 12.1/16.3) — chamado a
- * cada toque em "Estarei lá"/"Não poderei ir". Bloqueia após rsvp_deadline,
+ * cada toque em "Estarei lá"/"Não poderei ir". Bloqueia após prazo_rsvp,
  * igual ao antigo fluxo por código.
  */
 export default defineEventHandler(async (event) => {
@@ -15,39 +15,39 @@ export default defineEventHandler(async (event) => {
   const client = supabaseAdmin(event)
 
   const { data: guest, error: guestError } = await client
-    .from('guests')
-    .select('wedding_id, invite_id')
+    .from('convidados')
+    .select('casamento_id, convite_id')
     .eq('id', guestId)
-    .is('deleted_at', null)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (guestError) throw badRequestError(guestError.message)
   if (!guest) throw notFoundError('Convidado não encontrado.')
 
-  requireRsvpSessionForInvite(event, guest.invite_id)
+  requireRsvpSessionForInvite(event, guest.convite_id)
 
   const { data: wedding, error: weddingError } = await client
-    .from('weddings')
-    .select('rsvp_deadline')
-    .eq('id', guest.wedding_id)
+    .from('casamentos')
+    .select('prazo_rsvp')
+    .eq('id', guest.casamento_id)
     .single()
 
   if (weddingError) throw badRequestError(weddingError.message)
-  if (wedding.rsvp_deadline && new Date(wedding.rsvp_deadline).getTime() < Date.now()) {
+  if (wedding.prazo_rsvp && new Date(wedding.prazo_rsvp).getTime() < Date.now()) {
     throw conflictError('O prazo para confirmar presença já encerrou.')
   }
 
   const ip = getRequestIP(event, { xForwardedFor: true }) ?? null
   const userAgent = getHeader(event, 'user-agent') ?? null
 
-  const { data, error } = await client.rpc('upsert_guest_rsvp', {
-    p_wedding_id: guest.wedding_id,
-    p_guest_id: guestId,
+  const { data, error } = await client.rpc('salvar_rsvp_convidado', {
+    p_casamento_id: guest.casamento_id,
+    p_convidado_id: guestId,
     p_status: input.status,
-    p_dietary_restrictions: input.dietaryRestrictions || null,
+    p_restricoes_alimentares: input.restricoesAlimentares || null,
     p_ip: ip,
     p_user_agent: userAgent,
-    p_source: 'public_site',
+    p_origem: 'public_site',
   })
 
   if (error) {

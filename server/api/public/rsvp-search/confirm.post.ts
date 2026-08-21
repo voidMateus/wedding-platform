@@ -12,19 +12,19 @@ export default defineEventHandler(async (event) => {
   const client = supabaseAdmin(event)
 
   const { data: guest, error } = await client
-    .from('guests')
-    .select('id, wedding_id, invite_id')
+    .from('convidados')
+    .select('id, casamento_id, convite_id')
     .eq('id', guestId)
-    .is('deleted_at', null)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (error) throw badRequestError(error.message)
-  if (!guest || !guest.invite_id) {
+  if (!guest || !guest.convite_id) {
     throw notFoundError('Convidado não encontrado.')
   }
 
-  await recordFirstAccessIfNeeded(client, guest.wedding_id, guest.invite_id)
-  issueRsvpSession(event, { weddingId: guest.wedding_id, inviteId: guest.invite_id })
+  await recordFirstAccessIfNeeded(client, guest.casamento_id, guest.convite_id)
+  issueRsvpSession(event, { casamentoId: guest.casamento_id, conviteId: guest.convite_id })
 
-  return buildRsvpInvitePayload(client, guest.wedding_id, guest.invite_id)
+  return buildRsvpInvitePayload(client, guest.casamento_id, guest.convite_id)
 })

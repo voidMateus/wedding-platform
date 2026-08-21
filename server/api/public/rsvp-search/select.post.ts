@@ -12,28 +12,28 @@ export default defineEventHandler(async (event) => {
   const client = supabaseAdmin(event)
 
   const { data: guest, error } = await client
-    .from('guests')
-    .select('id, invite_id')
+    .from('convidados')
+    .select('id, convite_id')
     .eq('id', guestId)
-    .is('deleted_at', null)
+    .is('excluido_em', null)
     .maybeSingle()
 
   if (error) throw badRequestError(error.message)
-  if (!guest || !guest.invite_id) {
+  if (!guest || !guest.convite_id) {
     throw notFoundError('Convidado não encontrado.')
   }
 
   const { data: members, error: membersError } = await client
-    .from('guests')
-    .select('id, full_name')
-    .eq('invite_id', guest.invite_id)
+    .from('convidados')
+    .select('id, nome_completo')
+    .eq('convite_id', guest.convite_id)
     .neq('id', guestId)
-    .is('deleted_at', null)
+    .is('excluido_em', null)
 
   if (membersError) throw badRequestError(membersError.message)
 
   return {
     guestId,
-    maskedNames: (members ?? []).map((m) => maskName(m.full_name)),
+    maskedNames: (members ?? []).map((m) => maskName(m.nome_completo)),
   }
 })
