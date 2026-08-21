@@ -17,7 +17,7 @@ interface GuestListParams {
 
 export interface GuestDetail extends Guest {
   partyMembers: Guest[]
-  invite: { id: string; name: string } | null
+  invite: { id: string; nome: string } | null
 }
 
 interface GuestPartySyncResult {

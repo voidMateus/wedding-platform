@@ -30,9 +30,9 @@ export function useCronogramaForm() {
     // aqui.
     const ceremonyValues = eventSegmentInputSchema.parse({
       ...input.ceremonyValues,
-      title: 'Cerimônia',
-      displayOrder: 1,
-      sameVenueAs: '',
+      titulo: 'Cerimônia',
+      ordemExibicao: 1,
+      mesmoLocalQue: '',
     })
     const ceremonyResult = input.ceremony
       ? await updateEventSegment(input.ceremony.id, ceremonyValues)
@@ -40,13 +40,13 @@ export function useCronogramaForm() {
 
     const receptionValues = eventSegmentInputSchema.parse({
       ...input.receptionValues,
-      title: 'Recepção',
-      displayOrder: 2,
-      sameVenueAs: input.sameAddress ? ceremonyResult.id : '',
-      venueName: input.sameAddress ? '' : input.receptionValues.venueName,
-      venueAddress: input.sameAddress ? '' : input.receptionValues.venueAddress,
-      venueLatitude: input.sameAddress ? '' : input.receptionValues.venueLatitude,
-      venueLongitude: input.sameAddress ? '' : input.receptionValues.venueLongitude,
+      titulo: 'Recepção',
+      ordemExibicao: 2,
+      mesmoLocalQue: input.sameAddress ? ceremonyResult.id : '',
+      nomeLocal: input.sameAddress ? '' : input.receptionValues.nomeLocal,
+      enderecoLocal: input.sameAddress ? '' : input.receptionValues.enderecoLocal,
+      latitudeLocal: input.sameAddress ? '' : input.receptionValues.latitudeLocal,
+      longitudeLocal: input.sameAddress ? '' : input.receptionValues.longitudeLocal,
     })
     const receptionResult = input.reception
       ? await updateEventSegment(input.reception.id, receptionValues)

@@ -28,7 +28,7 @@ export function useGiftPaymentPolling(
       } catch {
         loadError.value = true
       }
-      if (result.value?.status !== 'pending' || attempts >= MAX_POLL_ATTEMPTS) {
+      if (result.value?.status !== 'pendente' || attempts >= MAX_POLL_ATTEMPTS) {
         pause()
       }
     },
