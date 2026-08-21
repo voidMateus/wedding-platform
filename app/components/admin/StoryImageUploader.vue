@@ -22,44 +22,16 @@ const { uploadStoryImage, removeStoryImage } = useWeddingStoryUpload()
 const { updateThemeFocalPoint } = useWeddingThemeFocalPoint()
 const toast = useToast()
 
-const fileInput = ref<HTMLInputElement | null>(null)
-const isUploading = ref(false)
-const isRemoving = ref(false)
-const errorMessage = ref<string | null>(null)
+const { fileInput, isUploading, isRemoving, errorMessage, openFilePicker, handleFileChange, handleRemove } =
+  useImageUploader({ upload: uploadStoryImage, remove: removeStoryImage })
 
-function openFilePicker() {
-  fileInput.value?.click()
+async function onFileChange(event: Event) {
+  const url = await handleFileChange(event)
+  if (url !== undefined) emit('update:modelValue', url)
 }
 
-async function handleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  errorMessage.value = null
-  isUploading.value = true
-  try {
-    const { url } = await uploadStoryImage(file)
-    emit('update:modelValue', url)
-  } catch {
-    errorMessage.value = 'Não foi possível enviar a foto. Verifique o formato (JPEG/PNG/WebP) e o tamanho (máx. 5MB).'
-  } finally {
-    isUploading.value = false
-    input.value = ''
-  }
-}
-
-async function handleRemove() {
-  errorMessage.value = null
-  isRemoving.value = true
-  try {
-    await removeStoryImage()
-    emit('update:modelValue', null)
-  } catch {
-    errorMessage.value = 'Não foi possível remover a foto.'
-  } finally {
-    isRemoving.value = false
-  }
+async function onRemove() {
+  if (await handleRemove()) emit('update:modelValue', null)
 }
 
 // Ponto de foco (CLAUDE.md, seção 22.2) — mesma persistência debounced do
@@ -99,7 +71,7 @@ function handleFocalPointChange(value: FocalPoint) {
       type="file"
       accept="image/jpeg,image/png,image/webp"
       class="hidden"
-      @change="handleFileChange"
+      @change="onFileChange"
     />
 
     <UiEmptyState
@@ -113,7 +85,7 @@ function handleFocalPointChange(value: FocalPoint) {
     </UiEmptyState>
 
     <div v-else class="flex flex-col gap-2">
-      <AdminImageFocalPointPicker
+      <UiImageFocalPointPicker
         :model-value="localFocalPoint"
         :src="modelValue"
         alt="Prévia da foto da seção Nossa História"
@@ -135,7 +107,7 @@ function handleFocalPointChange(value: FocalPoint) {
           size="sm"
           variant="destructive"
           :disabled="isRemoving"
-          @click="handleRemove"
+          @click="onRemove"
         >
           Remover
         </UiButton>
