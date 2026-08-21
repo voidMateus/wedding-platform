@@ -12,9 +12,9 @@ export async function runGallerySyncForWedding(
 ): Promise<GallerySyncResult> {
   const admin = supabaseAdmin(event)
   const { data: connection, error } = await admin
-    .from('gallery_source_connections')
+    .from('conexoes_galeria')
     .select('*')
-    .eq('wedding_id', weddingId)
+    .eq('casamento_id', weddingId)
     .maybeSingle()
 
   if (error) {

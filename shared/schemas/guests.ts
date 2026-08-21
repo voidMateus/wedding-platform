@@ -2,29 +2,29 @@ import { z } from 'zod'
 
 // Compartilhado entre client (wizard de convidado) e server (revalidação —
 // CLAUDE.md, seção 8/20.1). Mesmos campos para o convidado principal e cada
-// acompanhante — só o convidado principal do wizard tem invite/groupId
-// resolvidos no fluxo, os demais herdam via sync_guest_party.
+// acompanhante — só o convidado principal do wizard tem convite/grupoId
+// resolvidos no fluxo, os demais herdam via sincronizar_nucleo_convidado.
 
 export const guestPersonSchema = z.object({
   id: z.string().uuid().optional(),
-  fullName: z.string().trim().min(1, 'Informe o nome.').max(200),
-  nickname: z.string().trim().max(100).optional().or(z.literal('')),
-  sex: z.enum(['male', 'female', 'other']).optional().or(z.literal('')),
+  nomeCompleto: z.string().trim().min(1, 'Informe o nome.').max(200),
+  apelido: z.string().trim().max(100).optional().or(z.literal('')),
+  sexo: z.enum(['masculino', 'feminino', 'outro']).optional().or(z.literal('')),
   // <input type="date"> envia "yyyy-mm-dd" — Postgres aceita direto.
-  birthDate: z.string().trim().optional().or(z.literal('')),
-  photoPath: z.string().trim().optional().or(z.literal('')),
-  weddingRole: z.enum(['padrinho', 'madrinha']).optional().or(z.literal('')),
-  dietaryRestrictions: z.string().trim().max(500).optional().or(z.literal('')),
-  notes: z.string().trim().max(2000).optional().or(z.literal('')),
-  groupId: z.string().uuid().optional().or(z.literal('')),
+  dataNascimento: z.string().trim().optional().or(z.literal('')),
+  caminhoFoto: z.string().trim().optional().or(z.literal('')),
+  papelCasamento: z.enum(['padrinho', 'madrinha']).optional().or(z.literal('')),
+  restricoesAlimentares: z.string().trim().max(500).optional().or(z.literal('')),
+  observacoes: z.string().trim().max(2000).optional().or(z.literal('')),
+  grupoId: z.string().uuid().optional().or(z.literal('')),
 })
 
 export type GuestPersonInput = z.infer<typeof guestPersonSchema>
 
 export const guestPartyInviteSchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().trim().min(1, 'Informe um nome para o convite.').max(160),
-  notes: z.string().trim().max(2000).optional().or(z.literal('')),
+  nome: z.string().trim().min(1, 'Informe um nome para o convite.').max(160),
+  observacoes: z.string().trim().max(2000).optional().or(z.literal('')),
   tagIds: z.array(z.string().uuid()).optional(),
 })
 

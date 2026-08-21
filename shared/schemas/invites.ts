@@ -4,10 +4,10 @@ import { z } from 'zod'
 // CLAUDE.md, seção 8/20.1).
 
 export const inviteInputSchema = z.object({
-  name: z.string().trim().min(1, 'Informe um nome para o convite.').max(160),
-  notes: z.string().trim().max(2000).optional().or(z.literal('')),
-  responsibleGuestId: z.string().uuid().optional().or(z.literal('')),
-  maxCompanions: z.coerce.number().int().min(0).optional(),
+  nome: z.string().trim().min(1, 'Informe um nome para o convite.').max(160),
+  observacoes: z.string().trim().max(2000).optional().or(z.literal('')),
+  convidadoResponsavelId: z.string().uuid().optional().or(z.literal('')),
+  maxAcompanhantes: z.coerce.number().int().min(0).optional(),
   tagIds: z.array(z.string().uuid()).optional(),
 })
 
@@ -20,7 +20,7 @@ export const inviteAddGuestsSchema = z.object({
 export type InviteAddGuestsInput = z.infer<typeof inviteAddGuestsSchema>
 
 export const inviteTagInputSchema = z.object({
-  name: z.string().trim().min(1, 'Informe um nome para a etiqueta.').max(60),
+  nome: z.string().trim().min(1, 'Informe um nome para a etiqueta.').max(60),
 })
 
 export type InviteTagInput = z.infer<typeof inviteTagInputSchema>

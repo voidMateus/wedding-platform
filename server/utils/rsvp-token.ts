@@ -11,8 +11,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  */
 
 export interface RsvpTokenPayload {
-  weddingId: string
-  inviteId: string
+  casamentoId: string
+  conviteId: string
   exp: number
 }
 
@@ -41,8 +41,8 @@ export function verifyRsvpToken(token: string, secret: string): RsvpTokenPayload
   try {
     const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as Partial<RsvpTokenPayload>
     if (
-      typeof payload.weddingId !== 'string' ||
-      typeof payload.inviteId !== 'string' ||
+      typeof payload.casamentoId !== 'string' ||
+      typeof payload.conviteId !== 'string' ||
       typeof payload.exp !== 'number'
     ) {
       return null

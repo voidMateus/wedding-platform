@@ -27,31 +27,31 @@ function optionalCoordinateSchema(min: number, max: number) {
 }
 
 export const eventSegmentInputSchema = z.object({
-  title: z.string().trim().min(1, 'Informe um título (ex.: Cerimônia).').max(120),
-  venueName: z.string().trim().max(200).optional().or(z.literal('')),
-  venueAddress: z.string().trim().max(300).optional().or(z.literal('')),
-  startsAt: z
+  titulo: z.string().trim().min(1, 'Informe um título (ex.: Cerimônia).').max(120),
+  nomeLocal: z.string().trim().max(200).optional().or(z.literal('')),
+  enderecoLocal: z.string().trim().max(300).optional().or(z.literal('')),
+  iniciaEm: z
     .string()
     .trim()
     .optional()
     .or(z.literal(''))
     .refine(isValidOptionalDateTime, 'Data/hora de início inválida.'),
-  endsAt: z
+  terminaEm: z
     .string()
     .trim()
     .optional()
     .or(z.literal(''))
     .refine(isValidOptionalDateTime, 'Data/hora de término inválida.'),
-  displayOrder: z.coerce.number().int('A ordem deve ser um número inteiro.').min(0).default(0),
+  ordemExibicao: z.coerce.number().int('A ordem deve ser um número inteiro.').min(0).default(0),
   // Coordenadas do local (Fase Editorial — mapa interativo), opcionais: sem
   // elas, o mapa/botão usam o endereço em texto.
-  venueLatitude: optionalCoordinateSchema(-90, 90),
-  venueLongitude: optionalCoordinateSchema(-180, 180),
+  latitudeLocal: optionalCoordinateSchema(-90, 90),
+  longitudeLocal: optionalCoordinateSchema(-180, 180),
   // Cerimônia e recepção no mesmo local (Fase Editorial): quando definido,
   // reaproveita o local de outro segmento em vez de duplicar o cadastro —
   // validação de "não é o próprio id" / "não é uma corrente" acontece no
   // server (precisa consultar o banco, ver server/utils/validate-same-venue.ts).
-  sameVenueAs: z.string().trim().uuid().optional().or(z.literal('')),
+  mesmoLocalQue: z.string().trim().uuid().optional().or(z.literal('')),
 })
 
 export type EventSegmentInput = z.infer<typeof eventSegmentInputSchema>
