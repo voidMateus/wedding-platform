@@ -13,7 +13,7 @@ definePageMeta({ layout: 'admin' })
 // (rótulo só no admin, ver comentário abaixo); o título salvo continua
 // "Recepção" para casar com a classificação por palavra-chave já usada no
 // site público (shared/utils/event-segment-keywords.ts).
-const { listEventSegments, createEventSegment, updateEventSegment } = useEventSegments()
+const { listEventSegments } = useEventSegments()
 const { data, status, error, refresh } = listEventSegments()
 
 const ceremony = computed(
@@ -108,6 +108,8 @@ watch(
   { immediate: true },
 )
 
+const { saveCronograma } = useCronogramaForm()
+
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const isSaving = ref(false)
@@ -117,38 +119,13 @@ async function saveAll() {
   successMessage.value = null
   isSaving.value = true
   try {
-    // Cerimônia sempre salva com endereço próprio. eventSegmentInputSchema
-    // faz a mesma validação/coerção que o server aplicaria (string → number
-    // nas coordenadas) — os campos de vee-validate ficam como string até
-    // aqui.
-    const ceremonyValues = eventSegmentInputSchema.parse({
-      ...ceremonyForm.values,
-      title: 'Cerimônia',
-      displayOrder: 1,
-      sameVenueAs: '',
+    await saveCronograma({
+      ceremonyValues: ceremonyForm.values,
+      receptionValues: receptionForm.values,
+      sameAddress: sameAddress.value,
+      ceremony: ceremony.value,
+      reception: reception.value,
     })
-    const ceremonyResult = ceremony.value
-      ? await updateEventSegment(ceremony.value.id, ceremonyValues)
-      : await createEventSegment(ceremonyValues)
-
-    // Recepção reaproveita o local da cerimônia quando "mesmo endereço"
-    // está marcado — nunca duplica o cadastro (CLAUDE.md, seção 12.2).
-    const receptionValues = eventSegmentInputSchema.parse({
-      ...receptionForm.values,
-      title: 'Recepção',
-      displayOrder: 2,
-      sameVenueAs: sameAddress.value ? ceremonyResult.id : '',
-      venueName: sameAddress.value ? '' : receptionForm.values.venueName,
-      venueAddress: sameAddress.value ? '' : receptionForm.values.venueAddress,
-      venueLatitude: sameAddress.value ? '' : receptionForm.values.venueLatitude,
-      venueLongitude: sameAddress.value ? '' : receptionForm.values.venueLongitude,
-    })
-    if (reception.value) {
-      await updateEventSegment(reception.value.id, receptionValues)
-    } else {
-      await createEventSegment(receptionValues)
-    }
-
     await refresh()
     successMessage.value = 'Cronograma salvo.'
   } catch {
