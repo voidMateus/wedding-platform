@@ -1,12 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
 
-const ALLOWED_MIME_TO_EXT: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-}
-const MAX_SIZE_BYTES = 5 * 1024 * 1024
-
 /**
  * Upload da foto de capa do site (CLAUDE.md, seção 28 — allowlist de MIME,
  * limite de tamanho, nome de arquivo sempre regenerado no servidor, nunca
@@ -25,12 +18,12 @@ export default defineEventHandler(async (event) => {
     throw badRequestError('Nenhum arquivo enviado.')
   }
 
-  const ext = ALLOWED_MIME_TO_EXT[filePart.type]
+  const ext = ALLOWED_IMAGE_MIME_TO_EXT[filePart.type]
   if (!ext) {
     throw badRequestError('Formato de imagem não suportado — use JPEG, PNG ou WebP.')
   }
 
-  if (filePart.data.length > MAX_SIZE_BYTES) {
+  if (filePart.data.length > MAX_IMAGE_UPLOAD_SIZE_BYTES) {
     throw badRequestError('Arquivo muito grande — o limite é 5MB.')
   }
 
@@ -39,7 +32,7 @@ export default defineEventHandler(async (event) => {
   // Remove variantes com outra extensão de uploads anteriores — evita
   // orfãos quando o casal troca de formato de imagem entre uma foto e
   // outra (ex.: enviou .jpg antes, agora envia .png).
-  const otherExts = Object.values(ALLOWED_MIME_TO_EXT).filter((candidate) => candidate !== ext)
+  const otherExts = Object.values(ALLOWED_IMAGE_MIME_TO_EXT).filter((candidate) => candidate !== ext)
   if (otherExts.length > 0) {
     await client.storage
       .from('wedding-covers')
