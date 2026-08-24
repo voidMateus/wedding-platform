@@ -44,12 +44,18 @@ jobs:
         run: supabase start
 
       - name: Resolve credenciais do Supabase local para o ambiente do job
+        # `supabase status -o env` envolve cada valor em aspas duplas (formato
+        # shell-style, ex.: API_URL="http://127.0.0.1:54321"). GITHUB_ENV não
+        # remove aspas -- um `cut -d= -f2-` ingênuo grava a aspa como parte
+        # literal do valor, e `new URL(process.env.SUPABASE_URL)` (nuxt.config.ts)
+        # falha com "Invalid URL" no build seguinte (achado real: primeira
+        # execução deste workflow no Actions, docs/PLANO-SAAS.md Passo 2).
+        # `tr -d '"'` remove as aspas antes de gravar.
         run: |
-          supabase status -o env >> "$GITHUB_ENV"
           {
-            echo "SUPABASE_URL=$(supabase status -o env | grep '^API_URL=' | cut -d= -f2-)"
-            echo "SUPABASE_ANON_KEY=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2-)"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2-)"
+            echo "SUPABASE_URL=$(supabase status -o env | grep '^API_URL=' | cut -d= -f2- | tr -d '"')"
+            echo "SUPABASE_ANON_KEY=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"')"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '"')"
           } >> "$GITHUB_ENV"
 
       - run: npm run build
