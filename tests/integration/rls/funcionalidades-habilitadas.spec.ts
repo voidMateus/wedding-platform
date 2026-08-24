@@ -5,27 +5,32 @@ import { createTestWedding, deleteTestWedding } from '../../factories/wedding'
 import { createTestMember, deleteTestMember, type TestMember } from '../../factories/member'
 
 /**
- * `funcionalidades_habilitadas` tem RLS habilitada e ZERO policies
- * definidas (deny-by-default — supabase/policies/README.md, "sem UI/feature
- * usando ainda", docs/ROADMAP.md seção 8). Guarda de regressão: mesmo um
- * membro `dono` do casamento dono da flag não enxerga nem altera nada — só
- * `service_role`. `casamento_id`/`conta_id` são XOR (migration
- * 20260821090005) — a linha de teste usa `casamento_id`. A tentativa de
+ * `funcionalidades_habilitadas` ganhou a primeira policy real no Passo 4
+ * (docs/PLANO-SAAS.md, migration `20260821120001`): SELECT liberado pra
+ * membro do casamento dono da flag (`casamento_id`) ou pra própria conta
+ * (`conta_id = auth.uid()`) — XOR entre as duas (migration
+ * `20260821090005`). Mutação continua deny-by-default — feature flag só
+ * deveria mudar via processo de confiança do servidor. A tentativa de
  * INSERT usa uma `chave` diferente da linha de setup pra evitar colidir com
  * o `unique(casamento_id, chave)` e mascarar a asserção de RLS atrás de uma
  * violação de constraint. Insere só o mínimo necessário e apaga por id no
  * `afterAll`, sem depender de cascade.
  */
-describe('RLS: funcionalidades_habilitadas (deny-by-default)', () => {
+describe('RLS: funcionalidades_habilitadas (select por casamento/conta, mutação deny-by-default)', () => {
   const admin = getServiceRoleClient()
 
   let weddingA: Awaited<ReturnType<typeof createTestWedding>>
+  let weddingB: Awaited<ReturnType<typeof createTestWedding>>
   let memberA: TestMember
+  let memberB: TestMember
   let flagId: string
+  let flagContaId: string
 
   beforeAll(async () => {
     weddingA = await createTestWedding(admin)
+    weddingB = await createTestWedding(admin)
     memberA = await createTestMember(admin, weddingA.id, 'dono')
+    memberB = await createTestMember(admin, weddingB.id, 'dono')
 
     const { data, error } = await admin
       .from('funcionalidades_habilitadas')
@@ -36,6 +41,18 @@ describe('RLS: funcionalidades_habilitadas (deny-by-default)', () => {
       throw new Error(`Falha ao criar funcionalidade habilitada de teste: ${error?.message}`)
     }
     flagId = data.id
+
+    // Segunda flag, escopo de CONTA (conta_id = memberA), pra provar o
+    // outro braço do XOR isoladamente do caminho por casamento_id.
+    const { data: flagConta, error: flagContaError } = await admin
+      .from('funcionalidades_habilitadas')
+      .insert({ conta_id: memberA.userId, chave: 'teste_integracao_flag_conta' })
+      .select()
+      .single()
+    if (flagContaError || !flagConta) {
+      throw new Error(`Falha ao criar funcionalidade de conta de teste: ${flagContaError?.message}`)
+    }
+    flagContaId = flagConta.id
   })
 
   afterAll(async () => {
@@ -46,9 +63,14 @@ describe('RLS: funcionalidades_habilitadas (deny-by-default)', () => {
     if (flagId) {
       await admin.from('funcionalidades_habilitadas').delete().eq('id', flagId)
     }
+    if (flagContaId) {
+      await admin.from('funcionalidades_habilitadas').delete().eq('id', flagContaId)
+    }
     await cleanupAll([
       ...(memberA ? [() => deleteTestMember(admin, memberA.userId)] : []),
+      ...(memberB ? [() => deleteTestMember(admin, memberB.userId)] : []),
       ...(weddingA ? [() => deleteTestWedding(admin, weddingA.id)] : []),
+      ...(weddingB ? [() => deleteTestWedding(admin, weddingB.id)] : []),
     ])
   })
 
@@ -62,11 +84,41 @@ describe('RLS: funcionalidades_habilitadas (deny-by-default)', () => {
     expect(data?.id).toBe(flagId)
   })
 
-  it('membro autenticado não enxerga a flag via SELECT (sem nenhuma policy), mesmo sendo dono do casamento', async () => {
+  it('membro do casamento dono da flag enxerga via SELECT', async () => {
     const { data, error } = await memberA.client
       .from('funcionalidades_habilitadas')
       .select('*')
       .eq('id', flagId)
+      .maybeSingle()
+    expect(error).toBeNull()
+    expect(data?.id).toBe(flagId)
+  })
+
+  it('membro de outro casamento (sem vínculo) não enxerga a flag', async () => {
+    const { data, error } = await memberB.client
+      .from('funcionalidades_habilitadas')
+      .select('*')
+      .eq('id', flagId)
+      .maybeSingle()
+    expect(error).toBeNull()
+    expect(data).toBeNull()
+  })
+
+  it('a própria conta (conta_id = auth.uid()) enxerga a flag de conta via SELECT', async () => {
+    const { data, error } = await memberA.client
+      .from('funcionalidades_habilitadas')
+      .select('*')
+      .eq('id', flagContaId)
+      .maybeSingle()
+    expect(error).toBeNull()
+    expect(data?.id).toBe(flagContaId)
+  })
+
+  it('outra conta não enxerga a flag de conta alheia', async () => {
+    const { data, error } = await memberB.client
+      .from('funcionalidades_habilitadas')
+      .select('*')
+      .eq('id', flagContaId)
       .maybeSingle()
     expect(error).toBeNull()
     expect(data).toBeNull()

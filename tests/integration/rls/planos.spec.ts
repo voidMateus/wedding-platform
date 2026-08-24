@@ -1,21 +1,20 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { getServiceRoleClient } from '../helpers/supabase-clients'
+import { getAnonClient, getServiceRoleClient } from '../helpers/supabase-clients'
 import { cleanupAll } from '../helpers/cleanup'
 import { createTestWedding, deleteTestWedding } from '../../factories/wedding'
 import { createTestMember, deleteTestMember, type TestMember } from '../../factories/member'
 
 /**
- * `planos` tem RLS habilitada e ZERO policies definidas (deny-by-default —
- * supabase/policies/README.md, "sem UI/feature usando ainda",
- * docs/ROADMAP.md seção 8). Não existe um caso "membro de X pode Y" pra
- * provar aqui — o objetivo desta suíte é uma guarda de regressão: provar
- * que hoje ninguém além de `service_role` enxerga ou altera qualquer linha,
- * mesmo um membro `dono` de um casamento real, pra pegar quem adicionar uma
- * policy permissiva sem querer no futuro. Insere só a linha mínima
- * necessária e apaga por id no `afterAll` (sem depender de cascade — a
- * tabela não é particionada por `casamento_id`).
+ * `planos` é catálogo global (não particionado por `casamento_id`/
+ * `conta_id`) — Passo 4 (docs/PLANO-SAAS.md, migration `20260821120001`)
+ * adicionou a primeira policy real: qualquer usuário `authenticated` pode
+ * ler (nome/limites de plano não são dado sensível). Mutação continua
+ * deny-by-default — nenhum processo autenticado deveria criar/alterar
+ * plano, só `service_role` (futura ferramenta interna de operação).
+ * Insere só a linha mínima necessária e apaga por id no `afterAll` (sem
+ * depender de cascade — a tabela não é particionada por `casamento_id`).
  */
-describe('RLS: planos (deny-by-default)', () => {
+describe('RLS: planos (select autenticado, mutação deny-by-default)', () => {
   const admin = getServiceRoleClient()
 
   let weddingA: Awaited<ReturnType<typeof createTestWedding>>
@@ -57,12 +56,19 @@ describe('RLS: planos (deny-by-default)', () => {
     expect(data?.id).toBe(planoId)
   })
 
-  it('membro autenticado não enxerga o plano via SELECT (sem nenhuma policy)', async () => {
+  it('membro autenticado enxerga o plano via SELECT (catálogo global, não particionado por casamento)', async () => {
     const { data, error } = await memberA.client
       .from('planos')
       .select('*')
       .eq('id', planoId)
       .maybeSingle()
+    expect(error).toBeNull()
+    expect(data?.id).toBe(planoId)
+  })
+
+  it('cliente não autenticado (anon) não enxerga o plano — policy é `to authenticated`, não pública', async () => {
+    const anon = getAnonClient()
+    const { data, error } = await anon.from('planos').select('*').eq('id', planoId).maybeSingle()
     expect(error).toBeNull()
     expect(data).toBeNull()
   })
