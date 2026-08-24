@@ -8,6 +8,27 @@
 --   insert into membros_casamento (casamento_id, user_id, papel)
 --   values ('11111111-1111-1111-1111-111111111111', '<id do auth.users>', 'dono');
 
+-- Achado real (Passo 2, docs/PLANO-SAAS.md -- primeira execução do gate de
+-- integração no GitHub Actions): o bootstrap de `supabase start` (Docker
+-- local) NÃO concede os GRANTs básicos de tabela (SELECT/INSERT/UPDATE/
+-- DELETE) para `anon`/`authenticated`/`service_role` -- só TRUNCATE/
+-- REFERENCES/TRIGGER. O projeto hospedado (`dev`/`prod`) já vem com esse
+-- bootstrap de fábrica (confirmado: toda a suíte de integração passa
+-- normalmente contra `dev`), mas o Postgres local subido via Docker não.
+-- RLS continua sendo a autorização real linha-a-linha (CLAUDE.md seção
+-- 4.2/10) -- estes GRANTs são só o pré-requisito para que uma policy de
+-- RLS chegue a ser avaliada. `seed.sql` roda só local/CI (`supabase start`/
+-- `db reset`), nunca é aplicado em `dev`/`prod` via `db push`.
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant select on all tables in schema public to anon;
+grant all on all sequences in schema public to service_role;
+grant usage on all sequences in schema public to authenticated;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
+alter default privileges in schema public grant select on tables to anon;
+
 insert into casamentos (id, slug, nomes_noivos, data_evento, prazo_rsvp, config_tema)
 values (
   '11111111-1111-1111-1111-111111111111',
