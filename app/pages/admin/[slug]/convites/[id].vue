@@ -5,6 +5,7 @@ definePageMeta({ layout: 'admin' })
 
 const route = useRoute()
 const inviteId = computed(() => route.params.id as string)
+const activeSlug = useActiveWeddingSlug()
 
 const {
   getInvite,
@@ -176,7 +177,7 @@ const eventIcon: Record<string, string> = {
             >
               Tornar responsável
             </UiButton>
-            <UiButton size="sm" variant="ghost" :to="`/admin/convidados/${member.id}`"
+            <UiButton size="sm" variant="ghost" :to="`/admin/${activeSlug}/convidados/${member.id}`"
               >Editar</UiButton
             >
             <UiButton size="sm" variant="destructive" @click="handleRemoveGuest(member.id)">

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
 
+const activeSlug = useActiveWeddingSlug()
+
 async function handleDone() {
-  await navigateTo('/admin/convidados')
+  await navigateTo(`/admin/${activeSlug}/convidados`)
 }
 </script>
 

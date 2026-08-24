@@ -9,13 +9,20 @@ const password = process.env.E2E_ADMIN_PASSWORD
 
 test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
 
-async function login(page: import('@playwright/test').Page) {
+async function login(page: import('@playwright/test').Page): Promise<string> {
   await page.goto('/login')
   await page.waitForLoadState('networkidle')
   await page.getByLabel('E-mail').fill(email!)
   await page.getByLabel('Senha').fill(password!)
   await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin/, { timeout: 10_000 })
+  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 10_000 })
+
+  // Rotas admin carregam o casamento ativo na URL (/admin/{slug}/**,
+  // docs/PLANO-SAAS.md Passo 3) — extrai o slug resolvido pelo middleware
+  // pra montar as próximas navegações deste teste.
+  const adminSlug = new URL(page.url()).pathname.split('/')[2]
+  if (!adminSlug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  return adminSlug
 }
 
 test('cadastro de convidado com acompanhante cria convite, e RSVP por busca funciona ponta a ponta', async ({
@@ -26,10 +33,10 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   const primaryName = `Zeteste${suffix} Principal`
   const companionName = `Zeteste${suffix} Acompanhante`
 
-  await login(page)
+  const adminSlug = await login(page)
 
   // --- wizard: cadastro com acompanhante + criação automática de convite ---
-  await page.goto('/admin/convidados/novo')
+  await page.goto(`/admin/${adminSlug}/convidados/novo`)
   await page.waitForLoadState('networkidle')
   await page.getByLabel('Nome completo').fill(primaryName)
   await page.getByRole('button', { name: 'Próximo' }).click()
@@ -48,10 +55,10 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await expect(page.getByText(primaryName)).toBeVisible()
   await expect(page.getByText(companionName)).toBeVisible()
   await page.getByRole('button', { name: 'Concluir' }).click()
-  await expect(page).toHaveURL(/\/admin\/convidados$/, { timeout: 10_000 })
+  await expect(page).toHaveURL(new RegExp(`/admin/${adminSlug}/convidados$`), { timeout: 10_000 })
 
   // --- convite criado automaticamente, com responsável destacado ---
-  await page.goto('/admin/convites')
+  await page.goto(`/admin/${adminSlug}/convites`)
   await page.getByPlaceholder('Buscar por nome do convite').fill(`Família ${primaryName.split(' ')[0]}`)
   const inviteLink = page.getByRole('link', { name: new RegExp(`Família ${primaryName.split(' ')[0]}`) })
   await expect(inviteLink).toBeVisible({ timeout: 10_000 })

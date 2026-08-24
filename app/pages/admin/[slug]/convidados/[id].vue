@@ -3,12 +3,13 @@ definePageMeta({ layout: 'admin' })
 
 const route = useRoute()
 const guestId = computed(() => route.params.id as string)
+const activeSlug = useActiveWeddingSlug()
 
 const { getGuest } = useGuests()
 const { data: guest, status } = getGuest(guestId)
 
 async function handleDone() {
-  await navigateTo('/admin/convidados')
+  await navigateTo(`/admin/${activeSlug}/convidados`)
 }
 </script>
 

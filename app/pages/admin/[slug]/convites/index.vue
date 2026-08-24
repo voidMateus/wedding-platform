@@ -6,6 +6,8 @@ import { formatDatePtBR } from '#shared/utils/format-date'
 
 definePageMeta({ layout: 'admin' })
 
+const activeSlug = useActiveWeddingSlug()
+
 const { listInvites, createInvite, deleteInvite } = useInvites()
 
 const page = ref(1)
@@ -60,7 +62,7 @@ const onSubmit = handleSubmit(async (values) => {
   try {
     const created = await createInvite(values)
     isFormModalOpen.value = false
-    await navigateTo(`/admin/convites/${created.id}`)
+    await navigateTo(`/admin/${activeSlug}/convites/${created.id}`)
   } catch {
     formErrorMessage.value = 'Não foi possível criar o convite. Tente novamente.'
   }
@@ -141,7 +143,10 @@ async function confirmDelete() {
             class="border-t border-border transition-brand hover:bg-surface-muted/60"
           >
             <td class="px-4 py-2 text-text">
-              <NuxtLink :to="`/admin/convites/${invite.id}`" class="font-medium hover:underline">
+              <NuxtLink
+                :to="`/admin/${activeSlug}/convites/${invite.id}`"
+                class="font-medium hover:underline"
+              >
                 {{ invite.nome }}
               </NuxtLink>
               <UiBadge v-if="invite.arquivado_em" tone="neutral" class="ml-2">arquivado</UiBadge>
@@ -162,7 +167,7 @@ async function confirmDelete() {
             <td class="px-4 py-2 text-text-muted">{{ formatDatePtBR(invite.enviado_em) }}</td>
             <td class="px-4 py-2">
               <div class="flex justify-end gap-2">
-                <UiButton size="sm" variant="ghost" :to="`/admin/convites/${invite.id}`">
+                <UiButton size="sm" variant="ghost" :to="`/admin/${activeSlug}/convites/${invite.id}`">
                   Abrir
                 </UiButton>
                 <UiButton size="sm" variant="destructive" @click="openDeleteModal(invite.id)">
