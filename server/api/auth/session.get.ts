@@ -11,13 +11,17 @@ export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
 
   if (!user) {
-    return { user: null, weddingContext: null }
+    return { user: null, weddingContext: null, memberships: [] }
   }
 
-  const weddingContext = await resolveWeddingContext(event)
+  const [weddingContext, memberships] = await Promise.all([
+    resolveWeddingContext(event),
+    listWeddingMemberships(event),
+  ])
 
   return {
     user: { id: user.sub, email: user.email ?? null },
     weddingContext,
+    memberships,
   }
 })
