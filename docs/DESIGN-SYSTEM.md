@@ -146,7 +146,7 @@ Um componente só é extraído para uso compartilhado após aparecer em **pelo m
 
 - Site público renderizado via **SSR** — essencial para que links compartilhados no WhatsApp gerem preview correto (Open Graph) e para indexação eventual em buscadores.
 - Meta tags dinâmicas por casamento: `title`, `description`, `og:image` (foto de capa do casal), geradas via `useSeoMeta`/`useHead` do Nuxt a partir dos dados de `weddings`.
-- URLs amigáveis: `meusitecasamento.com/{slug}` como página pública principal (`slug` único por casamento, editável pelo casal).
+- URLs amigáveis: `meusitecasamento.com/{slug}` como página pública principal (`slug` único por casamento, definido na criação — não há UI de edição pelo casal hoje).
 - `robots.txt` e `sitemap.xml` gerados automaticamente para o domínio público; painel administrativo (`/admin/**`) sempre `noindex, nofollow`.
 - Páginas de RSVP individuais (`/rsvp/{code}`) são `noindex` — contêm identificador único e não devem ser indexadas.
 
