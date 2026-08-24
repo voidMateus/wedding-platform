@@ -62,8 +62,12 @@ jobs:
 
       - name: DEBUG TEMPORARIO -- grants de casamentos no Supabase local
         run: |
+          DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           psql "$DB_URL" -c "select grantee, privilege_type from information_schema.role_table_grants where table_name = 'casamentos';"
           psql "$DB_URL" -c "select rolname, rolbypassrls, rolsuper from pg_roles where rolname in ('anon','authenticated','service_role');"
+          echo "--- JWT SERVICE_ROLE_KEY decoded payload ---"
+          echo "$SUPABASE_SERVICE_ROLE_KEY" | cut -d. -f2 | base64 -d 2>/dev/null || echo "$SUPABASE_SERVICE_ROLE_KEY" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null
+          echo
 
       - name: Testes de integração (RLS, guest-path, API — contra o Supabase local)
         run: npm run test:integration -- --run
