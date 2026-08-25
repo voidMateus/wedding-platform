@@ -1,11 +1,15 @@
 /**
- * Protege /admin/** (CLAUDE.md, seção 5/14.2). Roda em toda navegação;
- * páginas fora de /admin retornam cedo sem custo. useSupabaseUser() é
- * reativo e populado a partir do cookie de sessão tanto em SSR quanto no
- * client, então a checagem funciona igual em refresh de página e navegação
- * client-side.
+ * Protege /admin/** e /plataforma/** (CLAUDE.md, seção 5/14.2). Roda em toda
+ * navegação; páginas fora desses dois prefixos retornam cedo sem custo.
+ * useSupabaseUser() é reativo e populado a partir do cookie de sessão tanto
+ * em SSR quanto no client, então a checagem funciona igual em refresh de
+ * página e navegação client-side.
  */
 export default defineNuxtRouteMiddleware(async (to) => {
+  if (to.path.startsWith('/plataforma')) {
+    return guardPlataforma(to)
+  }
+
   if (!to.path.startsWith('/admin')) {
     return
   }
@@ -54,3 +58,29 @@ export default defineNuxtRouteMiddleware(async (to) => {
     activeWeddingCookie.value = slug
   }
 })
+
+/**
+ * /plataforma/** (docs/PLANO-SAAS.md, Passo 8) é uma rota raiz sem slug de
+ * casamento — a lógica de /admin acima (cookie de casamento ativo,
+ * disambiguação por slug) não se aplica, então ganha seu próprio ramo
+ * autocontido em vez de compartilhar o `startsWith` com /admin (um `if`
+ * genérico deixaria cair na lógica de slug de /admin, que sempre `return`
+ * cedo por não achar `to.params.slug` — sem erro nenhum, só sem nunca
+ * aplicar a checagem de operador de plataforma).
+ */
+async function guardPlataforma(to: { fullPath: string }) {
+  const user = useSupabaseUser()
+
+  if (!user.value) {
+    return navigateTo({ path: '/login', query: { redirect: to.fullPath } })
+  }
+
+  const authStore = useAuthStore()
+  if (!authStore.user) {
+    await authStore.fetchSession()
+  }
+
+  if (!authStore.isPlatformOperator) {
+    return navigateTo('/admin', { replace: true })
+  }
+}

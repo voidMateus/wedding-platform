@@ -7,7 +7,9 @@
  * em toda navegação, inclusive nas páginas públicas, onde nenhum código
  * chama useSupabaseUser()/useSupabaseClient() (só /admin/** e /login usam,
  * CLAUDE.md §14.2) — todo convidado pagava o custo de rede (getSession +
- * getClaims) e o listener de auth à toa.
+ * getClaims) e o listener de auth à toa. `/plataforma/**` (docs/PLANO-SAAS.md,
+ * Passo 8) também precisa de sessão Supabase no client (ex.: sair da conta),
+ * mesmo racional de `/admin/**`.
  *
  * O import de `@supabase/ssr` é dinâmico (`await import(...)`) de propósito
  * — um import estático no topo do arquivo continuaria empacotado no chunk
@@ -21,7 +23,7 @@
  * não há uso real do caminho createClient (sem cookies) neste projeto.
  */
 function needsSupabaseAuth(path: string): boolean {
-  return path.startsWith('/admin') || path.startsWith('/login')
+  return path.startsWith('/admin') || path.startsWith('/login') || path.startsWith('/plataforma')
 }
 
 export default defineNuxtPlugin({
