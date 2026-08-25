@@ -55,7 +55,7 @@ Setup completo (variáveis de ambiente, banco): ver [`README.md`](README.md).
 
 ### 4.2 Modelo de Confiança por Fluxo — a regra mais importante deste projeto
 
-A arquitetura tem **cinco modelos de enforcement de segurança diferentes**. Confundir um com o outro é a forma mais provável de introduzir uma vulnerabilidade real neste código:
+A arquitetura tem **cinco modelos de enforcement de segurança diferentes**. Confundir um com o outro é a forma mais provável de introduzir uma vulnerabilidade real neste código. Esta tabela organiza por **caminho/rota**; para a mesma informação organizada por **identidade** (dono vs colaborador vs operador de plataforma vs convidado vs visitante), ver [`docs/PRODUCT.md`](docs/PRODUCT.md) seção 1.1.1 — os dois precisam ser mantidos consistentes.
 
 | Caminho | Autenticação | Quem garante isolamento entre dados |
 |---|---|---|
