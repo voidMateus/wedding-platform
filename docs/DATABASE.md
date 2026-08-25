@@ -8,7 +8,7 @@
 
 - **SGBD**: PostgreSQL 15+ (via Supabase).
 - **Modelagem**: normalizada (3FN) como padrão; denormalização só é aceita com justificativa de performance documentada em comentário SQL.
-- **Chaves primárias**: `uuid` (`gen_random_uuid()`), nunca `serial`/`bigserial` — evita vazamento de contagem de registros e facilita merge futuro entre tenants. Duas exceções verificadas no schema atual: `contadores_uso` não tem `id` próprio — é uma tabela de extensão 1:1 de `casamentos`, com `casamento_id` como chave primária; `vinculos_convite_etiqueta` (junção pura M:N) também não tem `id` — a chave primária é o par `(convite_id, etiqueta_id)`.
+- **Chaves primárias**: `uuid` (`gen_random_uuid()`), nunca `serial`/`bigserial` — evita vazamento de contagem de registros e facilita merge futuro entre tenants. Três exceções verificadas no schema atual: `contadores_uso` não tem `id` próprio — é uma tabela de extensão 1:1 de `casamentos`, com `casamento_id` como chave primária; `operadores_plataforma` segue o mesmo padrão, extensão 1:1 de `auth.users` com `usuario_id` como chave primária; `vinculos_convite_etiqueta` (junção pura M:N) também não tem `id` — a chave primária é o par `(convite_id, etiqueta_id)`.
 - **Timestamps**: toda tabela possui `created_at` e `updated_at` (`timestamptz`, default `now()`), atualizados via trigger `<tabela>_set_updated_at` (função `atualizar_timestamp()`). Exceções deliberadas: `historico_convite` e `trilha_auditoria` (logs append-only) não têm `updated_at` — um log nunca é editado; `vinculos_convite_etiqueta` também não tem `updated_at` — um vínculo é removido e recriado, nunca atualizado in-place; `contadores_uso` tem só `updated_at` (sem `created_at`) — é uma tabela de contadores materializados, não uma entidade "criada" pela aplicação.
 - **Soft delete**: entidades com valor histórico (convidados, presentes) usam `excluido_em timestamptz null` em vez de exclusão física, permitindo recuperação e auditoria. `convites` e `grupos` também usam soft delete — não por valor histórico próprio, mas porque `convidados.convite_id`/`convidados.grupo_id` podem referenciar essas linhas mesmo após um convidado ser soft-deleted (ver seção 3.2). `etapas_evento`, por outro lado, usa exclusão física — nenhuma outra tabela referencia essa entidade e ela não tem valor histórico por si só. `nucleos_acompanhantes` e `etiquetas_convite` não têm soft delete — não carregam valor histórico próprio (ver seção 3.2).
 - **Row Level Security (RLS)**: habilitado em **todas** as tabelas desde a v1, mesmo em modo single-tenant. Na maioria das tabelas, a policy filtra por `casamento_id` pertencente ao usuário autenticado (caminho administrativo, preparando a base para o modelo SaaS); `casamentos` e `etapas_evento` também têm uma policy adicional de leitura pública, sem filtro de `casamento_id`, para atender o site público (ver CLAUDE.md, Modelo de Confiança). O caminho do convidado tem enforcement próprio, fora de RLS.
@@ -71,6 +71,12 @@
 | `funcionalidades_habilitadas` | Feature flags por `casamento_id` **ou** `conta_id`, mesmo padrão de exclusividade de `assinaturas` |
 
 Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de assinatura recorrente) — são a base de dados já criada para a transição SaaS descrita em [`ROADMAP.md`](ROADMAP.md).
+
+**Plataforma (equipe interna)**
+
+| Tabela | Propósito |
+|---|---|
+| `operadores_plataforma` | Extensão 1:1 de `auth.users` (`usuario_id` é a própria PK, mesmo padrão de `contadores_uso`) — quem é equipe interna da plataforma, com leitura entre casamentos/contas via `/plataforma/**` (docs/PLANO-SAAS.md, Passo 8; CLAUDE.md seção 4.2, 5º modelo de confiança). RLS: só SELECT da própria linha (`usuario_id = auth.uid()`); sem INSERT/UPDATE/DELETE — bootstrap é sempre manual via `service_role`, sem UI de gestão nesta fase. Nunca confundir com `membros_casamento.papel = 'dono'` (esse é por casamento) |
 
 ## 3. Modelo Entidade-Relacionamento
 
