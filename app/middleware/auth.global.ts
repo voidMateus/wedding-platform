@@ -31,11 +31,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // /admin puro (sem slug) é a landing pós-login (docs/PLANO-SAAS.md, Passo
   // 3): com exatamente um casamento, pula direto pra ele; com mais de um, a
-  // própria página /admin renderiza a tela de seleção; com zero, idem (mostra
-  // estado vazio).
+  // própria página /admin renderiza a tela de seleção; com zero casamentos
+  // mas sendo operador de plataforma (Passo 8), pula pra /plataforma —
+  // sem isso, login.vue manda todo mundo pra /admin por padrão e uma conta
+  // só-operadora bate num estado vazio sem nunca saber que /plataforma
+  // existe. Com zero casamentos e não-operador, mostra o estado vazio
+  // mesmo (a própria página /admin cobre esse caso).
   if (!slug) {
     if (to.path === '/admin' && authStore.memberships.length === 1) {
       return navigateTo(`/admin/${authStore.memberships[0]!.slug}`, { replace: true })
+    }
+    if (to.path === '/admin' && authStore.memberships.length === 0 && authStore.isPlatformOperator) {
+      return navigateTo('/plataforma', { replace: true })
     }
     return
   }
