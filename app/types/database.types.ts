@@ -1018,6 +1018,21 @@ export type Database = {
           },
         ]
       }
+      operadores_plataforma: {
+        Row: {
+          created_at: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       pagamentos_presentes: {
         Row: {
           casamento_id: string

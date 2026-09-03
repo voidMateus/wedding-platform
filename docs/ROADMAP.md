@@ -69,7 +69,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 ## 4. Fase 5 — Transição para SaaS Multi-Tenant
 - [ ] Onboarding self-service (qualquer casal cria sua própria conta/evento).
 - [ ] Planos e cobrança (ver seção 6).
-- [ ] Painel de administração da plataforma (visão do time interno sobre todos os tenants).
+- [ ] Painel de administração da plataforma (visão do time interno sobre todos os tenants). Fundação mínima entregue em 2026-08-25 (`docs/PLANO-SAAS.md`, Passo 8): `/plataforma` mostra casamentos/status/convidados/donos entre tenants, só leitura. Ainda faltam métricas de uso agregadas de verdade (storage), suporte e billing — item permanece aberto até esses três chegarem.
 - [ ] Papel de "planejador de casamentos" gerenciando múltiplos eventos de clientes distintos.
 
 ## 5. Premissa arquitetural (por que a transição é evolutiva, não uma reescrita)
@@ -86,7 +86,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 | Domínio | Um casamento por deploy, mesmo path `/{slug}` | Path `/{slug}` continua sendo o modelo de URL — múltiplos tenants no mesmo domínio, sem subdomínio nem domínio customizado por casamento |
 | Cobrança | Inexistente | Planos por assinatura (ver seção 6) |
 | Limites de uso | Não aplicável | Limites por plano (nº de convidados, storage de fotos, presentes cadastrados) |
-| Painel interno | Inexistente | Painel de operação da plataforma: métricas de todos os tenants, suporte, billing |
+| Painel interno | `/plataforma` — visão mínima só leitura (casamentos/status/convidados/donos, desde 2026-08-25) | Painel de operação da plataforma completo: métricas agregadas de uso (storage), suporte, billing |
 | Isolamento de dados | Garantido por RLS + único tenant real | Garantido por RLS com múltiplos tenants simultâneos — auditoria de policy se torna crítica |
 
 ## 6. Modelo de monetização proposto

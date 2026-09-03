@@ -55,7 +55,7 @@ Setup completo (variáveis de ambiente, banco): ver [`README.md`](README.md).
 
 ### 4.2 Modelo de Confiança por Fluxo — a regra mais importante deste projeto
 
-A arquitetura tem **quatro modelos de enforcement de segurança diferentes**. Confundir um com o outro é a forma mais provável de introduzir uma vulnerabilidade real neste código:
+A arquitetura tem **cinco modelos de enforcement de segurança diferentes**. Confundir um com o outro é a forma mais provável de introduzir uma vulnerabilidade real neste código. Esta tabela organiza por **caminho/rota**; para a mesma informação organizada por **identidade** (dono vs colaborador vs operador de plataforma vs convidado vs visitante), ver [`docs/PRODUCT.md`](docs/PRODUCT.md) seção 1.1.1 — os dois precisam ser mantidos consistentes.
 
 | Caminho | Autenticação | Quem garante isolamento entre dados |
 |---|---|---|
@@ -63,6 +63,7 @@ A arquitetura tem **quatro modelos de enforcement de segurança diferentes**. Co
 | Convidado (RSVP) — link/QR ou busca por nome | Token opaco, ou nenhuma (busca = só fricção, nomes mascarados) | **Código do `server/api`** — usa `service_role key`, que ignora RLS. Mutação (não leitura) exige também a sessão `rsvp_session` emitida na identificação |
 | Presentes (público, sem token) | Nenhuma — qualquer visitante | **Código do `server/api`**, mas a garantia não é "só o dono pode" — é "valor/quantidade são sempre recalculados no servidor, nunca aceitos do client" |
 | Público (site do casamento) | Nenhuma — link direto | **RLS** com policy de leitura explícita (`select using (true)`), só em tabelas sem dado sensível |
+| Plataforma (equipe interna, `/plataforma/**`) | Supabase Auth (JWT) + linha em `operadores_plataforma` | **Código do `server/api`** — este caminho é deliberadamente cross-tenant (lê entre `casamento_id`s), então RLS por-tenant não pode proteger nada aqui; `requirePlatformOperator()` checado em TypeScript é o portão real antes de qualquer uso de `service_role` |
 
 Regras que decorrem disso, sempre:
 - **Nunca** aceitar `casamento_id` vindo do body/query de uma requisição administrativa para decidir o que é acessível — sempre resolver a partir do JWT (`membros_casamento`).
@@ -70,6 +71,7 @@ Regras que decorrem disso, sempre:
 - **Nunca** aceitar valor/quantidade do client em endpoints de presente — sempre recalcular no servidor a partir do `gift_id`.
 - **Nunca** tratar o corpo do webhook da InfinitePay como prova de pagamento — a única prova é a reverificação servidor-a-servidor (`payment_check`).
 - Ao adicionar um endpoint novo em `/api/public/*` (leitura pura), confirmar antes que a tabela consultada realmente não expõe dado pessoal de convidado — esse padrão só vale para tabelas sem dado sensível.
+- **Nunca** adicionar policy de RLS cross-tenant "de conveniência" pra facilitar o caminho da plataforma — o caminho Plataforma é sempre `service_role` + checagem explícita em TypeScript (`requirePlatformOperator`), nunca uma policy que qualquer tenant possa acidentalmente herdar.
 
 Detalhamento completo de cada fluxo (RSVP, presentes, sessão de posse): **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**, seções "Fluxo de Autenticação", "Fluxo de RSVP", "Fluxo de Presentes".
 

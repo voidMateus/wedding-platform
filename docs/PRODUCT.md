@@ -23,7 +23,24 @@ O produto nasce como uma aplicação de uso único por casamento (single-tenant,
 | **Noivo(a) / Casal** | Dono(a) da conta, administra o evento | Configurar site, gerenciar convidados, acompanhar RSVPs e presentes |
 | **Convidado** | Recebe o convite e acessa o site público | Ver informações do evento, confirmar presença, escolher presente |
 | **Colaborador/Família** | Auxilia o casal na organização (ex: mãe da noiva) | Acesso limitado ao painel administrativo (permissões) |
-| **Planejador de Casamento** | Profissional contratado, pode gerenciar múltiplos eventos | Visão consolidada de múltiplos casamentos (papel futuro, SaaS) |
+| **Planejador de Casamento** | Profissional contratado, pode gerenciar múltiplos eventos | Visão consolidada de múltiplos casamentos — **papel futuro, ainda não implementado (Fase 5, ver [`ROADMAP.md`](ROADMAP.md))** |
+
+### 1.1.1 Tipos de usuário/acesso — estado atual da implementação
+
+A tabela acima descreve personas de produto; esta detalha como cada uma delas (e algumas que não são "persona" no sentido de produto) é implementada e isolada tecnicamente hoje. Fonte de verdade complementar: [`CLAUDE.md`](../CLAUDE.md) seção 4.2 ("Modelo de Confiança por Fluxo"), que descreve os mesmos tipos organizados por caminho/rota em vez de por identidade — os dois devem ser mantidos consistentes.
+
+| Tipo | Quem é | Como acessa | Isolamento/autorização | Onde vive no banco |
+|---|---|---|---|---|
+| **Dono de casamento** | O casal (ou quem administra aquele evento específico) | Login (e-mail/senha ou link mágico) → `/admin/{slug}/**` | RLS por `casamento_id` | `membros_casamento.papel = 'dono'` |
+| **Colaborador de casamento** | Alguém convidado pelo dono pra ajudar naquele evento específico | Mesmo login → `/admin/{slug}/**` | RLS por `casamento_id` — não pode gerenciar outros colaboradores nem excluir o casamento | `membros_casamento.papel = 'colaborador'` |
+| **Operador de plataforma** | Equipe interna do produto (não é casal/colaborador de nenhum casamento) | Mesmo login → `/plataforma` (visão entre todos os tenants) | Não é RLS — é `service_role` + checagem em código (`requirePlatformOperator()`). Acesso binário, sem sub-níveis (não existe "dono da plataforma") | `operadores_plataforma` |
+| **Convidado (RSVP)** | Quem foi convidado pra um casamento | Link/QR (token) ou busca por nome (sem login) | Token opaco na leitura; sessão `rsvp_session` na mutação | Sem conta — não é `auth.users` |
+| **Visitante público** | Qualquer pessoa | Direto em `/{slug}` (site do casamento) ou vitrine de presentes | Nenhuma — RLS de leitura pública em tabelas sem dado sensível | Sem conta |
+
+Pontos que geram confusão se não forem lidos com atenção:
+- **Dono/colaborador é sempre por casamento, nunca global.** A mesma conta pode ser dono de um casamento e colaborador de outro simultaneamente — `papel` é uma coluna de `membros_casamento`, uma linha por vínculo, não um atributo da conta.
+- **Operador de plataforma é um papel completamente separado** dos dois de cima, checado numa tabela diferente (`operadores_plataforma`, sem `casamento_id`). Uma conta pode acumular os dois ao mesmo tempo (ex.: dono de um casamento *e* operador de plataforma), mas são checagens independentes — nenhuma dá a outra automaticamente.
+- Hoje **não existe hierarquia dentro dos operadores de plataforma** (sem "dono"/"admin" vs "operador comum") — presença na tabela `operadores_plataforma` já dá o acesso completo ao painel `/plataforma`, que por sua vez é só leitura (ver [`PLANO-SAAS.md`](PLANO-SAAS.md), Passo 8).
 
 ### 1.2 Proposta de Valor
 
