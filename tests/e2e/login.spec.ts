@@ -23,7 +23,7 @@ test('casal faz login, acessa o painel e desloga', async ({ page }) => {
   await page.getByLabel('Senha').fill(password!)
   await page.getByRole('button', { name: 'Entrar', exact: true }).click()
 
-  await expect(page).toHaveURL(/\/admin/, { timeout: 10_000 })
+  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 10_000 })
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Sair' }).click()

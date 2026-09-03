@@ -32,7 +32,8 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 - [ ] Lembretes automáticos de RSVP por e-mail.
 - [ ] Exportação de dados (convidados, presentes) em CSV/PDF.
 - [ ] Convite com geração de link/QR code.
-- [ ] Colaboradores com permissões granulares (ver [`PRODUCT.md`](PRODUCT.md) seção 7.3 — checagem de `owner` no servidor precisa nascer junto com esta feature).
+- [x] Colaboradores — convite/remoção com papel binário `dono`/`colaborador`, checagem de `owner` no servidor (ver [`PRODUCT.md`](PRODUCT.md) seção 7.3), tela em Configurações → Colaboradores. Implementado no Passo 3 do `docs/PLANO-SAAS.md`.
+- [ ] Permissões granulares por funcionalidade (ex.: colaborador que só edita convidados, não presentes/configurações) — decisão consciente de manter o modelo binário por ora (2026-08-24); schema novo fica pra quando houver demanda real.
 - [ ] Auditoria completa de ações administrativas.
 - [ ] Testes E2E cobrindo os fluxos críticos (RSVP, reserva de presente, login).
 
@@ -82,7 +83,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 | Aspecto | Hoje (single-tenant) | Futuro (SaaS multi-tenant) |
 |---|---|---|
 | Criação de evento | Feita manualmente/via seed, um por deploy | Self-service — qualquer usuário cria seu `wedding` no cadastro |
-| Domínio | Um domínio fixo para o casamento | Subdomínio (`{slug}.meusitecasamento.com`) ou domínio customizado (`meucasamento.com`) via CNAME |
+| Domínio | Um casamento por deploy, mesmo path `/{slug}` | Path `/{slug}` continua sendo o modelo de URL — múltiplos tenants no mesmo domínio, sem subdomínio nem domínio customizado por casamento |
 | Cobrança | Inexistente | Planos por assinatura (ver seção 6) |
 | Limites de uso | Não aplicável | Limites por plano (nº de convidados, storage de fotos, presentes cadastrados) |
 | Painel interno | Inexistente | Painel de operação da plataforma: métricas de todos os tenants, suporte, billing |
@@ -90,8 +91,8 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 
 ## 6. Modelo de monetização proposto
 
-- **Plano Gratuito**: 1 evento, até N convidados (ex: 50), sem domínio customizado, marca d'água discreta da plataforma.
-- **Plano Casal**: evento único, convidados ilimitados, domínio customizado, remoção de marca d'água, temas premium do Design System.
+- **Plano Gratuito**: 1 evento, até N convidados (ex: 50), marca d'água discreta da plataforma.
+- **Plano Casal**: evento único, convidados ilimitados, remoção de marca d'água, temas premium do Design System.
 - **Plano Planejador**: múltiplos eventos simultâneos sob uma conta (para profissionais de organização de casamentos), com painel consolidado entre eventos de clientes.
 - Cobrança recorrente (mensal até o casamento, ou taxa única "vitalícia" por evento) — modelo exato a validar com pesquisa de mercado antes da Fase 5.
 

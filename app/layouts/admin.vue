@@ -34,20 +34,31 @@ useHead({
 // corrigido no mount para telas estreitas, onde um drawer aberto por
 // padrão cobriria o conteúdo assim que a página carrega.
 const route = useRoute()
+// Lido direto de useRoute() (reativo), não de useActiveWeddingSlug() — o
+// layout não é remontado entre navegações de página (só as páginas em si
+// são), então um valor capturado uma vez em setup() ficaria desatualizado
+// ao trocar de casamento ativo sem recarregar a página.
+const activeSlugParam = computed(() => {
+  const slug = route.params.slug
+  return typeof slug === 'string' ? slug : ''
+})
 
-const navItems = [
-  { to: '/admin', label: 'Dashboard', icon: 'lucide:layout-dashboard' },
-  { to: '/admin/convidados', label: 'Convidados', icon: 'lucide:users' },
-  { to: '/admin/convites', label: 'Convites', icon: 'lucide:mail' },
-  { to: '/admin/grupos', label: 'Grupos', icon: 'lucide:users-round' },
-  { to: '/admin/cronograma', label: 'Cronograma', icon: 'lucide:calendar-clock' },
-  { to: '/admin/presentes', label: 'Presentes', icon: 'lucide:gift' },
-  { to: '/admin/galeria', label: 'Galeria', icon: 'lucide:image' },
-  { to: '/admin/configuracoes', label: 'Configurações', icon: 'lucide:settings' },
-]
+const navItems = computed(() => {
+  const base = `/admin/${activeSlugParam.value}`
+  return [
+    { to: base, label: 'Dashboard', icon: 'lucide:layout-dashboard' },
+    { to: `${base}/convidados`, label: 'Convidados', icon: 'lucide:users' },
+    { to: `${base}/convites`, label: 'Convites', icon: 'lucide:mail' },
+    { to: `${base}/grupos`, label: 'Grupos', icon: 'lucide:users-round' },
+    { to: `${base}/cronograma`, label: 'Cronograma', icon: 'lucide:calendar-clock' },
+    { to: `${base}/presentes`, label: 'Presentes', icon: 'lucide:gift' },
+    { to: `${base}/galeria`, label: 'Galeria', icon: 'lucide:image' },
+    { to: `${base}/configuracoes`, label: 'Configurações', icon: 'lucide:settings' },
+  ]
+})
 
 function isActive(to: string): boolean {
-  if (to === '/admin') return route.path === '/admin'
+  if (to === `/admin/${activeSlugParam.value}`) return route.path === to
   return route.path.startsWith(to)
 }
 

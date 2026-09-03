@@ -31,7 +31,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchSession(): Promise<void> {
     loading.value = true
     try {
-      const session = await $fetch<SessionResponse>('/api/auth/session')
+      // useRequestFetch() (não $fetch direto) — durante SSR, o $fetch global
+      // não repassa os cookies da requisição original pra essa chamada
+      // interna a /api/auth/session, então serverSupabaseUser() do lado de
+      // dentro sempre veria "ninguém logado" nessa passada específica. Achado
+      // real desta sessão: quebrava a validação de slug de
+      // app/middleware/auth.global.ts (docs/PLANO-SAAS.md, Passo 3) num
+      // refresh direto em /admin/{slug}/**, redirecionando de volta pro
+      // /admin mesmo com a membership existindo de verdade.
+      const session = await useRequestFetch()<SessionResponse>('/api/auth/session')
       user.value = session.user
       weddingContext.value = session.weddingContext
       memberships.value = session.memberships

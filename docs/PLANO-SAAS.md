@@ -106,12 +106,13 @@ Escrita diretamente contra o schema já em português — nenhum retrabalho de t
 ## Passo 3 — Camada Conta → Casamento no admin
 
 - [x] Evoluir `resolveWeddingContext()` para receber identificador explícito do casamento ativo (slug/id da URL), não mais só `.limit(1)` — compatível com todo chamador existente sem nenhuma mudança (~59 call sites): com exatamente uma membership continua idêntico ao comportamento antigo; com mais de uma, um cookie `casamento_ativo` (setado por `app/middleware/auth.global.ts` ao navegar em `/admin/{slug}/**`) decide qual, sempre cruzado contra as memberships reais do usuário antes de usar (nunca aceito às cegas, CLAUDE.md seção 4.2)
-- [ ] Rotas admin passam a carregar o casamento ativo na URL (`/admin/{slug}/**`, espelhando o padrão público) — mecanismo pronto (cookie + `useActiveWeddingSlug()`), restructuring das 11 páginas existentes ainda pendente
+- [x] Rotas admin passam a carregar o casamento ativo na URL (`/admin/{slug}/**`, espelhando o padrão público) — as 11 páginas movidas para `app/pages/admin/[slug]/**`, `layouts/admin.vue` e todos os links internos atualizados para o novo formato, `server/api/admin/search.get.ts` corrigido (gerava `href` sem o prefixo do slug — achado real desta sessão, nunca chegou a quebrar em produção porque a busca global nunca tinha sido exercitada com mais de um casamento por conta)
 - [x] Tipo de contexto de sessão deixa de ser singular — `/api/auth/session` retorna `memberships: WeddingMembership[]` além do `weddingContext` ativo; `auth.store.ts` expõe as duas
-- [ ] Tela de seleção de casamento pós-login (só aparece quando há mais de um) — pendente, depende da restructuring de rotas acima
+- [x] Tela de seleção de casamento pós-login (só aparece quando há mais de um) — nova `app/pages/admin/index.vue`; com exatamente uma membership o middleware redireciona direto, sem passar pela tela
 - [x] Endpoints novos: gestão de `membros_casamento` (`GET`/`POST /api/wedding/members`, `DELETE /api/wedding/members/[id]`) — convite via `admin.inviteUserByEmail` (Supabase Auth nativo, não existe sistema de comunicação próprio ainda), bloqueio de remover o último dono
 - [x] Checar `papel = 'dono'` em TypeScript, não só via RLS (fecha achado do PRODUCT.md §7.3) — nos dois endpoints novos de gestão de membros (onde é obrigatório: usam `service_role`, que ignora RLS por completo)
-- [ ] E2E: fluxo de seleção/troca de casamento ativo — pendente, depende da UI de seleção acima
+- [x] UI de gestão de colaboradores (`components/admin/settings/MembersTab.vue`, nova aba "Colaboradores" em Configurações) — os endpoints acima existiam desde a implementação anterior mas não tinham nenhuma tela consumindo, achado real desta sessão; `GET /api/wedding/members` também precisou passar a usar `service_role` (não só o client autenticado da requisição) e enriquecer a resposta com e-mail via `admin.auth.admin.getUserById`, porque e-mail só existe em `auth.users`, inacessível via PostgREST mesmo sob RLS. Decisão confirmada com o usuário em 2026-08-24: permissão continua binária dono/colaborador — granular fica pra quando houver demanda real (registrado em `docs/ROADMAP.md` Fase 2)
+- [x] E2E: fluxo de seleção/troca de casamento ativo (`tests/e2e/casamento-ativo.spec.ts`) — auto-suficiente (provisiona seu próprio usuário + 2 casamentos de teste, não depende de `E2E_ADMIN_EMAIL`/`PASSWORD`); os 2 specs E2E existentes (`login.spec.ts`, `guests-invites-rsvp.spec.ts`) tiveram os paths `/admin/convidados`/`/admin/convites` corrigidos para o novo formato `/admin/{slug}/**`, mas não puderam ser reexecutados neste ambiente (sem conta de teste pré-provisionada) — pendente de validação manual pelo usuário
 
 ## Passo 4 — Extensão de assinaturas/entitlements para escopo de conta
 
@@ -152,9 +153,9 @@ Escrita diretamente contra o schema já em português — nenhum retrabalho de t
 
 ## Correções de documentação (paralelas, sem dependência de passo)
 
-- [ ] `docs/ROADMAP.md` §5.1: remover menção a subdomínio/CNAME/domínio customizado (contradiz a decisão de só usar `/{slug}`)
-- [ ] `docs/ROADMAP.md` §6: remover "domínio customizado" da descrição do Plano Casal
-- [ ] `docs/DESIGN-SYSTEM.md`: corrigir menção a "slug editável pelo casal" — não implementado hoje
+- [x] `docs/ROADMAP.md` §5.1: remover menção a subdomínio/CNAME/domínio customizado (contradiz a decisão de só usar `/{slug}`)
+- [x] `docs/ROADMAP.md` §6: remover "domínio customizado" da descrição do Plano Casal
+- [x] `docs/DESIGN-SYSTEM.md`: corrigir menção a "slug editável pelo casal" — não implementado hoje
 
 ---
 

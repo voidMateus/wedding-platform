@@ -26,6 +26,14 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
 
+  const { data: wedding, error: weddingError } = await client
+    .from('casamentos')
+    .select('slug')
+    .eq('id', weddingId)
+    .single()
+  if (weddingError) throw badRequestError(weddingError.message)
+  const adminBase = `/admin/${wedding.slug}`
+
   const [guestsResult, invitesResult, groupsResult] = await Promise.all([
     client.rpc('buscar_convidados_por_nome', {
       p_casamento_id: weddingId,
@@ -58,21 +66,21 @@ export default defineEventHandler(async (event) => {
       id: guest.id,
       label: guest.nome_completo,
       sublabel: 'Convidado',
-      href: `/admin/convidados/${guest.id}`,
+      href: `${adminBase}/convidados/${guest.id}`,
     })),
     ...(invitesResult.data ?? []).map((invite) => ({
       type: 'invite' as const,
       id: invite.id,
       label: invite.nome,
       sublabel: 'Convite',
-      href: `/admin/convites/${invite.id}`,
+      href: `${adminBase}/convites/${invite.id}`,
     })),
     ...(groupsResult.data ?? []).map((group) => ({
       type: 'group' as const,
       id: group.id,
       label: group.nome,
       sublabel: 'Grupo',
-      href: `/admin/convidados?groupId=${group.id}`,
+      href: `${adminBase}/convidados?groupId=${group.id}`,
     })),
   ]
 

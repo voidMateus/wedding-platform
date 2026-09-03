@@ -5,6 +5,7 @@ const settingsTabs = [
   { id: 'geral', label: 'Geral' },
   { id: 'aparencia', label: 'Aparência' },
   { id: 'conteudo', label: 'Conteúdo' },
+  { id: 'colaboradores', label: 'Colaboradores' },
 ]
 const activeTab = ref('geral')
 
@@ -42,6 +43,10 @@ const { data: wedding, status, refresh } = await getWedding()
 
       <template #conteudo>
         <AdminSettingsContentTab :wedding="wedding" @saved="refresh" />
+      </template>
+
+      <template #colaboradores>
+        <AdminSettingsMembersTab />
       </template>
     </UiTabs>
   </AdminSection>

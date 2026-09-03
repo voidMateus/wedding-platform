@@ -4,6 +4,8 @@ import type { Guest } from '~/types/guest'
 
 definePageMeta({ layout: 'admin' })
 
+const activeSlug = useActiveWeddingSlug()
+
 const { listGuests, deleteGuest } = useGuests()
 const { listGroups } = useGroups()
 const { getWedding } = useWedding()
@@ -88,7 +90,7 @@ async function confirmDelete() {
     description="Cadastre convidados e seus acompanhantes em um único fluxo."
   >
     <template #actions>
-      <UiButton to="/admin/convidados/novo">Novo convidado</UiButton>
+      <UiButton :to="`/admin/${activeSlug}/convidados/novo`">Novo convidado</UiButton>
     </template>
 
     <UiCard padding="md" class="flex flex-col gap-4">
@@ -126,7 +128,7 @@ async function confirmDelete() {
         title="Nenhum convidado encontrado"
         description="Ajuste os filtros ou cadastre o primeiro convidado."
       >
-        <UiButton to="/admin/convidados/novo">Novo convidado</UiButton>
+        <UiButton :to="`/admin/${activeSlug}/convidados/novo`">Novo convidado</UiButton>
       </UiEmptyState>
 
       <template v-else>
@@ -178,7 +180,7 @@ async function confirmDelete() {
               </td>
               <td class="px-4 py-2">
                 <div class="flex justify-end gap-2">
-                  <UiButton size="sm" variant="ghost" :to="`/admin/convidados/${guest.id}`">
+                  <UiButton size="sm" variant="ghost" :to="`/admin/${activeSlug}/convidados/${guest.id}`">
                     Editar
                   </UiButton>
                   <UiButton size="sm" variant="destructive" @click="openDeleteModal(guest)">
