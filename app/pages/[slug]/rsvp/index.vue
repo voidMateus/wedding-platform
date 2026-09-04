@@ -127,17 +127,23 @@ async function handleConfirmIdentity() {
         <div
           class="flex flex-col justify-center gap-4 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-8 sm:p-10"
         >
-          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <span
+            class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+          >
             <Icon name="lucide:mail-check" class="h-5 w-5" />
           </span>
           <div v-if="wedding">
-            <p class="font-display text-xl font-semibold text-heading">{{ wedding.nomes_noivos }}</p>
+            <p class="font-display text-xl font-semibold text-heading">
+              {{ wedding.nomes_noivos }}
+            </p>
             <p class="text-sm text-text-muted">{{ formattedDate }}</p>
           </div>
           <div>
-            <h1 class="font-display text-2xl font-semibold text-heading">Confirmação de Presença</h1>
+            <h1 class="font-display text-2xl font-semibold text-heading">
+              Confirmação de Presença
+            </h1>
             <p class="mt-1 text-sm leading-relaxed text-text-muted">
-              Digite seu nome para localizar seu convite e confirmar presença, restrições alimentares e
+              Digite seu nome para localizar seu convite e confirmar sua presença e a dos seus
               acompanhantes.
             </p>
           </div>
@@ -146,7 +152,7 @@ async function handleConfirmIdentity() {
         <div class="flex flex-col gap-4 p-8 sm:p-10">
           <UiInput v-model="query" placeholder="Seu nome completo" autofocus />
 
-          <p v-if="searchError" class="text-sm text-red-600" role="alert">{{ searchError }}</p>
+          <p v-if="searchError" class="text-sm text-danger" role="alert">{{ searchError }}</p>
 
           <ul v-if="results.length" class="flex flex-col gap-2">
             <li v-for="result in results" :key="result.guestId">
@@ -177,7 +183,9 @@ async function handleConfirmIdentity() {
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
         class="flex flex-col items-center gap-4 rounded-xl border border-primary/10 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
       >
-        <span class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span
+          class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+        >
           <Icon name="lucide:party-popper" class="h-5 w-5" />
         </span>
         <div>
@@ -199,7 +207,9 @@ async function handleConfirmIdentity() {
           <p class="text-sm uppercase tracking-widest text-text-muted">
             {{ invitePayload.wedding.coupleNames }}
           </p>
-          <h1 class="mt-1 font-display text-2xl font-semibold text-heading">Confirmação de Presença</h1>
+          <h1 class="mt-1 font-display text-2xl font-semibold text-heading">
+            Confirmação de Presença
+          </h1>
         </div>
         <RsvpInviteFlow :payload="invitePayload" @back="backToSearch" />
       </div>

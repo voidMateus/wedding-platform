@@ -14,7 +14,6 @@ export const guestPersonSchema = z.object({
   dataNascimento: z.string().trim().optional().or(z.literal('')),
   caminhoFoto: z.string().trim().optional().or(z.literal('')),
   papelCasamento: z.enum(['padrinho', 'madrinha']).optional().or(z.literal('')),
-  restricoesAlimentares: z.string().trim().max(500).optional().or(z.literal('')),
   observacoes: z.string().trim().max(2000).optional().or(z.literal('')),
   grupoId: z.string().uuid().optional().or(z.literal('')),
 })

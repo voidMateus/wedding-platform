@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { guestPartyReorderSchema, guestPartySyncSchema, guestPersonSchema } from '#shared/schemas/guests'
+import {
+  guestPartyReorderSchema,
+  guestPartySyncSchema,
+  guestPersonSchema,
+} from '#shared/schemas/guests'
 
 const validGroupId = '11111111-1111-1111-1111-111111111111'
 
@@ -11,7 +15,6 @@ describe('guestPersonSchema', () => {
       sexo: 'feminino',
       dataNascimento: '1990-01-01',
       papelCasamento: 'madrinha',
-      restricoesAlimentares: 'vegetariana',
       observacoes: 'Chegará mais cedo',
       grupoId: validGroupId,
     })

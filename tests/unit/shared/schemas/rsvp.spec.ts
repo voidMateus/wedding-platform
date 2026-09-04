@@ -28,15 +28,12 @@ describe('rsvpSelectSchema', () => {
 })
 
 describe('rsvpGuestStatusSchema', () => {
-  it('aceita confirmado com restrição alimentar', () => {
-    const result = rsvpGuestStatusSchema.safeParse({
-      status: 'confirmado',
-      restricoesAlimentares: 'vegetariana',
-    })
+  it('aceita confirmado', () => {
+    const result = rsvpGuestStatusSchema.safeParse({ status: 'confirmado' })
     expect(result.success).toBe(true)
   })
 
-  it('aceita recusado sem restrição', () => {
+  it('aceita recusado', () => {
     const result = rsvpGuestStatusSchema.safeParse({ status: 'recusado' })
     expect(result.success).toBe(true)
   })
@@ -57,7 +54,7 @@ describe('rsvpFinalizeSchema', () => {
 
   it('aceita com acompanhantes e mensagem', () => {
     const result = rsvpFinalizeSchema.safeParse({
-      companions: [{ nomeCompleto: 'Ana Silva', restricoesAlimentares: 'vegetariana' }],
+      companions: [{ nomeCompleto: 'Ana Silva' }],
       message: 'Mal podemos esperar!',
     })
     expect(result.success).toBe(true)

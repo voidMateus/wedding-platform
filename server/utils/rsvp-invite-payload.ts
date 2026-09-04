@@ -23,7 +23,7 @@ export async function buildRsvpInvitePayload(
       .single(),
     client
       .from('convidados')
-      .select('id, nome_completo, apelido, restricoes_alimentares, ordem_nucleo')
+      .select('id, nome_completo, apelido, ordem_nucleo')
       .eq('convite_id', inviteId)
       .is('excluido_em', null)
       .order('ordem_nucleo', { ascending: true }),
@@ -41,7 +41,10 @@ export async function buildRsvpInvitePayload(
 
   const memberIds = (membersResult.data ?? []).map((m) => m.id)
   const { data: responses, error: responsesError } = memberIds.length
-    ? await client.from('respostas_rsvp').select('convidado_id, status_rsvp').in('convidado_id', memberIds)
+    ? await client
+        .from('respostas_rsvp')
+        .select('convidado_id, status_rsvp')
+        .in('convidado_id', memberIds)
     : { data: [], error: null }
 
   if (responsesError) {
@@ -71,13 +74,8 @@ export async function buildRsvpInvitePayload(
       guestId: guest.id,
       fullName: guest.nome_completo,
       nickname: guest.apelido,
-      dietaryRestrictions: guest.restricoes_alimentares,
       status: (statusByGuest.get(guest.id) ?? 'pendente') as
-        | 'pendente'
-        | 'confirmado'
-        | 'recusado'
-        | 'lista_espera'
-        | 'removido',
+        'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido',
     })),
   }
 }

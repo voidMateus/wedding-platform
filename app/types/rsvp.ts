@@ -12,7 +12,6 @@ export interface RsvpMember {
   guestId: string
   fullName: string
   nickname: string | null
-  dietaryRestrictions: string | null
   status: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 }
 

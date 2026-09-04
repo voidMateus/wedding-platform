@@ -44,14 +44,16 @@ export default defineEventHandler(async (event) => {
     p_casamento_id: guest.casamento_id,
     p_convidado_id: guestId,
     p_status: input.status,
-    p_restricoes_alimentares: input.restricoesAlimentares || null,
     p_ip: ip,
     p_user_agent: userAgent,
     p_origem: 'public_site',
   })
 
   if (error) {
-    if (error.message.includes('GUEST_WITHOUT_INVITE') || error.message.includes('GUEST_NOT_FOUND')) {
+    if (
+      error.message.includes('GUEST_WITHOUT_INVITE') ||
+      error.message.includes('GUEST_NOT_FOUND')
+    ) {
       throw notFoundError('Convidado não encontrado.')
     }
     throw badRequestError(error.message)
