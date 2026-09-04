@@ -1,9 +1,11 @@
 import { z } from 'zod'
-import { WCAG_AA_MIN_CONTRAST, checkColorContrast, isValidHexColor } from '../utils/contrast'
+import { checkColorContrast, isValidHexColor } from '../utils/contrast'
 import { DEFAULT_HERO_BUTTONS, HERO_BUTTON_CATALOG } from '../hero-buttons'
 
 const HERO_BUTTON_ID_SET = new Set(HERO_BUTTON_CATALOG.map((button) => button.id))
-const heroButtonIdSchema = z.string().refine((id) => HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.')
+const heroButtonIdSchema = z
+  .string()
+  .refine((id) => HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.')
 
 // Compartilhado entre client (Aparência, admin) e server (revalidação —
 // CLAUDE.md, seção 8/20.1). Endpoint próprio (PATCH /api/wedding/theme),
@@ -11,13 +13,31 @@ const heroButtonIdSchema = z.string().refine((id) => HERO_BUTTON_ID_SET.has(id),
 // filosofia já documentada em config_tema: "exclusivamente atributos
 // visuais, nunca comportamento de negócio" (CLAUDE.md, seção 22.3).
 
+/**
+ * Mensagens de erro dos campos de cor. Ficam em constantes porque valem para
+ * os quatro campos de cor do tema e também para a cor de grupo
+ * (`optionalHexColorSchema`, reusado em schemas/groups.ts) — antes o mesmo
+ * texto estava copiado em cada `refine`.
+ *
+ * São texto de INTERFACE, lido pelo casal na hora de salvar. Por isso não
+ * citam a razão de contraste, o limiar do WCAG nem seção de documentação
+ * interna: nada disso ajuda quem só quer escolher a cor do próprio site, e a
+ * referência a arquivo de projeto não tem por que existir numa tela de
+ * produto. A frase diz o que está errado, a consequência e o que fazer — e
+ * casa com o aviso que o AdminSettingsContrastHint mostra em tempo real, para
+ * a tela e o erro de salvar não falarem línguas diferentes.
+ */
+const HEX_FORMAT_MESSAGE = 'Informe uma cor em formato hexadecimal (ex: #6b4a35).'
+const LOW_CONTRAST_MESSAGE =
+  'Este tom é claro demais para o fundo do site e deixa o texto difícil de ler. Escolha um tom mais escuro.'
+
 const hexColorSchema = z
   .string()
   .trim()
-  .refine(isValidHexColor, 'Informe uma cor em formato hexadecimal (ex: #6b4a35).')
+  .refine(isValidHexColor, HEX_FORMAT_MESSAGE)
   .refine(
     (hex) => !isValidHexColor(hex) || checkColorContrast(hex).meetsMinimum,
-    `Contraste insuficiente (mínimo ${WCAG_AA_MIN_CONTRAST}:1) entre essa cor e o fundo padrão — escolha um tom mais escuro (CLAUDE.md, seção 22.4).`,
+    LOW_CONTRAST_MESSAGE,
   )
 
 // Cor avançada (Fase Editorial): titleColor/bodyColor são opcionais — quando
@@ -32,11 +52,8 @@ export const optionalHexColorSchema = z
   .trim()
   .optional()
   .transform((value) => (value ? value : undefined))
-  .refine((hex) => hex === undefined || isValidHexColor(hex), 'Informe uma cor em formato hexadecimal (ex: #6b4a35).')
-  .refine(
-    (hex) => hex === undefined || checkColorContrast(hex).meetsMinimum,
-    `Contraste insuficiente (mínimo ${WCAG_AA_MIN_CONTRAST}:1) entre essa cor e o fundo padrão — escolha um tom mais escuro (CLAUDE.md, seção 22.4).`,
-  )
+  .refine((hex) => hex === undefined || isValidHexColor(hex), HEX_FORMAT_MESSAGE)
+  .refine((hex) => hex === undefined || checkColorContrast(hex).meetsMinimum, LOW_CONTRAST_MESSAGE)
 
 // coverImageUrl/storyImageUrl NÃO fazem parte deste schema de propósito: são
 // geridos exclusivamente por POST/DELETE /api/wedding/theme/cover-upload e
@@ -57,7 +74,10 @@ export const themeConfigSchema = z.object({
   // casal escolhe quais botões aparecem e qual fica em destaque (cor
   // preenchida); os demais ficam em outline. Catálogo fixo em
   // shared/hero-buttons.ts — só a seleção é editável, não o catálogo.
-  heroButtons: z.array(heroButtonIdSchema).max(HERO_BUTTON_CATALOG.length).default(DEFAULT_HERO_BUTTONS),
+  heroButtons: z
+    .array(heroButtonIdSchema)
+    .max(HERO_BUTTON_CATALOG.length)
+    .default(DEFAULT_HERO_BUTTONS),
   heroFeaturedButton: z
     .string()
     .optional()

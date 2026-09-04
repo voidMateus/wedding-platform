@@ -171,6 +171,19 @@
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
   }
+
+  /* Faixa que rola na horizontal sem desenhar a barra de rolagem — usada em
+     controles de navegação que precisam caber numa tela estreita sem quebrar
+     linha (abas segmentadas e chips de seção de Configurações). A barra
+     desaparece, mas a rolagem por toque/trackpad continua e nenhum destino
+     fica inalcançável: os mesmos itens existem no sub-menu da própria tela. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* O drawer mobile (NavBar.vue/admin.vue) fica fora da tela via
@@ -180,9 +193,18 @@
    próprio viewport — por isso o corte precisa estar em `html`, não só em
    `body`). Achado da auditoria de mobile da Fase Editorial (CLAUDE.md,
    seção 24) — forma padrão de blindar qualquer elemento off-canvas
-   futuro, sem afetar a rolagem vertical normal da página. */
-html,
-body {
+   futuro, sem afetar a rolagem vertical normal da página.
+
+   O corte fica SÓ em `html`, nunca em `body`: `overflow-x: hidden` computa
+   `overflow-y` para `auto`, então declarar isso no `body` o transforma num
+   contêiner de rolagem próprio. A partir daí todo `position: sticky` dentro
+   dele passa a se ancorar no scrollport do body — que tem a altura do
+   conteúdo e nunca rola — e o elemento simplesmente fica parado na posição
+   estática. Era por isso que o header do admin, o header do site público e
+   a barra de salvar de Configurações não acompanhavam a rolagem: os três
+   estavam corretos, o contêiner é que anulava o sticky. `html` já é o
+   scroller do viewport, então o corte ali não cria contêiner novo. */
+html {
   overflow-x: hidden;
 }
 

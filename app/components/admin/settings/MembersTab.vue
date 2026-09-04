@@ -16,6 +16,24 @@ const toast = useToast()
 const { listWeddingMembers, inviteWeddingMember, removeWeddingMember } = useWeddingMembers()
 const { data, status, error, refresh } = listWeddingMembers()
 
+const memberCount = computed(() => data.value?.data?.length ?? 0)
+const accessDescription = computed(() =>
+  memberCount.value === 1 ? '1 pessoa neste evento.' : `${memberCount.value} pessoas neste evento.`,
+)
+
+// Espelha exatamente a regra do servidor (server/api/wedding/members/[id].
+// delete.ts): o último dono restante não pode sair, senão o casamento fica
+// sem ninguém capaz de gerenciar acessos. Mostrar isso na linha evita
+// oferecer um botão que só vai devolver erro — e é só UX, a autorização
+// continua sendo do endpoint (CLAUDE.md seção 4.2).
+const ownerCount = computed(
+  () => data.value?.data?.filter((member) => member.papel === 'dono').length ?? 0,
+)
+
+function isLastOwner(papel: string): boolean {
+  return papel === 'dono' && ownerCount.value <= 1
+}
+
 const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(weddingMemberInviteSchema),
   initialValues: { email: '', papel: 'colaborador' },
@@ -61,9 +79,20 @@ async function confirmRemove() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <UiCard v-if="isOwner">
-      <form class="flex flex-col gap-4 sm:flex-row sm:items-end" @submit="onSubmit">
+  <div class="flex flex-col gap-5">
+    <!-- O cartão existe também para colaborador, só sem o formulário: o
+         sub-menu da aba aponta uma âncora para #convidar, e esconder a seção
+         inteira deixaria esse link sem destino. -->
+    <AdminSettingsSectionCard
+      section-id="convidar"
+      title="Convidar colaborador"
+      description="Colaboradores podem editar o site e a lista de convidados. Só o dono altera pagamentos e acessos."
+    >
+      <form
+        v-if="isOwner"
+        class="flex flex-col gap-4 sm:flex-row sm:items-start"
+        @submit="onSubmit"
+      >
         <UiInput
           v-model="email"
           type="email"
@@ -81,11 +110,22 @@ async function confirmRemove() {
           ]"
           :error="errors.papel"
         />
-        <UiButton type="submit" :disabled="isSubmitting">Convidar</UiButton>
+        <!-- mt-6 alinha o botão à base dos campos, abaixo da linha de rótulo. -->
+        <UiButton type="submit" :disabled="isSubmitting" class="shrink-0 sm:mt-6">
+          Convidar
+        </UiButton>
       </form>
-    </UiCard>
 
-    <UiCard padding="md">
+      <p v-else class="text-sm text-text-muted">
+        Só o dono deste casamento pode convidar novos colaboradores.
+      </p>
+    </AdminSettingsSectionCard>
+
+    <AdminSettingsSectionCard
+      section-id="acessos"
+      title="Quem tem acesso"
+      :description="status === 'pending' ? undefined : accessDescription"
+    >
       <div v-if="status === 'pending'" class="flex flex-col gap-2">
         <UiSkeleton v-for="n in 2" :key="n" class="h-12 w-full" />
       </div>
@@ -99,30 +139,36 @@ async function confirmRemove() {
         <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
       </UiEmptyState>
 
-      <ul v-else class="flex flex-col divide-y divide-border">
+      <ul v-else class="divide-y divide-border overflow-hidden rounded-md border border-border">
         <li
           v-for="member in data?.data"
           :key="member.id"
-          class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+          class="flex items-center justify-between gap-4 px-4 py-3"
         >
-          <div>
-            <p class="text-sm font-medium text-text">{{ member.email ?? member.usuario_id }}</p>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-text">
+              {{ member.email ?? member.usuario_id }}
+            </p>
             <!-- primary, não success: papel é identidade, não desfecho de processo. -->
-            <UiBadge :tone="member.papel === 'dono' ? 'primary' : 'neutral'">
+            <UiBadge :tone="member.papel === 'dono' ? 'primary' : 'neutral'" class="mt-1">
               {{ member.papel === 'dono' ? 'Dono' : 'Colaborador' }}
             </UiBadge>
           </div>
+          <span v-if="isLastOwner(member.papel)" class="shrink-0 text-xs text-text-muted">
+            Não pode ser removido
+          </span>
           <UiButton
-            v-if="isOwner"
+            v-else-if="isOwner"
             size="sm"
             variant="destructive"
+            class="shrink-0"
             @click="openRemoveModal(member.id)"
           >
             Remover
           </UiButton>
         </li>
       </ul>
-    </UiCard>
+    </AdminSettingsSectionCard>
 
     <UiModal v-model="isRemoveModalOpen" title="Remover colaborador">
       <p class="text-sm text-text">

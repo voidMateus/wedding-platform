@@ -26,7 +26,18 @@ const emit = defineEmits<{
         : 'border-border bg-surface text-text-muted hover:border-primary/30'
     "
   >
-    <button v-if="clickable" type="button" class="py-1" @click="emit('click')">{{ label }}</button>
+    <!-- aria-pressed só no chip clicável: ali ele é um toggle de verdade
+         (etiqueta marcada, atalho do Hero selecionado) e o leitor de tela
+         precisa anunciar o estado, não só o rótulo. -->
+    <button
+      v-if="clickable"
+      type="button"
+      class="py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      :aria-pressed="selected"
+      @click="emit('click')"
+    >
+      {{ label }}
+    </button>
     <span v-else class="py-1">{{ label }}</span>
 
     <slot name="actions" />

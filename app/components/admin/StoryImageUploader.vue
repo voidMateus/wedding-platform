@@ -1,21 +1,21 @@
+<!--
+  Foto da seção "Nossa História". Mesma divisão do CoverImageUploader: aqui só
+  a configuração (composables, proporção, textos); a moldura é do
+  `AdminSettingsUploadBox` e o corte/rotação do
+  `AdminSettingsImageEditorModal`.
+-->
 <script setup lang="ts">
-import { useDebounceFn } from '@vueuse/core'
-
-interface FocalPoint {
-  x: number
-  y: number
-}
+/** 4/5 — a seção desenha a foto em retrato (`aspect-[4/5]`). */
+const STORY_ASPECT_RATIO = 4 / 5
 
 interface Props {
   modelValue: string | null
-  focalPoint: FocalPoint
 }
 
-const { modelValue, focalPoint } = defineProps<Props>()
+const { modelValue } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | null]
-  'update:focalPoint': [value: FocalPoint]
 }>()
 
 const { uploadStoryImage, removeStoryImage } = useWeddingStoryUpload()
@@ -32,6 +32,8 @@ const {
   handleRemove,
 } = useImageUploader({ upload: uploadStoryImage, remove: removeStoryImage })
 
+const isEditorOpen = ref(false)
+
 async function onFileChange(event: Event) {
   const url = await handleFileChange(event)
   if (url !== undefined) emit('update:modelValue', url)
@@ -41,38 +43,25 @@ async function onRemove() {
   if (await handleRemove()) emit('update:modelValue', null)
 }
 
-// Ponto de foco (CLAUDE.md, seção 22.2) — mesma persistência debounced do
-// CoverImageUploader.vue.
-const localFocalPoint = ref<FocalPoint>(focalPoint)
-watch(
-  () => focalPoint,
-  (value) => {
-    localFocalPoint.value = value
-  },
-)
-
-const persistFocalPoint = useDebounceFn(async (value: FocalPoint) => {
+/** Mesmo racional do CoverImageUploader: o corte passa a ser o enquadramento. */
+async function onEditorConfirm(file: File) {
+  errorMessage.value = null
+  isUploading.value = true
   try {
-    await updateThemeFocalPoint({ target: 'story', x: value.x, y: value.y })
-    emit('update:focalPoint', value)
+    const { url } = await uploadStoryImage(file)
+    await updateThemeFocalPoint({ target: 'story', x: 50, y: 50 })
+    emit('update:modelValue', url)
+    toast.success('Foto da seção atualizada.')
   } catch {
-    toast.error('Não foi possível salvar o enquadramento.')
+    errorMessage.value = 'Não foi possível salvar a foto editada. Tente novamente.'
+  } finally {
+    isUploading.value = false
   }
-}, 400)
-
-function handleFocalPointChange(value: FocalPoint) {
-  localFocalPoint.value = value
-  persistFocalPoint(value)
 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <span class="text-sm font-medium text-text">Foto da seção "Nossa História" (opcional)</span>
-    <p class="text-xs text-text-muted">
-      Independente da foto de capa do topo do site — cada uma pode ser uma foto diferente.
-    </p>
-
+  <div>
     <input
       ref="fileInput"
       type="file"
@@ -81,46 +70,26 @@ function handleFocalPointChange(value: FocalPoint) {
       @change="onFileChange"
     />
 
-    <UiEmptyState
-      v-if="!modelValue"
-      title="Nenhuma foto da história ainda"
-      description="Opcional — sem foto, o texto aparece centralizado, sem uma versão 'menos completa' do layout."
-    >
-      <UiButton type="button" size="sm" :disabled="isUploading" @click="openFilePicker">
-        {{ isUploading ? 'Enviando...' : 'Enviar foto' }}
-      </UiButton>
-    </UiEmptyState>
+    <AdminSettingsUploadBox
+      label='Foto da seção "Nossa História"'
+      hint="Independente da foto de capa. Formato retrato funciona melhor — sem ela, o texto aparece centralizado."
+      :model-value="modelValue"
+      preview-aspect-class="aspect-[4/5]"
+      preview-alt="Prévia da foto da seção Nossa História"
+      :is-uploading="isUploading"
+      :is-removing="isRemoving"
+      :error-message="errorMessage"
+      @pick="openFilePicker"
+      @edit="isEditorOpen = true"
+      @remove="onRemove"
+    />
 
-    <div v-else class="flex flex-col gap-2">
-      <UiImageFocalPointPicker
-        :model-value="localFocalPoint"
-        :src="modelValue"
-        alt="Prévia da foto da seção Nossa História"
-        preview-aspect-class="aspect-[4/5]"
-        @update:model-value="handleFocalPointChange"
-      />
-      <div class="flex gap-2">
-        <UiButton
-          type="button"
-          size="sm"
-          variant="ghost"
-          :disabled="isUploading"
-          @click="openFilePicker"
-        >
-          {{ isUploading ? 'Enviando...' : 'Trocar foto' }}
-        </UiButton>
-        <UiButton
-          type="button"
-          size="sm"
-          variant="destructive"
-          :disabled="isRemoving"
-          @click="onRemove"
-        >
-          Remover
-        </UiButton>
-      </div>
-    </div>
-
-    <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
+    <AdminSettingsImageEditorModal
+      v-model:open="isEditorOpen"
+      title='Editar foto da seção "Nossa História"'
+      :src="modelValue"
+      :aspect-ratio="STORY_ASPECT_RATIO"
+      @confirm="onEditorConfirm"
+    />
   </div>
 </template>

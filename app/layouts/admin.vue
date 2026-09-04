@@ -30,6 +30,13 @@ const themeStyleTag = computed(() => {
 
 useHead({
   style: [{ innerHTML: themeStyleTag }],
+  // Só o admin: o shell tem altura de tela e quem rola é o <main>, então o
+  // documento não deveria rolar — mas sem travar aqui ele ainda rolava
+  // (medido: `document.scrollTop` ia a 708 num clique). Documento rolável
+  // por baixo de um app shell dá dois eixos de rolagem competindo, e é o de
+  // fora que o navegador move quando precisa revelar um elemento focado.
+  // Seguro agora: nada no admin depende mais de `sticky` no documento.
+  bodyAttrs: { class: 'overflow-hidden' },
 })
 
 // Sidebar colapsável (CLAUDE.md, seção 24) — mobile vira overlay/drawer.
@@ -66,7 +73,7 @@ function isActive(to: string): boolean {
 }
 
 // `lg` (1024px) é o ponto onde a sidebar deixa de ser drawer e passa a
-// ocupar a coluna fixa — o corte visual é feito em CSS (lg:static), este
+// ocupar a coluna fixa — o corte visual é feito em CSS (`lg:sticky`), este
 // valor só existe para o comportamento em JS (fechar no mount/navegação
 // e prender o foco enquanto é drawer).
 const MOBILE_BREAKPOINT_PX = 1024
@@ -186,7 +193,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="admin-ui flex min-h-screen bg-surface">
+  <!--
+    App shell de altura fixa: a raiz nao rola, quem rola e o <main>. Antes a
+    sidebar e o header eram `sticky` sobre a rolagem do documento, e qualquer
+    dropdown do Reka (Select, Popover) os quebrava: ao abrir, o primitive
+    aplica trava de scroll no `body` (`overflow`, `paddingRight`,
+    `marginRight`), o body volta a ser conteiner de rolagem e todo `sticky`
+    dentro dele perde a ancora -- com a pagina rolada, a sidebar saltava de
+    volta ao topo do documento e desaparecia da vista. Tirando a chrome da
+    rolagem do documento, mexer no `body` deixa de ter qualquer efeito sobre
+    ela. Ver tambem a nota de `overflow-x` em app/assets/css/main.css.
+  -->
+  <div class="admin-ui flex h-screen overflow-hidden bg-surface">
     <Transition
       enter-active-class="transition-brand"
       enter-from-class="opacity-0"
@@ -202,9 +220,15 @@ onBeforeUnmount(() => {
       />
     </Transition>
 
+    <!--
+      No desktop a sidebar e uma coluna normal do flex, com a altura do shell
+      (`lg:h-full`) — nao precisa mais de `sticky` para acompanhar a rolagem,
+      porque o documento nao rola. `overflow-y-auto` cobre navegacao mais alta
+      que a tela. No mobile segue `fixed` como drawer.
+    -->
     <aside
       ref="sidebarEl"
-      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:static lg:z-auto lg:translate-x-0 lg:transition-[width]"
+      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:static lg:z-auto lg:h-full lg:translate-x-0 lg:transition-[width]"
       :class="[uiStore.sidebarOpen ? 'translate-x-0 lg:w-56' : '-translate-x-full lg:w-16']"
       @keydown="handleSidebarKeydown"
     >
@@ -235,24 +259,30 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <nav class="flex flex-col gap-0.5 text-sm font-medium">
+      <!-- Ícone SEMPRE visível, rótulo só quando a sidebar está aberta: antes
+           o ícone aparecia apenas no modo recolhido, então expandir o menu
+           trocava a coluna de ícones por uma coluna de texto puro e o item
+           ativo perdia a única âncora visual que sobrevive à leitura rápida.
+           É a linguagem do modelo — ícone + rótulo lado a lado, e o mesmo
+           ícone segue sendo o item quando o rótulo sai de cena. -->
+      <nav class="flex flex-col gap-0.5 text-sm">
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
           :title="item.label"
           :aria-current="isActive(item.to) ? 'page' : undefined"
-          class="flex items-center gap-3 rounded-lg px-3 py-2 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="flex items-center gap-2.5 rounded-lg px-3 py-2 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           :class="[
             isActive(item.to)
-              ? 'bg-surface-muted font-semibold text-text'
+              ? 'bg-surface-muted font-medium text-text'
               : 'text-text-muted hover:bg-surface-muted hover:text-text',
             !uiStore.sidebarOpen && 'lg:justify-center lg:px-0',
           ]"
           @click="handleNavClick"
         >
-          <Icon v-if="!uiStore.sidebarOpen" :name="item.icon" class="h-4.5 w-4.5 shrink-0" />
-          <span v-else class="truncate">{{ item.label }}</span>
+          <Icon :name="item.icon" class="h-4 w-4 shrink-0" />
+          <span v-if="uiStore.sidebarOpen" class="truncate">{{ item.label }}</span>
         </NuxtLink>
       </nav>
 
@@ -267,19 +297,21 @@ onBeforeUnmount(() => {
         <button
           type="button"
           aria-label="Sair"
-          class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           :class="!uiStore.sidebarOpen && 'lg:justify-center lg:px-0'"
           @click="signOut"
         >
-          <Icon name="lucide:log-out" class="h-4.5 w-4.5 shrink-0" />
+          <Icon name="lucide:log-out" class="h-4 w-4 shrink-0" />
           <span v-if="uiStore.sidebarOpen">Sair</span>
         </button>
       </div>
     </aside>
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <!-- Sem `sticky`: o header e um irmao de altura fixa do <main>, que e o
+           unico que rola. Assim ele nunca depende do estado do `body`. -->
       <header
-        class="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface/80 px-4 backdrop-blur sm:px-6"
+        class="z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface/80 px-4 backdrop-blur sm:px-6"
       >
         <button
           ref="menuButtonEl"
@@ -332,7 +364,9 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <main class="min-w-0 flex-1 px-4 py-7 sm:px-6">
+      <!-- O scroller da tela. `overflow-y-auto` aqui (e nao no documento) e o
+           que torna a chrome imune a trava de scroll dos dropdowns. -->
+      <main class="min-w-0 flex-1 overflow-y-auto px-4 py-7 sm:px-6">
         <slot />
       </main>
     </div>
