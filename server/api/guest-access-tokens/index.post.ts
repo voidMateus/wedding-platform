@@ -7,8 +7,13 @@ import { guestAccessTokenGenerateSchema } from '#shared/schemas/guest-access-tok
  * o mesmo convite, ele é revogado antes — só um token ativo por convite por
  * vez (índice único parcial em credenciais_acesso_convite).
  *
- * O código em texto plano só existe na resposta desta chamada — nunca é
- * persistido nem pode ser recuperado depois (CLAUDE.md, seção 11/14.5).
+ * Por isso esta rota é ação deliberada de rotação ("o link vazou"), não o
+ * caminho para reenviar um convite: reenviar usa o GET, que reexibe o mesmo
+ * link. Gerar aqui invalida o link e o QR já compartilhados.
+ *
+ * O código é gravado duas vezes, nunca em texto plano (CLAUDE.md, seção 11):
+ * `codigo_hash` (SHA-256) é o que autentica o convidado, e `codigo_cifrado`
+ * (AES-256-GCM) existe só para o painel reexibir o link/QR depois.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -43,14 +48,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const code = generateAccessCode()
-  const codeHash = hashAccessCode(code)
 
   const { data, error } = await client
     .from('credenciais_acesso_convite')
     .insert({
       casamento_id: weddingId,
       convite_id: input.conviteId,
-      codigo_hash: codeHash,
+      codigo_hash: hashAccessCode(code),
+      codigo_cifrado: encryptAccessCode(code),
     })
     .select()
     .single()

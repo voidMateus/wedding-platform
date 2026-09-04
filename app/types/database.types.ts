@@ -623,6 +623,7 @@ export type Database = {
       credenciais_acesso_convite: {
         Row: {
           casamento_id: string
+          codigo_cifrado: string | null
           codigo_hash: string
           convite_id: string
           created_at: string
@@ -632,6 +633,7 @@ export type Database = {
         }
         Insert: {
           casamento_id: string
+          codigo_cifrado?: string | null
           codigo_hash: string
           convite_id: string
           created_at?: string
@@ -641,6 +643,7 @@ export type Database = {
         }
         Update: {
           casamento_id?: string
+          codigo_cifrado?: string | null
           codigo_hash?: string
           convite_id?: string
           created_at?: string

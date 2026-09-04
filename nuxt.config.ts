@@ -81,6 +81,7 @@ export default defineNuxtConfig({
     googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
     googleDriveApiKey: process.env.GOOGLE_DRIVE_API_KEY,
     driveTokenEncryptionKey: process.env.DRIVE_TOKEN_ENCRYPTION_KEY,
+    accessCodeEncryptionKey: process.env.ACCESS_CODE_ENCRYPTION_KEY,
     cronSecret: process.env.CRON_SECRET,
     public: {
       // Públicos por design: consumidos client-side pelo Google Identity
@@ -110,6 +111,14 @@ export default defineNuxtConfig({
     families: [
       { name: 'Inter', provider: 'google' },
       { name: 'Playfair Display', provider: 'google' },
+      // Par do painel administrativo (--font-admin-display/--font-admin-sans
+      // em main.css) — fixo da plataforma, fora dos FONT_PAIRS por casamento.
+      // `weights` explícito: sem isso o módulo baixa só o peso 400 e o
+      // navegador sintetiza os pesos maiores (negrito falso, visivelmente
+      // borrado nos números grandes do dashboard). As famílias do site
+      // público continuam só com 400 — mesma limitação, conserto separado.
+      { name: 'Sora', provider: 'google', weights: [400, 500, 600, 700] },
+      { name: 'Manrope', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Cormorant Garamond', provider: 'google' },
       { name: 'Nunito Sans', provider: 'google' },
       { name: 'DM Serif Display', provider: 'google' },

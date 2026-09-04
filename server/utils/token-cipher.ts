@@ -1,51 +1,54 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import { decryptWithKey, encryptWithKey, parseEncryptionKey } from './aes-gcm'
 
 /**
- * Cifra reversível dos tokens OAuth do Google Drive em repouso (Fase Galeria
- * via Google Drive — CLAUDE.md). AES-256-GCM (confidencialidade + integridade
- * autenticada). A chave vem só do ambiente do servidor
- * (DRIVE_TOKEN_ENCRYPTION_KEY), nunca do banco.
+ * Resolve a chave de cifra a partir do ambiente do servidor e envolve o
+ * núcleo puro de AES-256-GCM (aes-gcm.ts). A chave nunca vem do banco, e é
+ * separada por finalidade: rotacionar ou comprometer uma não afeta a outra.
  *
- * Por que cifra e não hash como `codigo_hash` (guest-access-token.ts, SHA-256):
- * o código do convidado só precisa ser COMPARADO, então um hash de mão única
- * basta; um refresh token do Google precisa ser USADO (descifrado) para
- * renovar o acesso — logo exige cifra reversível. A propriedade de segurança
- * mantida é a mesma: nunca em texto plano em repouso (CLAUDE.md, seções 11/28).
+ * Por que cifra e não hash como `codigo_hash` (guest-access-token.ts,
+ * SHA-256): hash de mão única basta quando o segredo só precisa ser
+ * COMPARADO. Os dois usos aqui precisam do valor original de volta —
+ *
+ * - Token OAuth do Google Drive (DRIVE_TOKEN_ENCRYPTION_KEY): o refresh
+ *   token precisa ser USADO para renovar o acesso.
+ * - Código de acesso do convite (ACCESS_CODE_ENCRYPTION_KEY): o painel
+ *   precisa REEXIBIR o mesmo link/QR para o casal reenviar o convite sem
+ *   invalidar o que já foi compartilhado (docs/PRODUCT.md, seção 5.2).
+ *   Enquanto só o hash existia, "gerar novo link" era a única forma de ver
+ *   um código — e ela revoga o anterior, o que inutiliza um QR já impresso
+ *   e despachado.
+ *
+ * A propriedade de segurança mantida é a mesma nos dois casos: nunca em
+ * texto plano em repouso (CLAUDE.md, seção 11). E a cifra nunca autentica —
+ * a comparação no caminho do convidado é sempre pelo `codigo_hash`.
  */
 
-const ALGORITHM = 'aes-256-gcm'
-const IV_LENGTH = 12
-
-function getKey(): Buffer {
-  const raw = useRuntimeConfig().driveTokenEncryptionKey
-  if (!raw) {
-    throw new Error('DRIVE_TOKEN_ENCRYPTION_KEY não configurada.')
-  }
-  // Aceita hex (64 chars) ou base64 — os dois representam 32 bytes.
-  const key = raw.length === 64 ? Buffer.from(raw, 'hex') : Buffer.from(raw, 'base64')
-  if (key.length !== 32) {
-    throw new Error('DRIVE_TOKEN_ENCRYPTION_KEY deve ter 32 bytes (hex de 64 chars ou base64).')
-  }
-  return key
+function driveKey(): Buffer {
+  return parseEncryptionKey(
+    useRuntimeConfig().driveTokenEncryptionKey,
+    'DRIVE_TOKEN_ENCRYPTION_KEY',
+  )
 }
 
-/** Retorna `iv:tag:ciphertext`, cada parte em base64. */
+function accessCodeKey(): Buffer {
+  return parseEncryptionKey(
+    useRuntimeConfig().accessCodeEncryptionKey,
+    'ACCESS_CODE_ENCRYPTION_KEY',
+  )
+}
+
 export function encryptToken(plain: string): string {
-  const iv = randomBytes(IV_LENGTH)
-  const cipher = createCipheriv(ALGORITHM, getKey(), iv)
-  const ciphertext = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
-  const tag = cipher.getAuthTag()
-  return [iv.toString('base64'), tag.toString('base64'), ciphertext.toString('base64')].join(':')
+  return encryptWithKey(plain, driveKey())
 }
 
 export function decryptToken(payload: string): string {
-  const [ivB64, tagB64, dataB64] = payload.split(':')
-  if (!ivB64 || !tagB64 || !dataB64) {
-    throw new Error('Payload cifrado inválido.')
-  }
-  const decipher = createDecipheriv(ALGORITHM, getKey(), Buffer.from(ivB64, 'base64'))
-  decipher.setAuthTag(Buffer.from(tagB64, 'base64'))
-  return Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]).toString(
-    'utf8',
-  )
+  return decryptWithKey(payload, driveKey())
+}
+
+export function encryptAccessCode(code: string): string {
+  return encryptWithKey(code, accessCodeKey())
+}
+
+export function decryptAccessCode(payload: string): string {
+  return decryptWithKey(payload, accessCodeKey())
 }
