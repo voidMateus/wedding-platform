@@ -85,6 +85,7 @@ meusitecasamento/
 │   │   ├── guest-access-tokens/
 │   │   ├── invite-tags/
 │   │   ├── event-segments/            # exclusão física — ver docs/DATABASE.md seção 3.2
+│   │   ├── places/                    # proxy do provedor de lugares — a chave nunca sai do servidor
 │   │   ├── public/                    # sem autenticação e sem token — site público (CLAUDE.md seção 4.2)
 │   │   │   └── [slug]/                # wedding, event-segments, gifts, photos, rsvp-search
 │   │   ├── rsvp/
@@ -310,6 +311,7 @@ Supabase Auth configurado para e-mail/senha + magic link (seção 6.1 acima), co
 | Convites (unidade de RSVP) | `/api/invites`, `/api/invite-tags`, `/api/guest-access-tokens` | Admin (JWT) | Não |
 | Grupos (etiqueta livre) | `/api/groups` | Admin (JWT) | Não |
 | Cronograma | `/api/event-segments` | Admin (JWT) | Não |
+| Busca de lugares (localização do cronograma) | `/api/places/*` | Admin (JWT) | **Sim** — não por risco de vazamento (é caminho autenticado), mas porque cada chamada custa cota paga no provedor; chaveado pelo membro, não pelo IP |
 | Galeria (fotos) | `/api/photos/*` | Admin (JWT) | Não |
 | Site público (evento, cronograma, presentes, fotos, busca de RSVP) | `/api/public/[slug]/*` | Pública (sem auth, sem token — CLAUDE.md seção 4.2) | Busca de RSVP: **sim** |
 | RSVP — link/QR direto | `/api/rsvp/[code]` | Convidado (token) | **Sim** |

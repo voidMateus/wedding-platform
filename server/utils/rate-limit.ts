@@ -95,3 +95,31 @@ export async function checkRsvpSearchRateLimit(identifier: string): Promise<Rate
 export async function checkGiftsRateLimit(identifier: string): Promise<RateLimitResult> {
   return getGiftsRatelimit().limit(identifier)
 }
+
+// Busca de lugares (/api/places/**). Diferente dos grupos acima, este é um
+// endpoint do caminho administrativo — atrás de sessão autenticada, não
+// exposto a visitante. O limite existe por outro motivo: cada chamada custa
+// dinheiro no provedor externo (Places API), e o autocomplete dispara a cada
+// pausa de digitação. Uma sessão presa num loop de re-render, ou um membro
+// curioso segurando uma tecla, queimaria a cota mensal do projeto inteiro
+// sem nenhum sinal. Chaveado pelo membro autenticado, não pelo IP: o casal
+// dividindo a mesma rede não deve consumir a cota um do outro.
+const PLACES_LIMIT = 60
+const PLACES_WINDOW = '60 s' as const
+
+let placesRatelimit: Ratelimit | null = null
+
+function getPlacesRatelimit(): Ratelimit {
+  if (!placesRatelimit) {
+    placesRatelimit = new Ratelimit({
+      redis: getRedisClient(),
+      limiter: Ratelimit.slidingWindow(PLACES_LIMIT, PLACES_WINDOW),
+      prefix: 'ratelimit:places',
+    })
+  }
+  return placesRatelimit
+}
+
+export async function checkPlacesRateLimit(identifier: string): Promise<RateLimitResult> {
+  return getPlacesRatelimit().limit(identifier)
+}

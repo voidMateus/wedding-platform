@@ -17,6 +17,15 @@ function makeSegment(overrides: Partial<EventSegment> = {}): EventSegment {
     ordem_exibicao: 0,
     latitude_local: null,
     longitude_local: null,
+    origem_local: null,
+    place_id_local: null,
+    provedor_local: null,
+    url_mapa_local: null,
+    logradouro_local: null,
+    numero_local: null,
+    complemento_local: null,
+    cidade_local: null,
+    estado_local: null,
     mesmo_local_que: null,
     url_imagem: null,
     created_at: '2026-01-01T00:00:00Z',
@@ -32,8 +41,11 @@ function mountSpotlight(props: Record<string, unknown>) {
       components: { UiButton: Button },
       stubs: {
         ...ICON_STUBS,
-        PublicVenueMap: { template: '<div data-test="venue-map" />' },
-        NuxtLink: { template: '<a :href="to" :target="target"><slot /></a>', props: ['to', 'target'] },
+        UiVenueMap: { template: '<div data-test="venue-map" />' },
+        NuxtLink: {
+          template: '<a :href="to" :target="target"><slot /></a>',
+          props: ['to', 'target'],
+        },
         NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
       },
     },
@@ -58,7 +70,9 @@ describe('PublicEventSpotlight', () => {
   })
 
   it('renderiza a foto do local quando cadastrada', () => {
-    const wrapper = mountSpotlight({ segments: [makeSegment({ url_imagem: 'https://example.com/foto.jpg' })] })
+    const wrapper = mountSpotlight({
+      segments: [makeSegment({ url_imagem: 'https://example.com/foto.jpg' })],
+    })
     expect(wrapper.find('img').attributes('src')).toBe('https://example.com/foto.jpg')
   })
 
@@ -69,8 +83,17 @@ describe('PublicEventSpotlight', () => {
 
   describe('fusão quando Cerimônia e Recepção têm o mesmo endereço', () => {
     function makeMergedGroup() {
-      const ceremony = makeSegment({ id: 'a', titulo: 'Cerimônia', inicia_em: '2027-05-16T16:00:00Z' })
-      const reception = makeSegment({ id: 'b', titulo: 'Recepção', mesmo_local_que: 'a', inicia_em: '2027-05-16T18:00:00Z' })
+      const ceremony = makeSegment({
+        id: 'a',
+        titulo: 'Cerimônia',
+        inicia_em: '2027-05-16T16:00:00Z',
+      })
+      const reception = makeSegment({
+        id: 'b',
+        titulo: 'Recepção',
+        mesmo_local_que: 'a',
+        inicia_em: '2027-05-16T18:00:00Z',
+      })
       return [ceremony, reception]
     }
 
@@ -85,6 +108,40 @@ describe('PublicEventSpotlight', () => {
       const wrapper = mountSpotlight({ segments: makeMergedGroup() })
       expect(wrapper.find('#cerimonia').exists()).toBe(true)
       expect(wrapper.find('#recepcao').exists()).toBe(true)
+    })
+  })
+
+  describe('link "Abrir no Google Maps"', () => {
+    function mapsHref(segment: EventSegment): string | undefined {
+      return mountSpotlight({ segments: [segment] })
+        .find('a')
+        .attributes('href')
+    }
+
+    it('usa a URL oficial do provedor quando ela existe', () => {
+      const href = mapsHref(
+        makeSegment({ url_mapa_local: 'https://maps.google.com/?cid=123', place_id_local: 'p-1' }),
+      )
+      expect(href).toBe('https://maps.google.com/?cid=123')
+    })
+
+    it('ignora uma URL de host não confiável e cai no place_id', () => {
+      const href = mapsHref(
+        makeSegment({ url_mapa_local: 'https://phishing.example.com/x', place_id_local: 'p-1' }),
+      )
+      expect(href).toContain('query_place_id=p-1')
+      expect(href).not.toContain('phishing')
+    })
+
+    it('resolve pelo place_id em vez de refazer busca textual', () => {
+      const href = mapsHref(makeSegment({ place_id_local: 'ChIJabc' }))
+      expect(href).toContain('query_place_id=ChIJabc')
+    })
+
+    it('linha legada, só com endereço em texto, continua abrindo pela busca', () => {
+      const href = mapsHref(makeSegment())
+      expect(href).toContain('query=Igreja')
+      expect(href).not.toContain('query_place_id')
     })
   })
 })

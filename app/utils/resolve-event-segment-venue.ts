@@ -6,8 +6,16 @@ import type { EventSegment } from '~/types/event-segment'
  * outro segmento já presente na mesma lista buscada, retorna uma cópia com
  * os campos de local substituídos pelos do segmento referenciado — os
  * componentes de exibição (EventSpotlight.vue) continuam lendo
- * nome_local/endereco_local/latitude_local/longitude_local normalmente, sem
- * precisar conhecer o mecanismo de referência.
+ * nome_local/endereco_local/place_id_local/... normalmente, sem precisar
+ * conhecer o mecanismo de referência.
+ *
+ * A lista abaixo é manual e precisa ser exaustiva: coluna de local nova
+ * (migration que acrescente algo em `etapas_evento`) tem que entrar aqui
+ * também. Esquecer uma produz o pior bug desta área — o card mostra o
+ * endereço certo do segmento referenciado, mas "Ver no mapa" abre o place_id
+ * antigo do próprio segmento, e nada na tela denuncia a divergência. É o
+ * mesmo tipo de descarte silencioso que já aconteceu duas vezes na lista de
+ * campos de `wedding/theme.patch.ts` (CLAUDE.md, seção 13).
  */
 export function resolveEventSegmentVenue(
   segment: EventSegment,
@@ -24,5 +32,14 @@ export function resolveEventSegmentVenue(
     endereco_local: source.endereco_local,
     latitude_local: source.latitude_local,
     longitude_local: source.longitude_local,
+    origem_local: source.origem_local,
+    place_id_local: source.place_id_local,
+    provedor_local: source.provedor_local,
+    url_mapa_local: source.url_mapa_local,
+    logradouro_local: source.logradouro_local,
+    numero_local: source.numero_local,
+    complemento_local: source.complemento_local,
+    cidade_local: source.cidade_local,
+    estado_local: source.estado_local,
   }
 }

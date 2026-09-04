@@ -218,7 +218,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Convidados** | CRUD completo, importação CSV, filtros e busca |
 | **Grupos** | Organização de convidados em grupos, definição de limites de acompanhantes |
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente — tudo na própria página `/admin/presentes` |
-| **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios |
+| **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
 | **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
 | **Colaboradores** | Convidar/remover pessoas com acesso administrativo, definir permissões |
@@ -228,6 +228,25 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 - Apenas `owner` pode gerenciar colaboradores e excluir o evento. **Nota de implementação**: essa checagem ainda não é aplicada no servidor (só existiria na UI) — não é uma vulnerabilidade ativa hoje porque a funcionalidade de Colaboradores em si não foi construída ainda; precisa ser implementada junto quando essa feature nascer (achado de auditoria, 2026-08).
 - Toda ação sensível (exclusão de convidado, alteração de configurações do evento) é registrada em `trilha_auditoria`.
 - Exportação de dados (CSV de convidados, lista de presentes reservados) disponível a qualquer momento — o casal é o dono dos seus dados.
+
+### 7.4 Localização do Cronograma
+
+O local de cada etapa é uma **entidade selecionada**, não um texto digitado. O casal nunca vê, nem informa, latitude ou longitude — coordenada é dado interno da localização.
+
+**Caminho principal — escolher no Maps.** O casal digita o nome ou o endereço ("Buffet Leila Malouf", "Av. Miguel Sutil, 1234") e escolhe uma sugestão real do provedor de lugares. A sugestão tem duas linhas justamente para diferenciar homônimos: nome em cima, endereço/cidade embaixo. Escolhida a sugestão, o campo de busca some e dá lugar à confirmação: nome, endereço, um preview pequeno do mapa e duas ações — **Ver no mapa** e **Alterar local**.
+
+**O preview é pequeno e só informativo.** Ele existe para o casal reconhecer o ponto, não para explorar o mapa; nenhum mapa grande abre por padrão.
+
+**"Ver no mapa" nunca refaz busca textual** quando existe identificação do lugar. Busca por texto é exatamente o que produzia o ponto errado antes desta fase — dois buffets de nome parecido na mesma avenida resolvem para o primeiro que o Maps achar, não para o que o casal escolheu.
+
+**"Alterar local" não apaga nada até haver substituto.** Abrir a busca e desistir mantém o local anterior; a troca só acontece quando uma nova escolha é concluída.
+
+**Caminho alternativo — cadastro manual.** Nem todo local existe como Place: chácaras, sítios, salões pequenos, propriedades particulares, espaços novos, endereços rurais. "Nenhum resultado" **nunca** é tratado como erro bloqueante — junto da busca vazia aparece sempre "Não encontrou o local? Informar local manualmente". O cadastro manual pede endereço em partes (logradouro, número, complemento, cidade, UF) e, opcionalmente, **Definir localização no mapa**: um mapa em que o casal arrasta ou toca para posicionar o marcador e confirma. As coordenadas saem daí, sem nenhum campo numérico.
+
+**O Maps é o caminho principal, nunca uma dependência.** Sem provedor configurado, ou com o provedor fora do ar, o cadastro manual continua completo por si só e o painel abre direto nele.
+
+**Compatibilidade com o que já existe.** Etapas cadastradas antes desta fase têm só o endereço em texto. Elas continuam sendo exibidas normalmente e nenhuma é convertida automaticamente para um resultado do Maps — substituir o endereço de um casal por um palpite de geocodificação, sem ele confirmar, é o oposto do que esta mudança resolve.
+
 
 ---
 

@@ -31,7 +31,9 @@
 | Rate limiting | **Upstash Redis** | Store durável — nunca memória de processo (serverless multi-instância) |
 | Hospedagem | **Vercel** | Deploy integrado, cron (`vercel.json`) |
 | Pagamento online | **InfinitePay** (checkout hospedado) | Detalhes/limitações: `docs/PRODUCT.md` seção 6 |
-| Mapa | **Embed do Google Maps** (`<iframe>`, sem API key) | `VenueMap.vue` |
+| Mapa (exibição) | **Embed do Google Maps** (`<iframe>`, sem API key) | `components/ui/VenueMap.vue` — site público e preview do painel |
+| Busca de lugares | **Google Places API (New)**, atrás de interface | `server/utils/places-provider.ts` (contrato) + `places-google.ts` (implementação). Chave server-only; opcional — sem ela, só cadastro manual |
+| Mapa (posicionar marcador) | **Leaflet + tiles do OpenStreetMap** | Só no painel (`AdminLocationMapPicker`, `.client.vue`) — nunca no bundle do convidado |
 
 ## 3. Comandos
 
@@ -165,6 +167,7 @@ Violar qualquer um destes é bug de produto real, não só estilo — se uma tar
 - Efeito de negócio de pagamento (`reservas_presentes`/`contribuicoes_presentes`) só nasce dentro de `confirmar_pagamento_presente()`, nunca direto de uma requisição do convidado.
 - Não existe cancelamento self-service de presente (removido deliberadamente — sem token, não há como provar posse com segurança).
 - `is_child` nunca é campo manual — sempre `convidado_e_crianca(data_nascimento, casamento_id)`.
+- **Localização de etapa do cronograma é entidade selecionada, não texto.** Latitude/longitude são dado interno: vêm da escolha no provedor de lugares ou do marcador arrastado no mapa, **nunca** de um campo de formulário. `endereco_local` é sempre o endereço pronto para exibição (as partes do endereço manual servem só para reabrir o formulário). Com `place_id_local` gravado, "Ver no mapa" resolve pelo id — nunca refaz busca textual. "Nenhum resultado no Maps" nunca é erro bloqueante: o cadastro manual é um caminho completo, e o Maps não pode ser dependência que impeça cadastrar um local. Detalhes: `docs/PRODUCT.md` seção 7.4.
 
 Regras de negócio completas por sistema (Convidados, RSVP, Convites/Grupos, Presentes, Admin): **[`docs/PRODUCT.md`](docs/PRODUCT.md)**.
 
