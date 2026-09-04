@@ -82,7 +82,7 @@ Corte coordenado único (banco + API + tipos + schemas + testes + docs), validad
 
 ### Pendências reais de Passo 1 (fora do rename em si)
 - [ ] Gate de CI: falhar build se view nova/alterada não tiver `security_invoker = true`
-- [ ] Gate de CI: falhar build se `database.types.ts` estiver desatualizado em relação às migrations
+- [x] Gate de CI: falhar build se `database.types.ts` estiver desatualizado em relação às migrations — o gate gera os tipos a partir do banco montado pelas migrations (`--local`, não o projeto hospedado, que é o que o torna capaz de pegar drift entre os dois) e compara o **recorte de schema** dos dois arquivos via `scripts/schema-types-fingerprint.mjs`. Achado real ao implementar: comparar os arquivos inteiros é impossível, porque a mesma versão da CLI emite boilerplate diferente conforme a versão do PostgREST que detecta — o hospedado emite `__InternalSupabase`/`PostgrestVersion` e fecha as constraints de genérico em parênteses, o stack local não faz nem uma coisa nem outra. Nenhuma dessas diferenças carrega schema. CLI pinada em `2.110.0` para o formato de saída não mudar sozinho
 - [ ] Validar `build` de produção passando com o schema novo (lint/typecheck/test unitário já validados, ver Status geral)
 - [ ] Busca final por referências antigas remanescentes em todo o repositório (grep sistemático)
 - [x] Organizar as branches acumuladas em PRs stacked reais no GitHub (#79→#80→#81→#82)
