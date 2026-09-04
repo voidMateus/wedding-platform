@@ -37,3 +37,7 @@ admin-export/
 
 # Pacote de referencia de design exportado (material local, nao versionado)
 Design Enhancer.zip
+
+# Vercel CLI (link do projeto). O bloco "Environment" acima ja cobre os
+# .env -- a CLI acrescenta um `.env*` que anularia o `!.env.example`.
+.vercel
