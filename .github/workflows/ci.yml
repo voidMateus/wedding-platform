@@ -40,10 +40,41 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinada, não `latest`: o gate de tipos abaixo depende do formato de
+          # saída do gerador, e `latest` mudaria esse formato sem ninguém
+          # pedir, num PR que não encostou no banco. Subir a versão é uma
+          # decisão revisável, não um efeito colateral de um release da
+          # Supabase.
+          version: 2.110.0
 
       - name: Sobe Supabase local (Docker) e aplica migrations
         run: supabase start
+
+      - name: Gate — database.types.ts em dia com as migrations
+        # O arquivo é gerado pela CLI e nunca editado à mão (CLAUDE.md seção
+        # 8), mas nada impedia um PR de adicionar uma migration e esquecer de
+        # regenerá-lo: o TypeScript seguia compilando contra um schema que já
+        # não existe, e o erro só aparecia em runtime.
+        #
+        # A fonte de verdade aqui é o banco montado pelas próprias migrations
+        # (`--local`), não o projeto hospedado — é isso que torna o gate capaz
+        # de pegar drift entre os dois.
+        #
+        # A comparação é sobre o recorte de schema dos dois arquivos, não
+        # sobre os arquivos inteiros: a mesma CLI emite boilerplate diferente
+        # conforme a versão do PostgREST que detecta, e o hospedado difere do
+        # stack local. `scripts/schema-types-fingerprint.mjs` documenta o
+        # recorte e por que ele não perde nada de schema.
+        run: |
+          supabase gen types typescript --local > /tmp/database.types.generated.ts
+          node scripts/schema-types-fingerprint.mjs app/types/database.types.ts > /tmp/fingerprint.committed
+          node scripts/schema-types-fingerprint.mjs /tmp/database.types.generated.ts > /tmp/fingerprint.generated
+          if ! diff -u /tmp/fingerprint.committed /tmp/fingerprint.generated \
+               --label 'app/types/database.types.ts (commitado)' \
+               --label 'gerado a partir das migrations'; then
+            echo "::error::app/types/database.types.ts está desatualizado em relação às migrations. Rode 'npx supabase gen types typescript --linked > app/types/database.types.ts' contra um projeto com todas as migrations aplicadas e commite o resultado."
+            exit 1
+          fi
 
       - name: Resolve credenciais do Supabase local para o ambiente do job
         # `supabase status -o env` envolve cada valor em aspas duplas (formato
