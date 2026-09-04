@@ -46,15 +46,39 @@ describe('UiButton', () => {
     expect(wrapper.classes()).toContain('border-border/60')
   })
 
-  it('no contexto admin (ADMIN_UI_CONTEXT_KEY), suprime só o lift de hover — glow/uppercase continuam', () => {
+  // A regra anterior era "no admin a pílula continua, só o lift some". Ela caiu
+  // na Fase Admin Livro de Registro: pílula uppercase com glow vira ruído numa
+  // tela com dezenas de botões, então o admin passou a ser retangular por
+  // contexto — sem cada chamador precisar passar rounded="md".
+  it('no contexto admin (ADMIN_UI_CONTEXT_KEY), o formato default vira retangular — sem pílula, uppercase ou glow', () => {
     const wrapper = mount(Button, {
       slots: { default: 'Novo convidado' },
       global: { provide: { [ADMIN_UI_CONTEXT_KEY as symbol]: true } },
     })
+    expect(wrapper.classes()).toContain('rounded-md')
+    expect(wrapper.classes()).not.toContain('rounded-full')
+    expect(wrapper.classes()).not.toContain('uppercase')
+    expect(wrapper.classes()).not.toContain('shadow-glow-primary')
     expect(wrapper.classes()).not.toContain('hover:scale-[1.03]')
-    expect(wrapper.classes()).toContain('active:scale-95')
+  })
+
+  it('no contexto admin, rounded="full" explícito ainda entrega a pílula completa — mas sem o lift de hover', () => {
+    const wrapper = mount(Button, {
+      props: { rounded: 'full' as const },
+      slots: { default: 'Confirmar' },
+      global: { provide: { [ADMIN_UI_CONTEXT_KEY as symbol]: true } },
+    })
+    expect(wrapper.classes()).toContain('rounded-full')
     expect(wrapper.classes()).toContain('uppercase')
     expect(wrapper.classes()).toContain('shadow-glow-primary')
+    expect(wrapper.classes()).not.toContain('hover:scale-[1.03]')
+    expect(wrapper.classes()).toContain('active:scale-95')
+  })
+
+  it('fora do admin, o formato default continua sendo a pílula', () => {
+    const wrapper = mount(Button, { slots: { default: 'Confirmar presença' } })
+    expect(wrapper.classes()).toContain('rounded-full')
+    expect(wrapper.classes()).toContain('uppercase')
   })
 
   it('fica desabilitado quando a prop disabled é verdadeira', () => {

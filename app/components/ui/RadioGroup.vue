@@ -29,7 +29,9 @@ const groupName = useId()
       v-for="option in options"
       :key="option.value"
       class="flex items-start gap-2 rounded-md border border-border p-3 text-sm text-text transition-brand"
-      :class="disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-muted hover:border-primary/30'"
+      :class="
+        disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-muted hover:border-primary/30'
+      "
     >
       <input
         type="radio"
@@ -45,6 +47,6 @@ const groupName = useId()
         <span v-if="option.description" class="text-text-muted">{{ option.description }}</span>
       </span>
     </label>
-    <p v-if="error" class="text-sm text-red-600" role="alert">{{ error }}</p>
+    <p v-if="error" class="text-sm text-danger" role="alert">{{ error }}</p>
   </fieldset>
 </template>

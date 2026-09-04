@@ -3,8 +3,14 @@ import { useNow } from '@vueuse/core'
 
 interface Props {
   targetDateTime: string
-  /** 'cards' (default, usado no dashboard admin) = caixas com borda/sombra; 'inline' = números soltos com separador, sensação de convite (Hero público). */
-  variant?: 'cards' | 'inline'
+  /**
+   * 'cards' (default) = caixas com borda/sombra; 'inline' = números soltos
+   * com separador, sensação de convite (Hero público); 'hero' = só os dias,
+   * em número gigante, para o único bloco de peso visual do dashboard admin
+   * (direção "livro de registro") — o rótulo e a data ficam por conta de
+   * quem compõe a tela, aqui é só a contagem.
+   */
+  variant?: 'cards' | 'inline' | 'hero'
 }
 
 const { targetDateTime, variant = 'cards' } = defineProps<Props>()
@@ -34,6 +40,13 @@ const units = computed(() => [
       <p class="text-text-muted">O grande dia chegou!</p>
     </slot>
   </div>
+  <div v-else-if="variant === 'hero'" class="flex items-end gap-2">
+    <span class="num text-7xl font-semibold leading-none tracking-tight text-text">{{ days }}</span>
+    <span class="mb-1.5 font-display text-xl font-medium text-text-muted">
+      {{ days === 1 ? 'dia' : 'dias' }}
+    </span>
+  </div>
+
   <div
     v-else-if="variant === 'inline'"
     v-motion
@@ -42,12 +55,19 @@ const units = computed(() => [
     class="flex items-stretch gap-4 sm:gap-8"
   >
     <template v-for="(unit, index) in units" :key="unit.label">
-      <span v-if="index > 0" data-test="countdown-separator" class="w-px self-stretch bg-secondary/30" aria-hidden="true" />
+      <span
+        v-if="index > 0"
+        data-test="countdown-separator"
+        class="w-px self-stretch bg-secondary/30"
+        aria-hidden="true"
+      />
       <div class="flex flex-col items-center gap-1">
         <span class="font-display text-4xl font-semibold text-heading tabular-nums sm:text-5xl">
           {{ String(unit.value).padStart(2, '0') }}
         </span>
-        <span class="text-[10px] uppercase tracking-[0.25em] text-text-muted">{{ unit.label }}</span>
+        <span class="text-[10px] uppercase tracking-[0.25em] text-text-muted">{{
+          unit.label
+        }}</span>
       </div>
     </template>
   </div>

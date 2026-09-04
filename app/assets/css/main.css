@@ -45,6 +45,22 @@
   --color-text: #2b2622;
   --color-text-muted: #6b6259;
 
+  /* Cores de estado — perigo, sucesso e aviso. FIXAS da plataforma, nunca
+     por casamento (decisão do usuário em 2026-09-03, ao padronizar as cores
+     do admin): "Excluir" não pode parecer a CTA principal, e um casal com
+     primary avermelhado faria exatamente isso. A paleta editável continua
+     sendo primary/secondary — identidade e acento; estado é convenção.
+     Valores escolhidos no mesmo registro de peso do --color-primary
+     (~6.2-6.8:1 contra --color-surface, todos acima do mínimo AA de 4.5:1 —
+     ver tests/unit/shared/utils/state-colors.spec.ts) e sem saturação de
+     neon, para conviverem com o off-white sem gritar.
+     Tons suaves (fundo de badge, borda de toast) saem por opacidade do
+     próprio token (bg-danger/10, border-danger/20) — nunca uma cor a mais. */
+  --color-danger: #b42318;
+  --color-danger-foreground: #ffffff;
+  --color-success: #166534;
+  --color-warning: #92400e;
+
   /* --color-heading/--color-body (modo de cor avançada, Fase Editorial —
      CLAUDE.md, seção 22.3): sobrescrita opcional de título/corpo de texto
      por casamento, além da paleta primária/secundária. Default = herda
@@ -56,10 +72,23 @@
   /* Serifada no site público (identidade emocional), sans-serif densa
      no admin (legibilidade de dados) — CLAUDE.md, seção 22.1. O par
      tipográfico do site público varia por preset de tema (Fase Visual,
-     PR de presets); --font-sans permanece fixo em todo o site,
-     inclusive no admin, mesmo quando o casal troca de preset. */
+     PR de presets).
+     Estes dois são o par do SITE PÚBLICO. O admin tem par próprio
+     (--font-admin-*, abaixo), aplicado via .admin-ui no fim deste
+     arquivo. A regra de §22.1 que importa continua valendo: a fonte do
+     admin é FIXA da plataforma e nunca varia por casamento — só deixou
+     de ser a mesma do site público. */
   --font-display: 'Playfair Display', Georgia, serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Par tipográfico do painel administrativo (Fase Admin Livro de
+     Registro): Sora nos títulos/números e Manrope no corpo. A serifada do
+     site público carrega emoção, que é o oposto do que uma tela de dados
+     precisa — em tabela densa e número grande ela vira ruído. Geométrica
+     + humanista dão a densidade e a leitura de tabela que o admin pede.
+     Nunca customizável por casamento. */
+  --font-admin-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  --font-admin-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   /* Fonte de botões/CTAs — opcional por par tipográfico (ver FontPair.
      buttonFontFamily); sem sobrescrita, herda --font-sans (mesmo raciocínio
      de --color-heading/--color-body caindo em --color-text por default). */
@@ -105,6 +134,43 @@
   .shadow-glow-primary {
     box-shadow: 0 10px 28px -8px color-mix(in srgb, var(--color-primary) 55%, transparent);
   }
+
+  /* Direção "livro de registro" do admin (Fase Admin Livro de Registro):
+     linha de tabela densa que reage ao hover deslocando 2px à direita, como
+     um dedo correndo a linha de um livro-caixa, em vez de mudar de cor
+     agressivamente. O fundo é derivado de --color-text (não uma cor nova),
+     então acompanha o tema do casal sem introduzir token. */
+  .ledger-row {
+    transition-property: background-color, transform;
+    transition-duration: var(--transition-duration);
+    transition-timing-function: var(--transition-easing);
+  }
+
+  .ledger-row:hover {
+    background-color: color-mix(in srgb, var(--color-text) 3.5%, transparent);
+    transform: translateX(2px);
+  }
+
+  /* Números de métrica/tabela: fonte de display + algarismos de largura fixa,
+     pra coluna de números não "dançar" entre linhas. Só tipografia — nenhuma
+     fonte nova, usa a --font-display que já existe. */
+  .num {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Elevação sutil de painel/CTA interativo — mesmo degrau médio da escala
+     (shadow-md) já usado por UiCard variant="interactive". */
+  .rise {
+    transition-property: transform, box-shadow;
+    transition-duration: var(--transition-duration);
+    transition-timing-function: var(--transition-easing);
+  }
+
+  .rise:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 /* O drawer mobile (NavBar.vue/admin.vue) fica fora da tela via
@@ -123,5 +189,19 @@ body {
 body {
   background-color: var(--color-surface);
   color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* Escopo tipográfico do admin. Reaponta as MESMAS variáveis que as utilities
+   do Tailwind já consomem (font-display, font-sans, .num, --font-button), em
+   vez de criar utilities paralelas — assim qualquer componente compartilhado
+   entre público e admin troca de fonte pelo contexto, sem prop nem variante.
+   `font-family` também é redeclarado porque `body` já resolveu o valor de
+   --font-sans: os filhos herdam a fonte computada, não a variável.
+   Regra fora de @layer de propósito: precisa vencer o :root do @theme. */
+.admin-ui {
+  --font-display: var(--font-admin-display);
+  --font-sans: var(--font-admin-sans);
+  --font-button: var(--font-admin-sans);
   font-family: var(--font-sans);
 }
