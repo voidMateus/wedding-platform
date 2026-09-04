@@ -4,6 +4,7 @@ import { useForm } from 'vee-validate'
 import { eventSegmentInputSchema } from '#shared/schemas/event-segments'
 import { classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
 import type { EventSegment } from '~/types/event-segment'
+import type { EventSegmentLocation } from '~/types/event-segment-location'
 
 definePageMeta({ layout: 'admin' })
 
@@ -23,31 +24,25 @@ const reception = computed(
   () => data.value?.data.find((s) => classifyEventSegmentTitle(s.titulo) === 'reception') ?? null,
 )
 
+// A localização não é mais um punhado de campos de texto no formulário: vive
+// como um objeto próprio, editado por AdminLocationField (CLAUDE.md, seção
+// 12). O que sobra em vee-validate são só os campos que o casal realmente
+// digita — título e horários.
 function emptyValues(title: string, displayOrder: number) {
   return {
     titulo: title,
-    nomeLocal: '',
-    enderecoLocal: '',
     iniciaEm: '',
     terminaEm: '',
     ordemExibicao: displayOrder,
-    latitudeLocal: '',
-    longitudeLocal: '',
-    mesmoLocalQue: '',
   }
 }
 
 function valuesFromSegment(segment: EventSegment) {
   return {
     titulo: segment.titulo,
-    nomeLocal: segment.nome_local ?? '',
-    enderecoLocal: segment.endereco_local ?? '',
     iniciaEm: segment.inicia_em ?? '',
     terminaEm: segment.termina_em ?? '',
     ordemExibicao: segment.ordem_exibicao,
-    latitudeLocal: segment.latitude_local ?? '',
-    longitudeLocal: segment.longitude_local ?? '',
-    mesmoLocalQue: segment.mesmo_local_que ?? '',
   }
 }
 
@@ -56,40 +51,18 @@ const ceremonyForm = useForm({
   validationSchema: toTypedSchema(eventSegmentInputSchema),
   initialValues: emptyValues('Cerimônia', 1),
 })
-const [ceremonyVenueName] = ceremonyForm.defineField('nomeLocal')
-const [ceremonyVenueAddress] = ceremonyForm.defineField('enderecoLocal')
 const [ceremonyStartsAt] = ceremonyForm.defineField('iniciaEm')
 const [ceremonyEndsAt] = ceremonyForm.defineField('terminaEm')
-const [ceremonyLat] = ceremonyForm.defineField('latitudeLocal')
-const [ceremonyLng] = ceremonyForm.defineField('longitudeLocal')
-const ceremonyLatText = computed({
-  get: () => (ceremonyLat.value === undefined ? '' : String(ceremonyLat.value)),
-  set: (v: string) => (ceremonyLat.value = v),
-})
-const ceremonyLngText = computed({
-  get: () => (ceremonyLng.value === undefined ? '' : String(ceremonyLng.value)),
-  set: (v: string) => (ceremonyLng.value = v),
-})
+const ceremonyLocation = ref<EventSegmentLocation>(emptyEventSegmentLocation())
 
 // --- Recepção/Festa ---
 const receptionForm = useForm({
   validationSchema: toTypedSchema(eventSegmentInputSchema),
   initialValues: emptyValues('Recepção', 2),
 })
-const [receptionVenueName] = receptionForm.defineField('nomeLocal')
-const [receptionVenueAddress] = receptionForm.defineField('enderecoLocal')
 const [receptionStartsAt] = receptionForm.defineField('iniciaEm')
 const [receptionEndsAt] = receptionForm.defineField('terminaEm')
-const [receptionLat] = receptionForm.defineField('latitudeLocal')
-const [receptionLng] = receptionForm.defineField('longitudeLocal')
-const receptionLatText = computed({
-  get: () => (receptionLat.value === undefined ? '' : String(receptionLat.value)),
-  set: (v: string) => (receptionLat.value = v),
-})
-const receptionLngText = computed({
-  get: () => (receptionLng.value === undefined ? '' : String(receptionLng.value)),
-  set: (v: string) => (receptionLng.value = v),
-})
+const receptionLocation = ref<EventSegmentLocation>(emptyEventSegmentLocation())
 
 const sameAddress = ref(false)
 
@@ -103,6 +76,12 @@ watch(
     receptionForm.resetForm({
       values: reception.value ? valuesFromSegment(reception.value) : emptyValues('Recepção', 2),
     })
+    ceremonyLocation.value = ceremony.value
+      ? eventSegmentLocationFromSegment(ceremony.value)
+      : emptyEventSegmentLocation()
+    receptionLocation.value = reception.value
+      ? eventSegmentLocationFromSegment(reception.value)
+      : emptyEventSegmentLocation()
     sameAddress.value = Boolean(reception.value?.mesmo_local_que)
   },
   { immediate: true },
@@ -121,7 +100,9 @@ async function saveAll() {
   try {
     await saveCronograma({
       ceremonyValues: ceremonyForm.values,
+      ceremonyLocation: ceremonyLocation.value,
       receptionValues: receptionForm.values,
+      receptionLocation: receptionLocation.value,
       sameAddress: sameAddress.value,
       ceremony: ceremony.value,
       reception: reception.value,
@@ -160,16 +141,7 @@ async function saveAll() {
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <AdminPanel title="Cerimônia">
             <div class="flex flex-col gap-4 p-4 sm:p-5">
-              <UiInput
-                v-model="ceremonyVenueName"
-                label="Local"
-                placeholder="Ex.: Igreja São José"
-              />
-              <UiInput
-                v-model="ceremonyVenueAddress"
-                label="Endereço"
-                placeholder="Ex.: Rua das Flores, 100"
-              />
+              <AdminLocationField v-model="ceremonyLocation" label="Local da cerimônia" />
               <div class="flex gap-3">
                 <UiInput
                   v-model="ceremonyStartsAt"
@@ -184,26 +156,6 @@ async function saveAll() {
                   class="flex-1"
                 />
               </div>
-              <UiAccordion :items="[{ id: 'ceremony-coords', trigger: 'Coordenadas (opcional)' }]">
-                <template #content>
-                  <div class="flex gap-3 px-5 pb-5">
-                    <UiInput
-                      v-model="ceremonyLatText"
-                      type="number"
-                      step="any"
-                      label="Latitude"
-                      class="flex-1"
-                    />
-                    <UiInput
-                      v-model="ceremonyLngText"
-                      type="number"
-                      step="any"
-                      label="Longitude"
-                      class="flex-1"
-                    />
-                  </div>
-                </template>
-              </UiAccordion>
               <AdminEventSegmentImageUploader
                 v-if="ceremony"
                 :model-value="ceremony.url_imagem"
@@ -220,40 +172,11 @@ async function saveAll() {
             <div class="flex flex-col gap-4 p-4 sm:p-5">
               <UiCheckbox v-model="sameAddress" label="Mesmo endereço da cerimônia" />
 
-              <template v-if="!sameAddress">
-                <UiInput
-                  v-model="receptionVenueName"
-                  label="Local"
-                  placeholder="Ex.: Espaço Jardim"
-                />
-                <UiInput
-                  v-model="receptionVenueAddress"
-                  label="Endereço"
-                  placeholder="Ex.: Av. Central, 500"
-                />
-                <UiAccordion
-                  :items="[{ id: 'reception-coords', trigger: 'Coordenadas (opcional)' }]"
-                >
-                  <template #content>
-                    <div class="flex gap-3 px-5 pb-5">
-                      <UiInput
-                        v-model="receptionLatText"
-                        type="number"
-                        step="any"
-                        label="Latitude"
-                        class="flex-1"
-                      />
-                      <UiInput
-                        v-model="receptionLngText"
-                        type="number"
-                        step="any"
-                        label="Longitude"
-                        class="flex-1"
-                      />
-                    </div>
-                  </template>
-                </UiAccordion>
-              </template>
+              <AdminLocationField
+                v-if="!sameAddress"
+                v-model="receptionLocation"
+                label="Local da recepção"
+              />
 
               <div class="flex gap-3">
                 <UiInput

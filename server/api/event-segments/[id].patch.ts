@@ -20,10 +20,7 @@ export default defineEventHandler(async (event) => {
     .from('etapas_evento')
     .update({
       titulo: input.titulo,
-      nome_local: sameVenueAs ? null : input.nomeLocal || null,
-      endereco_local: sameVenueAs ? null : input.enderecoLocal || null,
-      latitude_local: sameVenueAs ? null : (input.latitudeLocal ?? null),
-      longitude_local: sameVenueAs ? null : (input.longitudeLocal ?? null),
+      ...buildVenueColumns(input, sameVenueAs),
       mesmo_local_que: sameVenueAs,
       inicia_em: input.iniciaEm || null,
       termina_em: input.terminaEm || null,

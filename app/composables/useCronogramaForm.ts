@@ -1,12 +1,15 @@
 import type { z } from 'zod'
 import { eventSegmentInputSchema } from '#shared/schemas/event-segments'
 import type { EventSegment } from '~/types/event-segment'
+import type { EventSegmentLocation } from '~/types/event-segment-location'
 
 type EventSegmentFormValues = Partial<z.input<typeof eventSegmentInputSchema>>
 
 interface SaveCronogramaInput {
   ceremonyValues: EventSegmentFormValues
+  ceremonyLocation: EventSegmentLocation
   receptionValues: EventSegmentFormValues
+  receptionLocation: EventSegmentLocation
   /** Recepção reaproveita o local da cerimônia — nunca duplica o cadastro (CLAUDE.md, seção 12.2). */
   sameAddress: boolean
   ceremony: EventSegment | null
@@ -24,12 +27,13 @@ export function useCronogramaForm() {
   async function saveCronograma(
     input: SaveCronogramaInput,
   ): Promise<{ ceremony: EventSegment; reception: EventSegment }> {
-    // Cerimônia sempre salva com endereço próprio. eventSegmentInputSchema
-    // faz a mesma validação/coerção que o server aplicaria (string → number
-    // nas coordenadas) — os campos de vee-validate ficam como string até
-    // aqui.
+    // Cerimônia sempre salva com local próprio. eventSegmentInputSchema faz a
+    // mesma validação/coerção que o server aplicaria (string → number nas
+    // coordenadas, coerência entre origem e place_id) — os campos do
+    // formulário chegam aqui todos como string.
     const ceremonyValues = eventSegmentInputSchema.parse({
       ...input.ceremonyValues,
+      ...input.ceremonyLocation,
       titulo: 'Cerimônia',
       ordemExibicao: 1,
       mesmoLocalQue: '',
@@ -38,15 +42,15 @@ export function useCronogramaForm() {
       ? await updateEventSegment(input.ceremony.id, ceremonyValues)
       : await createEventSegment(ceremonyValues)
 
+    // Com "mesmo endereço" marcado, a recepção não guarda local nenhum: uma
+    // localização parcial sobrevivente (um place_id antigo, por exemplo) seria
+    // uma segunda fonte de verdade competindo com a da cerimônia.
     const receptionValues = eventSegmentInputSchema.parse({
       ...input.receptionValues,
+      ...(input.sameAddress ? emptyEventSegmentLocation() : input.receptionLocation),
       titulo: 'Recepção',
       ordemExibicao: 2,
       mesmoLocalQue: input.sameAddress ? ceremonyResult.id : '',
-      nomeLocal: input.sameAddress ? '' : input.receptionValues.nomeLocal,
-      enderecoLocal: input.sameAddress ? '' : input.receptionValues.enderecoLocal,
-      latitudeLocal: input.sameAddress ? '' : input.receptionValues.latitudeLocal,
-      longitudeLocal: input.sameAddress ? '' : input.receptionValues.longitudeLocal,
     })
     const receptionResult = input.reception
       ? await updateEventSegment(input.reception.id, receptionValues)

@@ -19,10 +19,7 @@ export default defineEventHandler(async (event) => {
       titulo: input.titulo,
       // Com mesmo_local_que definido, este registro nunca guarda seu próprio
       // local — evita duas fontes de verdade divergentes (CLAUDE.md, 12.2).
-      nome_local: sameVenueAs ? null : input.nomeLocal || null,
-      endereco_local: sameVenueAs ? null : input.enderecoLocal || null,
-      latitude_local: sameVenueAs ? null : (input.latitudeLocal ?? null),
-      longitude_local: sameVenueAs ? null : (input.longitudeLocal ?? null),
+      ...buildVenueColumns(input, sameVenueAs),
       mesmo_local_que: sameVenueAs,
       inicia_em: input.iniciaEm || null,
       termina_em: input.terminaEm || null,

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { anchorForEventSegmentTitle, classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
+import {
+  anchorForEventSegmentTitle,
+  classifyEventSegmentTitle,
+} from '#shared/utils/event-segment-keywords'
+import { montarConsultaEmbedMapa, montarUrlMapa } from '#shared/utils/mapa-local'
 import type { EventSegment } from '~/types/event-segment'
 
 interface Props {
@@ -42,25 +46,26 @@ const anchorIds = computed(() => {
   return [...seen]
 })
 
-const locationQuery = computed(() => {
-  const segment = primary.value
-  if (segment.latitude_local !== null && segment.longitude_local !== null) {
-    return `${segment.latitude_local},${segment.longitude_local}`
-  }
-  const address = [segment.nome_local, segment.endereco_local].filter(Boolean).join(', ')
-  return address || null
-})
+// Embed e link externo divergem de propósito: o iframe keyless só entende
+// coordenadas ou texto, enquanto "Abrir no Google Maps" prefere o place_id —
+// abrir o lugar exato que o casal escolheu, sem refazer busca por endereço
+// (CLAUDE.md, seção 12). Ambas as regras vivem em shared/utils/mapa-local.ts.
+const locationQuery = computed(() => montarConsultaEmbedMapa(primary.value))
 
-const externalMapsUrl = computed(() =>
-  locationQuery.value
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationQuery.value)}`
-    : null,
-)
+const externalMapsUrl = computed(() => montarUrlMapa(primary.value))
 </script>
 
 <template>
-  <div class="flex w-full flex-col overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl">
-    <span v-for="anchorId in anchorIds" :id="anchorId" :key="anchorId" aria-hidden="true" class="sr-only" />
+  <div
+    class="flex w-full flex-col overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl"
+  >
+    <span
+      v-for="anchorId in anchorIds"
+      :id="anchorId"
+      :key="anchorId"
+      aria-hidden="true"
+      class="sr-only"
+    />
 
     <NuxtImg
       v-if="primary.url_imagem"
@@ -78,7 +83,9 @@ const externalMapsUrl = computed(() =>
         >
           {{ badgeLabelFor(segment) }}
         </span>
-        <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">{{ timeRangeFor(segment) }}</p>
+        <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">
+          {{ timeRangeFor(segment) }}
+        </p>
       </div>
 
       <div v-if="primary.nome_local || primary.endereco_local" class="flex flex-col gap-1">
@@ -91,7 +98,11 @@ const externalMapsUrl = computed(() =>
         </p>
       </div>
 
-      <PublicVenueMap v-if="locationQuery" :query="locationQuery" :label="primary.nome_local || sectionTitle" />
+      <UiVenueMap
+        v-if="locationQuery"
+        :query="locationQuery"
+        :label="primary.nome_local || sectionTitle"
+      />
 
       <UiButton
         v-if="externalMapsUrl"

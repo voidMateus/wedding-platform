@@ -671,51 +671,78 @@ export type Database = {
       etapas_evento: {
         Row: {
           casamento_id: string
+          cidade_local: string | null
+          complemento_local: string | null
           created_at: string
           endereco_local: string | null
+          estado_local: string | null
           id: string
           inicia_em: string | null
           latitude_local: number | null
+          logradouro_local: string | null
           longitude_local: number | null
           mesmo_local_que: string | null
           nome_local: string | null
+          numero_local: string | null
           ordem_exibicao: number
+          origem_local: string | null
+          place_id_local: string | null
+          provedor_local: string | null
           termina_em: string | null
           titulo: string
           updated_at: string
           url_imagem: string | null
+          url_mapa_local: string | null
         }
         Insert: {
           casamento_id: string
+          cidade_local?: string | null
+          complemento_local?: string | null
           created_at?: string
           endereco_local?: string | null
+          estado_local?: string | null
           id?: string
           inicia_em?: string | null
           latitude_local?: number | null
+          logradouro_local?: string | null
           longitude_local?: number | null
           mesmo_local_que?: string | null
           nome_local?: string | null
+          numero_local?: string | null
           ordem_exibicao?: number
+          origem_local?: string | null
+          place_id_local?: string | null
+          provedor_local?: string | null
           termina_em?: string | null
           titulo: string
           updated_at?: string
           url_imagem?: string | null
+          url_mapa_local?: string | null
         }
         Update: {
           casamento_id?: string
+          cidade_local?: string | null
+          complemento_local?: string | null
           created_at?: string
           endereco_local?: string | null
+          estado_local?: string | null
           id?: string
           inicia_em?: string | null
           latitude_local?: number | null
+          logradouro_local?: string | null
           longitude_local?: number | null
           mesmo_local_que?: string | null
           nome_local?: string | null
+          numero_local?: string | null
           ordem_exibicao?: number
+          origem_local?: string | null
+          place_id_local?: string | null
+          provedor_local?: string | null
           termina_em?: string | null
           titulo?: string
           updated_at?: string
           url_imagem?: string | null
+          url_mapa_local?: string | null
         }
         Relationships: [
           {

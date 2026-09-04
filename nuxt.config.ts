@@ -83,11 +83,23 @@ export default defineNuxtConfig({
     driveTokenEncryptionKey: process.env.DRIVE_TOKEN_ENCRYPTION_KEY,
     accessCodeEncryptionKey: process.env.ACCESS_CODE_ENCRYPTION_KEY,
     cronSecret: process.env.CRON_SECRET,
+    // Places API (New) — autocomplete de locais do cronograma, via
+    // server/utils/places-google.ts. Server-only e sem equivalente público:
+    // ao contrário do Picker, o client nunca fala com o Google aqui, sempre
+    // com /api/places/** (CLAUDE.md, seção 11). Ausente, o autocomplete
+    // desliga e sobra o cadastro manual, que é completo por si só.
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     public: {
       // Públicos por design: consumidos client-side pelo Google Identity
       // Services e pelo Google Picker no admin (restringir no Google Console).
       googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
       googlePickerApiKey: process.env.GOOGLE_PICKER_API_KEY,
+      // Só o fato de a busca de locais estar configurada, nunca a chave em si
+      // — sem esta flag o campo de busca apareceria no painel e falharia com
+      // 503 na primeira tecla, em vez de o formulário já abrir no cadastro
+      // manual. Avaliado no build: adicionar GOOGLE_MAPS_API_KEY depois exige
+      // um novo deploy para o painel enxergar a busca.
+      placesSearchEnabled: Boolean(process.env.GOOGLE_MAPS_API_KEY),
     },
   },
 
