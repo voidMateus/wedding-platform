@@ -158,11 +158,8 @@ async function saveAll() {
 
       <template v-else>
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <UiCard>
-            <template #header>
-              <h2 class="text-base font-semibold text-text">Cerimônia</h2>
-            </template>
-            <div class="flex flex-col gap-4">
+          <AdminPanel title="Cerimônia">
+            <div class="flex flex-col gap-4 p-4 sm:p-5">
               <UiInput
                 v-model="ceremonyVenueName"
                 label="Local"
@@ -217,13 +214,10 @@ async function saveAll() {
                 Salve o cronograma pela primeira vez para poder adicionar uma foto do local.
               </p>
             </div>
-          </UiCard>
+          </AdminPanel>
 
-          <UiCard>
-            <template #header>
-              <h2 class="text-base font-semibold text-text">Recepção / Festa</h2>
-            </template>
-            <div class="flex flex-col gap-4">
+          <AdminPanel title="Recepção / Festa">
+            <div class="flex flex-col gap-4 p-4 sm:p-5">
               <UiCheckbox v-model="sameAddress" label="Mesmo endereço da cerimônia" />
 
               <template v-if="!sameAddress">
@@ -285,11 +279,11 @@ async function saveAll() {
                 Salve o cronograma pela primeira vez para poder adicionar uma foto do local.
               </p>
             </div>
-          </UiCard>
+          </AdminPanel>
         </div>
 
-        <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
-        <p v-if="successMessage" class="text-sm text-green-700" role="status">
+        <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
+        <p v-if="successMessage" class="text-sm text-success" role="status">
           {{ successMessage }}
         </p>
 

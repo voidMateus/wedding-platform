@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onKeyStroke } from '@vueuse/core'
+
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
 // preserva --font-sans fixo — nunca troca de fonte por casamento, mesmo que
 // o casal tenha escolhido um fontPairId diferente (CLAUDE.md, seção 21).
@@ -6,6 +8,7 @@ provide(ADMIN_UI_CONTEXT_KEY, true)
 
 const { signOut } = useAuth()
 const uiStore = useUiStore()
+const authStore = useAuthStore()
 const { getWedding } = useWedding()
 const { data: wedding } = await getWedding()
 
@@ -62,23 +65,128 @@ function isActive(to: string): boolean {
   return route.path.startsWith(to)
 }
 
-const MOBILE_BREAKPOINT_PX = 640
+// `lg` (1024px) é o ponto onde a sidebar deixa de ser drawer e passa a
+// ocupar a coluna fixa — o corte visual é feito em CSS (lg:static), este
+// valor só existe para o comportamento em JS (fechar no mount/navegação
+// e prender o foco enquanto é drawer).
+const MOBILE_BREAKPOINT_PX = 1024
+
+const isDrawerMode = ref(false)
+const isDrawerOpen = computed(() => isDrawerMode.value && uiStore.sidebarOpen)
+
+const sidebarEl = ref<HTMLElement | null>(null)
+const menuButtonEl = ref<HTMLButtonElement | null>(null)
+
+function syncDrawerMode(): void {
+  isDrawerMode.value = window.innerWidth < MOBILE_BREAKPOINT_PX
+}
 
 function handleNavClick(): void {
-  if (window.innerWidth < MOBILE_BREAKPOINT_PX) {
+  if (isDrawerMode.value) {
     uiStore.sidebarOpen = false
   }
 }
 
-onMounted(() => {
-  if (window.innerWidth < MOBILE_BREAKPOINT_PX) {
+// Identidade do casamento no topo da sidebar. Meia-noite local explícita
+// (mesmo padrão do Hero público): `new Date('2026-09-14')` seria
+// interpretado como UTC e voltaria um dia em fuso negativo.
+const weddingDateLabel = computed(() => {
+  if (!wedding.value) return ''
+  return new Date(`${wedding.value.data_evento}T00:00:00`).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+})
+
+// Bloco de quem está logado, no header. Só o que a sessão já expõe (e-mail e
+// papel) — nenhuma consulta nova. Não existe nome de exibição no modelo hoje
+// (membros_casamento não tem coluna de nome), então o rótulo é a parte do
+// e-mail antes do @ e o endereço completo fica no title/leitor de tela: um
+// e-mail inteiro estouraria a faixa de 64px do header.
+const operatorEmail = computed(() => authStore.user?.email ?? '')
+const operatorLocalPart = computed(() => operatorEmail.value.split('@')[0] ?? '')
+const operatorName = computed(() => operatorLocalPart.value || 'Conta')
+const operatorInitials = computed(() => {
+  const initials = operatorLocalPart.value
+    .split(/[._-]+/)
+    .map((part) => part.charAt(0).toUpperCase())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+  return initials || '·'
+})
+const operatorRoleLabel = computed(() =>
+  authStore.weddingContext?.role === 'dono' ? 'Dono' : 'Colaborador',
+)
+
+// Data de hoje no header. Resolvida no mount, não em setup(): o SSR roda no
+// fuso do servidor e um valor diferente do client dispararia mismatch de
+// hidratação.
+const todayLabel = ref('')
+
+// Foco preso no drawer enquanto ele está aberto — sem isso, o Tab continua
+// percorrendo o conteúdo por baixo do overlay.
+function focusableInSidebar(): HTMLElement[] {
+  if (!sidebarEl.value) return []
+  return Array.from(
+    sidebarEl.value.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
+  ).filter((element) => element.offsetParent !== null)
+}
+
+function handleSidebarKeydown(event: KeyboardEvent): void {
+  if (!isDrawerOpen.value || event.key !== 'Tab') return
+  const focusable = focusableInSidebar()
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (!first || !last) return
+
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+onKeyStroke('Escape', () => {
+  if (isDrawerOpen.value) {
     uiStore.sidebarOpen = false
   }
+})
+
+watch(isDrawerOpen, async (open) => {
+  if (open) {
+    await nextTick()
+    focusableInSidebar()[0]?.focus()
+  } else {
+    menuButtonEl.value?.focus()
+  }
+})
+
+onMounted(() => {
+  // As duas atribuições no mesmo tick de propósito: isDrawerOpen nunca
+  // passa por true, então o watch acima não rouba o foco no carregamento.
+  syncDrawerMode()
+  if (isDrawerMode.value) {
+    uiStore.sidebarOpen = false
+  }
+  const today = new Date()
+  // "03 set 2025" — o formato 'short' do pt-BR devolve "03 de set. de 2025",
+  // longo demais para a faixa do header; as partes são montadas à mão.
+  const month = today.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  todayLabel.value = `${String(today.getDate()).padStart(2, '0')} ${month} ${today.getFullYear()}`
+  window.addEventListener('resize', syncDrawerMode)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncDrawerMode)
 })
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-surface-muted">
+  <div class="admin-ui flex min-h-screen bg-surface">
     <Transition
       enter-active-class="transition-brand"
       enter-from-class="opacity-0"
@@ -89,25 +197,111 @@ onMounted(() => {
     >
       <div
         v-if="uiStore.sidebarOpen"
-        class="fixed inset-0 z-30 bg-black/40 sm:hidden"
+        class="fixed inset-0 z-30 bg-text/40 lg:hidden"
         @click="uiStore.sidebarOpen = false"
       />
     </Transition>
 
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r border-border bg-surface transition-transform transition-brand sm:static sm:z-auto sm:translate-x-0 sm:transition-[width]"
-      :class="[
-        uiStore.sidebarOpen ? 'translate-x-0 sm:w-56' : '-translate-x-full sm:w-16',
-      ]"
+      ref="sidebarEl"
+      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:static lg:z-auto lg:translate-x-0 lg:transition-[width]"
+      :class="[uiStore.sidebarOpen ? 'translate-x-0 lg:w-56' : '-translate-x-full lg:w-16']"
+      @keydown="handleSidebarKeydown"
     >
-      <div class="flex items-center justify-between gap-2 border-b border-border px-3 py-4">
-        <span v-if="uiStore.sidebarOpen" class="truncate text-sm font-medium text-text">
-          MeuSiteCasamento
+      <div
+        class="mb-8 flex items-center gap-2.5 px-2"
+        :class="!uiStore.sidebarOpen && 'lg:justify-center lg:px-0'"
+      >
+        <span
+          class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-text font-display text-sm font-semibold text-surface-elevated"
+          aria-hidden="true"
+        >
+          M
         </span>
+        <div v-if="uiStore.sidebarOpen" class="min-w-0 leading-tight">
+          <p class="truncate font-display text-sm font-semibold tracking-tight text-text">
+            MeuSiteCasamento
+          </p>
+          <p class="-mt-0.5 truncate text-xs text-text-muted">Admin · Casamento</p>
+        </div>
+        <button
+          v-if="uiStore.sidebarOpen"
+          type="button"
+          class="ml-auto shrink-0 rounded-md p-1 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+          aria-label="Fechar menu"
+          @click="uiStore.sidebarOpen = false"
+        >
+          <Icon name="lucide:x" class="h-4 w-4" />
+        </button>
+      </div>
+
+      <nav class="flex flex-col gap-0.5 text-sm font-medium">
+        <NuxtLink
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          :title="item.label"
+          :aria-current="isActive(item.to) ? 'page' : undefined"
+          class="flex items-center gap-3 rounded-lg px-3 py-2 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :class="[
+            isActive(item.to)
+              ? 'bg-surface-muted font-semibold text-text'
+              : 'text-text-muted hover:bg-surface-muted hover:text-text',
+            !uiStore.sidebarOpen && 'lg:justify-center lg:px-0',
+          ]"
+          @click="handleNavClick"
+        >
+          <Icon v-if="!uiStore.sidebarOpen" :name="item.icon" class="h-4.5 w-4.5 shrink-0" />
+          <span v-else class="truncate">{{ item.label }}</span>
+        </NuxtLink>
+      </nav>
+
+      <div class="mt-auto flex flex-col gap-3 pt-4">
+        <div v-if="uiStore.sidebarOpen" class="px-2 text-xs text-text-muted">
+          <p class="truncate font-display font-semibold text-text">
+            {{ wedding?.nomes_noivos }}
+          </p>
+          <p class="mt-0.5 truncate">{{ weddingDateLabel }}</p>
+        </div>
+
         <button
           type="button"
-          class="shrink-0 rounded-md p-1.5 text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          aria-label="Sair"
+          class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :class="!uiStore.sidebarOpen && 'lg:justify-center lg:px-0'"
+          @click="signOut"
+        >
+          <Icon name="lucide:log-out" class="h-4.5 w-4.5 shrink-0" />
+          <span v-if="uiStore.sidebarOpen">Sair</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header
+        class="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface/80 px-4 backdrop-blur sm:px-6"
+      >
+        <button
+          ref="menuButtonEl"
+          type="button"
+          class="shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+          aria-label="Abrir menu"
+          :aria-expanded="isDrawerOpen"
+          @click="uiStore.sidebarOpen = true"
+        >
+          <Icon name="lucide:menu" class="h-5 w-5" />
+        </button>
+
+        <!-- Mesma posição do hambúrguer do mobile: os dois controlam "mostrar ou
+             não a navegação", e aqui o botão fica ancorado na régua do header e
+             alinhado ao campo de busca. Solto no cabeçalho da sidebar ele não
+             encostava em nada; no rodapé, ficava colado no "Sair" com um ícone
+             de silhueta quase idêntica. -->
+        <button
+          type="button"
+          class="hidden shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:block"
           :aria-label="uiStore.sidebarOpen ? 'Recolher menu' : 'Expandir menu'"
+          :aria-expanded="uiStore.sidebarOpen"
           @click="uiStore.sidebarOpen = !uiStore.sidebarOpen"
         >
           <Icon
@@ -115,61 +309,30 @@ onMounted(() => {
             class="h-5 w-5"
           />
         </button>
-      </div>
 
-      <nav class="flex flex-1 flex-col gap-1 p-2">
-        <NuxtLink
-          v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
-          class="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-brand"
-          :class="[
-            isActive(item.to)
-              ? 'bg-primary/10 font-medium text-primary'
-              : 'text-text-muted hover:bg-surface-muted hover:text-text',
-            !uiStore.sidebarOpen && 'sm:justify-center',
-          ]"
-          @click="handleNavClick"
-        >
-          <span
-            class="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary transition-brand"
-            :class="isActive(item.to) ? 'opacity-100' : 'opacity-0'"
-          />
-          <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
-          <span v-if="uiStore.sidebarOpen">{{ item.label }}</span>
-        </NuxtLink>
-      </nav>
-
-      <div class="border-t border-border p-2">
-        <UiButton
-          variant="ghost"
-          size="sm"
-          class="w-full gap-3"
-          :class="uiStore.sidebarOpen ? 'justify-start' : 'justify-center'"
-          @click="signOut"
-        >
-          <Icon name="lucide:log-out" class="h-5 w-5 shrink-0" />
-          <span v-if="uiStore.sidebarOpen">Sair</span>
-        </UiButton>
-      </div>
-    </aside>
-
-    <div class="flex flex-1 flex-col">
-      <header class="flex items-center gap-3 border-b border-border bg-surface px-4 py-3 sm:hidden">
-        <button
-          type="button"
-          class="rounded-md p-1.5 text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          aria-label="Abrir menu"
-          @click="uiStore.sidebarOpen = true"
-        >
-          <Icon name="lucide:menu" class="h-5 w-5" />
-        </button>
-        <span class="text-sm font-medium text-text">MeuSiteCasamento</span>
-      </header>
-      <header class="hidden items-center border-b border-border bg-surface px-6 py-3 sm:flex">
         <AdminGlobalSearch />
+
+        <div class="ml-auto flex shrink-0 items-center gap-3">
+          <span class="hidden text-xs font-medium text-text-muted sm:block">{{ todayLabel }}</span>
+          <div class="flex items-center gap-2 border-l border-border pl-3">
+            <span
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-text font-display text-xs font-semibold text-surface-elevated"
+              aria-hidden="true"
+            >
+              {{ operatorInitials }}
+            </span>
+            <div class="hidden leading-tight sm:block">
+              <p class="max-w-40 truncate text-xs font-semibold text-text" :title="operatorEmail">
+                {{ operatorName }}
+              </p>
+              <p class="text-xs text-text-muted">{{ operatorRoleLabel }}</p>
+            </div>
+            <span class="sr-only">{{ operatorEmail }}</span>
+          </div>
+        </div>
       </header>
-      <main class="flex-1 p-6">
+
+      <main class="min-w-0 flex-1 px-4 py-7 sm:px-6">
         <slot />
       </main>
     </div>

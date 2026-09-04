@@ -113,7 +113,9 @@ function handlePaymentSubmit(payload: {
           </p>
           <div>
             <UiBadge v-if="(gift.quantityAvailable ?? 0) > 0" tone="neutral">Disponível</UiBadge>
-            <UiBadge v-else tone="danger">Esgotado</UiBadge>
+            <!-- Esgotado é neutral, não danger: nada falhou, o presente só já
+                 foi escolhido por outra pessoa. -->
+            <UiBadge v-else tone="neutral">Esgotado</UiBadge>
           </div>
 
           <UiButton

@@ -4,6 +4,8 @@ import type { Guest } from '~/types/guest'
 export interface GuestListResponse {
   data: Guest[]
   meta: { page: number; pageSize: number; total: number }
+  /** Agregado do recorte inteiro, não só da página — ver /api/guests. */
+  summary: { confirmed: number }
 }
 
 interface GuestListParams {

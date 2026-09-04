@@ -24,11 +24,18 @@ const formattedDate = computed(() =>
 </script>
 
 <template>
-  <PublicEditorialSection id="confirmar-presenca" eyebrow="R.S.V.P" title="Confirme sua Presença" tone="accent">
+  <PublicEditorialSection
+    id="confirmar-presenca"
+    eyebrow="R.S.V.P"
+    title="Confirme sua Presença"
+    tone="accent"
+  >
     <div
       class="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-primary/15 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
     >
-      <span class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <span
+        class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary"
+      >
         <Icon name="lucide:party-popper" class="h-7 w-7" />
       </span>
       <div>
@@ -36,8 +43,7 @@ const formattedDate = computed(() =>
         <p class="text-sm text-text-muted">{{ formattedDate }}</p>
       </div>
       <p class="leading-relaxed text-body">
-        Digite seu nome para localizar seu convite e confirmar presença, restrições alimentares e
-        acompanhantes.
+        Digite seu nome para localizar seu convite e confirmar presença e acompanhantes.
       </p>
       <UiButton :to="rsvpLink" rounded="full" size="lg">
         <Icon name="lucide:check" class="h-5 w-5" />

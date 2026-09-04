@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
       id: guest.id,
       label: guest.nome_completo,
       sublabel: 'Convidado',
-      href: `${adminBase}/convidados/${guest.id}`,
+      href: `${adminBase}/convidados?editar=${guest.id}`,
     })),
     ...(invitesResult.data ?? []).map((invite) => ({
       type: 'invite' as const,

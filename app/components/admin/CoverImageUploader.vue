@@ -22,8 +22,15 @@ const { uploadCoverImage, removeCoverImage } = useWeddingCoverUpload()
 const { updateThemeFocalPoint } = useWeddingThemeFocalPoint()
 const toast = useToast()
 
-const { fileInput, isUploading, isRemoving, errorMessage, openFilePicker, handleFileChange, handleRemove } =
-  useImageUploader({ upload: uploadCoverImage, remove: removeCoverImage })
+const {
+  fileInput,
+  isUploading,
+  isRemoving,
+  errorMessage,
+  openFilePicker,
+  handleFileChange,
+  handleRemove,
+} = useImageUploader({ upload: uploadCoverImage, remove: removeCoverImage })
 
 async function onFileChange(event: Event) {
   const url = await handleFileChange(event)
@@ -113,6 +120,6 @@ function handleFocalPointChange(value: FocalPoint) {
       </div>
     </div>
 
-    <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
+    <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
   </div>
 </template>

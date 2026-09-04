@@ -34,9 +34,9 @@ const lastSyncedLabel = computed(() => {
       <span
         class="rounded-full px-3 py-1 text-xs font-medium"
         :class="{
-          'bg-green-100 text-green-800': connection.status === 'ativo',
-          'bg-amber-100 text-amber-800': connection.status === 'reautenticacao_necessaria',
-          'bg-red-100 text-red-800': connection.status === 'erro',
+          'bg-success/10 text-success': connection.status === 'ativo',
+          'bg-warning/10 text-warning': connection.status === 'reautenticacao_necessaria',
+          'bg-danger/10 text-danger': connection.status === 'erro',
         }"
       >
         {{
@@ -56,7 +56,7 @@ const lastSyncedLabel = computed(() => {
       </template>
     </p>
 
-    <p v-if="connection.last_sync_error" class="text-xs text-red-600" role="alert">
+    <p v-if="connection.last_sync_error" class="text-xs text-danger" role="alert">
       {{ connection.last_sync_error }}
     </p>
 

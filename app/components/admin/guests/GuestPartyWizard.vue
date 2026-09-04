@@ -6,9 +6,15 @@ import type { InviteDraft } from './GuestPartyInviteStep.vue'
 
 interface Props {
   initialGuest?: GuestDetail | null
+  /**
+   * Dentro de um modal o contêiner pai já é a moldura e a altura é limitada:
+   * os passos perdem o cartão próprio e passam a rolar numa área interna, com
+   * a régua de passos e os botões de navegação fixos fora dela.
+   */
+  embedded?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), { initialGuest: null })
+const props = withDefaults(defineProps<Props>(), { initialGuest: null, embedded: false })
 
 const { syncGuestParty } = useGuests()
 const { listGroups } = useGroups()
@@ -25,7 +31,6 @@ function emptyPerson(): GuestPersonInput {
     sexo: undefined,
     dataNascimento: '',
     papelCasamento: undefined,
-    restricoesAlimentares: '',
     observacoes: '',
     grupoId: '',
   }
@@ -40,7 +45,6 @@ function personFromGuest(guest: GuestDetail | Record<string, unknown>): GuestPer
     sexo: (g.sexo as GuestPersonInput['sexo']) ?? undefined,
     dataNascimento: (g.data_nascimento as string) ?? '',
     papelCasamento: (g.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
-    restricoesAlimentares: (g.restricoes_alimentares as string) ?? '',
     observacoes: (g.observacoes as string) ?? '',
     grupoId: (g.grupo_id as string) ?? '',
   }
@@ -81,13 +85,22 @@ const showInviteStep = computed(() => companions.value.length > 0 && !hasExistin
 const currentStepIndex = ref(0)
 const currentStepId = computed(() => steps.value[currentStepIndex.value]?.id)
 
-// Rola o topo do wizard para a viewport a cada troca de step — em telas
-// longas (ex.: Acompanhantes com vários itens), sem isso o usuário fica
-// "preso" no meio da página depois de avançar.
+// Volta ao topo a cada troca de step — em passos longos (ex.: Acompanhantes
+// com vários itens), sem isso o usuário fica "preso" no meio do conteúdo
+// depois de avançar. Embutido, quem rola é a área interna; na página, é a
+// própria janela.
 const wizardRoot = ref<HTMLElement | null>(null)
+const stepsViewport = ref<HTMLElement | null>(null)
 watch(currentStepIndex, () => {
+  if (props.embedded) {
+    stepsViewport.value?.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
   wizardRoot.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 })
+
+const cardVariant = computed<'default' | 'plain'>(() => (props.embedded ? 'plain' : 'default'))
+const cardPadding = computed<'none' | 'md'>(() => (props.embedded ? 'none' : 'md'))
 
 const primaryNameError = ref<string | null>(null)
 
@@ -111,7 +124,7 @@ function handleRemoveExisting(guestId: string) {
 
 // --- convite ---
 
-const inviteDraft = ref<InviteDraft>({ choice: 'create', name: '', notes: '', tagIds: [] })
+const inviteDraft = ref<InviteDraft>({ choice: 'create', name: '', notes: '' })
 
 watch(
   () => primary.value.nomeCompleto,
@@ -142,7 +155,6 @@ async function handleSubmit() {
           ? {
               nome: inviteDraft.value.name || 'Convite',
               observacoes: inviteDraft.value.notes,
-              tagIds: inviteDraft.value.tagIds,
             }
           : undefined,
     })
@@ -157,8 +169,11 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div ref="wizardRoot" class="flex flex-col gap-6">
-    <ol class="flex items-center gap-2 text-sm">
+  <div
+    ref="wizardRoot"
+    :class="embedded ? 'flex min-h-0 flex-1 flex-col gap-5' : 'flex flex-col gap-6'"
+  >
+    <ol class="flex shrink-0 items-center gap-2 text-sm">
       <template v-for="(step, index) in steps" :key="step.id">
         <li class="flex items-center gap-2">
           <span
@@ -190,69 +205,96 @@ async function handleSubmit() {
       </template>
     </ol>
 
-    <Transition
-      enter-active-class="transition-brand"
-      enter-from-class="opacity-0 translate-x-2"
-      enter-to-class="opacity-100 translate-x-0"
-      leave-active-class="transition-brand"
-      leave-from-class="opacity-100 translate-x-0"
-      leave-to-class="opacity-0 -translate-x-2"
-      mode="out-in"
-    >
-      <!-- Passo: Dados do Convidado -->
-      <UiCard v-if="currentStepId === 'dados'" key="dados">
-        <h2 class="mb-4 text-lg font-medium text-text">Dados do Convidado</h2>
-        <AdminGuestsGuestPersonFields
-          v-model="primary"
-          :group-options="groupOptions"
-          :full-name-error="primaryNameError"
-          @group-created="() => refreshGroups()"
-        />
-      </UiCard>
-
-      <!-- Passo: Acompanhantes -->
-      <UiCard v-else-if="currentStepId === 'acompanhantes'" key="acompanhantes">
-        <AdminGuestsGuestPartyCompanionsStep
-          v-model="companions"
-          :group-options="groupOptions"
-          :primary-id="primary.id"
-          @group-created="() => refreshGroups()"
-          @remove-existing="handleRemoveExisting"
-        />
-      </UiCard>
-
-      <!-- Passo: Convite -->
-      <UiCard v-else-if="currentStepId === 'convite'" key="convite">
-        <AdminGuestsGuestPartyInviteStep
-          v-model="inviteDraft"
-          :party-size="companions.length + 1"
-        />
-      </UiCard>
-
-      <!-- Passo: Revisão -->
-      <UiCard v-else-if="currentStepId === 'revisao'" key="revisao">
-        <h2 class="mb-4 text-lg font-medium text-text">Revisão</h2>
-        <ul class="flex flex-col gap-2 text-sm">
-          <li class="flex items-center gap-2">
-            <Icon name="lucide:star" class="h-4 w-4 text-amber-500" />
-            {{ primary.nomeCompleto }}
-            <UiBadge tone="neutral">responsável</UiBadge>
-          </li>
-          <li v-for="entry in companions" :key="entry.key" class="flex items-center gap-2 pl-6">
-            {{ entry.person.nomeCompleto }}
-          </li>
-        </ul>
-        <p
-          v-if="showInviteStep && inviteDraft.choice === 'create'"
-          class="mt-4 text-sm text-text-muted"
+    <div ref="stepsViewport" :class="embedded ? '-mx-6 min-h-0 flex-1 overflow-y-auto px-6' : ''">
+      <Transition
+        enter-active-class="transition-brand"
+        enter-from-class="opacity-0 translate-x-2"
+        enter-to-class="opacity-100 translate-x-0"
+        leave-active-class="transition-brand"
+        leave-from-class="opacity-100 translate-x-0"
+        leave-to-class="opacity-0 -translate-x-2"
+        mode="out-in"
+      >
+        <!-- Passo: Dados do Convidado -->
+        <UiCard
+          v-if="currentStepId === 'dados'"
+          key="dados"
+          :variant="cardVariant"
+          :padding="cardPadding"
         >
-          Convite: <strong>{{ inviteDraft.name }}</strong>
-        </p>
-        <p v-if="errorMessage" class="mt-4 text-sm text-red-600" role="alert">{{ errorMessage }}</p>
-      </UiCard>
-    </Transition>
+          <h2 class="mb-4 text-lg font-medium text-text">Dados do Convidado</h2>
+          <AdminGuestsGuestPersonFields
+            v-model="primary"
+            :group-options="groupOptions"
+            :full-name-error="primaryNameError"
+            @group-created="() => refreshGroups()"
+          />
+        </UiCard>
 
-    <div class="flex justify-between">
+        <!-- Passo: Acompanhantes -->
+        <UiCard
+          v-else-if="currentStepId === 'acompanhantes'"
+          key="acompanhantes"
+          :variant="cardVariant"
+          :padding="cardPadding"
+        >
+          <AdminGuestsGuestPartyCompanionsStep
+            v-model="companions"
+            :group-options="groupOptions"
+            :primary-id="primary.id"
+            @group-created="() => refreshGroups()"
+            @remove-existing="handleRemoveExisting"
+          />
+        </UiCard>
+
+        <!-- Passo: Convite -->
+        <UiCard
+          v-else-if="currentStepId === 'convite'"
+          key="convite"
+          :variant="cardVariant"
+          :padding="cardPadding"
+        >
+          <AdminGuestsGuestPartyInviteStep
+            v-model="inviteDraft"
+            :party-size="companions.length + 1"
+          />
+        </UiCard>
+
+        <!-- Passo: Revisão -->
+        <UiCard
+          v-else-if="currentStepId === 'revisao'"
+          key="revisao"
+          :variant="cardVariant"
+          :padding="cardPadding"
+        >
+          <h2 class="mb-4 text-lg font-medium text-text">Revisão</h2>
+          <ul class="flex flex-col gap-2 text-sm">
+            <li class="flex items-center gap-2">
+              <Icon name="lucide:star" class="h-4 w-4 text-primary" />
+              {{ primary.nomeCompleto }}
+              <UiBadge tone="neutral">responsável</UiBadge>
+            </li>
+            <li v-for="entry in companions" :key="entry.key" class="flex items-center gap-2 pl-6">
+              {{ entry.person.nomeCompleto }}
+            </li>
+          </ul>
+          <p
+            v-if="showInviteStep && inviteDraft.choice === 'create'"
+            class="mt-4 text-sm text-text-muted"
+          >
+            Convite: <strong>{{ inviteDraft.name }}</strong>
+          </p>
+          <p v-if="errorMessage" class="mt-4 text-sm text-danger" role="alert">
+            {{ errorMessage }}
+          </p>
+        </UiCard>
+      </Transition>
+    </div>
+
+    <div
+      class="flex shrink-0 justify-between"
+      :class="embedded ? 'border-t border-border pt-4' : ''"
+    >
       <UiButton variant="ghost" :disabled="currentStepIndex === 0" @click="goBack">Voltar</UiButton>
       <UiButton v-if="currentStepId !== 'revisao'" @click="goNext">Próximo</UiButton>
       <UiButton v-else :disabled="isSubmitting" @click="handleSubmit">
