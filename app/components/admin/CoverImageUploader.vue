@@ -1,3 +1,9 @@
+<!--
+  Foto de capa do site. Só a configuração: composables de upload/remoção,
+  alvo do ponto de foco e os textos. A moldura (caixa tracejada quando
+  vazia, prévia com ponto de foco quando preenchida) é do
+  `AdminSettingsUploadBox`, compartilhado com o StoryImageUploader.
+-->
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 
@@ -69,9 +75,7 @@ function handleFocalPointChange(value: FocalPoint) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <span class="text-sm font-medium text-text">Foto de capa (opcional)</span>
-
+  <div>
     <input
       ref="fileInput"
       type="file"
@@ -80,46 +84,19 @@ function handleFocalPointChange(value: FocalPoint) {
       @change="onFileChange"
     />
 
-    <UiEmptyState
-      v-if="!modelValue"
-      title="Nenhuma foto de capa ainda"
-      description="O site fica bonito com ou sem foto — enviar uma é totalmente opcional."
-    >
-      <UiButton type="button" size="sm" :disabled="isUploading" @click="openFilePicker">
-        {{ isUploading ? 'Enviando...' : 'Enviar foto' }}
-      </UiButton>
-    </UiEmptyState>
-
-    <div v-else class="flex flex-col gap-2">
-      <UiImageFocalPointPicker
-        :model-value="localFocalPoint"
-        :src="modelValue"
-        alt="Prévia da foto de capa"
-        preview-aspect-class="aspect-video"
-        @update:model-value="handleFocalPointChange"
-      />
-      <div class="flex gap-2">
-        <UiButton
-          type="button"
-          size="sm"
-          variant="ghost"
-          :disabled="isUploading"
-          @click="openFilePicker"
-        >
-          {{ isUploading ? 'Enviando...' : 'Trocar foto' }}
-        </UiButton>
-        <UiButton
-          type="button"
-          size="sm"
-          variant="destructive"
-          :disabled="isRemoving"
-          @click="onRemove"
-        >
-          Remover
-        </UiButton>
-      </div>
-    </div>
-
-    <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
+    <AdminSettingsUploadBox
+      label="Foto de capa"
+      hint="Aparece no topo do site. Formato paisagem, ideal 2000×1200px — opcional, o site fica bonito com ou sem ela."
+      :model-value="modelValue"
+      :focal-point="localFocalPoint"
+      preview-aspect-class="aspect-video"
+      preview-alt="Prévia da foto de capa"
+      :is-uploading="isUploading"
+      :is-removing="isRemoving"
+      :error-message="errorMessage"
+      @pick="openFilePicker"
+      @remove="onRemove"
+      @update:focal-point="handleFocalPointChange"
+    />
   </div>
 </template>

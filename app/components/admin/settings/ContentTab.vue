@@ -16,16 +16,19 @@ const emit = defineEmits<{ saved: [] }>()
 const toast = useToast()
 const { updateWeddingContent } = useWedding()
 
+// `hint` diz onde no site o texto aparece — a dúvida real do casal ao abrir
+// esta lista é "qual destes é aquele parágrafo que eu vi na página?", não o
+// que a palavra "Manual" significa.
 const conteudoItems = [
-  { id: 'boas-vindas', trigger: 'Boas-vindas' },
-  { id: 'historia', trigger: 'Nossa História' },
-  { id: 'dress-code', trigger: 'Dress Code' },
-  { id: 'manual', trigger: 'Manual dos Convidados' },
-  { id: 'presentes', trigger: 'Lista de Presentes' },
-  { id: 'faq', trigger: 'Perguntas Frequentes' },
+  { id: 'boas-vindas', trigger: 'Boas-vindas', hint: 'Primeiro texto que o convidado lê no site.' },
+  { id: 'historia', trigger: 'Nossa História', hint: 'Como vocês se conheceram.' },
+  { id: 'dress-code', trigger: 'Dress Code', hint: 'Orientação de traje.' },
+  { id: 'manual', trigger: 'Manual dos Convidados', hint: 'Regras e recomendações práticas.' },
+  { id: 'presentes', trigger: 'Lista de Presentes', hint: 'Texto acima da lista.' },
+  { id: 'faq', trigger: 'Perguntas Frequentes', hint: 'Dúvidas comuns dos convidados.' },
 ]
 
-const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
+const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = useForm({
   validationSchema: toTypedSchema(weddingContentConfigSchema),
 })
 
@@ -51,27 +54,28 @@ function removeDressCodeSuggestion(index: number) {
   dressCodeSuggestions.value = (dressCodeSuggestions.value ?? []).filter((_, i) => i !== index)
 }
 
-watch(
-  () => props.wedding,
-  (value) => {
-    if (!value) return
-    const resolved = resolveWeddingContent(value.config_conteudo)
-    resetForm({
-      values: {
-        welcomeTitle: resolved.welcomeTitle,
-        welcomeMessage: resolved.welcomeParagraphs.join('\n\n'),
-        storyMessage: resolved.storyParagraphs.join('\n\n'),
-        dressCodeDescription: resolved.dressCodeDescription,
-        dressCodeSuggestions: resolved.dressCodeSuggestions,
-        guestManualIntro: resolved.guestManualIntro,
-        guestManualTopics: resolved.guestManualTopics,
-        giftsIntroMessage: resolved.giftsIntroMessage,
-        faqItems: resolved.faqItems,
-      },
-    })
-  },
-  { immediate: true },
-)
+// Mesma função no watcher e no "Descartar" da barra de salvamento — ver
+// GeneralTab.
+function applyWeddingToForm() {
+  const value = props.wedding
+  if (!value) return
+  const resolved = resolveWeddingContent(value.config_conteudo)
+  resetForm({
+    values: {
+      welcomeTitle: resolved.welcomeTitle,
+      welcomeMessage: resolved.welcomeParagraphs.join('\n\n'),
+      storyMessage: resolved.storyParagraphs.join('\n\n'),
+      dressCodeDescription: resolved.dressCodeDescription,
+      dressCodeSuggestions: resolved.dressCodeSuggestions,
+      guestManualIntro: resolved.guestManualIntro,
+      guestManualTopics: resolved.guestManualTopics,
+      giftsIntroMessage: resolved.giftsIntroMessage,
+      faqItems: resolved.faqItems,
+    },
+  })
+}
+
+watch(() => props.wedding, applyWeddingToForm, { immediate: true })
 
 const onSubmit = handleSubmit(async (values) => {
   try {
@@ -85,27 +89,24 @@ const onSubmit = handleSubmit(async (values) => {
 </script>
 
 <template>
-  <UiCard>
-    <form class="flex flex-col gap-6" @submit="onSubmit">
-      <p class="text-xs text-text-muted">
-        Cada mensagem já vem preenchida com o texto padrão da plataforma — edite à vontade para
-        contar a sua própria história, ou deixe como está.
-      </p>
-
-      <UiAccordion :items="conteudoItems">
+  <form class="flex flex-col gap-5" @submit="onSubmit">
+    <AdminSettingsSectionCard
+      section-id="mensagens"
+      title="Mensagens do site"
+      description="Cada mensagem já vem preenchida com o texto padrão da plataforma — edite à vontade para contar a sua própria história, ou deixe como está."
+    >
+      <UiAccordion :items="conteudoItems" variant="plain" default-open-id="boas-vindas">
         <template #content="{ item }">
-          <div class="flex flex-col gap-4 px-5 pb-5">
+          <div class="flex flex-col gap-4 px-4 pb-4">
             <template v-if="item.id === 'boas-vindas'">
               <UiInput v-model="welcomeTitle" label="Título" :error="errors.welcomeTitle" />
               <UiTextarea
                 v-model="welcomeMessage"
                 label="Mensagem"
                 :rows="4"
+                hint="Separe parágrafos deixando uma linha em branco entre eles."
                 :error="errors.welcomeMessage"
               />
-              <p class="-mt-2 text-xs text-text-muted">
-                Separe parágrafos deixando uma linha em branco entre eles.
-              </p>
             </template>
 
             <template v-if="item.id === 'historia'">
@@ -113,11 +114,9 @@ const onSubmit = handleSubmit(async (values) => {
                 v-model="storyMessage"
                 label="Mensagem"
                 :rows="6"
+                hint="Separe parágrafos deixando uma linha em branco entre eles."
                 :error="errors.storyMessage"
               />
-              <p class="-mt-2 text-xs text-text-muted">
-                Separe parágrafos deixando uma linha em branco entre eles.
-              </p>
             </template>
 
             <template v-if="item.id === 'dress-code'">
@@ -137,12 +136,14 @@ const onSubmit = handleSubmit(async (values) => {
                   <UiInput
                     class="flex-1"
                     :model-value="tip"
+                    aria-label="Sugestão de traje"
                     @update:model-value="(value) => updateDressCodeSuggestion(index, value)"
                   />
                   <UiButton
                     type="button"
                     size="sm"
                     variant="ghost"
+                    aria-label="Remover sugestão"
                     @click="removeDressCodeSuggestion(index)"
                   >
                     <Icon name="lucide:trash-2" class="h-4 w-4" />
@@ -191,10 +192,13 @@ const onSubmit = handleSubmit(async (values) => {
           </div>
         </template>
       </UiAccordion>
+    </AdminSettingsSectionCard>
 
-      <div class="flex justify-end">
-        <UiButton type="submit" :disabled="isSubmitting">Salvar conteúdo</UiButton>
-      </div>
-    </form>
-  </UiCard>
+    <AdminSettingsSaveBar
+      action="Salvar conteúdo"
+      :dirty="meta.dirty"
+      :submitting="isSubmitting"
+      @discard="applyWeddingToForm"
+    />
+  </form>
 </template>

@@ -4,6 +4,8 @@ interface Props {
   label?: string
   placeholder?: string
   error?: string
+  /** Linha de apoio abaixo do campo — mesmo contrato do UiInput. */
+  hint?: string
   disabled?: boolean
   rows?: number
 }
@@ -13,6 +15,7 @@ const {
   label,
   placeholder,
   error,
+  hint,
   disabled = false,
   rows = 3,
 } = defineProps<Props>()
@@ -22,6 +25,11 @@ const emit = defineEmits<{
 }>()
 
 const textareaId = useId()
+
+const describedBy = computed(() => {
+  const ids = [hint ? `${textareaId}-hint` : '', error ? `${textareaId}-error` : ''].filter(Boolean)
+  return ids.length ? ids.join(' ') : undefined
+})
 </script>
 
 <template>
@@ -36,10 +44,13 @@ const textareaId = useId()
       :disabled="disabled"
       :value="modelValue"
       :aria-invalid="Boolean(error)"
-      :aria-describedby="error ? `${textareaId}-error` : undefined"
+      :aria-describedby="describedBy"
       class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
+    <p v-if="hint" :id="`${textareaId}-hint`" class="text-xs leading-relaxed text-text-muted">
+      {{ hint }}
+    </p>
     <p v-if="error" :id="`${textareaId}-error`" class="text-sm text-danger" role="alert">
       {{ error }}
     </p>

@@ -1,3 +1,8 @@
+<!--
+  Foto da seção "Nossa História". Mesma divisão do CoverImageUploader: aqui
+  só a configuração (composables, alvo do ponto de foco, textos); a moldura
+  é do `AdminSettingsUploadBox`.
+-->
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 
@@ -67,12 +72,7 @@ function handleFocalPointChange(value: FocalPoint) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <span class="text-sm font-medium text-text">Foto da seção "Nossa História" (opcional)</span>
-    <p class="text-xs text-text-muted">
-      Independente da foto de capa do topo do site — cada uma pode ser uma foto diferente.
-    </p>
-
+  <div>
     <input
       ref="fileInput"
       type="file"
@@ -81,46 +81,19 @@ function handleFocalPointChange(value: FocalPoint) {
       @change="onFileChange"
     />
 
-    <UiEmptyState
-      v-if="!modelValue"
-      title="Nenhuma foto da história ainda"
-      description="Opcional — sem foto, o texto aparece centralizado, sem uma versão 'menos completa' do layout."
-    >
-      <UiButton type="button" size="sm" :disabled="isUploading" @click="openFilePicker">
-        {{ isUploading ? 'Enviando...' : 'Enviar foto' }}
-      </UiButton>
-    </UiEmptyState>
-
-    <div v-else class="flex flex-col gap-2">
-      <UiImageFocalPointPicker
-        :model-value="localFocalPoint"
-        :src="modelValue"
-        alt="Prévia da foto da seção Nossa História"
-        preview-aspect-class="aspect-[4/5]"
-        @update:model-value="handleFocalPointChange"
-      />
-      <div class="flex gap-2">
-        <UiButton
-          type="button"
-          size="sm"
-          variant="ghost"
-          :disabled="isUploading"
-          @click="openFilePicker"
-        >
-          {{ isUploading ? 'Enviando...' : 'Trocar foto' }}
-        </UiButton>
-        <UiButton
-          type="button"
-          size="sm"
-          variant="destructive"
-          :disabled="isRemoving"
-          @click="onRemove"
-        >
-          Remover
-        </UiButton>
-      </div>
-    </div>
-
-    <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
+    <AdminSettingsUploadBox
+      label='Foto da seção "Nossa História"'
+      hint="Independente da foto de capa. Formato retrato funciona melhor — sem ela, o texto aparece centralizado."
+      :model-value="modelValue"
+      :focal-point="localFocalPoint"
+      preview-aspect-class="aspect-[4/5]"
+      preview-alt="Prévia da foto da seção Nossa História"
+      :is-uploading="isUploading"
+      :is-removing="isRemoving"
+      :error-message="errorMessage"
+      @pick="openFilePicker"
+      @remove="onRemove"
+      @update:focal-point="handleFocalPointChange"
+    />
   </div>
 </template>

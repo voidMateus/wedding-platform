@@ -66,7 +66,7 @@ function isActive(to: string): boolean {
 }
 
 // `lg` (1024px) é o ponto onde a sidebar deixa de ser drawer e passa a
-// ocupar a coluna fixa — o corte visual é feito em CSS (lg:static), este
+// ocupar a coluna fixa — o corte visual é feito em CSS (`lg:sticky`), este
 // valor só existe para o comportamento em JS (fechar no mount/navegação
 // e prender o foco enquanto é drawer).
 const MOBILE_BREAKPOINT_PX = 1024
@@ -202,9 +202,19 @@ onBeforeUnmount(() => {
       />
     </Transition>
 
+    <!--
+      Desktop: `lg:sticky lg:top-0 lg:h-screen lg:self-start` — a sidebar
+      acompanha a rolagem em vez de sair de cena junto com o conteúdo. Não é
+      `lg:static` (rolava embora) nem `fixed` no desktop (tiraria a coluna do
+      fluxo e o conteúdo teria de compensar a largura à mão, quebrando a
+      animação de recolher). `self-start` é obrigatório: sem ele o
+      `align-items: stretch` do flex pai esticaria o aside até a altura da
+      página e o `h-screen` não teria efeito, anulando o sticky.
+      `overflow-y-auto` cobre o caso de a navegação passar da altura da tela.
+    -->
     <aside
       ref="sidebarEl"
-      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:static lg:z-auto lg:translate-x-0 lg:transition-[width]"
+      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:self-start lg:overflow-y-auto lg:transition-[width]"
       :class="[uiStore.sidebarOpen ? 'translate-x-0 lg:w-56' : '-translate-x-full lg:w-16']"
       @keydown="handleSidebarKeydown"
     >
@@ -235,24 +245,30 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <nav class="flex flex-col gap-0.5 text-sm font-medium">
+      <!-- Ícone SEMPRE visível, rótulo só quando a sidebar está aberta: antes
+           o ícone aparecia apenas no modo recolhido, então expandir o menu
+           trocava a coluna de ícones por uma coluna de texto puro e o item
+           ativo perdia a única âncora visual que sobrevive à leitura rápida.
+           É a linguagem do modelo — ícone + rótulo lado a lado, e o mesmo
+           ícone segue sendo o item quando o rótulo sai de cena. -->
+      <nav class="flex flex-col gap-0.5 text-sm">
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
           :title="item.label"
           :aria-current="isActive(item.to) ? 'page' : undefined"
-          class="flex items-center gap-3 rounded-lg px-3 py-2 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="flex items-center gap-2.5 rounded-lg px-3 py-2 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           :class="[
             isActive(item.to)
-              ? 'bg-surface-muted font-semibold text-text'
+              ? 'bg-surface-muted font-medium text-text'
               : 'text-text-muted hover:bg-surface-muted hover:text-text',
             !uiStore.sidebarOpen && 'lg:justify-center lg:px-0',
           ]"
           @click="handleNavClick"
         >
-          <Icon v-if="!uiStore.sidebarOpen" :name="item.icon" class="h-4.5 w-4.5 shrink-0" />
-          <span v-else class="truncate">{{ item.label }}</span>
+          <Icon :name="item.icon" class="h-4 w-4 shrink-0" />
+          <span v-if="uiStore.sidebarOpen" class="truncate">{{ item.label }}</span>
         </NuxtLink>
       </nav>
 
@@ -267,11 +283,11 @@ onBeforeUnmount(() => {
         <button
           type="button"
           aria-label="Sair"
-          class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           :class="!uiStore.sidebarOpen && 'lg:justify-center lg:px-0'"
           @click="signOut"
         >
-          <Icon name="lucide:log-out" class="h-4.5 w-4.5 shrink-0" />
+          <Icon name="lucide:log-out" class="h-4 w-4 shrink-0" />
           <span v-if="uiStore.sidebarOpen">Sair</span>
         </button>
       </div>
