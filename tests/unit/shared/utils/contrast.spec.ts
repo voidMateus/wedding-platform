@@ -5,6 +5,7 @@ import {
   DEFAULT_SURFACE_COLOR,
   DEFAULT_TEXT_COLOR,
   WCAG_AA_MIN_CONTRAST,
+  suggestAccessibleColor,
   checkColorContrast,
   getContrastRatio,
   isValidHexColor,
@@ -75,5 +76,46 @@ describe('checkColorContrast', () => {
   it('DEFAULT_SECONDARY_COLOR passa no mínimo do WCAG AA', () => {
     const result = checkColorContrast(DEFAULT_SECONDARY_COLOR)
     expect(result.meetsMinimum).toBe(true)
+  })
+})
+
+describe('suggestAccessibleColor', () => {
+  it('devolve null para uma cor que já passa no mínimo AA', () => {
+    expect(suggestAccessibleColor(DEFAULT_PRIMARY_COLOR)).toBeNull()
+    expect(suggestAccessibleColor(DEFAULT_SECONDARY_COLOR)).toBeNull()
+  })
+
+  it('devolve null para hex inválido — nunca lança', () => {
+    expect(suggestAccessibleColor('vermelho')).toBeNull()
+    expect(suggestAccessibleColor('#12')).toBeNull()
+  })
+
+  it('escurece uma cor reprovada até ela passar', () => {
+    // #ef4444 fica em ~3.76:1 contra branco. (#dc2626, o vermelho da captura
+    // do usuário, passa em 4.83:1 — medido, não presumido.)
+    const original = checkColorContrast('#ef4444')
+    expect(original.meetsMinimum).toBe(false)
+
+    const sugerida = suggestAccessibleColor('#ef4444')
+    expect(sugerida).not.toBeNull()
+    expect(checkColorContrast(sugerida!).meetsMinimum).toBe(true)
+  })
+
+  it('preserva a família de tom em vez de devolver outra cor', () => {
+    // A sugestão precisa ser o MESMO vermelho mais fechado: o canal vermelho
+    // continua o dominante. Sem isso, o botão de "usar tom mais escuro"
+    // trocaria a identidade visual escolhida pelo casal.
+    const sugerida = suggestAccessibleColor('#ef4444')!
+    const r = Number.parseInt(sugerida.slice(1, 3), 16)
+    const g = Number.parseInt(sugerida.slice(3, 5), 16)
+    const b = Number.parseInt(sugerida.slice(5, 7), 16)
+    expect(r).toBeGreaterThan(g)
+    expect(r).toBeGreaterThan(b)
+  })
+
+  it('o preto é sempre uma saída válida (21:1 contra branco)', () => {
+    // Garante que o laço de escurecimento sempre termina: qualquer cor
+    // escurecida até o preto atinge o mínimo.
+    expect(checkColorContrast('#000000').meetsMinimum).toBe(true)
   })
 })

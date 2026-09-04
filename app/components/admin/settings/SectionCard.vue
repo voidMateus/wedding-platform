@@ -10,7 +10,12 @@
 -->
 <script setup lang="ts">
 interface Props {
-  /** Alvo da âncora do sub-menu lateral — precisa casar com o `sections[].id` da aba. */
+  /**
+   * Alvo da âncora do sub-menu lateral — precisa casar com o `sections[].id`
+   * da aba. O `scroll-mt` do elemento é só uma folga: quem rola é o <main> do
+   * layout, e o header do admin está fora desse scroller, então não há altura
+   * de header sobrepondo o alvo para compensar.
+   */
   sectionId: string
   title: string
   description?: string
@@ -22,7 +27,7 @@ defineProps<Props>()
 <template>
   <section
     :id="sectionId"
-    class="scroll-mt-24 rounded-lg border border-border bg-surface-elevated p-5 shadow-sm md:p-6"
+    class="scroll-mt-4 rounded-lg border border-border bg-surface-elevated p-5 shadow-sm md:p-6"
   >
     <div class="mb-5">
       <h2 class="font-display text-lg font-semibold text-text">{{ title }}</h2>

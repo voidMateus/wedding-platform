@@ -4,11 +4,7 @@ import { useForm } from 'vee-validate'
 import { themeConfigSchema, type ThemeConfig } from '#shared/schemas/theme'
 import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from '#shared/utils/contrast'
 import { DEFAULT_FONT_PAIR_ID, findThemePreset } from '#shared/theme-presets'
-import {
-  DEFAULT_HERO_BUTTONS,
-  DEFAULT_HERO_FEATURED_BUTTON,
-  HERO_BUTTON_CATALOG,
-} from '#shared/hero-buttons'
+import { DEFAULT_HERO_BUTTONS, DEFAULT_HERO_FEATURED_BUTTON } from '#shared/hero-buttons'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
@@ -34,14 +30,6 @@ const storyImageUrl = computed(() => {
   const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.storyImageUrl ?? null
 })
-const coverFocalPoint = computed(() => {
-  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
-  return { x: theme.coverFocalX ?? 50, y: theme.coverFocalY ?? 50 }
-})
-const storyFocalPoint = computed(() => {
-  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
-  return { x: theme.storyFocalX ?? 50, y: theme.storyFocalY ?? 50 }
-})
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = useForm({
   validationSchema: toTypedSchema(themeConfigSchema),
@@ -56,31 +44,6 @@ const [fontPairId] = defineField('fontPairId')
 const [showCountdown] = defineField('showCountdown')
 const [heroButtons] = defineField('heroButtons')
 const [heroFeaturedButton] = defineField('heroFeaturedButton')
-
-function isHeroButtonSelected(id: string): boolean {
-  return (heroButtons.value ?? []).includes(id)
-}
-
-function toggleHeroButton(id: string) {
-  const current = heroButtons.value ?? []
-  const next = current.includes(id)
-    ? current.filter((buttonId) => buttonId !== id)
-    : [...current, id]
-  heroButtons.value = next
-  // O destaque só pode ser um atalho atualmente selecionado — se o casal
-  // desmarcar o que estava em destaque, escolhe o próximo automaticamente
-  // em vez de deixar um id "órfão" salvo (nunca quebra o Hero público).
-  if (!next.includes(heroFeaturedButton.value ?? '')) {
-    heroFeaturedButton.value = next[0] ?? ''
-  }
-}
-
-const heroFeaturedButtonOptions = computed(() =>
-  HERO_BUTTON_CATALOG.filter((button) => isHeroButtonSelected(button.id)).map((button) => ({
-    value: button.id,
-    label: button.label,
-  })),
-)
 
 // Personalização avançada (Fase Editorial, CLAUDE.md seção 22.3): título e
 // corpo de texto continuam opcionais mesmo com o modo ligado — o toggle só
@@ -185,15 +148,11 @@ const onSubmit = handleSubmit(async (values) => {
       <div class="grid gap-4 md:grid-cols-2">
         <AdminCoverImageUploader
           :model-value="coverImageUrl"
-          :focal-point="coverFocalPoint"
           @update:model-value="() => emit('refresh')"
-          @update:focal-point="() => emit('refresh')"
         />
         <AdminStoryImageUploader
           :model-value="storyImageUrl"
-          :focal-point="storyFocalPoint"
           @update:model-value="() => emit('refresh')"
-          @update:focal-point="() => emit('refresh')"
         />
       </div>
     </AdminSettingsSectionCard>
@@ -275,33 +234,12 @@ const onSubmit = handleSubmit(async (values) => {
         hint="Mostra dias, horas e minutos até o evento no topo do site."
       />
 
-      <AdminSettingsField
-        label="Atalhos do Hero"
-        hint="Botões rápidos logo abaixo da contagem regressiva. Toque para incluir ou remover — o atalho em destaque aparece preenchido no site, os demais em contorno."
-      >
-        <div class="flex flex-col gap-3">
-          <div class="flex flex-wrap gap-2">
-            <UiChip
-              v-for="button in HERO_BUTTON_CATALOG"
-              :key="button.id"
-              :label="button.label"
-              clickable
-              :selected="isHeroButtonSelected(button.id)"
-              @click="toggleHeroButton(button.id)"
-            />
-          </div>
-          <UiSelect
-            v-if="heroFeaturedButtonOptions.length"
-            v-model="heroFeaturedButton"
-            label="Atalho em destaque"
-            class="sm:max-w-sm"
-            :options="heroFeaturedButtonOptions"
-          />
-          <p v-else class="text-xs text-text-muted">
-            Selecione ao menos um atalho acima para escolher qual fica em destaque.
-          </p>
-        </div>
-      </AdminSettingsField>
+      <AdminSettingsHeroShortcutsField
+        :model-value="heroButtons"
+        :featured="heroFeaturedButton"
+        @update:model-value="(value) => (heroButtons = value)"
+        @update:featured="(value) => (heroFeaturedButton = value)"
+      />
     </AdminSettingsSectionCard>
 
     <AdminSettingsSaveBar

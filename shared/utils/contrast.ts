@@ -23,9 +23,7 @@ export function isValidHexColor(value: string): boolean {
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const normalized =
-    hex.length === 4
-      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-      : hex
+    hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex
 
   const r = Number.parseInt(normalized.slice(1, 3), 16)
   const g = Number.parseInt(normalized.slice(3, 5), 16)
@@ -78,4 +76,79 @@ export function checkColorContrast(colorHex: string): ColorContrastResult {
     ratioAgainstText,
     meetsMinimum: ratioAgainstSurface >= WCAG_AA_MIN_CONTRAST,
   }
+}
+
+/**
+ * Devolve o tom mais próximo da cor escolhida que passa no mínimo AA contra a
+ * superfície padrão, ou `null` se a cor já passa.
+ *
+ * Escurece só a luminosidade e preserva matiz e saturação: o casal escolheu
+ * *aquela* cor, então a correção precisa devolver a mesma cor um pouco mais
+ * fechada, não uma cor diferente. Existe para o aviso de contraste poder
+ * oferecer a solução em um clique em vez de só reprovar a escolha e deixar a
+ * pessoa adivinhando qual tom serve.
+ *
+ * Passo de 2% e teto de 50 iterações: escurecer até o preto sempre atinge o
+ * mínimo (preto contra branco dá 21:1), então o laço termina — o teto é só
+ * uma trava contra entrada inesperada.
+ */
+export function suggestAccessibleColor(colorHex: string): string | null {
+  if (!isValidHexColor(colorHex)) return null
+  if (getContrastRatio(colorHex, DEFAULT_SURFACE_COLOR) >= WCAG_AA_MIN_CONTRAST) return null
+
+  const { h, s, l } = hexToHsl(colorHex)
+  for (let step = 1; step <= 50; step += 1) {
+    const candidate = hslToHex(h, s, Math.max(0, l - step * 0.02))
+    if (getContrastRatio(candidate, DEFAULT_SURFACE_COLOR) >= WCAG_AA_MIN_CONTRAST) {
+      return candidate
+    }
+  }
+  return '#000000'
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const { r, g, b } = hexToRgb(hex)
+  const red = r / 255
+  const green = g / 255
+  const blue = b / 255
+  const max = Math.max(red, green, blue)
+  const min = Math.min(red, green, blue)
+  const lightness = (max + min) / 2
+  const delta = max - min
+
+  if (delta === 0) return { h: 0, s: 0, l: lightness }
+
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1))
+  let hue: number
+  if (max === red) hue = ((green - blue) / delta) % 6
+  else if (max === green) hue = (blue - red) / delta + 2
+  else hue = (red - green) / delta + 4
+
+  return { h: (hue * 60 + 360) % 360, s: saturation, l: lightness }
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const chroma = (1 - Math.abs(2 * l - 1)) * s
+  const secondary = chroma * (1 - Math.abs(((h / 60) % 2) - 1))
+  const match = l - chroma / 2
+
+  const [r, g, b] =
+    h < 60
+      ? [chroma, secondary, 0]
+      : h < 120
+        ? [secondary, chroma, 0]
+        : h < 180
+          ? [0, chroma, secondary]
+          : h < 240
+            ? [0, secondary, chroma]
+            : h < 300
+              ? [secondary, 0, chroma]
+              : [chroma, 0, secondary]
+
+  const toHex = (channel: number) =>
+    Math.round((channel + match) * 255)
+      .toString(16)
+      .padStart(2, '0')
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }

@@ -14,10 +14,12 @@ interface Props {
   modelValue?: boolean
   label: string
   hint?: string
+  /** Ícone lucide antes do rótulo — reforça a identidade de cada linha em listas longas. */
+  icon?: string
   disabled?: boolean
 }
 
-const { modelValue = false, label, hint, disabled = false } = defineProps<Props>()
+const { modelValue = false, label, hint, icon, disabled = false } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -30,7 +32,16 @@ const emit = defineEmits<{
     :class="disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-muted/40'"
   >
     <span class="min-w-0">
-      <span class="block text-sm font-medium text-text">{{ label }}</span>
+      <span class="flex items-center gap-2 text-sm font-medium text-text">
+        <Icon
+          v-if="icon"
+          :name="icon"
+          class="h-4 w-4 shrink-0"
+          :class="modelValue ? 'text-primary' : 'text-text-muted'"
+          aria-hidden="true"
+        />
+        <span class="min-w-0 truncate">{{ label }}</span>
+      </span>
       <span v-if="hint" class="mt-0.5 block text-xs leading-relaxed text-text-muted">
         {{ hint }}
       </span>

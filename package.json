@@ -39,6 +39,7 @@
     "qrcode": "^1.5.4",
     "reka-ui": "^2.10.1",
     "vee-validate": "^4.15.1",
+    "vue-advanced-cropper": "^2.8.9",
     "zod": "^3.25.76"
   },
   "devDependencies": {

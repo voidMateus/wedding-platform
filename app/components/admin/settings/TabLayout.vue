@@ -26,10 +26,11 @@ defineProps<Props>()
 
 <template>
   <div class="lg:flex lg:items-start lg:gap-6">
-    <!-- w-48 (12rem) é a coluna do modelo; top-20 = os 4rem do header fixo do
-         admin mais 1rem de folga. -->
+    <!-- w-48 (12rem) é a coluna do modelo. `top-4` e não `top-20`: o scroller
+         agora é o <main> do layout, e o header do admin fica fora dele — não
+         há mais altura de header para compensar, só uma folga de respiro. -->
     <nav
-      class="hidden lg:sticky lg:top-20 lg:block lg:w-48 lg:shrink-0"
+      class="hidden lg:sticky lg:top-4 lg:block lg:w-48 lg:shrink-0"
       :aria-label="`Seções de ${label}`"
     >
       <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">

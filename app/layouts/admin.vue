@@ -186,7 +186,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="admin-ui flex min-h-screen bg-surface">
+  <!--
+    App shell de altura fixa: a raiz nao rola, quem rola e o <main>. Antes a
+    sidebar e o header eram `sticky` sobre a rolagem do documento, e qualquer
+    dropdown do Reka (Select, Popover) os quebrava: ao abrir, o primitive
+    aplica trava de scroll no `body` (`overflow`, `paddingRight`,
+    `marginRight`), o body volta a ser conteiner de rolagem e todo `sticky`
+    dentro dele perde a ancora -- com a pagina rolada, a sidebar saltava de
+    volta ao topo do documento e desaparecia da vista. Tirando a chrome da
+    rolagem do documento, mexer no `body` deixa de ter qualquer efeito sobre
+    ela. Ver tambem a nota de `overflow-x` em app/assets/css/main.css.
+  -->
+  <div class="admin-ui flex h-screen overflow-hidden bg-surface">
     <Transition
       enter-active-class="transition-brand"
       enter-from-class="opacity-0"
@@ -203,18 +214,14 @@ onBeforeUnmount(() => {
     </Transition>
 
     <!--
-      Desktop: `lg:sticky lg:top-0 lg:h-screen lg:self-start` — a sidebar
-      acompanha a rolagem em vez de sair de cena junto com o conteúdo. Não é
-      `lg:static` (rolava embora) nem `fixed` no desktop (tiraria a coluna do
-      fluxo e o conteúdo teria de compensar a largura à mão, quebrando a
-      animação de recolher). `self-start` é obrigatório: sem ele o
-      `align-items: stretch` do flex pai esticaria o aside até a altura da
-      página e o `h-screen` não teria efeito, anulando o sticky.
-      `overflow-y-auto` cobre o caso de a navegação passar da altura da tela.
+      No desktop a sidebar e uma coluna normal do flex, com a altura do shell
+      (`lg:h-full`) — nao precisa mais de `sticky` para acompanhar a rolagem,
+      porque o documento nao rola. `overflow-y-auto` cobre navegacao mais alta
+      que a tela. No mobile segue `fixed` como drawer.
     -->
     <aside
       ref="sidebarEl"
-      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:self-start lg:overflow-y-auto lg:transition-[width]"
+      class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface px-3 py-5 transition-transform transition-brand lg:static lg:z-auto lg:h-full lg:translate-x-0 lg:transition-[width]"
       :class="[uiStore.sidebarOpen ? 'translate-x-0 lg:w-56' : '-translate-x-full lg:w-16']"
       @keydown="handleSidebarKeydown"
     >
@@ -293,9 +300,11 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <!-- Sem `sticky`: o header e um irmao de altura fixa do <main>, que e o
+           unico que rola. Assim ele nunca depende do estado do `body`. -->
       <header
-        class="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface/80 px-4 backdrop-blur sm:px-6"
+        class="z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface/80 px-4 backdrop-blur sm:px-6"
       >
         <button
           ref="menuButtonEl"
@@ -348,7 +357,9 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <main class="min-w-0 flex-1 px-4 py-7 sm:px-6">
+      <!-- O scroller da tela. `overflow-y-auto` aqui (e nao no documento) e o
+           que torna a chrome imune a trava de scroll dos dropdowns. -->
+      <main class="min-w-0 flex-1 overflow-y-auto px-4 py-7 sm:px-6">
         <slot />
       </main>
     </div>
