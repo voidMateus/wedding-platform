@@ -120,7 +120,7 @@ docs/                          # ver seção 15
 ## 8. Padrões TypeScript
 
 - `strict: true`, incluindo `noImplicitAny`, `strictNullChecks`, `noUncheckedIndexedAccess`. **Proibido `any`** — tipo genuinamente desconhecido usa `unknown` + narrowing explícito.
-- `database.types.ts` é gerado automaticamente (Supabase CLI) e **nunca editado manualmente** — ajuste de tipo de domínio vai em tipos derivados (`Guest`, `Wedding`...), não no arquivo gerado.
+- `database.types.ts` é gerado automaticamente (Supabase CLI) e **nunca editado manualmente** — ajuste de tipo de domínio vai em tipos derivados (`Guest`, `Wedding`...), não no arquivo gerado. Um gate de CI regenera o arquivo a partir das migrations e falha se o commitado divergir, então migration nova sempre vem acompanhada do arquivo regenerado no mesmo commit. O gate compara o **recorte de schema** dos dois arquivos (`scripts/schema-types-fingerprint.mjs`), não os arquivos inteiros: a mesma CLI emite boilerplate diferente conforme a versão do PostgREST que detecta, então o arquivo gerado contra o projeto hospedado nunca é byte-a-byte igual ao gerado contra o stack local — e nenhuma dessas diferenças carrega schema.
 - Schemas Zod são a fonte de verdade de validação; o tipo TS é inferido via `z.infer<typeof schema>` — nunca duplicado entre validação e tipagem.
 - Enum de domínio (status de RSVP etc.) é **union type de string literal**, espelhando o `CHECK` do Postgres — nunca `enum` do TypeScript.
 - Tipo compartilhado client/server vive em `app/types/` (ou `shared/`) — nunca duplicado entre `server/` e `app/`.

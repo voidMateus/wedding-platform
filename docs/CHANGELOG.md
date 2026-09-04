@@ -25,6 +25,20 @@ Medido contra o build de produção (`npm run build` + `node .output/server/inde
 
 **Não corrigido nesta fase** — decisão deliberada: uma investigação de code-splitting (por que o manifesto de rotas do admin entra no chunk inicial do público, se dá para lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é um trabalho à parte, arriscado de tentar no fim de uma fase já longa sem tempo para validar a fundo. Fica registrado aqui como o item de maior prioridade antes da Fase 4 ("Revisão de performance").
 
+### Investigação de code-splitting: a hipótese registrada acima estava errada (2026-09-04)
+
+A investigação foi feita e **o manifesto de rotas do admin não é o problema**. Medido no build de produção: as 13 rotas de `/admin/**` e `/plataforma` ocupam **2,4 kB de um chunk de entrada de 280 kB — 0,85%**, e são só isso mesmo, um manifesto: cada rota é `component: () => import(...)`, totalmente lazy. Nenhum componente, página ou composable do admin está no chunk inicial do público (verificado por sondagem direta no bundle: `AdminTable`, `useGuests`, textos de UI do admin — nada). Ou seja, `defineAsyncComponent`/`lazy: true`, as saídas cogitadas em 2026, não teriam nada para resolver.
+
+**O que realmente pesava**: o SDK do Supabase — `@supabase/ssr` + `@supabase/supabase-js`, um chunk de 232 kB (**61 kB gzip**) — era baixado por todo visitante do site público.
+
+A causa é uma sutileza de como o Vite trata import dinâmico. `app/plugins/supabase-auth.client.ts` já fazia a coisa certa: `await import('@supabase/ssr')` dentro de um plugin que retorna cedo em qualquer rota que não seja `/admin`, `/login` ou `/plataforma` (correção anterior, documentada no próprio arquivo). Só que **plugin vive no chunk de entrada**, e o Vite marca todo alvo de import dinâmico para `<link rel="prefetch">`. O early-return corta a *execução* do SDK; não corta o *download*. O navegador do convidado baixava os 61 kB assim que ficava ocioso, para nunca usá-los.
+
+**Correção**: um segundo módulo inline em `nuxt.config.ts`, no hook `build:manifest`, desliga `prefetch`/`preload` das entradas `@supabase` do manifesto. `/admin` e `/login` passam a baixar o SDK sob demanda, no próprio import do plugin — custo único para o casal, que faz login raramente, no lugar de um custo recorrente para cada convidado no celular. O hook loga o que desligou e **avisa alto se não encontrar nada**, porque um id de módulo mudado (atualização do pacote) faria o prefetch voltar em silêncio.
+
+**Medido, antes → depois**, na página pública de um casamento: prefetch de 7 chunks / 242 kB (67 kB gzip) → 6 chunks / 14 kB (**6 kB gzip**). Validado com Chromium de verdade: em `/teste-dev` o chunk do SDK não é requisitado; em `/login` é, sem erro de console.
+
+Observação não perseguida, fora do escopo desta tarefa: a página pública emite "Hydration completed but contains mismatches" no console. É anterior a esta mudança por mecanismo (desligar uma dica de `prefetch` não afeta render de servidor vs. cliente), mas é um bug real e fica registrado aqui para ser investigado à parte.
+
 ### Achado: campo de valor de presente empurrava os dígitos para a direita da vírgula
 
 Reportado pelo usuário: ao digitar no "Preço estimado" do formulário de presente, o campo chegava a estados como `1.00000` — cada tecla nova acrescentava um dígito à direita do separador decimal, em vez de manter o formato `0,00`.
