@@ -74,6 +74,41 @@ const safeColor = computed(() =>
 function emitColor(color: Color) {
   emit('update:modelValue', colorToHex(color).toLowerCase())
 }
+
+/**
+ * Matiz (0-360) da cor atual, só para pintar o fundo da área.
+ *
+ * `ColorAreaArea` não desenha fundo nenhum — verificado no pacote —, então o
+ * quadrado nascia branco e a área de saturação/brilho ficava invisível. O
+ * gradiente é responsabilidade de quem estiliza o primitive, e ele precisa
+ * do matiz em vigor: só o eixo do matiz fica fora da área (é o slider).
+ */
+const hue = computed(() => {
+  const hex = safeColor.value
+  const r = Number.parseInt(hex.slice(1, 3), 16) / 255
+  const g = Number.parseInt(hex.slice(3, 5), 16) / 255
+  const b = Number.parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b)
+  const delta = max - Math.min(r, g, b)
+  if (delta === 0) return 0
+
+  const setor =
+    max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4
+  return (setor * 60 + 360) % 360
+})
+
+/**
+ * O quadrado clássico de saturação/brilho: matiz puro no fundo, branco
+ * esmaecendo da esquerda e preto de baixo para cima. A ordem importa — em CSS
+ * a primeira camada é a de cima.
+ */
+const areaBackground = computed(() => ({
+  background: [
+    'linear-gradient(to top, #000, transparent)',
+    'linear-gradient(to right, #fff, transparent)',
+    `hsl(${hue.value} 100% 50%)`,
+  ].join(', '),
+}))
 </script>
 
 <template>
@@ -108,13 +143,13 @@ function emitColor(color: Color) {
           <div class="flex flex-col gap-3">
             <ColorAreaRoot
               :model-value="safeColor"
-              color-space="hsl"
+              color-space="hsb"
               x-channel="saturation"
-              y-channel="lightness"
+              y-channel="brightness"
               class="relative h-36 w-full overflow-hidden rounded-md border border-border"
               @update:color="emitColor"
             >
-              <ColorAreaArea class="h-full w-full">
+              <ColorAreaArea class="h-full w-full" :style="areaBackground">
                 <ColorAreaThumb
                   class="h-4 w-4 rounded-full border-2 border-white shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 />
@@ -124,7 +159,7 @@ function emitColor(color: Color) {
             <ColorSliderRoot
               :model-value="safeColor"
               channel="hue"
-              color-space="hsl"
+              color-space="hsb"
               class="relative flex h-4 w-full touch-none items-center"
               @update:color="emitColor"
             >

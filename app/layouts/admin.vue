@@ -30,6 +30,13 @@ const themeStyleTag = computed(() => {
 
 useHead({
   style: [{ innerHTML: themeStyleTag }],
+  // Só o admin: o shell tem altura de tela e quem rola é o <main>, então o
+  // documento não deveria rolar — mas sem travar aqui ele ainda rolava
+  // (medido: `document.scrollTop` ia a 708 num clique). Documento rolável
+  // por baixo de um app shell dá dois eixos de rolagem competindo, e é o de
+  // fora que o navegador move quando precisa revelar um elemento focado.
+  // Seguro agora: nada no admin depende mais de `sticky` no documento.
+  bodyAttrs: { class: 'overflow-hidden' },
 })
 
 // Sidebar colapsável (CLAUDE.md, seção 24) — mobile vira overlay/drawer.
