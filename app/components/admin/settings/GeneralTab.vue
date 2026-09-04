@@ -99,15 +99,22 @@ function applyWeddingToForm() {
 
 watch(() => props.wedding, applyWeddingToForm, { immediate: true })
 
-const onSubmit = handleSubmit(async (values) => {
-  try {
-    await updateWedding(values)
-    emit('saved')
-    toast.success('Configurações salvas.')
-  } catch (err) {
-    toast.error(getApiErrorMessage(err, 'Não foi possível salvar as configurações.'))
-  }
-})
+const onSubmit = handleSubmit(
+  async (values) => {
+    try {
+      await updateWedding(values)
+      emit('saved')
+      toast.success('Configurações salvas.')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível salvar as configurações.'))
+    }
+  },
+  // Ver AppearanceTab: sem este retorno, salvar com campo inválido é um clique
+  // que não produz nada nem explica por quê.
+  () => {
+    toast.error('Há campos que precisam de ajuste nesta aba — confira os destaques acima.')
+  },
+)
 </script>
 
 <template>

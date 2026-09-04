@@ -9,6 +9,7 @@
 -->
 <script setup lang="ts">
 import { THEME_PRESETS } from '#shared/theme-presets'
+import { checkColorContrast, isValidHexColor } from '#shared/utils/contrast'
 
 interface Props {
   modelValue: string | undefined
@@ -16,7 +17,7 @@ interface Props {
   error?: string
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -30,6 +31,21 @@ const emit = defineEmits<{
 const suggestions = computed(() => [
   ...new Set(THEME_PRESETS.flatMap((preset) => [preset.primaryColor, preset.secondaryColor])),
 ])
+
+/**
+ * Quando a cor é um hexadecimal válido mas reprova no contraste, o aviso
+ * abaixo já explica o problema e oferece o tom corrigido — mostrar também o
+ * erro do campo repetia a MESMA frase duas vezes, uma em vermelho e outra no
+ * painel, empilhadas. O erro do campo continua aparecendo para o outro caso
+ * de validação (formato inválido), que o aviso não cobre.
+ */
+const contrastAlreadyExplained = computed(() => {
+  const value = props.modelValue
+  if (!value || !isValidHexColor(value)) return false
+  return !checkColorContrast(value).meetsMinimum
+})
+
+const fieldError = computed(() => (contrastAlreadyExplained.value ? undefined : props.error))
 </script>
 
 <template>
@@ -37,7 +53,7 @@ const suggestions = computed(() => [
     <UiColorPicker
       :model-value="modelValue"
       :label="label"
-      :error="error"
+      :error="fieldError"
       :suggestions="suggestions"
       @update:model-value="emit('update:modelValue', $event)"
     />

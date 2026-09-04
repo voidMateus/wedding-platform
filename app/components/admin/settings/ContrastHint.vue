@@ -59,10 +59,7 @@ const ratioLabel = computed(() =>
     <div v-else class="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning/5 p-2.5">
       <p class="flex items-start gap-1.5 text-xs leading-relaxed text-warning" :title="ratioLabel">
         <Icon name="lucide:alert-triangle" class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>
-          Este tom é claro demais para o fundo do site — textos e botões nesta cor ficam difíceis de
-          ler.
-        </span>
+        <span> Este tom é claro demais para o fundo do site e deixa o texto difícil de ler. </span>
       </p>
 
       <button

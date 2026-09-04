@@ -124,15 +124,26 @@ const advancedThemeItems = [
 ]
 const defaultOpenAdvancedId = computed(() => (activePresetId.value ? undefined : 'avancado'))
 
-const onSubmit = handleSubmit(async (values) => {
-  try {
-    await updateWeddingTheme(values)
-    emit('refresh')
-    toast.success('Aparência salva.')
-  } catch (err) {
-    toast.error(getApiErrorMessage(err, 'Não foi possível salvar a aparência.'))
-  }
-})
+const onSubmit = handleSubmit(
+  async (values) => {
+    try {
+      await updateWeddingTheme(values)
+      emit('refresh')
+      toast.success('Aparência salva.')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível salvar a aparência.'))
+    }
+  },
+  // Segundo argumento do handleSubmit: sem ele, um formulário reprovado na
+  // validação não faz absolutamente nada ao clicar em salvar — nenhuma
+  // requisição e nenhum retorno. Numa aba longa o botão fica longe do campo
+  // com erro, então quem clicou precisa saber que NADA foi salvo. Vale mais
+  // ainda para o contraste de cor, cujo erro de campo é suprimido de
+  // propósito para não repetir o aviso (ver AdminSettingsColorPicker).
+  () => {
+    toast.error('Há campos que precisam de ajuste nesta aba — confira os destaques acima.')
+  },
+)
 </script>
 
 <template>

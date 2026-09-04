@@ -31,7 +31,10 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
   })
 
   afterAll(async () => {
-    await cleanupAll([() => deleteTestMember(admin, member.userId), () => deleteTestWedding(admin, wedding.id)])
+    await cleanupAll([
+      () => deleteTestMember(admin, member.userId),
+      () => deleteTestWedding(admin, wedding.id),
+    ])
   })
 
   describe('PATCH /api/wedding', () => {
@@ -53,7 +56,11 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       expect(body.nomes_noivos).toBe('Ana & Bruno')
       expect(body.modo_lista_convidados).toBe('aberta')
 
-      const { data: stored } = await admin.from('casamentos').select('*').eq('id', wedding.id).single()
+      const { data: stored } = await admin
+        .from('casamentos')
+        .select('*')
+        .eq('id', wedding.id)
+        .single()
       expect(stored?.nomes_noivos).toBe('Ana & Bruno')
       expect(stored?.data_evento).toBe('2031-06-15')
       expect(stored?.horario_evento).toBe('16:00:00')
@@ -65,7 +72,11 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
 
     it('erro de domínio: modoListaConvidados fora do enum é rejeitado com 400, a linha não muda', async () => {
       const client = createTestApiClient({ cookie })
-      const { data: before } = await admin.from('casamentos').select('nomes_noivos').eq('id', wedding.id).single()
+      const { data: before } = await admin
+        .from('casamentos')
+        .select('nomes_noivos')
+        .eq('id', wedding.id)
+        .single()
 
       const res = await client.patch('/api/wedding', {
         nomesNoivos: 'Não Deve Salvar',
@@ -76,7 +87,11 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       })
       expect(res.status).toBe(400)
 
-      const { data: after } = await admin.from('casamentos').select('nomes_noivos').eq('id', wedding.id).single()
+      const { data: after } = await admin
+        .from('casamentos')
+        .select('nomes_noivos')
+        .eq('id', wedding.id)
+        .single()
       expect(after?.nomes_noivos).toBe(before?.nomes_noivos)
     })
 
@@ -113,7 +128,11 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       expect(theme.primaryColor).toBe('#6b4a35')
       expect(theme.secondaryColor).toBe('#5f6f52')
 
-      const { data: stored } = await admin.from('casamentos').select('config_tema').eq('id', wedding.id).single()
+      const { data: stored } = await admin
+        .from('casamentos')
+        .select('config_tema')
+        .eq('id', wedding.id)
+        .single()
       const storedTheme = stored?.config_tema as Record<string, unknown>
       expect(storedTheme.primaryColor).toBe('#6b4a35')
       expect(storedTheme.secondaryColor).toBe('#5f6f52')
@@ -125,7 +144,11 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
 
     it('erro de domínio: cores sem contraste suficiente (branco sobre branco) são rejeitadas com 400, config_tema não muda', async () => {
       const client = createTestApiClient({ cookie })
-      const { data: before } = await admin.from('casamentos').select('config_tema').eq('id', wedding.id).single()
+      const { data: before } = await admin
+        .from('casamentos')
+        .select('config_tema')
+        .eq('id', wedding.id)
+        .single()
 
       const res = await client.patch('/api/wedding/theme', {
         presetId: '',
@@ -141,9 +164,16 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       expect(res.status).toBe(400)
 
       const body = await res.json()
-      expect(body.message).toContain('Contraste insuficiente')
+      // Trecho estável da mensagem, não a frase inteira: o texto é copy de
+      // interface e vai mudar de redação; o que o teste garante é que o
+      // servidor recusou POR CONTRASTE, não por outro motivo.
+      expect(body.message).toContain('tom mais escuro')
 
-      const { data: after } = await admin.from('casamentos').select('config_tema').eq('id', wedding.id).single()
+      const { data: after } = await admin
+        .from('casamentos')
+        .select('config_tema')
+        .eq('id', wedding.id)
+        .single()
       expect(after?.config_tema).toEqual(before?.config_tema)
     })
 
@@ -179,10 +209,16 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       const content = body.config_conteudo as Record<string, unknown>
       expect(content.welcomeTitle).toBe('Bem-vindos ao nosso grande dia')
 
-      const { data: stored } = await admin.from('casamentos').select('config_conteudo').eq('id', wedding.id).single()
+      const { data: stored } = await admin
+        .from('casamentos')
+        .select('config_conteudo')
+        .eq('id', wedding.id)
+        .single()
       const storedContent = stored?.config_conteudo as Record<string, unknown>
       expect(storedContent.welcomeTitle).toBe('Bem-vindos ao nosso grande dia')
-      expect(storedContent.welcomeMessage).toBe('Estamos muito felizes em compartilhar este momento com vocês.')
+      expect(storedContent.welcomeMessage).toBe(
+        'Estamos muito felizes em compartilhar este momento com vocês.',
+      )
       expect(storedContent.dressCodeSuggestions).toEqual(['Evitar branco'])
       expect(storedContent.guestManualTopics).toEqual([])
       expect(storedContent.faqItems).toEqual([])
@@ -209,7 +245,11 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       })
       expect(res.status).toBe(400)
 
-      const { data: after } = await admin.from('casamentos').select('config_conteudo').eq('id', wedding.id).single()
+      const { data: after } = await admin
+        .from('casamentos')
+        .select('config_conteudo')
+        .eq('id', wedding.id)
+        .single()
       expect(after?.config_conteudo).toEqual(before?.config_conteudo)
     })
 
