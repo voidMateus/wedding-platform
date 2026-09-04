@@ -97,7 +97,7 @@ const onSubmit = handleSubmit(async (values) => {
         label="Ordem de exibição"
         :error="errors.ordemExibicao"
       />
-      <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
+      <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
       <div class="mt-2 flex justify-end gap-2">
         <UiButton type="button" variant="ghost" @click="$emit('update:modelValue', false)">
           Cancelar

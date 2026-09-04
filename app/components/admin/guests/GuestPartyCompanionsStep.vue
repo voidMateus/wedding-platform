@@ -34,7 +34,6 @@ function emptyPerson(): GuestPersonInput {
     sexo: undefined,
     dataNascimento: '',
     papelCasamento: undefined,
-    restricoesAlimentares: '',
     observacoes: '',
     grupoId: '',
   }
@@ -48,7 +47,6 @@ function personFromGuest(guest: GuestDetail): GuestPersonInput {
     sexo: (guest.sexo as GuestPersonInput['sexo']) ?? undefined,
     dataNascimento: guest.data_nascimento ?? '',
     papelCasamento: (guest.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
-    restricoesAlimentares: guest.restricoes_alimentares ?? '',
     observacoes: guest.observacoes ?? '',
     grupoId: guest.grupo_id ?? '',
   }
@@ -219,7 +217,7 @@ function moveCompanion(index: number, direction: -1 | 1) {
             </button>
           </li>
         </ul>
-        <p v-if="companionDraft.id" class="text-xs text-green-700">
+        <p v-if="companionDraft.id" class="text-xs text-success">
           Convidado existente selecionado — revise os dados abaixo antes de confirmar.
         </p>
       </div>

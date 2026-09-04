@@ -21,14 +21,12 @@ export const rsvpConfirmSchema = z.object({
 
 export const rsvpGuestStatusSchema = z.object({
   status: z.enum(['confirmado', 'recusado'], { message: 'Selecione se você vai comparecer.' }),
-  restricoesAlimentares: z.string().trim().max(500).optional().or(z.literal('')),
 })
 
 export type RsvpGuestStatusInput = z.infer<typeof rsvpGuestStatusSchema>
 
 export const rsvpCompanionSchema = z.object({
   nomeCompleto: z.string().trim().min(1, 'Informe o nome do acompanhante.').max(200),
-  restricoesAlimentares: z.string().trim().max(500).optional().or(z.literal('')),
 })
 
 export const rsvpFinalizeSchema = z.object({

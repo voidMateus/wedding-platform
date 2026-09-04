@@ -5,8 +5,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  * nenhum auto-import do Nitro/Nuxt (useRuntimeConfig, setCookie...), só pra
  * poder ser testado diretamente fora do runtime do servidor
  * (tests/unit/server/rsvp-token.spec.ts), mesmo motivo de
- * guest-access-token.ts ser puro enquanto token-cipher.ts (usa
- * useRuntimeConfig) não tem teste unitário. server/utils/rsvp-session.ts
+ * guest-access-token.ts e aes-gcm.ts serem puros enquanto os wrappers que
+ * usam useRuntimeConfig (token-cipher.ts) não. server/utils/rsvp-session.ts
  * envolve isto com o H3 `event` (cookie).
  */
 
@@ -39,7 +39,9 @@ export function verifyRsvpToken(token: string, secret: string): RsvpTokenPayload
   }
 
   try {
-    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as Partial<RsvpTokenPayload>
+    const payload = JSON.parse(
+      Buffer.from(data, 'base64url').toString('utf8'),
+    ) as Partial<RsvpTokenPayload>
     if (
       typeof payload.casamentoId !== 'string' ||
       typeof payload.conviteId !== 'string' ||

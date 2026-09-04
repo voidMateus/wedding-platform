@@ -36,8 +36,10 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   const adminSlug = await login(page)
 
   // --- wizard: cadastro com acompanhante + criação automática de convite ---
-  await page.goto(`/admin/${adminSlug}/convidados/novo`)
+  // O cadastro é um modal sobre a listagem, aberto pela própria URL (`?novo=1`).
+  await page.goto(`/admin/${adminSlug}/convidados?novo=1`)
   await page.waitForLoadState('networkidle')
+  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10_000 })
   await page.getByLabel('Nome completo').fill(primaryName)
   await page.getByRole('button', { name: 'Próximo' }).click()
 
@@ -58,19 +60,23 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await expect(page).toHaveURL(new RegExp(`/admin/${adminSlug}/convidados$`), { timeout: 10_000 })
 
   // --- convite criado automaticamente, com responsável destacado ---
+  // O detalhe do convite é um modal sobre a listagem: o nome na tabela é um
+  // botão que o abre (a rota /convites/{id} só redireciona para cá).
   await page.goto(`/admin/${adminSlug}/convites`)
-  await page.getByPlaceholder('Buscar por nome do convite').fill(`Família ${primaryName.split(' ')[0]}`)
-  const inviteLink = page.getByRole('link', { name: new RegExp(`Família ${primaryName.split(' ')[0]}`) })
-  await expect(inviteLink).toBeVisible({ timeout: 10_000 })
-  await inviteLink.click()
-  await page.waitForLoadState('networkidle')
+  await page.getByPlaceholder('Filtrar por nome...').fill(`Família ${primaryName.split(' ')[0]}`)
+  const inviteButton = page.getByRole('button', {
+    name: new RegExp(`Família ${primaryName.split(' ')[0]}`),
+  })
+  await expect(inviteButton).toBeVisible({ timeout: 10_000 })
+  await inviteButton.click()
 
-  await expect(page.getByText(primaryName)).toBeVisible()
-  await expect(page.getByText('(Responsável)')).toBeVisible()
+  const inviteDialog = page.getByRole('dialog')
+  await expect(inviteDialog).toBeVisible({ timeout: 10_000 })
+  await expect(inviteDialog.getByText(primaryName)).toBeVisible({ timeout: 10_000 })
+  await expect(inviteDialog.getByText('(Responsável)')).toBeVisible()
 
-  // --- gera link de acesso e extrai o código ---
-  await page.getByRole('button', { name: 'Link de acesso' }).click()
-  await page.getByRole('button', { name: 'Gerar link' }).click()
+  // --- gera link de acesso e extrai o código (bloco do próprio modal) ---
+  await inviteDialog.getByRole('button', { name: 'Gerar link' }).click()
   const linkInput = page.locator('input[disabled]')
   await expect(linkInput).toBeVisible({ timeout: 10_000 })
   const link = await linkInput.inputValue()

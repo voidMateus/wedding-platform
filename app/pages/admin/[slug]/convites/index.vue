@@ -1,23 +1,28 @@
 <script setup lang="ts">
-import { toTypedSchema } from '@vee-validate/zod'
-import { useForm } from 'vee-validate'
-import { inviteInputSchema } from '#shared/schemas/invites'
 import { formatDatePtBR } from '#shared/utils/format-date'
+import type { InviteListItem } from '~/types/invite'
 
 definePageMeta({ layout: 'admin' })
 
-const activeSlug = useActiveWeddingSlug()
+const route = useRoute()
+const router = useRouter()
 
-const { listInvites, createInvite, deleteInvite } = useInvites()
+const { listInvites, deleteInvite } = useInvites()
 
 const page = ref(1)
 const search = ref('')
+const statusFilter = ref('todos')
 const PAGE_SIZE = 25
 
+// includeArchived: true de propósito. O recorte "Arquivados" da barra de
+// filtros não existiria sem isso — e hoje um convite arquivado desaparece da
+// listagem sem nenhuma forma de reencontrá-lo pela UI (o arquivamento é feito
+// na tela de detalhe). "Todos" continua escondendo arquivado, como antes.
 const listParams = computed(() => ({
   page: page.value,
   pageSize: PAGE_SIZE,
   search: search.value.trim() || undefined,
+  includeArchived: true,
 }))
 
 const { data, status, error, refresh } = listInvites(listParams)
@@ -27,46 +32,85 @@ const totalPages = computed(() => {
   return Math.max(1, Math.ceil(total / PAGE_SIZE))
 })
 
-const statusLabel: Record<string, string> = {
-  pending: 'Pendente',
-  partial: 'Parcialmente respondido',
-  responded: 'Respondido',
-}
-const statusTone: Record<string, 'neutral' | 'warning' | 'success'> = {
-  pending: 'neutral',
-  partial: 'warning',
-  responded: 'success',
-}
+const statusChips = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'respondidos', label: 'Respondidos' },
+  { value: 'aguardando', label: 'Aguardando' },
+  { value: 'arquivados', label: 'Arquivados' },
+] as const
 
-// --- criar ---
-
-const isFormModalOpen = ref(false)
-const formErrorMessage = ref<string | null>(null)
-
-const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
-  validationSchema: toTypedSchema(inviteInputSchema),
-  initialValues: { nome: '', observacoes: '' },
+const visibleInvites = computed(() => {
+  const rows = data.value?.data ?? []
+  if (statusFilter.value === 'arquivados') return rows.filter((invite) => invite.arquivado_em)
+  const active = rows.filter((invite) => !invite.arquivado_em)
+  if (statusFilter.value === 'respondidos') {
+    return active.filter((invite) => invite.responseStatus === 'responded')
+  }
+  if (statusFilter.value === 'aguardando') {
+    return active.filter((invite) => invite.responseStatus !== 'responded')
+  }
+  return active
 })
 
-const [name] = defineField('nome')
-const [notes] = defineField('observacoes')
+const peopleInView = computed(() =>
+  visibleInvites.value.reduce((total, invite) => total + invite.memberCount, 0),
+)
+
+const totalLabel = computed(() => {
+  const total = data.value?.meta.total ?? 0
+  return `${total} convite${total === 1 ? '' : 's'}`
+})
+
+const columns = [
+  { key: 'nome', label: 'Convite' },
+  { key: 'responsavel', label: 'Responsável' },
+  { key: 'pessoas', label: 'Pessoas', align: 'right' },
+  { key: 'status', label: 'Status', align: 'right' },
+  { key: 'enviado', label: 'Enviado em', align: 'right' },
+  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
+] as const
+
+// Badge também na tabela (preferência do usuário em 2026-09-04, depois de ver
+// as duas apresentações lado a lado): o preenchimento suave separa o status do
+// resto da linha melhor que o texto colorido. Rótulo e tom continuam vindo do
+// mapa único, então tabela e modal nunca divergem de significado.
+function statusOf(invite: InviteListItem) {
+  return inviteResponsePresentation(invite.responseStatus, {
+    sent: invite.status_convite === 'enviado',
+  })
+}
+
+// --- criar/abrir ---
+//
+// Mesma convenção da listagem de convidados: o modal é governado pela URL
+// (`?novo=1` / `?editar=<id>`), então link salvo, busca global e o botão
+// Voltar do navegador continuam funcionando.
+const openInviteId = computed(() =>
+  typeof route.query.editar === 'string' ? route.query.editar : null,
+)
+const isCreateModalOpen = computed(() => route.query.novo === '1')
+const isDetailModalOpen = computed(() => Boolean(openInviteId.value))
 
 function openCreateModal() {
-  formErrorMessage.value = null
-  resetForm({ values: { nome: '', observacoes: '' } })
-  isFormModalOpen.value = true
+  router.push({ query: { ...route.query, novo: '1', editar: undefined } })
 }
 
-const onSubmit = handleSubmit(async (values) => {
-  formErrorMessage.value = null
-  try {
-    const created = await createInvite(values)
-    isFormModalOpen.value = false
-    await navigateTo(`/admin/${activeSlug}/convites/${created.id}`)
-  } catch {
-    formErrorMessage.value = 'Não foi possível criar o convite. Tente novamente.'
-  }
-})
+function openDetailModal(invite: InviteListItem) {
+  router.push({ query: { ...route.query, novo: undefined, editar: invite.id } })
+}
+
+// replace, não push: fechar o modal não pode deixar um passo a mais no
+// histórico — Voltar tem que sair da listagem.
+function closeModals() {
+  router.replace({ query: { ...route.query, novo: undefined, editar: undefined } })
+}
+
+// Criar abre direto o convite recém-criado: é no detalhe que se vinculam os
+// convidados e se gera o link de acesso — um convite vazio não serve de nada.
+async function handleInviteCreated(invite: { id: string }) {
+  await refresh()
+  await router.replace({ query: { ...route.query, novo: undefined, editar: invite.id } })
+}
 
 // --- excluir ---
 
@@ -94,92 +138,116 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <AdminSection
-    title="Convites"
-    description="Quem recebeu o mesmo convite — gere o link/QR, acompanhe respostas e o responsável por cada um."
-  >
+  <AdminSection title="Convites" :meta="totalLabel">
     <template #actions>
-      <UiButton @click="openCreateModal">Novo convite</UiButton>
+      <UiInput
+        v-model="search"
+        icon="lucide:search"
+        tone="muted"
+        placeholder="Filtrar por nome..."
+        class="w-full sm:w-64"
+      />
+      <UiButton @click="openCreateModal">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar convite
+      </UiButton>
     </template>
 
-    <UiCard padding="md" class="flex flex-col gap-4">
-      <UiInput v-model="search" placeholder="Buscar por nome do convite" class="max-w-xs" />
+    <AdminPanel
+      title="Registro de envios"
+      :meta="`${visibleInvites.length} exibidos · ${peopleInView} pessoas`"
+    >
+      <template #headerActions>
+        <AdminFilterChips
+          v-model="statusFilter"
+          :items="statusChips"
+          group-label="Filtrar convites por situação"
+        />
+      </template>
 
-      <div v-if="status === 'pending'" class="flex flex-col gap-2">
-        <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
+      <div v-if="status === 'pending'" class="flex flex-col gap-2 p-4 sm:p-5">
+        <UiSkeleton v-for="n in 3" :key="n" class="h-12 w-full" />
       </div>
 
-      <UiEmptyState
-        v-else-if="error"
-        icon="lucide:alert-triangle"
-        title="Não foi possível carregar os convites"
-        description="Verifique sua conexão e tente novamente."
-      >
-        <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
-      </UiEmptyState>
+      <div v-else-if="error" class="p-4 sm:p-5">
+        <UiEmptyState
+          icon="lucide:alert-triangle"
+          title="Não foi possível carregar os convites"
+          description="Verifique sua conexão e tente novamente."
+        >
+          <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+        </UiEmptyState>
+      </div>
 
-      <UiEmptyState
-        v-else-if="!data?.data.length"
-        icon="lucide:mail"
-        title="Nenhum convite cadastrado ainda"
-        description="Convites nascem automaticamente ao cadastrar convidados com acompanhantes, ou crie um manualmente."
-      >
-        <UiButton @click="openCreateModal">Novo convite</UiButton>
-      </UiEmptyState>
+      <div v-else-if="!data?.data.length" class="p-4 sm:p-5">
+        <UiEmptyState
+          icon="lucide:mail"
+          title="Nenhum convite cadastrado ainda"
+          description="Convites nascem automaticamente ao cadastrar convidados com acompanhantes, ou crie um manualmente."
+        >
+          <UiButton @click="openCreateModal">Adicionar convite</UiButton>
+        </UiEmptyState>
+      </div>
 
       <template v-else>
-        <UiTable>
-          <template #head>
-            <th class="px-4 py-2 font-medium">Convite</th>
-            <th class="px-4 py-2 font-medium">Responsável</th>
-            <th class="px-4 py-2 font-medium">Pessoas</th>
-            <th class="px-4 py-2 font-medium">Status</th>
-            <th class="px-4 py-2 font-medium">Enviado em</th>
-            <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
+        <AdminTable
+          :columns="columns"
+          :rows="visibleInvites"
+          row-clickable
+          empty-label="Nenhum convite com esse recorte."
+          @row-click="openDetailModal"
+        >
+          <template #cell-nome="{ row }">
+            <button
+              type="button"
+              class="font-medium text-text transition-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              @click="openDetailModal(row)"
+            >
+              {{ row.nome }}
+            </button>
+            <UiBadge v-if="row.arquivado_em" tone="neutral" class="ml-2">arquivado</UiBadge>
           </template>
-          <tr
-            v-for="invite in data?.data"
-            :key="invite.id"
-            class="border-t border-border transition-brand hover:bg-surface-muted/60"
-          >
-            <td class="px-4 py-2 text-text">
-              <NuxtLink
-                :to="`/admin/${activeSlug}/convites/${invite.id}`"
-                class="font-medium hover:underline"
-              >
-                {{ invite.nome }}
-              </NuxtLink>
-              <UiBadge v-if="invite.arquivado_em" tone="neutral" class="ml-2">arquivado</UiBadge>
-            </td>
-            <td class="px-4 py-2 text-text-muted">
-              <span v-if="invite.responsibleGuestName" class="inline-flex items-center gap-1">
-                <Icon name="lucide:star" class="h-3.5 w-3.5 text-amber-500" />
-                {{ invite.responsibleGuestName }}
-              </span>
-              <span v-else>—</span>
-            </td>
-            <td class="px-4 py-2 text-text-muted">{{ invite.memberCount }}</td>
-            <td class="px-4 py-2">
-              <UiBadge :tone="statusTone[invite.responseStatus]">
-                {{ statusLabel[invite.responseStatus] }}
-              </UiBadge>
-            </td>
-            <td class="px-4 py-2 text-text-muted">{{ formatDatePtBR(invite.enviado_em) }}</td>
-            <td class="px-4 py-2">
-              <div class="flex justify-end gap-2">
-                <UiButton size="sm" variant="ghost" :to="`/admin/${activeSlug}/convites/${invite.id}`">
-                  Abrir
-                </UiButton>
-                <UiButton size="sm" variant="destructive" @click="openDeleteModal(invite.id)">
-                  Excluir
-                </UiButton>
-              </div>
-            </td>
-          </tr>
-        </UiTable>
 
-        <div class="flex items-center justify-between text-sm text-text-muted">
-          <span>{{ data?.meta.total ?? 0 }} convite(s)</span>
+          <template #cell-responsavel="{ row }">
+            <span v-if="row.responsibleGuestName" class="text-text-muted">
+              {{ row.responsibleGuestName }}
+            </span>
+            <span v-else class="text-text-muted">—</span>
+          </template>
+
+          <template #cell-pessoas="{ row }">
+            <span class="num text-text-muted">{{ row.memberCount }}</span>
+          </template>
+
+          <template #cell-status="{ row }">
+            <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
+          </template>
+
+          <template #cell-enviado="{ row }">
+            <span class="text-text-muted">{{ formatDatePtBR(row.enviado_em) }}</span>
+          </template>
+
+          <template #cell-acoes="{ row }">
+            <span class="inline-flex justify-end gap-1">
+              <AdminRowAction
+                icon="lucide:pencil"
+                :label="`Abrir convite ${row.nome}`"
+                @click="openDetailModal(row)"
+              />
+              <AdminRowAction
+                icon="lucide:trash-2"
+                tone="danger"
+                :label="`Excluir convite ${row.nome}`"
+                @click="openDeleteModal(row.id)"
+              />
+            </span>
+          </template>
+        </AdminTable>
+
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-text-muted sm:px-5"
+        >
+          <span>{{ totalLabel }}</span>
           <div class="flex items-center gap-2">
             <UiButton
               size="sm"
@@ -201,33 +269,20 @@ async function confirmDelete() {
           </div>
         </div>
       </template>
-    </UiCard>
+    </AdminPanel>
 
-    <UiModal v-model="isFormModalOpen" title="Novo convite">
-      <form class="flex flex-col gap-4" @submit="onSubmit">
-        <UiInput
-          v-model="name"
-          label="Nome do convite"
-          placeholder="Ex.: Família José Silva"
-          :error="errors.nome"
-        />
-        <UiTextarea
-          v-model="notes"
-          label="Observações internas (opcional)"
-          placeholder="Nunca exibidas ao convidado — ex.: Mesa VIP"
-          :error="errors.observacoes"
-        />
-        <p v-if="formErrorMessage" class="text-sm text-red-600" role="alert">
-          {{ formErrorMessage }}
-        </p>
-        <div class="mt-2 flex justify-end gap-2">
-          <UiButton type="button" variant="ghost" @click="isFormModalOpen = false">
-            Cancelar
-          </UiButton>
-          <UiButton type="submit" :disabled="isSubmitting">Criar</UiButton>
-        </div>
-      </form>
-    </UiModal>
+    <AdminInvitesInviteCreateModal
+      :model-value="isCreateModalOpen"
+      @update:model-value="(isOpen) => !isOpen && closeModals()"
+      @created="handleInviteCreated"
+    />
+
+    <AdminInvitesInviteDetailModal
+      :model-value="isDetailModalOpen"
+      :invite-id="openInviteId"
+      @update:model-value="(isOpen) => !isOpen && closeModals()"
+      @changed="refresh()"
+    />
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir convite">
       <p class="text-sm text-text">

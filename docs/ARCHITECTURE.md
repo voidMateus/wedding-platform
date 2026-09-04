@@ -451,7 +451,7 @@ RSVP é sempre **por convidado** — não existe mais um envio único que cobre 
 
 ```
 1. Client valida com o schema Zod compartilhado (feedback imediato)
-2. PUT /api/rsvp/guests/[guestId] com { status: 'confirmado' | 'recusado', restricoesAlimentares? }
+2. PUT /api/rsvp/guests/[guestId] com { status: 'confirmado' | 'recusado' }
 3. Handler revalida o guestId contra o invite já resolvido (caminho A ou B) e o schema no server
 4. RPC salvar_rsvp_convidado() — sem lock de convite (cada convidado é independente):
    upsert em respostas_rsvp (chave: convidado_id, único), grava respondido_em,
@@ -461,7 +461,7 @@ RSVP é sempre **por convidado** — não existe mais um envio único que cobre 
 6. Job assíncrono (opcional, Fase 2): enfileira e-mail de confirmação, registrado em comunicacoes
 ```
 
-Recusar (`status: 'recusado'`) usa o mesmo endpoint — não coleta `restricoesAlimentares` no client (docs/PRODUCT.md seção 4.3), mas a validação de negócio real (não há acompanhante avulso a checar aqui) só entra na revisão final (7.3).
+Recusar (`status: 'recusado'`) usa o mesmo endpoint e o mesmo payload — a validação de negócio real (não há acompanhante avulso a checar aqui) só entra na revisão final (7.3).
 
 ### 7.3 Revisão final do convite (acompanhante avulso + mensagem)
 
@@ -597,7 +597,7 @@ Essa separação não é redundância — são dois mecanismos de enforcement di
 
 - Convidado confirma presença (link/QR e busca por nome) e, na revisão final, adiciona acompanhante avulso respeitando `convites.max_acompanhantes`.
 - Convidado tenta adicionar acompanhante avulso além do `max_acompanhantes` — vê erro claro, não um erro genérico.
-- Convidado recusa presença (caminho curto, sem campos de acompanhante/dietary).
+- Convidado recusa presença (caminho curto, sem campos de acompanhante).
 - Convidado edita uma resposta já enviada antes do `prazo_rsvp`.
 - Convidado tenta responder após `prazo_rsvp` — formulário em somente leitura.
 - Convidado se identifica (nome/telefone) e reserva presente simples sem custo ("vou comprar e entregar"); segunda tentativa concorrente ao mesmo item vê "esgotado".

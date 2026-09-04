@@ -54,7 +54,7 @@ const selectId = useId()
         class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
       />
     </div>
-    <p v-if="error" :id="`${selectId}-error`" class="text-sm text-red-600" role="alert">
+    <p v-if="error" :id="`${selectId}-error`" class="text-sm text-danger" role="alert">
       {{ error }}
     </p>
   </div>

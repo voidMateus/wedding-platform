@@ -7,8 +7,13 @@ import { guestAccessTokenGenerateSchema } from '#shared/schemas/guest-access-tok
  * o mesmo convite, ele é revogado antes — só um token ativo por convite por
  * vez (índice único parcial em credenciais_acesso_convite).
  *
- * O código em texto plano só existe na resposta desta chamada — nunca é
- * persistido nem pode ser recuperado depois (CLAUDE.md, seção 11/14.5).
+ * Por isso esta rota é ação deliberada de rotação ("o link vazou"), não o
+ * caminho para reenviar um convite: reenviar usa o GET, que reexibe o mesmo
+ * link. Gerar aqui invalida o link e o QR já compartilhados.
+ *
+ * O código é gravado duas vezes, nunca em texto plano (CLAUDE.md, seção 11):
+ * `codigo_hash` (SHA-256) é o que autentica o convidado, e `codigo_cifrado`
+ * (AES-256-GCM) existe só para o painel reexibir o link/QR depois.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -43,14 +48,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const code = generateAccessCode()
-  const codeHash = hashAccessCode(code)
+  const codigoCifrado = encryptOrFailLoudly(code)
 
   const { data, error } = await client
     .from('credenciais_acesso_convite')
     .insert({
       casamento_id: weddingId,
       convite_id: input.conviteId,
-      codigo_hash: codeHash,
+      codigo_hash: hashAccessCode(code),
+      codigo_cifrado: codigoCifrado,
     })
     .select()
     .single()
@@ -81,3 +87,32 @@ export default defineEventHandler(async (event) => {
     createdAt: data.created_at,
   }
 })
+
+/**
+ * Falha dura, deliberada: sem `ACCESS_CODE_ENCRYPTION_KEY` a rota recusa gerar
+ * o código em vez de gravar `codigo_cifrado` nulo e seguir. Um fallback
+ * silencioso produziria credenciais que nunca poderão ser reexibidas — o
+ * casal só descobriria na hora de reenviar o convite, e a rotação da chave
+ * deixaria de ser uma operação controlada (o sistema rodaria meio cifrado,
+ * meio não). Mesmo contrato de DRIVE_TOKEN_ENCRYPTION_KEY.
+ *
+ * O log distingue as duas causas porque a correção é diferente: env ausente é
+ * provisionamento (adicionar a variável no ambiente), env malformada é a chave
+ * errada (32 bytes em hex de 64 chars ou base64). Nunca inclui o código nem a
+ * chave.
+ */
+function encryptOrFailLoudly(code: string): string {
+  try {
+    return encryptAccessCode(code)
+  } catch (cause) {
+    console.error(
+      '[guest-access-tokens] ACCESS_CODE_ENCRYPTION_KEY ausente ou malformada — geração de link recusada. Configure a variável no ambiente do servidor (32 bytes, hex de 64 chars ou base64).',
+      cause instanceof Error ? cause.message : cause,
+    )
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Configuração de cifra ausente no servidor.',
+      message: 'Não foi possível gerar o link agora. A equipe já foi notificada.',
+    })
+  }
+}

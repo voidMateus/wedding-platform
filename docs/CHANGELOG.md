@@ -25,6 +25,14 @@ Medido contra o build de produção (`npm run build` + `node .output/server/inde
 
 **Não corrigido nesta fase** — decisão deliberada: uma investigação de code-splitting (por que o manifesto de rotas do admin entra no chunk inicial do público, se dá para lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é um trabalho à parte, arriscado de tentar no fim de uma fase já longa sem tempo para validar a fundo. Fica registrado aqui como o item de maior prioridade antes da Fase 4 ("Revisão de performance").
 
+### Achado: campo de valor de presente empurrava os dígitos para a direita da vírgula
+
+Reportado pelo usuário: ao digitar no "Preço estimado" do formulário de presente, o campo chegava a estados como `1.00000` — cada tecla nova acrescentava um dígito à direita do separador decimal, em vez de manter o formato `0,00`.
+
+**Causa raiz**: os três campos de dinheiro do admin (`preço`, `valor-alvo`, `valor de cada cota`) eram `UiInput` de texto ligados a um `computed` que convertia reais↔centavos a cada tecla (`get` fazia `(cents / 100).toFixed(2)`). Quando o texto digitado mapeava para os mesmos centavos que já estavam no estado (digitar `0` no fim de `1.00` continua valendo 100 centavos), o `computed` retornava a **mesma string** de antes; sem mudança de valor, o Vue não repinta o `:value` do `<input>`, e o DOM ficava com o texto cru digitado. O campo e o estado divergiam silenciosamente — o valor salvo estava certo, o que o usuário via, não.
+
+**Correção**: `components/ui/CurrencyInput.vue`, um campo de dinheiro próprio cujo `v-model` é **centavos** (`number | undefined`), nunca texto. Ele usa máscara de acumulação (só dígitos, entrando pela direita — o padrão brasileiro: `1` → `0,01`, `100` → `1,00`), exibe "R$" como prefixo fixo e reescreve o valor no DOM à mão dentro do handler de `input`, justamente para o caso em que o texto formatado não muda. Adotado nos três campos do admin e no "Outro valor" da contribuição livre do site público (`GiftPaymentModal.vue`), que tinha a mesma conversão frágil.
+
 ### Achado crítico: sintaxe da prop `sizes` do NuxtImg (pós-Fase Editorial) — CLAUDE.md §27.2
 
 Reportado pelo usuário logo após o merge da Fase Editorial: a foto de capa (Hero) e as fotos da Galeria não apareciam no site — sem nenhum erro de console, sem falha de rede (a imagem original respondia 200 normalmente).
@@ -67,6 +75,16 @@ A régua original da Fase Admin Premium era "sutil e profissional, nunca decorat
 Implementado trocando os **defaults** de `UiButton` (`rounded: 'full'`) e `UiCard` (`radius: 'xl'`, `elevation: 'xl'`) — cascateou automaticamente pra praticamente todo call site existente no admin (dashboard, presentes, convites, cronograma, galeria) sem precisar editar cada página individualmente. Único ponto de divergência mantido, deliberado: o "lift" de hover dos botões pill (`hover:scale-[1.03]`) foi considerado ruído visual numa tabela do admin com dezenas de botões lado a lado, e é suprimido só ali via `provide(ADMIN_UI_CONTEXT_KEY, true)` em `layouts/admin.vue` — glow, uppercase e o `active:scale` de clique continuam idênticos nos dois contextos.
 
 Dois bugs reais corrigidos no mesmo processo, achados olhando o protótipo: a variante `ghost` de `UiButton` (usada em "Editar" nas linhas de tabela) era puramente transparente em repouso — sobre uma linha/card da mesma cor de fundo, lia como texto solto, sem affordance de clique; ganhou uma borda sutil sempre visível (`border-border/60`). E as páginas de Cronograma/Configurações tinham um único bloco de formulário estreito (`max-w-2xl`) pinado à esquerda numa tela larga, deixando um vazio grande à direita — Cronograma virou grid de 2 colunas, Configurações ganhou `mx-auto`.
+
+### Reversão de escopo: restrição alimentar removida do produto (2026-09-04)
+
+A restrição alimentar era coletada em dois lugares — no RSVP público (campo por convidado, com autosave debounced, mais um campo por acompanhante avulso) e no wizard de convidado do admin (campo do perfil, mais uma coluna na tabela de Convidados). Removida a pedido do usuário, sem substituto.
+
+**Escopo escolhido: UI + API, sem `drop column`.** As colunas `convidados.restricoes_alimentares` e `acompanhantes_avulsos.restricoes_alimentares` continuam existindo, com os dados já preenchidos intactos — decisão explícita do usuário entre as três opções apresentadas (dropar tudo / só UI+API / só UI+API agora com a migration de drop pronta pra depois). Torna a remoção reversível e evita apagar respostas reais de convidados.
+
+**Por que uma migration foi necessária mesmo sem `drop column`.** As três funções Postgres do fluxo (`salvar_rsvp_convidado`, `sincronizar_nucleo_convidado`, `finalizar_rsvp_convite`) gravavam a restrição a partir do payload do client. Se o client simplesmente parasse de enviar o campo, `salvar_rsvp_convidado` gravaria `NULL` por cima do valor existente a cada toque em "Estarei lá"/"Não poderei ir" — ou seja, remover "só da UI" apagaria o histórico silenciosamente, exatamente o oposto do escopo escolhido. `20260904120001_remover_restricao_alimentar_da_api.sql` recria as três funções sem nenhuma escrita nessas colunas.
+
+**Assinaturas mantidas de propósito.** `p_restricoes_alimentares` segue existindo em `salvar_rsvp_convidado` (e a chave jsonb `restricoesAlimentares` segue sendo aceita nas outras duas) — agora ignorados. Manter a assinatura estável evita ter que editar `app/types/database.types.ts` à mão, que é gerado pelo Supabase CLI e nunca editado manualmente (CLAUDE.md §8). Quando/se as colunas forem dropadas, a mesma migration que fizer o `drop column` dropa também o parâmetro, e os tipos são regerados no mesmo passo.
 
 ---
 

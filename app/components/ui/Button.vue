@@ -2,7 +2,13 @@
 interface Props {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'
   size?: 'sm' | 'md' | 'lg'
-  /** 'full' = formato pill (cápsula) — CTAs de destaque (Hero, navbar). */
+  /**
+   * 'full' = formato pill (cápsula), a identidade de CTA do site público.
+   * Sem valor explícito, o formato vem do contexto: pill no site público,
+   * retangular no admin — onde a pílula uppercase com glow vira ruído numa
+   * tela com dezenas de botões (decisão do usuário na Fase Admin Livro de
+   * Registro). Passar o prop força o formato nos dois lados.
+   */
   rounded?: 'md' | 'full'
   disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
@@ -15,7 +21,7 @@ interface Props {
 const {
   variant = 'primary',
   size = 'md',
-  rounded = 'full',
+  rounded,
   disabled = false,
   type = 'button',
   to,
@@ -27,6 +33,12 @@ const roundedClasses: Record<NonNullable<Props['rounded']>, string> = {
   full: 'rounded-full',
 }
 
+const isAdminContext = inject(ADMIN_UI_CONTEXT_KEY, false)
+
+const effectiveRounded = computed<NonNullable<Props['rounded']>>(
+  () => rounded ?? (isAdminContext ? 'md' : 'full'),
+)
+
 const variantClasses: Record<NonNullable<Props['variant']>, string> = {
   primary: 'bg-primary text-primary-foreground hover:opacity-90 hover:shadow-md',
   secondary: 'bg-surface-muted text-text hover:bg-border',
@@ -37,7 +49,7 @@ const variantClasses: Record<NonNullable<Props['variant']>, string> = {
   // mesmo tom de fundo, lê como texto solto, sem affordance de botão.
   ghost:
     'border border-border/60 bg-transparent text-text hover:border-border hover:bg-surface-muted',
-  destructive: 'bg-red-600 text-white hover:bg-red-700',
+  destructive: 'bg-danger text-danger-foreground hover:opacity-90 hover:shadow-md',
 }
 
 const sizeClasses: Record<NonNullable<Props['size']>, string> = {
@@ -46,21 +58,13 @@ const sizeClasses: Record<NonNullable<Props['size']>, string> = {
   lg: 'h-12 px-6 text-base',
 }
 
-// Único ponto de divergência visual deliberado entre admin e site público
-// (o resto do Design System é 100% compartilhado, CLAUDE.md §21): o "lift"
-// de hover (hover:scale) faz sentido para os poucos CTAs de destaque do
-// site público, mas vira ruído numa tela do admin com dezenas de botões
-// pill lado a lado — o admin injeta essa flag no layout para suprimir só
-// essa parte da animação, mantendo pill/uppercase/glow idênticos.
-const isAdminContext = inject(ADMIN_UI_CONTEXT_KEY, false)
-
 // CTAs em pill (rounded="full", agora o default da plataforma inteira) têm
 // uma identidade única de "convite de luxo": rótulo uppercase tracked
 // pequeno e, quando também primary, uma sombra colorida (glow) na cor do
 // tema — sempre presentes. O "lift" de hover/active é condicional, ver
 // isAdminContext acima.
 const pillClasses = computed(() => {
-  if (rounded !== 'full') return []
+  if (effectiveRounded.value !== 'full') return []
   return [
     '!text-xs font-semibold uppercase tracking-[0.16em]',
     isAdminContext ? 'active:scale-95' : 'hover:scale-[1.03] active:scale-95',
@@ -77,7 +81,7 @@ const pillClasses = computed(() => {
     :rel="target === '_blank' ? 'noopener noreferrer' : undefined"
     :class="[
       'inline-flex items-center justify-center gap-2 font-medium transition-all active:scale-[0.98] transition-brand [font-family:var(--font-button)]',
-      roundedClasses[rounded],
+      roundedClasses[effectiveRounded],
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
       variantClasses[variant],
       sizeClasses[size],
@@ -92,7 +96,7 @@ const pillClasses = computed(() => {
     :disabled="disabled"
     :class="[
       'inline-flex items-center justify-center gap-2 font-medium transition-all active:scale-[0.98] transition-brand [font-family:var(--font-button)]',
-      roundedClasses[rounded],
+      roundedClasses[effectiveRounded],
       'disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
       variantClasses[variant],

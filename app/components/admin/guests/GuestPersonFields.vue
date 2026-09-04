@@ -132,12 +132,6 @@ async function handleCreateGroup() {
     </div>
 
     <UiTextarea
-      :model-value="modelValue.restricoesAlimentares"
-      label="Restrição alimentar (opcional)"
-      @update:model-value="update('restricoesAlimentares', $event)"
-    />
-
-    <UiTextarea
       :model-value="modelValue.observacoes"
       label="Observações internas (opcional)"
       placeholder="Nunca exibidas ao convidado"

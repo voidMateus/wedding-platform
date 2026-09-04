@@ -64,8 +64,8 @@ async function handleMagicLink() {
       />
       <UiInput v-model="password" type="password" label="Senha" :error="errors.password" />
 
-      <p v-if="formError" class="text-sm text-red-600" role="alert">{{ formError }}</p>
-      <p v-if="magicLinkSent" class="text-sm text-green-700" role="status">
+      <p v-if="formError" class="text-sm text-danger" role="alert">{{ formError }}</p>
+      <p v-if="magicLinkSent" class="text-sm text-success" role="status">
         Link de acesso enviado — confira seu e-mail.
       </p>
 

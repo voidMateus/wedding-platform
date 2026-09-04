@@ -27,6 +27,25 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await authStore.fetchSession()
   }
 
+  // Cookie de casamento ativo (server/utils/wedding-context.ts): lido aqui
+  // para resolver links legados e reescrito no fim com o slug da URL.
+  const cookieCasamentoAtivo = useCookie<string | null>('casamento_ativo', {
+    sameSite: 'lax',
+    path: '/',
+  })
+
+  // Links da estrutura plana anterior (/admin/convidados) continuam
+  // funcionando depois que o slug do casamento entrou na URL
+  // (app/utils/admin-legacy-path.ts).
+  const destinoLegado = resolveDestinoAdminLegado(
+    to.path,
+    authStore.memberships.map((membership) => membership.slug),
+    cookieCasamentoAtivo.value ?? null,
+  )
+  if (destinoLegado) {
+    return navigateTo({ path: destinoLegado, query: to.query, hash: to.hash }, { replace: true })
+  }
+
   const slug = typeof to.params.slug === 'string' ? to.params.slug : null
 
   // /admin puro (sem slug) é a landing pós-login (docs/PLANO-SAAS.md, Passo
@@ -41,7 +60,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     if (to.path === '/admin' && authStore.memberships.length === 1) {
       return navigateTo(`/admin/${authStore.memberships[0]!.slug}`, { replace: true })
     }
-    if (to.path === '/admin' && authStore.memberships.length === 0 && authStore.isPlatformOperator) {
+    if (
+      to.path === '/admin' &&
+      authStore.memberships.length === 0 &&
+      authStore.isPlatformOperator
+    ) {
       return navigateTo('/plataforma', { replace: true })
     }
     return
@@ -60,9 +83,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // com o slug da URL administrativa — a próxima requisição ao servidor já
   // resolve o contexto certo sem precisar repassar o slug em cada chamada de
   // API.
-  const activeWeddingCookie = useCookie('casamento_ativo', { sameSite: 'lax', path: '/' })
-  if (activeWeddingCookie.value !== slug) {
-    activeWeddingCookie.value = slug
+  if (cookieCasamentoAtivo.value !== slug) {
+    cookieCasamentoAtivo.value = slug
   }
 })
 

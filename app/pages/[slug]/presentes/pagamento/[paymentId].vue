@@ -38,7 +38,9 @@ const backLink = computed(() => `/${slug}/presentes`)
     </template>
 
     <template v-else-if="loadError && !result">
-      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
+      <span
+        class="flex h-14 w-14 items-center justify-center rounded-full bg-danger/10 text-danger"
+      >
         <Icon name="lucide:alert-triangle" class="h-6 w-6" />
       </span>
       <h1 class="font-display text-2xl font-semibold text-heading">Não conseguimos confirmar</h1>
@@ -61,7 +63,9 @@ const backLink = computed(() => `/${slug}/presentes`)
     </template>
 
     <template v-else-if="result?.status === 'falhou'">
-      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
+      <span
+        class="flex h-14 w-14 items-center justify-center rounded-full bg-danger/10 text-danger"
+      >
         <Icon name="lucide:alert-triangle" class="h-6 w-6" />
       </span>
       <h1 class="font-display text-2xl font-semibold text-heading">Pagamento recebido, mas...</h1>

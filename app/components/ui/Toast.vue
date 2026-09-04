@@ -11,9 +11,9 @@ const emit = defineEmits<{
 }>()
 
 const toneClasses: Record<NonNullable<Props['tone']>, string> = {
-  success: 'border-green-200 bg-green-50 text-green-800',
-  error: 'border-red-200 bg-red-50 text-red-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800',
+  success: 'border-success/20 bg-success/5 text-success',
+  error: 'border-danger/20 bg-danger/5 text-danger',
+  warning: 'border-warning/20 bg-warning/5 text-warning',
   info: 'border-border bg-surface text-text',
 }
 

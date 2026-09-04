@@ -7,9 +7,11 @@ name: CI
 # Os testes de integração precisam de credenciais reais que NÃO vêm do
 # Supabase local (o app usa em runtime, não só em teste): UPSTASH_REDIS_REST_URL/
 # TOKEN (rate limiting real, CLAUDE.md seção 3/14.5/28), RSVP_SESSION_SECRET
-# (assina o cookie de sessão de RSVP), DRIVE_TOKEN_ENCRYPTION_KEY, CRON_SECRET —
-# configurados como GitHub Secrets deste repositório (mesmos valores do
-# projeto `dev`, reaproveitados; nunca os de `prod`).
+# (assina o cookie de sessão de RSVP), DRIVE_TOKEN_ENCRYPTION_KEY,
+# ACCESS_CODE_ENCRYPTION_KEY (cifra o código de acesso do convite: sem ela
+# POST /api/guest-access-tokens responde 500, achado real deste workflow),
+# CRON_SECRET — configurados como GitHub Secrets deste repositório (mesmos
+# valores do projeto `dev`, reaproveitados; nunca os de `prod`).
 
 on:
   pull_request:
@@ -67,6 +69,7 @@ jobs:
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
           RSVP_SESSION_SECRET: ${{ secrets.RSVP_SESSION_SECRET }}
           DRIVE_TOKEN_ENCRYPTION_KEY: ${{ secrets.DRIVE_TOKEN_ENCRYPTION_KEY }}
+          ACCESS_CODE_ENCRYPTION_KEY: ${{ secrets.ACCESS_CODE_ENCRYPTION_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
       - name: Encerra Supabase local

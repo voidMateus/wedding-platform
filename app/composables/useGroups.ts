@@ -1,8 +1,8 @@
 import type { GroupInput } from '#shared/schemas/groups'
-import type { Group } from '~/types/group'
+import type { Group, GroupListItem } from '~/types/group'
 
 interface GroupListResponse {
-  data: Group[]
+  data: GroupListItem[]
   meta: { page: number; pageSize: number; total: number }
 }
 
@@ -12,10 +12,13 @@ interface GroupListResponse {
  * página/componente (CLAUDE.md, seção 5.1).
  */
 export function useGroups() {
-  function listGroups(params?: { page?: number; pageSize?: number }) {
+  function listGroups(params?: { page?: number; pageSize?: number; includeArchived?: boolean }) {
     return useFetch<GroupListResponse>('/api/groups', {
       query: params,
-      key: 'groups',
+      // Chave depende de includeArchived: sem isso a tela de grupos (que pede
+      // os arquivados) e as telas que só listam etiquetas ativas dividiriam o
+      // mesmo cache, e os chips de convidados mostrariam grupo arquivado.
+      key: params?.includeArchived ? 'groups-with-archived' : 'groups',
     })
   }
 
@@ -31,5 +34,10 @@ export function useGroups() {
     return $fetch<{ id: string }>(`/api/groups/${id}`, { method: 'DELETE' })
   }
 
-  return { listGroups, createGroup, updateGroup, deleteGroup }
+  /** Arquivar é o soft delete do grupo; `archived: false` desfaz. */
+  async function setGroupArchived(id: string, archived: boolean): Promise<Group> {
+    return $fetch<Group>(`/api/groups/${id}/archive`, { method: 'POST', body: { archived } })
+  }
+
+  return { listGroups, createGroup, updateGroup, deleteGroup, setGroupArchived }
 }

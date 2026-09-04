@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { formatCentsToBRL, formatCentsToBRLOrDash } from '#shared/utils/format-currency'
+import {
+  formatCentsToAmount,
+  formatCentsToBRL,
+  formatCentsToBRLOrDash,
+} from '#shared/utils/format-currency'
 
 describe('formatCentsToBRL', () => {
   it('formata centavos como moeda brasileira', () => {
@@ -22,5 +26,15 @@ describe('formatCentsToBRLOrDash', () => {
 
   it('formata normalmente quando não é null', () => {
     expect(formatCentsToBRLOrDash(5000)).toBe('R$ 50,00')
+  })
+})
+
+describe('formatCentsToAmount', () => {
+  it('formata sem o símbolo da moeda', () => {
+    expect(formatCentsToAmount(150000)).toBe('1.500,00')
+  })
+
+  it('mantém as duas casas decimais em valores pequenos', () => {
+    expect(formatCentsToAmount(1)).toBe('0,01')
   })
 })

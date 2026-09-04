@@ -19,18 +19,6 @@ const emit = defineEmits<{
   saved: []
 }>()
 
-function centsToReaisText(cents: number | null | undefined): string {
-  if (cents === null || cents === undefined) return ''
-  return (cents / 100).toFixed(2)
-}
-
-function reaisTextToCents(text: string): number | undefined {
-  if (text === '') return undefined
-  const value = Number(text.replace(',', '.'))
-  if (Number.isNaN(value)) return undefined
-  return Math.round(value * 100)
-}
-
 const { createGift, updateGift } = useGifts()
 const errorMessage = ref<string | null>(null)
 
@@ -49,13 +37,7 @@ const EMPTY_VALUES = {
   estaAtivo: true,
 }
 
-const {
-  handleSubmit,
-  defineField,
-  errors,
-  resetForm,
-  isSubmitting,
-} = useForm({
+const { handleSubmit, defineField, errors, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(giftInputSchema),
   initialValues: EMPTY_VALUES,
 })
@@ -73,24 +55,6 @@ const [estiloExibicao] = defineField('estiloExibicao')
 const [iconeEmocional] = defineField('iconeEmocional')
 const [estaAtivo] = defineField('estaAtivo')
 
-const priceReaisText = computed({
-  get: () => centsToReaisText(precoCentavos.value),
-  set: (value: string) => {
-    precoCentavos.value = reaisTextToCents(value)
-  },
-})
-const targetAmountReaisText = computed({
-  get: () => centsToReaisText(valorMetaCentavos.value),
-  set: (value: string) => {
-    valorMetaCentavos.value = reaisTextToCents(value)
-  },
-})
-const quotaAmountReaisText = computed({
-  get: () => centsToReaisText(valorCotaCentavos.value),
-  set: (value: string) => {
-    valorCotaCentavos.value = reaisTextToCents(value)
-  },
-})
 const quantityAvailableText = computed({
   get: () => (quantidadeDisponivel.value === undefined ? '' : String(quantidadeDisponivel.value)),
   set: (value: string) => {
@@ -105,7 +69,10 @@ const giftTypeValue = computed({
   },
 })
 
-const emotionalIconOptions = EMOTIONAL_GIFT_ICONS.map((icon) => ({ value: icon.value, label: icon.label }))
+const emotionalIconOptions = EMOTIONAL_GIFT_ICONS.map((icon) => ({
+  value: icon.value,
+  label: icon.label,
+}))
 
 // Limpa os campos do modo que deixou de se aplicar ao alternar o tipo — evita
 // enviar um valor "fantasma" de uma seção escondida (a Zod schema não proíbe
@@ -197,25 +164,22 @@ const onSubmit = handleSubmit(async (values) => {
         label="Quantidade disponível"
         :error="errors.quantidadeDisponivel"
       />
-      <UiInput
+      <UiCurrencyInput
         v-if="!ePresenteCota"
-        v-model="priceReaisText"
-        label="Preço estimado, em R$ (opcional — necessário para permitir pagamento online)"
-        placeholder="0,00"
+        v-model="precoCentavos"
+        label="Preço estimado (opcional — necessário para permitir pagamento online)"
         :error="errors.precoCentavos"
       />
 
       <template v-if="ePresenteCota">
-        <UiInput
-          v-model="targetAmountReaisText"
-          label="Valor-alvo da cota, em R$"
-          placeholder="0,00"
+        <UiCurrencyInput
+          v-model="valorMetaCentavos"
+          label="Valor-alvo da cota"
           :error="errors.valorMetaCentavos"
         />
-        <UiInput
-          v-model="quotaAmountReaisText"
-          label="Valor de cada cota fixa, em R$ (opcional)"
-          placeholder="0,00"
+        <UiCurrencyInput
+          v-model="valorCotaCentavos"
+          label="Valor de cada cota fixa (opcional)"
           :error="errors.valorCotaCentavos"
         />
         <p class="-mt-2 text-xs text-text-muted">
@@ -241,7 +205,7 @@ const onSubmit = handleSubmit(async (values) => {
 
       <UiCheckbox v-model="estaAtivo" label="Visível na vitrine pública" />
 
-      <p v-if="errorMessage" class="text-sm text-red-600" role="alert">{{ errorMessage }}</p>
+      <p v-if="errorMessage" class="text-sm text-danger" role="alert">{{ errorMessage }}</p>
       <div class="mt-2 flex justify-end gap-2">
         <UiButton type="button" variant="ghost" @click="emit('update:modelValue', false)">
           Cancelar

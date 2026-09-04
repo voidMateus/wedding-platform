@@ -107,7 +107,8 @@ async function confirmRemove() {
         >
           <div>
             <p class="text-sm font-medium text-text">{{ member.email ?? member.usuario_id }}</p>
-            <UiBadge :tone="member.papel === 'dono' ? 'success' : 'neutral'">
+            <!-- primary, não success: papel é identidade, não desfecho de processo. -->
+            <UiBadge :tone="member.papel === 'dono' ? 'primary' : 'neutral'">
               {{ member.papel === 'dono' ? 'Dono' : 'Colaborador' }}
             </UiBadge>
           </div>

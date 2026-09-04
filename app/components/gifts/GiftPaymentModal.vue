@@ -24,15 +24,14 @@ const step = ref<'identify' | 'choose'>('choose')
 const SUGGESTED_AMOUNTS_CENTS = [5000, 10000, 20000, 30000]
 const message = ref('')
 const selectedAmountCents = ref<number | null>(null)
-const customAmountReaisText = ref('')
+const customAmountCents = ref<number | undefined>(undefined)
 const quotaCount = ref(1)
 
 const isQuotaMode = computed(() => Boolean(gift.quotaAmountCents))
 
 const effectiveAmountCents = computed(() => {
-  if (customAmountReaisText.value !== '') {
-    const value = Number(customAmountReaisText.value.replace(',', '.'))
-    return Number.isNaN(value) || value <= 0 ? null : Math.round(value * 100)
+  if (customAmountCents.value !== undefined) {
+    return customAmountCents.value > 0 ? customAmountCents.value : null
   }
   return selectedAmountCents.value
 })
@@ -53,7 +52,7 @@ watch(
 
 function selectSuggestedAmount(amountCents: number) {
   selectedAmountCents.value = amountCents
-  customAmountReaisText.value = ''
+  customAmountCents.value = undefined
 }
 
 function submit() {
@@ -66,7 +65,7 @@ function submit() {
   )
   message.value = ''
   selectedAmountCents.value = null
-  customAmountReaisText.value = ''
+  customAmountCents.value = undefined
   quotaCount.value = 1
 }
 </script>
@@ -122,7 +121,7 @@ function submit() {
             @click="selectSuggestedAmount(amount)"
           />
         </div>
-        <UiInput v-model="customAmountReaisText" label="Outro valor, em R$" placeholder="0,00" />
+        <UiCurrencyInput v-model="customAmountCents" label="Outro valor" />
       </template>
 
       <UiTextarea v-model="message" label="Mensagem para o casal (opcional)" :rows="2" />

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useDebounceFn } from '@vueuse/core'
 import type { RsvpInvitePayload, RsvpMember } from '~/types/rsvp'
 
 interface Props {
@@ -20,7 +19,6 @@ interface GuestState {
   guestId: string
   fullName: string
   status: 'pendente' | 'confirmado' | 'recusado'
-  dietaryRestrictions: string
 }
 
 const guestStates = ref<GuestState[]>(
@@ -28,7 +26,6 @@ const guestStates = ref<GuestState[]>(
     guestId: m.guestId,
     fullName: m.fullName,
     status: m.status === 'lista_espera' || m.status === 'removido' ? 'pendente' : m.status,
-    dietaryRestrictions: m.dietaryRestrictions ?? '',
   })),
 )
 
@@ -39,42 +36,27 @@ async function setStatus(guest: GuestState, status: 'confirmado' | 'recusado') {
   if (isPastDeadline) return
   guest.status = status
   try {
-    await autosaveGuestStatus(guest.guestId, {
-      status,
-      restricoesAlimentares: guest.dietaryRestrictions,
-    })
+    await autosaveGuestStatus(guest.guestId, { status })
   } catch {
     toast.error('Não foi possível salvar. Tente novamente.')
   }
-}
-
-const debouncedDietarySave = useDebounceFn((guest: GuestState) => {
-  autosaveGuestStatus(guest.guestId, {
-    status: 'confirmado',
-    restricoesAlimentares: guest.dietaryRestrictions,
-  }).catch(() => toast.error('Não foi possível salvar a restrição alimentar.'))
-}, 600)
-
-function onDietaryChange(guest: GuestState) {
-  if (guest.status !== 'confirmado') return
-  debouncedDietarySave(guest)
 }
 
 // --- acompanhante avulso (só modo_lista_convidados='aberta') ---
 
 interface CompanionDraft {
   fullName: string
-  dietaryRestrictions: string
 }
 
 const companions = ref<CompanionDraft[]>([])
 const canAddCompanion = computed(
-  () => props.payload.maxCompanions === null || companions.value.length < props.payload.maxCompanions,
+  () =>
+    props.payload.maxCompanions === null || companions.value.length < props.payload.maxCompanions,
 )
 
 function addCompanion() {
   if (!canAddCompanion.value) return
-  companions.value.push({ fullName: '', dietaryRestrictions: '' })
+  companions.value.push({ fullName: '' })
 }
 function removeCompanion(index: number) {
   companions.value.splice(index, 1)
@@ -91,10 +73,7 @@ async function handleFinalize() {
     await finalizeInvite(props.payload.inviteId, {
       companions: companions.value
         .filter((c) => c.fullName.trim())
-        .map((c) => ({
-          nomeCompleto: c.fullName,
-          restricoesAlimentares: c.dietaryRestrictions,
-        })),
+        .map((c) => ({ nomeCompleto: c.fullName })),
       message: message.value,
     })
     step.value = 'success'
@@ -164,23 +143,22 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
             Não poderei ir
           </UiButton>
         </div>
-
-        <UiTextarea
-          v-if="guest.status === 'confirmado'"
-          v-model="guest.dietaryRestrictions"
-          label="Restrição alimentar (opcional)"
-          class="mt-4"
-          :disabled="isPastDeadline"
-          @update:model-value="onDietaryChange(guest)"
-        />
       </div>
 
       <template v-if="payload.wedding.guestListMode === 'aberta'">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-text">
-            Acompanhantes ({{ companions.length }}<template v-if="payload.maxCompanions !== null">/{{ payload.maxCompanions }}</template>)
+            Acompanhantes ({{ companions.length
+            }}<template v-if="payload.maxCompanions !== null">/{{ payload.maxCompanions }}</template
+            >)
           </span>
-          <UiButton type="button" size="sm" variant="ghost" :disabled="!canAddCompanion || isPastDeadline" @click="addCompanion">
+          <UiButton
+            type="button"
+            size="sm"
+            variant="ghost"
+            :disabled="!canAddCompanion || isPastDeadline"
+            @click="addCompanion"
+          >
             <Icon name="lucide:plus" class="h-4 w-4" />
             Adicionar
           </UiButton>
@@ -188,10 +166,15 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
         <div
           v-for="(companion, index) in companions"
           :key="index"
-          class="flex flex-col gap-3 rounded-lg border border-border bg-surface-elevated p-4"
+          class="rounded-lg border border-border bg-surface-elevated p-4"
         >
           <div class="flex items-start gap-2">
-            <UiInput v-model="companion.fullName" class="flex-1" label="Nome" :disabled="isPastDeadline" />
+            <UiInput
+              v-model="companion.fullName"
+              class="flex-1"
+              label="Nome"
+              :disabled="isPastDeadline"
+            />
             <UiButton
               type="button"
               size="sm"
@@ -203,7 +186,6 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
               <Icon name="lucide:trash-2" class="h-4 w-4" />
             </UiButton>
           </div>
-          <UiInput v-model="companion.dietaryRestrictions" label="Restrição alimentar (opcional)" :disabled="isPastDeadline" />
         </div>
       </template>
 
@@ -220,13 +202,19 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
           class="flex items-center justify-between gap-2 text-sm"
         >
           <span class="text-text">{{ guest.fullName }}</span>
-          <UiBadge :tone="guest.status === 'confirmado' ? 'success' : 'danger'">
+          <!-- Era `confirmado ? success : danger`, então pendente, em espera e
+               removido todos apareciam em vermelho para o convidado. -->
+          <UiBadge :tone="rsvpStatusPresentation(guest.status).tone">
             {{ statusLabel(guest.status) }}
           </UiBadge>
         </div>
       </div>
 
-      <UiTextarea v-model="message" label="Mensagem para o casal (opcional)" :disabled="isPastDeadline" />
+      <UiTextarea
+        v-model="message"
+        label="Mensagem para o casal (opcional)"
+        :disabled="isPastDeadline"
+      />
 
       <div class="flex justify-between">
         <UiButton variant="ghost" @click="step = 'guests'">Voltar</UiButton>
@@ -238,7 +226,9 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
 
     <template v-else>
       <div class="flex flex-col items-center gap-4 py-8 text-center">
-        <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span
+          class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+        >
           <Icon name="lucide:heart" class="h-6 w-6" />
         </span>
         <div>

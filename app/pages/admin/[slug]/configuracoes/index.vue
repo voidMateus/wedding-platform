@@ -21,14 +21,20 @@ const { data: wedding, status, refresh } = await getWedding()
 </script>
 
 <template>
-  <AdminSection title="Configurações" description="Dados do evento e aparência visual do site.">
-    <div v-if="status === 'pending'" class="mx-auto flex max-w-2xl flex-col gap-2">
+  <AdminSection title="Configurações" meta="Dados do evento, aparência e acesso">
+    <div v-if="status === 'pending'" class="mx-auto flex w-full max-w-2xl flex-col gap-2">
       <UiSkeleton class="h-10 w-full" />
       <UiSkeleton class="h-10 w-full" />
       <UiSkeleton class="h-10 w-full" />
     </div>
 
-    <UiTabs v-else v-model="activeTab" :tabs="settingsTabs" class="mx-auto max-w-2xl">
+    <UiTabs
+      v-else
+      v-model="activeTab"
+      variant="chips"
+      :tabs="settingsTabs"
+      class="mx-auto w-full max-w-2xl"
+    >
       <template #geral>
         <AdminSettingsGeneralTab :wedding="wedding" />
       </template>

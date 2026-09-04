@@ -4,7 +4,8 @@ import type { Guest } from '~/types/guest'
 
 definePageMeta({ layout: 'admin' })
 
-const activeSlug = useActiveWeddingSlug()
+const route = useRoute()
+const router = useRouter()
 
 const { listGuests, deleteGuest } = useGuests()
 const { listGroups } = useGroups()
@@ -32,9 +33,42 @@ const groupOptions = computed(
   () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? [],
 )
 
+// Recorte por grupo em chip, no lugar do select — a barra de filtros do painel
+// é a mesma linguagem em todas as listas do admin.
+//
+// TODO(admin/convidados): o desenho original pedia também os recortes de RSVP
+// (Todos / Confirmados / Pendentes / Recusados) e uma coluna Status. O total
+// de confirmados do cabeçalho já vem de /api/guests (`summary.confirmed`,
+// agregado no banco), mas isso é um número só: cada linha de `data` continua
+// sendo `convidados.Row` puro, sem o status daquela pessoa. Para os chips e a
+// coluna, /api/guests precisa devolver o status por convidado (embed de
+// respostas_rsvp na consulta da página) e aceitar um filtro por status —
+// feito isso, basta somar os chips a `groupChips` e a coluna a `columns`.
+const groupChips = computed(() => [
+  { value: '', label: 'Todos' },
+  ...groupOptions.value.map((option) => ({ value: option.value, label: option.label })),
+])
+
+function handleGroupChange(value: string): void {
+  groupFilter.value = value
+  page.value = 1
+}
+
 const totalPages = computed(() => {
   const total = data.value?.meta.total ?? 0
   return Math.max(1, Math.ceil(total / PAGE_SIZE))
+})
+
+const peopleLabel = computed(() => {
+  const total = data.value?.meta.total ?? 0
+  return `${total} ${total === 1 ? 'pessoa' : 'pessoas'}`
+})
+
+// Descreve o recorte inteiro (filtro de nome/grupo incluído), não a página —
+// é por isso que o confirmado vem agregado de /api/guests e não de `data`.
+const totalLabel = computed(() => {
+  const confirmed = data.value?.summary.confirmed ?? 0
+  return `${peopleLabel.value} · ${confirmed} confirmado${confirmed === 1 ? '' : 's'}`
 })
 
 // 👥 acompanhantes — contagem por nucleo_id na página atual (sem round-trip
@@ -57,6 +91,60 @@ const expandedPartyId = ref<string | null>(null)
 function togglePartyExpand(guest: Guest) {
   if (!guest.nucleo_id) return
   expandedPartyId.value = expandedPartyId.value === guest.nucleo_id ? null : guest.nucleo_id
+}
+
+function isPartyExpanded(guest: Guest): boolean {
+  return Boolean(
+    guest.nucleo_id && expandedPartyId.value === guest.nucleo_id && companionCount(guest) > 0,
+  )
+}
+
+function companionsOf(guest: Guest): Guest[] {
+  return (data.value?.data ?? []).filter(
+    (candidate) => candidate.nucleo_id === guest.nucleo_id && candidate.id !== guest.id,
+  )
+}
+
+function groupNameOf(guest: Guest): string {
+  return groupOptions.value.find((option) => option.value === guest.grupo_id)?.label ?? '—'
+}
+
+const columns = [
+  { key: 'nome', label: 'Convidado' },
+  { key: 'grupo', label: 'Grupo' },
+  { key: 'acompanhantes', label: 'Acompanhantes' },
+  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
+] as const
+
+// --- criar/editar ---
+//
+// O modal é governado pela URL (`?novo=1` / `?editar=<id>`), não por um ref
+// local: assim o link da busca global, o atalho do dashboard e o botão Voltar
+// do navegador continuam funcionando, e o endereço do que está aberto segue
+// compartilhável — como era com as telas dedicadas que o modal substituiu.
+const editingGuestId = computed(() =>
+  typeof route.query.editar === 'string' ? route.query.editar : null,
+)
+const isGuestModalOpen = computed(() => route.query.novo === '1' || Boolean(editingGuestId.value))
+
+function openCreateGuest() {
+  router.push({ query: { ...route.query, novo: '1', editar: undefined } })
+}
+
+function openEditGuest(guest: Guest) {
+  router.push({ query: { ...route.query, novo: undefined, editar: guest.id } })
+}
+
+// replace, não push: fechar o modal não pode deixar um passo a mais no
+// histórico — Voltar tem que sair da listagem, não reabrir o que acabou de
+// ser fechado.
+function closeGuestModal() {
+  router.replace({ query: { ...route.query, novo: undefined, editar: undefined } })
+}
+
+async function handleGuestSaved() {
+  await refresh()
+  closeGuestModal()
 }
 
 // --- excluir ---
@@ -85,132 +173,127 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <AdminSection
-    title="Convidados"
-    description="Cadastre convidados e seus acompanhantes em um único fluxo."
-  >
+  <AdminSection title="Convidados" :meta="totalLabel">
     <template #actions>
-      <UiButton :to="`/admin/${activeSlug}/convidados/novo`">Novo convidado</UiButton>
+      <UiInput
+        v-model="search"
+        icon="lucide:search"
+        tone="muted"
+        placeholder="Filtrar por nome..."
+        class="w-full sm:w-64"
+        @keyup.enter="page = 1"
+      />
+      <UiButton @click="openCreateGuest">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar convidado
+      </UiButton>
     </template>
 
-    <UiCard padding="md" class="flex flex-col gap-4">
-      <div class="flex flex-wrap gap-3">
-        <UiInput
-          v-model="search"
-          placeholder="Buscar por nome"
-          class="max-w-xs"
-          @keyup.enter="page = 1"
+    <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
+      <template #headerActions>
+        <AdminFilterChips
+          :model-value="groupFilter"
+          :items="groupChips"
+          group-label="Filtrar convidados por grupo"
+          @update:model-value="handleGroupChange"
         />
-        <UiSelect
-          v-model="groupFilter"
-          placeholder="Todos os grupos"
-          :options="groupOptions"
-          @update:model-value="page = 1"
-        />
+      </template>
+
+      <div v-if="status === 'pending'" class="flex flex-col gap-2 p-4 sm:p-5">
+        <UiSkeleton v-for="n in 3" :key="n" class="h-12 w-full" />
       </div>
 
-      <div v-if="status === 'pending'" class="flex flex-col gap-2">
-        <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
+      <div v-else-if="error" class="p-4 sm:p-5">
+        <UiEmptyState
+          icon="lucide:alert-triangle"
+          title="Não foi possível carregar os convidados"
+          description="Verifique sua conexão e tente novamente."
+        >
+          <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+        </UiEmptyState>
       </div>
-
-      <UiEmptyState
-        v-else-if="error"
-        icon="lucide:alert-triangle"
-        title="Não foi possível carregar os convidados"
-        description="Verifique sua conexão e tente novamente."
-      >
-        <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
-      </UiEmptyState>
-
-      <UiEmptyState
-        v-else-if="!data?.data.length"
-        icon="lucide:users"
-        title="Nenhum convidado encontrado"
-        description="Ajuste os filtros ou cadastre o primeiro convidado."
-      >
-        <UiButton :to="`/admin/${activeSlug}/convidados/novo`">Novo convidado</UiButton>
-      </UiEmptyState>
 
       <template v-else>
-        <UiTable>
-          <template #head>
-            <th class="px-4 py-2 font-medium">Nome</th>
-            <th class="px-4 py-2 font-medium">Grupo</th>
-            <th class="px-4 py-2 font-medium">Restrições</th>
-            <th class="px-4 py-2 font-medium">Acompanhantes</th>
-            <th class="px-4 py-2 font-medium"><span class="sr-only">Ações</span></th>
-          </template>
-          <template v-for="guest in data?.data" :key="guest.id">
-            <tr class="border-t border-border transition-brand hover:bg-surface-muted/60">
-              <td class="px-4 py-2 text-text">
-                {{ guest.nome_completo }}
-                <UiBadge
-                  v-if="computeIsChild(guest.data_nascimento, childMaxAge)"
-                  tone="neutral"
-                  class="ml-2"
-                >
-                  criança
-                </UiBadge>
-                <UiBadge v-if="guest.papel_casamento" tone="success" class="ml-2">
-                  {{ guest.papel_casamento === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
-                </UiBadge>
-              </td>
-              <td class="px-4 py-2 text-text-muted">
-                {{ groupOptions.find((g) => g.value === guest.grupo_id)?.label ?? '—' }}
-              </td>
-              <td class="px-4 py-2 text-text-muted">{{ guest.restricoes_alimentares || '—' }}</td>
-              <td class="px-4 py-2 text-text-muted">
-                <button
-                  v-if="companionCount(guest) > 0"
-                  type="button"
-                  class="inline-flex items-center gap-1 hover:underline"
-                  @click="togglePartyExpand(guest)"
-                >
-                  <Icon
-                    :name="
-                      expandedPartyId === guest.nucleo_id
-                        ? 'lucide:chevron-up'
-                        : 'lucide:chevron-down'
-                    "
-                    class="h-3.5 w-3.5"
-                  />
-                  👥 {{ companionCount(guest) }}
-                </button>
-                <span v-else>—</span>
-              </td>
-              <td class="px-4 py-2">
-                <div class="flex justify-end gap-2">
-                  <UiButton size="sm" variant="ghost" :to="`/admin/${activeSlug}/convidados/${guest.id}`">
-                    Editar
-                  </UiButton>
-                  <UiButton size="sm" variant="destructive" @click="openDeleteModal(guest)">
-                    Excluir
-                  </UiButton>
-                </div>
-              </td>
-            </tr>
-            <tr
-              v-if="expandedPartyId === guest.nucleo_id && companionCount(guest) > 0"
-              class="bg-surface-muted"
+        <AdminTable
+          :columns="columns"
+          :rows="data?.data ?? []"
+          :is-expanded="isPartyExpanded"
+          row-clickable
+          empty-label="Nenhum convidado com esses filtros."
+          @row-click="openEditGuest"
+        >
+          <template #cell-nome="{ row }">
+            <button
+              type="button"
+              class="font-medium text-text transition-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              @click="openEditGuest(row)"
             >
-              <td colspan="5" class="px-4 py-2 text-sm text-text-muted">
-                <ul class="flex flex-col gap-1">
-                  <li
-                    v-for="companion in data?.data.filter(
-                      (g) => g.nucleo_id === guest.nucleo_id && g.id !== guest.id,
-                    )"
-                    :key="companion.id"
-                  >
-                    • {{ companion.nome_completo }}
-                  </li>
-                </ul>
-              </td>
-            </tr>
+              {{ row.nome_completo }}
+            </button>
+            <UiBadge
+              v-if="computeIsChild(row.data_nascimento, childMaxAge)"
+              tone="neutral"
+              class="ml-2"
+            >
+              criança
+            </UiBadge>
+            <!-- primary: papel no casamento é identidade, não estado. -->
+            <UiBadge v-if="row.papel_casamento" tone="primary" class="ml-2">
+              {{ row.papel_casamento === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
+            </UiBadge>
           </template>
-        </UiTable>
 
-        <div class="flex items-center justify-between text-sm text-text-muted">
-          <span>{{ data?.meta.total ?? 0 }} convidado(s)</span>
+          <template #cell-grupo="{ row }">
+            <span class="text-text-muted">{{ groupNameOf(row) }}</span>
+          </template>
+
+          <template #cell-acompanhantes="{ row }">
+            <button
+              v-if="companionCount(row) > 0"
+              type="button"
+              class="inline-flex items-center gap-1 text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              :aria-expanded="isPartyExpanded(row)"
+              @click="togglePartyExpand(row)"
+            >
+              <Icon
+                :name="isPartyExpanded(row) ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+                class="h-3.5 w-3.5"
+              />
+              <span class="num">{{ companionCount(row) }}</span>
+            </button>
+            <span v-else class="text-text-muted">—</span>
+          </template>
+
+          <template #cell-acoes="{ row }">
+            <span class="inline-flex justify-end gap-1">
+              <AdminRowAction
+                icon="lucide:pencil"
+                :label="`Editar ${row.nome_completo}`"
+                @click="openEditGuest(row)"
+              />
+              <AdminRowAction
+                icon="lucide:trash-2"
+                tone="danger"
+                :label="`Excluir ${row.nome_completo}`"
+                @click="openDeleteModal(row)"
+              />
+            </span>
+          </template>
+
+          <template #detail="{ row }">
+            <p class="mb-1 text-xs uppercase tracking-wide text-text-muted">Acompanhantes</p>
+            <ul class="flex flex-col gap-1 text-sm text-text-muted">
+              <li v-for="companion in companionsOf(row)" :key="companion.id">
+                {{ companion.nome_completo }}
+              </li>
+            </ul>
+          </template>
+        </AdminTable>
+
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-text-muted sm:px-5"
+        >
+          <span>{{ peopleLabel }}</span>
           <div class="flex items-center gap-2">
             <UiButton
               size="sm"
@@ -232,7 +315,14 @@ async function confirmDelete() {
           </div>
         </div>
       </template>
-    </UiCard>
+    </AdminPanel>
+
+    <AdminGuestsGuestPartyModal
+      :model-value="isGuestModalOpen"
+      :guest-id="editingGuestId"
+      @update:model-value="(isOpen) => !isOpen && closeGuestModal()"
+      @saved="handleGuestSaved"
+    />
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
       <p class="text-sm text-text">

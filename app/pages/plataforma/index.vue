@@ -1,22 +1,9 @@
 <script setup lang="ts">
 import { formatDatePtBR } from '#shared/utils/format-date'
-import type { StatusCicloVida } from '~/types/wedding'
-
 definePageMeta({ layout: 'plataforma' })
 
 const { getOverview } = usePlatformOverview()
 const { data, status, error, refresh } = getOverview()
-
-const statusLabel: Record<StatusCicloVida, string> = {
-  rascunho: 'Rascunho',
-  publicado: 'Publicado',
-  arquivado: 'Arquivado',
-}
-const statusTone: Record<StatusCicloVida, 'neutral' | 'success' | 'warning'> = {
-  rascunho: 'neutral',
-  publicado: 'success',
-  arquivado: 'warning',
-}
 </script>
 
 <template>
@@ -58,8 +45,8 @@ const statusTone: Record<StatusCicloVida, 'neutral' | 'success' | 'warning'> = {
         <td class="px-4 py-2 text-text">{{ wedding.nomesNoivos }}</td>
         <td class="px-4 py-2 text-text-muted">{{ wedding.slug }}</td>
         <td class="px-4 py-2">
-          <UiBadge :tone="statusTone[wedding.statusCicloVida]">
-            {{ statusLabel[wedding.statusCicloVida] }}
+          <UiBadge :tone="weddingLifecyclePresentation(wedding.statusCicloVida).tone">
+            {{ weddingLifecyclePresentation(wedding.statusCicloVida).label }}
           </UiBadge>
         </td>
         <td class="px-4 py-2 text-text-muted">{{ wedding.contagemConvidados }}</td>

@@ -32,8 +32,14 @@ describe('guest-path: finalização do RSVP (/api/rsvp/invites/[inviteId]/finali
     weddingClosed = await createTestWedding(admin)
     inviteOpen = await createTestInvite(admin, weddingOpen.id)
     inviteClosed = await createTestInvite(admin, weddingClosed.id)
-    await createTestGuest(admin, weddingOpen.id, { convite_id: inviteOpen.id, nome_completo: 'Convidado Open' })
-    await createTestGuest(admin, weddingClosed.id, { convite_id: inviteClosed.id, nome_completo: 'Convidado Closed' })
+    await createTestGuest(admin, weddingOpen.id, {
+      convite_id: inviteOpen.id,
+      nome_completo: 'Convidado Open',
+    })
+    await createTestGuest(admin, weddingClosed.id, {
+      convite_id: inviteClosed.id,
+      nome_completo: 'Convidado Closed',
+    })
 
     const tokenOpen = await createTestAccessToken(admin, weddingOpen.id, inviteOpen.id)
     codeOpen = tokenOpen.plainCode
@@ -76,7 +82,7 @@ describe('guest-path: finalização do RSVP (/api/rsvp/invites/[inviteId]/finali
     await client.get(`/api/rsvp/${codeOpen}`)
 
     const res = await client.post(`/api/rsvp/invites/${inviteOpen.id}/finalize`, {
-      companions: [{ nomeCompleto: 'Acompanhante Avulso Teste', restricoesAlimentares: 'Vegetariano' }],
+      companions: [{ nomeCompleto: 'Acompanhante Avulso Teste' }],
       message: 'Mal podemos esperar!',
     })
     expect(res.status).toBe(200)
@@ -90,7 +96,6 @@ describe('guest-path: finalização do RSVP (/api/rsvp/invites/[inviteId]/finali
     expect(error).toBeNull()
     expect(companions).toHaveLength(1)
     expect(companions?.[0]?.nome_completo).toBe('Acompanhante Avulso Teste')
-    expect(companions?.[0]?.restricoes_alimentares).toBe('Vegetariano')
   })
 
   it('finalizar de novo substitui (soft delete) o acompanhante avulso anterior, nunca duplica', async () => {

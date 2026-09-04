@@ -74,7 +74,7 @@ function setAdvancedColorEnabled(enabled: boolean) {
         <p
           v-if="primaryContrastPreview"
           class="text-xs"
-          :class="primaryContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+          :class="primaryContrastPreview.meetsMinimum ? 'text-success' : 'text-danger'"
         >
           Contraste: {{ primaryContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
           {{ WCAG_AA_MIN_CONTRAST }}:1 —
@@ -102,7 +102,7 @@ function setAdvancedColorEnabled(enabled: boolean) {
         <p
           v-if="secondaryContrastPreview"
           class="text-xs"
-          :class="secondaryContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+          :class="secondaryContrastPreview.meetsMinimum ? 'text-success' : 'text-danger'"
         >
           Contraste: {{ secondaryContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
           {{ WCAG_AA_MIN_CONTRAST }}:1 —
@@ -143,7 +143,7 @@ function setAdvancedColorEnabled(enabled: boolean) {
           <p
             v-if="titleContrastPreview"
             class="text-xs"
-            :class="titleContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+            :class="titleContrastPreview.meetsMinimum ? 'text-success' : 'text-danger'"
           >
             Contraste: {{ titleContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
             {{ WCAG_AA_MIN_CONTRAST }}:1 —
@@ -173,7 +173,7 @@ function setAdvancedColorEnabled(enabled: boolean) {
           <p
             v-if="bodyContrastPreview"
             class="text-xs"
-            :class="bodyContrastPreview.meetsMinimum ? 'text-green-700' : 'text-red-600'"
+            :class="bodyContrastPreview.meetsMinimum ? 'text-success' : 'text-danger'"
           >
             Contraste: {{ bodyContrastPreview.ratioAgainstSurface.toFixed(2) }}:1 (mínimo
             {{ WCAG_AA_MIN_CONTRAST }}:1 —

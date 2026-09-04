@@ -138,7 +138,7 @@ docs/                          # ver seção 15
 - **RLS habilitado em 100% das tabelas**, sempre. Toda tabela nova nasce com RLS + nenhuma policy (deny-by-default); policies adicionadas explicitamente.
 - `casamento_id` é **denormalizado** em toda tabela filha (mesmo quando derivável via join) — nunca definido de forma independente da hierarquia real (`convite_id`/`grupo_id`/`nucleo_id`), sempre via trigger.
 - Soft delete (`excluido_em`) para entidades com valor histórico (convidados, presentes, convites, grupos); exclusão física só onde não há referência de terceiros nem valor histórico próprio.
-- Credencial (código de acesso) sempre armazenada como hash (`codigo_hash`), nunca texto plano.
+- Credencial nunca em texto plano em repouso. Hash de mão única (`codigo_hash`, SHA-256) quando o segredo só precisa ser **comparado** — é sempre o hash que autentica. Cifra reversível (AES-256-GCM, chave só no ambiente do servidor, `server/utils/token-cipher.ts`) só quando o valor original precisa voltar: token OAuth do Drive (precisa ser *usado*) e código de acesso do convite (precisa ser *reexibido* pro casal reenviar sem invalidar o link/QR já compartilhado). Cifra **nunca** autentica, e chave é separada por finalidade — uma env por uso.
 - Concorrência em operação de estoque/limite (reserva de presente, `max_acompanhantes`) é **sempre** função Postgres com `SELECT ... FOR UPDATE` numa transação — nunca `check-then-insert` na aplicação.
 - View nova **precisa** de `security_invoker = true` — sem isso roda com privilégio do dono (ignora RLS). Não há nenhuma view em produção hoje (achado de segurança real, ver `docs/CHANGELOG.md`).
 
@@ -150,7 +150,7 @@ Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md
 - Rate limiting via Upstash Redis (store durável) em todo endpoint público sensível (`/api/rsvp/**`, busca por nome, mutações de presente) — nunca contador em memória de processo.
 - Upload de arquivo: allowlist explícita de MIME type, limite de tamanho, nome regenerado no servidor (nunca reaproveitado do upload original).
 - **Proibido `v-html` sobre conteúdo gerado por usuário** (mensagem de RSVP, notas) — só sobre conteúdo controlado pela própria equipe.
-- Dado pessoal de convidado (nome, telefone, e-mail, restrição alimentar — pode revelar saúde/religião) nunca logado em texto pleno; acesso de leitura restrito a membros autenticados do respectivo `casamento_id`. Exclusão definitiva (hard delete) sob pedido formal é processo manual, não ação de UI self-service (base legal: legítimo interesse do casal organizador).
+- Dado pessoal de convidado (nome, telefone, e-mail) nunca logado em texto pleno; acesso de leitura restrito a membros autenticados do respectivo `casamento_id`. Exclusão definitiva (hard delete) sob pedido formal é processo manual, não ação de UI self-service (base legal: legítimo interesse do casal organizador).
 - PITR habilitado em produção (retenção 30 dias); restauração de backup testada manualmente antes de cada casamento com data próxima.
 - Secrets nunca commitados — geridos via variável de ambiente/secret manager do provedor. `service_role key` tem rotação periódica documentada.
 - Ação administrativa sensível (exclusão, mudança de permissão) registrada em `audit_logs` com ator/ação/timestamp; ação automatizada do sistema usa `actor_type = 'system'`.

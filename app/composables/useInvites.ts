@@ -29,6 +29,16 @@ export function useInvites() {
     })
   }
 
+  /** Versão imperativa de getInvite, pra carregar o convite ao abrir o modal de edição. */
+  async function fetchInvite(id: string): Promise<InviteDetail> {
+    return $fetch<InviteDetail>(`/api/invites/${id}`)
+  }
+
+  /** Versão imperativa de getInviteTimeline, pra carregar a Linha do Tempo dentro do modal de detalhe. */
+  async function fetchInviteTimeline(id: string): Promise<{ data: InviteEvent[] }> {
+    return $fetch<{ data: InviteEvent[] }>(`/api/invites/${id}/timeline`)
+  }
+
   async function createInvite(input: InviteInput): Promise<Invite> {
     return $fetch<Invite>('/api/invites', { method: 'POST', body: input })
   }
@@ -69,6 +79,8 @@ export function useInvites() {
   return {
     listInvites,
     getInvite,
+    fetchInvite,
+    fetchInviteTimeline,
     createInvite,
     updateInvite,
     deleteInvite,
