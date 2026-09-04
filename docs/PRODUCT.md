@@ -10,7 +10,7 @@ O **MeuSiteCasamento** é uma aplicação web voltada para casais que estão org
 
 - Publicar um site de casamento personalizado (história do casal, data, local, cronograma do evento, galeria de fotos).
 - Gerenciar a lista de convidados de forma estruturada, incluindo grupos familiares e acompanhantes.
-- Coletar confirmações de presença (RSVP) com suporte a restrições alimentares, número de acompanhantes e mensagens.
+- Coletar confirmações de presença (RSVP) com suporte a número de acompanhantes e mensagens.
 - Disponibilizar uma lista de presentes (física, digital ou "cota" para lua de mel) com controle de reservas para evitar duplicidade.
 - Fornecer um painel administrativo para os noivos (ou um planejador de casamentos contratado) acompanharem métricas de confirmação, presentes e comunicação com convidados.
 
@@ -66,7 +66,7 @@ Pontos que geram confusão se não forem lidos com atenção:
 3. Modelagem de banco de dados normalizada, com integridade referencial garantida via constraints, não apenas via aplicação.
 4. Cobertura de testes automatizados crescente, priorizando fluxos críticos (RSVP, reserva de presentes, autenticação).
 5. Performance de carregamento do site público competitiva (LCP < 2.5s em 4G) por ser a principal porta de entrada de convidados.
-6. Segurança adequada ao tratar dados pessoais de convidados (nome, telefone, e-mail, restrições alimentares).
+6. Segurança adequada ao tratar dados pessoais de convidados (nome, telefone, e-mail).
 
 ### 2.3 Não-objetivos (nesta fase)
 
@@ -84,9 +84,9 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 ### 3.2 Funcionalidades previstas
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
-- Perfil do convidado: apelido, sexo, data de nascimento, foto, papel de padrinho/madrinha, restrição alimentar, observações internas.
+- Perfil do convidado: apelido, sexo, data de nascimento, foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) — mapeamento de colunas para `nome_completo`, `email`, `telefone`.
-- Edição inline de dados de contato e restrições alimentares.
+- Edição inline de dados de contato.
 - "Criança" nunca é um campo manual — calculada a partir de `data_nascimento` + `casamentos.idade_maxima_crianca` (`convidado_e_crianca()`), para fins de contagem de "lugares" no evento.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
 - Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP.
@@ -112,10 +112,8 @@ RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou
 
 - Status por convidado: `pendente` (default) | `confirmado` | `recusado` (escolhidos pelo próprio convidado) | `lista_espera` | `removido` (só administrativos, o convidado nunca escolhe sozinho).
 - Acompanhante avulso (nome sem cadastro prévio, só em `modo_lista_convidados = 'aberta'`) registrado em `acompanhantes_avulsos`, pendurado no convite (não numa resposta individual) — respeitando `convites.max_acompanhantes`.
-- Restrições alimentares do convidado (texto livre + possíveis tags pré-definidas: vegetariano, vegano, sem glúten, sem lactose, alergias) — fonte única em `convidados.restricoes_alimentares`, mesmo formato usado em `acompanhantes_avulsos.restricoes_alimentares`.
 - Mensagem opcional ao casal — uma por **convite** (`convites.mensagem_rsvp`, preenchida na revisão final), não por convidado individual.
 - Timestamp de resposta (`respondido_em`) por convidado, permitindo reenvio de lembrete apenas para quem ainda está `pendente`.
-- Fluxo de formulário diferenciado por resultado: recusar presença **não** solicita restrição alimentar — reduz fricção de quem só precisa dizer "não vou".
 
 ### 4.4 Regras de negócio
 

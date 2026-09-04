@@ -94,7 +94,7 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 | `convites` | `casamento_id`; `convidado_responsavel_id` → `convidados` (opcional) | Unidade real de RSVP — `codigo_interno`, `status_convite` (`pendente`\|`enviado`), `max_acompanhantes`, `mensagem_rsvp`, `arquivado_em` |
 | `grupos` | `casamento_id` | Etiqueta organizacional livre — `nome`, `cor` |
 | `nucleos_acompanhantes` | `casamento_id` | Agrupamento simétrico de Acompanhantes — sem colunas de negócio próprias |
-| `convidados` | `casamento_id` (denormalizado); `convite_id` → `convites` (restrict); `grupo_id` → `grupos` (opcional); `nucleo_id` → `nucleos_acompanhantes` (opcional) | Convidado individual — nome, contato, `apelido`/`sexo`/`data_nascimento`/`caminho_foto`/`papel_casamento`, restrição alimentar, `ordem_nucleo` |
+| `convidados` | `casamento_id` (denormalizado); `convite_id` → `convites` (restrict); `grupo_id` → `grupos` (opcional); `nucleo_id` → `nucleos_acompanhantes` (opcional) | Convidado individual — nome, contato, `apelido`/`sexo`/`data_nascimento`/`caminho_foto`/`papel_casamento`, `ordem_nucleo` |
 | `respostas_rsvp` | `casamento_id` (denormalizado); `convidado_id` → `convidados` (obrigatório, único); `convite_id` (denormalizado) | Resposta de RSVP, sempre por convidado — `status_rsvp` (`pendente`\|`confirmado`\|`recusado`\|`lista_espera`\|`removido`) |
 | `acompanhantes_avulsos` | `convite_id` → `convites` | Acompanhante avulso do convite (nome livre) — só quando `modo_lista_convidados = 'aberta'`; soft delete |
 | `etiquetas_convite` / `vinculos_convite_etiqueta` | `casamento_id` (na etiqueta); `convite_id` + `etiqueta_id` (no vínculo) | Etiqueta interna reutilizável de convite, M:N |
@@ -114,7 +114,7 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 
 | Tabela | FK principal | O que é |
 |---|---|---|
-| `credenciais_acesso_convite` | `casamento_id`; `convite_id` → `convites` (único ativo por convite, `where revogado_em is null`) | Credencial — `codigo_hash`, `revogado_em` |
+| `credenciais_acesso_convite` | `casamento_id`; `convite_id` → `convites` (único ativo por convite, `where revogado_em is null`) | Credencial — `codigo_hash` (SHA-256, autentica), `codigo_cifrado` (AES-256-GCM, só reexibição no painel; nulo em linhas antigas), `revogado_em` |
 | `comunicacoes` | `credencial_id` → `credenciais_acesso_convite` | Log de envio — `tipo`, `canal`, `enviado_em`/`aberto_em` |
 | `conexoes_galeria` | `casamento_id` (único) | Conexão da galeria — `provedor`, `modo`, tokens cifrados |
 | `trilha_auditoria` | `casamento_id`; `autor_id` (opcional — nulo em ações do sistema) | `tipo_autor`, `acao`, `tipo_entidade`/`entidade_id`, `metadados` |
