@@ -182,7 +182,7 @@ const onSubmit = handleSubmit(
     <AdminSettingsSectionCard
       section-id="faixas-etarias"
       title="Classificação etária"
-      description="Defina como os convidados serão agrupados por idade."
+      description="Defina como os convidados serão agrupados por idade. A classificação é calculada com base na idade que cada convidado terá na data do casamento."
     >
       <AdminSettingsAgeGroupsField v-model="faixasEtarias" :error="faixasEtariasError" />
 

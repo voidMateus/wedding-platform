@@ -10,11 +10,7 @@
 -->
 <script setup lang="ts">
 import type { FaixaEtariaInput } from '#shared/schemas/wedding'
-import {
-  FAIXAS_ETARIAS_PADRAO,
-  FAIXA_ETARIA_ROTULOS,
-  IDADE_MAXIMA_SUPORTADA,
-} from '#shared/utils/faixa-etaria'
+import { FAIXAS_ETARIAS_PADRAO, FAIXA_ETARIA_ROTULOS } from '#shared/utils/faixa-etaria'
 
 interface Props {
   modelValue: FaixaEtariaInput[] | undefined
@@ -83,49 +79,63 @@ function restoreDefault() {
 </script>
 
 <template>
-  <AdminSettingsField
-    label="Classificação etária"
-    hint="A classificação de cada convidado é calculada com base na idade dele na data do casamento — mudar estes limites reclassifica a lista inteira, sem alterar nenhum convidado."
-  >
-    <ul class="flex flex-col gap-3">
+  <!--
+    O rótulo do grupo é "Faixas de idade", não "Classificação etária": o
+    cartão da seção já se chama assim, e repetir o mesmo título dentro dele
+    faz a tela parecer ter duas seções aninhadas.
+  -->
+  <AdminSettingsField label="Faixas de idade">
+    <!--
+      Lista com divisórias, rótulo à esquerda e o controle encostado à
+      direita: é o que mantém os campos numéricos alinhados entre as linhas.
+      Solto num flex, "de 0" e "de 60" têm larguras diferentes e empurravam
+      cada input para uma posição — no celular, viravam quatro linhas
+      desalinhadas.
+    -->
+    <ul class="divide-y divide-border overflow-hidden rounded-md border border-border">
+      <!--
+        Empilhado no celular, lado a lado a partir de sm: numa linha só, o
+        rótulo mais longo ("Adolescente") não cabe junto com o controle e
+        quebra só aquela linha, deixando a lista com alturas irregulares.
+      -->
       <li
         v-for="(faixa, index) in faixas"
         :key="faixa.chave"
-        class="flex flex-wrap items-center gap-2"
+        class="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4 sm:px-4 sm:py-2.5"
       >
-        <span class="w-32 text-sm font-medium text-text">{{ rotulo(faixa) }}</span>
+        <span class="text-sm font-medium text-text">{{ rotulo(faixa) }}</span>
 
-        <span class="text-sm text-text-muted">
-          de <span class="num font-medium text-text">{{ faixa.idadeMinima }}</span>
-        </span>
+        <!-- Largura fixa a partir de sm: é o que alinha "de N", o campo e
+             "anos" entre as quatro linhas, inclusive a última, que não tem
+             campo. -->
+        <div class="flex items-center gap-2 text-sm text-text-muted sm:w-60">
+          <span class="whitespace-nowrap">
+            de
+            <span class="num inline-block w-5 text-right font-medium text-text">
+              {{ faixa.idadeMinima }}</span
+            >
+          </span>
 
-        <template v-if="index < faixas.length - 1">
-          <span class="text-sm text-text-muted">até</span>
-          <UiInput
-            :model-value="faixa.idadeMaxima === null ? '' : String(faixa.idadeMaxima)"
-            type="number"
-            :aria-label="`Idade final da faixa ${rotulo(faixa)}`"
-            class="w-24"
-            @update:model-value="updateIdadeMaxima(index, $event)"
-          />
-          <span class="text-sm text-text-muted">anos</span>
-        </template>
-        <span v-else class="text-sm text-text-muted">anos ou mais</span>
+          <template v-if="index < faixas.length - 1">
+            <span>até</span>
+            <UiInput
+              :model-value="faixa.idadeMaxima === null ? '' : String(faixa.idadeMaxima)"
+              type="number"
+              :aria-label="`Idade final da faixa ${rotulo(faixa)}`"
+              class="w-20"
+              @update:model-value="updateIdadeMaxima(index, $event)"
+            />
+            <span>anos</span>
+          </template>
+          <span v-else class="whitespace-nowrap">anos ou mais</span>
+        </div>
       </li>
     </ul>
 
-    <p v-if="error" class="text-xs text-danger" role="alert">{{ error }}</p>
+    <p v-if="error" class="text-sm text-danger" role="alert">{{ error }}</p>
 
-    <div class="flex items-center gap-3">
-      <UiButton type="button" size="sm" variant="ghost" @click="restoreDefault">
-        Restaurar classificação padrão
-      </UiButton>
-      <span class="text-xs text-text-muted">
-        Padrão: 0 a {{ FAIXAS_ETARIAS_PADRAO[0]?.idadeMaxima }} / até
-        {{ FAIXAS_ETARIAS_PADRAO[1]?.idadeMaxima }} / até
-        {{ FAIXAS_ETARIAS_PADRAO[2]?.idadeMaxima }} / acima disso. Limite máximo aceito:
-        {{ IDADE_MAXIMA_SUPORTADA }} anos.
-      </span>
-    </div>
+    <UiButton type="button" size="sm" variant="ghost" class="self-start" @click="restoreDefault">
+      Restaurar classificação padrão
+    </UiButton>
   </AdminSettingsField>
 </template>
