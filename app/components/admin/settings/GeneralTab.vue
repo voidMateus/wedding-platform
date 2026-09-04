@@ -2,6 +2,7 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { weddingSettingsSchema } from '#shared/schemas/wedding'
+import { resolverFaixasEtarias } from '#shared/utils/faixa-etaria'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
@@ -35,20 +36,17 @@ const [nomesNoivos] = defineField('nomesNoivos')
 const [dataEvento] = defineField('dataEvento')
 const [horarioEvento] = defineField('horarioEvento')
 const [prazoRsvp] = defineField('prazoRsvp')
-const [idadeMaximaCrianca] = defineField('idadeMaximaCrianca')
+const [faixasEtarias] = defineField('faixasEtarias')
 const [modoListaConvidados] = defineField('modoListaConvidados')
 const [handleInfinitepay] = defineField('handleInfinitepay')
 const [modoEntregaPresenteFisico] = defineField('modoEntregaPresenteFisico')
 
-// UiInput só trabalha com string — idadeMaximaCrianca no form é number (schema
-// com z.coerce.number()), daí o proxy de string aqui (mesmo padrão de
-// maxMembersText no antigo formulário de grupos).
-const idadeMaximaCriancaText = computed({
-  get: () => (idadeMaximaCrianca.value === undefined ? '' : String(idadeMaximaCrianca.value)),
-  set: (value: string) => {
-    idadeMaximaCrianca.value = value === '' ? undefined : Number(value)
-  },
-})
+// A validação das faixas é de conjunto (continuidade, sobreposição), então o
+// erro pode cair no array inteiro ou num campo dele — a barra de salvamento
+// precisa mostrar o primeiro dos dois, qualquer que seja.
+const faixasEtariasError = computed(
+  () => Object.entries(errors.value).find(([key]) => key.startsWith('faixasEtarias'))?.[1],
+)
 
 // O prazo de RSVP é um `datetime-local` no schema (`YYYY-MM-DDTHH:mm`), mas
 // na tela são dois controles: UiDatePicker e UiTimePicker. Os proxies abaixo
@@ -88,7 +86,7 @@ function applyWeddingToForm() {
       dataEvento: value.data_evento,
       horarioEvento: value.horario_evento ? value.horario_evento.slice(0, 5) : '',
       prazoRsvp: value.prazo_rsvp ? isoToDatetimeLocal(value.prazo_rsvp) : '',
-      idadeMaximaCrianca: value.idade_maxima_crianca,
+      faixasEtarias: resolverFaixasEtarias(value.config_faixas_etarias),
       modoListaConvidados: value.modo_lista_convidados as 'fechada' | 'aberta',
       handleInfinitepay: value.handle_infinitepay ?? '',
       modoEntregaPresenteFisico: value.modo_entrega_presente_fisico as
@@ -156,15 +154,6 @@ const onSubmit = handleSubmit(
         </div>
       </AdminSettingsField>
 
-      <UiInput
-        v-model="idadeMaximaCriancaText"
-        type="number"
-        label="Idade máxima considerada criança"
-        hint="Usada na contagem de convidados por faixa."
-        class="sm:max-w-xs"
-        :error="errors.idadeMaximaCrianca"
-      />
-
       <!-- Duas opções com uma linha de explicação cada: em cartões, as duas
            ficam legíveis de uma vez. Num dropdown, a diferença entre elas só
            aparece depois de abrir a lista. -->
@@ -188,6 +177,26 @@ const onSubmit = handleSubmit(
         ]"
         :error="errors.modoListaConvidados"
       />
+    </AdminSettingsSectionCard>
+
+    <AdminSettingsSectionCard
+      section-id="faixas-etarias"
+      title="Classificação etária"
+      description="Defina como os convidados serão agrupados por idade."
+    >
+      <AdminSettingsAgeGroupsField v-model="faixasEtarias" :error="faixasEtariasError" />
+
+      <template #aside>
+        <p>
+          A faixa de cada convidado nunca é gravada: ela é calculada a partir da idade que a pessoa
+          terá na data do casamento. A mesma pessoa pode ser criança aqui e adolescente em outro
+          evento com limites diferentes.
+        </p>
+        <p>
+          Para quem você não sabe a data de nascimento, informe a faixa à mão no cadastro do
+          convidado. Se a data de nascimento for preenchida depois, ela passa a valer.
+        </p>
+      </template>
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard

@@ -5,6 +5,7 @@ import { getAdminSessionCookie } from '../helpers/admin-session'
 import { cleanupAll } from '../helpers/cleanup'
 import { createTestWedding, deleteTestWedding } from '../../factories/wedding'
 import { createTestMember, deleteTestMember, TEST_MEMBER_PASSWORD } from '../../factories/member'
+import { FAIXAS_ETARIAS_PADRAO } from '#shared/utils/faixa-etaria'
 
 /**
  * Integração — API administrativa (docs/ARCHITECTURE.md, seção 9.1/9.7):
@@ -45,7 +46,12 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
         dataEvento: '2031-06-15',
         horarioEvento: '16:00',
         prazoRsvp: '2031-05-01',
-        idadeMaximaCrianca: 12,
+        faixasEtarias: [
+          { chave: 'crianca', idadeMinima: 0, idadeMaxima: 7 },
+          { chave: 'adolescente', idadeMinima: 8, idadeMaxima: 17 },
+          { chave: 'adulto', idadeMinima: 18, idadeMaxima: 59 },
+          { chave: 'idoso', idadeMinima: 60, idadeMaxima: null },
+        ],
         modoListaConvidados: 'aberta',
         handleInfinitepay: 'anaebruno',
         modoEntregaPresenteFisico: 'somente_compra_propria',
@@ -64,7 +70,13 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       expect(stored?.nomes_noivos).toBe('Ana & Bruno')
       expect(stored?.data_evento).toBe('2031-06-15')
       expect(stored?.horario_evento).toBe('16:00:00')
-      expect(stored?.idade_maxima_crianca).toBe(12)
+      // Limites personalizados chegam ao banco como configuração do evento —
+      // nunca como uma classificação gravada em cada convidado.
+      expect((stored?.config_faixas_etarias as { principal: unknown[] }).principal[0]).toEqual({
+        chave: 'crianca',
+        idadeMinima: 0,
+        idadeMaxima: 7,
+      })
       expect(stored?.modo_lista_convidados).toBe('aberta')
       expect(stored?.handle_infinitepay).toBe('anaebruno')
       expect(stored?.modo_entrega_presente_fisico).toBe('somente_compra_propria')
@@ -81,7 +93,7 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       const res = await client.patch('/api/wedding', {
         nomesNoivos: 'Não Deve Salvar',
         dataEvento: '2031-06-15',
-        idadeMaximaCrianca: 12,
+        faixasEtarias: FAIXAS_ETARIAS_PADRAO,
         modoListaConvidados: 'invalida',
         modoEntregaPresenteFisico: 'ambos',
       })
@@ -100,7 +112,7 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       const res = await client.patch('/api/wedding', {
         nomesNoivos: 'Sem Sessão',
         dataEvento: '2031-06-15',
-        idadeMaximaCrianca: 0,
+        faixasEtarias: FAIXAS_ETARIAS_PADRAO,
         modoListaConvidados: 'aberta',
       })
       expect(res.status).toBe(401)

@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
+import { FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA } from '#shared/utils/faixa-etaria'
 
 const querySchema = paginationQuerySchema(25).extend({
   search: z.string().trim().max(200).optional(),
   groupId: z.string().uuid().optional(),
   unassigned: z.coerce.boolean().optional(),
   withoutParty: z.coerce.boolean().optional(),
+  // Faixa etária calculada na data do evento — nunca uma coluna de
+  // `convidados`, sempre um recorte derivado (CLAUDE.md, seção 12).
+  ageGroup: z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA]).optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -17,6 +21,7 @@ export default defineEventHandler(async (event) => {
     groupId,
     unassigned,
     withoutParty,
+    ageGroup,
   } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
@@ -47,6 +52,16 @@ export default defineEventHandler(async (event) => {
     .is('excluido_em', null)
     .eq('respostas_rsvp.status_rsvp', 'confirmado')
 
+  if (ageGroup) {
+    // Traduzido para intervalo de datas de nascimento em vez de classificar
+    // em memória: a lista é paginada e o "N confirmados" é contado no banco,
+    // então um recorte feito no client descreveria uma lista diferente da que
+    // está na tela. Quem não tem data de nascimento entra pela faixa manual —
+    // e só nesse caso, porque a data sempre tem prioridade.
+    const filtro = buildAgeGroupFilter(ageGroup, await loadAgeGroupContext(client, weddingId))
+    query = query.or(filtro)
+    confirmedQuery = confirmedQuery.or(filtro)
+  }
   if (search) {
     query = query.ilike('nome_completo', `%${search}%`)
     confirmedQuery = confirmedQuery.ilike('nome_completo', `%${search}%`)

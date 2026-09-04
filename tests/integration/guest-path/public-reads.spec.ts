@@ -33,7 +33,14 @@ describe('guest-path: leituras públicas do site (/api/public/[slug]/*)', () => 
       config_conteudo: { historia: 'Nosso início, casamento A' },
       handle_infinitepay: 'anaebruno',
       prazo_rsvp: '2030-05-01',
-      idade_maxima_crianca: 10,
+      config_faixas_etarias: {
+        principal: [
+          { chave: 'crianca', idadeMinima: 0, idadeMaxima: 7 },
+          { chave: 'adolescente', idadeMinima: 8, idadeMaxima: 17 },
+          { chave: 'adulto', idadeMinima: 18, idadeMaxima: 59 },
+          { chave: 'idoso', idadeMinima: 60, idadeMaxima: null },
+        ],
+      },
       modo_lista_convidados: 'fechada',
       modo_entrega_presente_fisico: 'ambos',
     })
@@ -48,7 +55,10 @@ describe('guest-path: leituras públicas do site (/api/public/[slug]/*)', () => 
   })
 
   afterAll(async () => {
-    await cleanupAll([() => deleteTestWedding(admin, weddingA.id), () => deleteTestWedding(admin, weddingB.id)])
+    await cleanupAll([
+      () => deleteTestWedding(admin, weddingA.id),
+      () => deleteTestWedding(admin, weddingB.id),
+    ])
   })
 
   describe('GET /api/public/[slug]/wedding', () => {
@@ -76,13 +86,21 @@ describe('guest-path: leituras públicas do site (/api/public/[slug]/*)', () => 
       const body = await res.json()
 
       expect(Object.keys(body).sort()).toEqual(
-        ['id', 'slug', 'nomes_noivos', 'data_evento', 'horario_evento', 'config_tema', 'config_conteudo'].sort(),
+        [
+          'id',
+          'slug',
+          'nomes_noivos',
+          'data_evento',
+          'horario_evento',
+          'config_tema',
+          'config_conteudo',
+        ].sort(),
       )
       // Campos administrativos existem na linha real (definidos no beforeAll)
       // mas nunca devem aparecer no payload público.
       expect(body).not.toHaveProperty('handle_infinitepay')
       expect(body).not.toHaveProperty('prazo_rsvp')
-      expect(body).not.toHaveProperty('idade_maxima_crianca')
+      expect(body).not.toHaveProperty('config_faixas_etarias')
       expect(body).not.toHaveProperty('modo_lista_convidados')
       expect(body).not.toHaveProperty('modo_entrega_presente_fisico')
       expect(body).not.toHaveProperty('status_ciclo_vida')

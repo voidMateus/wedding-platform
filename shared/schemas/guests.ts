@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { FAIXA_ETARIA_CHAVES } from '#shared/utils/faixa-etaria'
 
 // Compartilhado entre client (wizard de convidado) e server (revalidação —
 // CLAUDE.md, seção 8/20.1). Mesmos campos para o convidado principal e cada
@@ -11,7 +12,13 @@ export const guestPersonSchema = z.object({
   apelido: z.string().trim().max(100).optional().or(z.literal('')),
   sexo: z.enum(['masculino', 'feminino', 'outro']).optional().or(z.literal('')),
   // <input type="date"> envia "yyyy-mm-dd" — Postgres aceita direto.
+  // Opcional de verdade: o casal raramente sabe a data de nascimento de todos
+  // os convidados, e sem ela a faixa manual abaixo assume (CLAUDE.md, seção 12).
   dataNascimento: z.string().trim().optional().or(z.literal('')),
+  // Faixa etária informada à mão — vale SÓ na ausência de dataNascimento;
+  // com data de nascimento, a classificação é sempre calculada na data do
+  // evento (shared/utils/faixa-etaria.ts#classificarFaixaEtaria).
+  faixaEtariaManual: z.enum(FAIXA_ETARIA_CHAVES).optional().or(z.literal('')),
   caminhoFoto: z.string().trim().optional().or(z.literal('')),
   papelCasamento: z.enum(['padrinho', 'madrinha']).optional().or(z.literal('')),
   observacoes: z.string().trim().max(2000).optional().or(z.literal('')),

@@ -31,6 +31,22 @@ const weddingRoleOptions = [
   { value: 'madrinha', label: 'Madrinha' },
 ]
 
+// Faixa etária primeiro, data de nascimento como campo opcional depois: o
+// casal quase nunca sabe a data de nascimento de todos os convidados, e
+// "sei que ele é adulto" precisa ser suficiente para concluir o cadastro
+// (CLAUDE.md, seção 12).
+const { classify, label, manualOptions } = useAgeGroups()
+
+const classificacao = computed(() =>
+  classify({
+    data_nascimento: props.modelValue.dataNascimento || null,
+    faixa_etaria_manual: props.modelValue.faixaEtariaManual || null,
+  }),
+)
+
+/** Com data de nascimento, a faixa é calculada e o seletor manual não compete com ela. */
+const isCalculada = computed(() => classificacao.value.origem === 'calculada')
+
 // Criar um grupo sem sair do cadastro do convidado (CLAUDE.md, seção 12.1) —
 // evita o casal precisar ir em Grupos cadastrar tudo antes de começar.
 const { createGroup } = useGroups()
@@ -76,27 +92,57 @@ async function handleCreateGroup() {
 
     <div class="grid gap-4 sm:grid-cols-3">
       <UiSelect
+        :model-value="modelValue.faixaEtariaManual"
+        label="Faixa etária"
+        :options="manualOptions"
+        :disabled="isCalculada"
+        :hint="
+          isCalculada
+            ? 'Calculada pela data de nascimento.'
+            : 'Use quando não souber a data de nascimento.'
+        "
+        @update:model-value="
+          update('faixaEtariaManual', $event as GuestPersonInput['faixaEtariaManual'])
+        "
+      />
+      <UiSelect
         :model-value="modelValue.sexo"
         label="Sexo (opcional)"
         placeholder="Não informar"
         :options="sexOptions"
         @update:model-value="update('sexo', $event as GuestPersonInput['sexo'])"
       />
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium text-text">Data de nascimento (opcional)</label>
-        <input
-          type="date"
-          :value="modelValue.dataNascimento"
-          class="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text"
-          @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
       <UiSelect
         :model-value="modelValue.papelCasamento"
         label="Padrinho/Madrinha"
         :options="weddingRoleOptions"
         @update:model-value="update('papelCasamento', $event as GuestPersonInput['papelCasamento'])"
       />
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-medium text-text" :for="`nascimento-${modelValue.id ?? 'novo'}`">
+        Data de nascimento (opcional)
+      </label>
+      <input
+        :id="`nascimento-${modelValue.id ?? 'novo'}`"
+        type="date"
+        :value="modelValue.dataNascimento"
+        class="h-10 max-w-xs rounded-md border border-border bg-surface px-3 text-sm text-text"
+        @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
+      />
+
+      <!-- Idade e classificação são sempre derivadas (idade na data do
+           evento x faixas do evento) — exibidas, nunca gravadas. -->
+      <p v-if="classificacao.idadeNoEvento !== null" class="text-xs text-text-muted">
+        <span class="num">{{ classificacao.idadeNoEvento }}</span>
+        {{ classificacao.idadeNoEvento === 1 ? 'ano' : 'anos' }} na data do casamento ·
+        <strong class="font-medium text-text">{{ label(classificacao.chave) }}</strong>
+      </p>
+      <p v-else class="text-xs text-text-muted">
+        Informando a data de nascimento, a faixa etária passa a ser calculada com base na idade na
+        data do casamento.
+      </p>
     </div>
 
     <div class="flex flex-col gap-1">

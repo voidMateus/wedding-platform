@@ -9,7 +9,7 @@ import { serverSupabaseClient } from '#supabase/server'
 //
 // select() explícito (não '*') de propósito — achado de segurança (varredura
 // de 2026-08-19): `casamentos` já ganhou ~8 colunas via migrations
-// sucessivas (prazo_rsvp, idade_maxima_crianca, modo_lista_convidados,
+// sucessivas (prazo_rsvp, config_faixas_etarias, modo_lista_convidados,
 // handle_infinitepay, modo_entrega_presente_fisico...), nenhuma sensível
 // hoje, mas nada impedia uma coluna futura de vazar por padrão num endpoint
 // sem autenticação. Lista abaixo é exatamente o que os consumidores

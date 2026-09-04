@@ -64,8 +64,12 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   // botão que o abre (a rota /convites/{id} só redireciona para cá).
   await page.goto(`/admin/${adminSlug}/convites`)
   await page.getByPlaceholder('Filtrar por nome...').fill(`Família ${primaryName.split(' ')[0]}`)
+  // `exact`, não regex: desde o redesign do painel cada linha tem também os
+  // botões de ação "Abrir convite <nome>"/"Excluir convite <nome>", e um nome
+  // parcial passa a casar com três elementos.
   const inviteButton = page.getByRole('button', {
-    name: new RegExp(`Família ${primaryName.split(' ')[0]}`),
+    name: `Família ${primaryName.split(' ')[0]}`,
+    exact: true,
   })
   await expect(inviteButton).toBeVisible({ timeout: 10_000 })
   await inviteButton.click()

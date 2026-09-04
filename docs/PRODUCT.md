@@ -84,18 +84,46 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 ### 3.2 Funcionalidades previstas
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
-- Perfil do convidado: apelido, sexo, data de nascimento, foto, papel de padrinho/madrinha, observações internas.
+- Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) — mapeamento de colunas para `nome_completo`, `email`, `telefone`.
 - Edição inline de dados de contato.
-- "Criança" nunca é um campo manual — calculada a partir de `data_nascimento` + `casamentos.idade_maxima_crianca` (`convidado_e_crianca()`), para fins de contagem de "lugares" no evento.
+- Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
-- Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP.
+- Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP, grupo e faixa etária.
 
 ### 3.3 Regras de negócio
 
 - Um convidado só consegue responder RSVP depois de vinculado a um convite (`convite_id`); antes disso, existe no cadastro mas fica fora do fluxo de RSVP.
 - Alterar o convite/etiqueta/grupo de Acompanhantes de um convidado não apaga suas respostas de RSVP anteriores (histórico preservado).
 - E-mail/telefone não são obrigatórios (alguns convidados só têm envio de convite físico), mas ao menos um canal de contato é recomendado pela UI (aviso, não bloqueio).
+
+### 3.4 Classificação etária
+
+**O princípio:** a data de nascimento pertence ao convidado; a regra de classificação pertence ao evento. "Criança" não é uma característica da pessoa — é o resultado de aplicar as faixas *deste* casamento à idade que a pessoa terá *na data dele*. Nenhuma classificação é gravada em `convidados` (ver [`CLAUDE.md`](../CLAUDE.md) seção 12).
+
+Três conceitos distintos, nessa ordem:
+
+| Conceito | Onde vive | Natureza |
+|---|---|---|
+| Data de nascimento | `convidados.data_nascimento` (opcional) | Informação do convidado |
+| Idade no evento | calculada (`calcularIdadeNaData`) | Derivada — nunca persistida |
+| Classificação etária | calculada (`classificarFaixaEtaria`) | Derivada das faixas do evento |
+
+**Por que não é uma propriedade fixa do convidado:** a definição de "criança" não é universal e varia por evento — um casamento considera criança até 7 anos, outro até 11. Gravar "João é criança" impediria que o mesmo João fosse adolescente num evento com limites diferentes.
+
+**Configuração (Configurações → Geral → Classificação etária).** Quatro faixas — Criança, Adolescente, Adulto, Idoso — com limites editáveis pelo casal. O padrão de um evento novo é 0–11 / 12–17 / 18–59 / 60+, apenas um ponto de partida. A configuração é validada como conjunto: contínua, sem sobreposição e sem buraco, com a última faixa sempre aberta no topo — exatamente uma faixa se aplica a cada idade. Há ação de "Restaurar classificação padrão".
+
+**Regra de prioridade.** Com `data_nascimento` preenchida, a faixa é *calculada* (idade na data do evento × faixas do evento). Sem ela, vale a faixa informada à mão (`faixa_etaria_manual`). Sem nenhuma das duas, a faixa é "não informada" — a plataforma nunca infere idade por nome, parentesco ou qualquer outro dado. A faixa manual **nunca compete** com uma data de nascimento válida: preencher a data depois faz a classificação passar automaticamente a calculada. A interface sempre indica se o valor foi calculado ou informado manualmente.
+
+**Cadastro sem fricção.** A data de nascimento é opcional de propósito: o casal raramente conhece a de todos os convidados, e "sei que ele é adulto" precisa ser suficiente para concluir o cadastro. A faixa manual é o campo de primeira classe do formulário; a data de nascimento é informação complementar que, quando existe, mostra idade no evento e classificação em leitura.
+
+**Acompanhantes.** Cada pessoa tem a própria data de nascimento e a própria faixa — um acompanhante nunca herda a classificação do convidado responsável (todo acompanhante é uma linha de `convidados`, ver seção 3.1). Acompanhantes avulsos do RSVP (`acompanhantes_avulsos`, nome livre) não têm nenhuma das duas informações e por isso não entram nas contagens por faixa.
+
+**RSVP.** O fluxo do convidado não pergunta idade nem data de nascimento — a classificação é ferramenta de organização do casal, não pergunta ao convidado.
+
+**Ao alterar a configuração**, nenhum dado de convidado muda: só a classificação calculada. Um convidado de 11 anos exibido como "Adolescente" com criança até 7 passa a "Criança" quando o limite vira 11. Não há histórico de classificações nesta versão — a regra vigente é a atual.
+
+**Evolução prevista** (não implementada): classificações diferentes por finalidade — alimentação (infantil 0–7 / adulto 8+), organização de mesas, recreação (bebê 0–2 / criança 3–7). Por isso a configuração é gravada sob a chave `principal`, e não como um array solto: outras finalidades entram como chaves irmãs, sem migration de formato. Ver [`ROADMAP.md`](ROADMAP.md).
 
 ## 4. Sistema de RSVP
 

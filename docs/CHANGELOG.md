@@ -47,6 +47,24 @@ Corrigido em `Hero.vue`, `StorySection.vue` e `GallerySection.vue` (grade e ligh
 
 ---
 
+### Achado real: `UiSelect` sobre Reka UI derrubava toda tela com opção de valor vazio (encontrado na Fase Classificação Etária)
+
+Encontrado ao validar o cadastro de convidado no navegador: `/admin/{slug}/convidados?novo=1` respondia com a tela de erro "500 — Algo deu errado", sem nenhum erro no log do servidor.
+
+**Causa raiz**: no redesign de Configurações, `components/ui/Select.vue` deixou de ser um `<select>` nativo e passou a ser headless via Reka UI. O primitive reserva a string vazia para "sem seleção" e **lança em tempo de execução** quando um `SelectItem` recebe `value=""` — o erro sobe pelo setup do componente e vira erro fatal da rota inteira. O `UiSelect` repassava `option.value` direto para o item, então bastava uma opção do tipo "Nenhum"/"Não informada" para derrubar a página.
+
+**Alcance**: `GuestPersonFields.vue` já tinha `{ value: '', label: 'Nenhum' }` no campo Padrinho/Madrinha desde antes — ou seja, o formulário de cadastro/edição de convidado (o wizard inteiro, criar e editar) estava quebrado em `main` desde aquele merge. O `<select>` nativo aceitava `value=""` sem reclamar, então o problema nasceu silenciosamente na troca do primitive, num componente que nenhum teste de unidade cobre e cujo caminho o E2E de convidados não alcançava (falhava antes, por outro motivo).
+
+**Correção**: `UiSelect` passou a traduzir a opção de valor vazio para um sentinel interno (`__ui-select-empty__`) na entrada do primitive e de volta para `''` no emit — nenhum chamador precisa saber. A opção "Nenhum" agora também aparece **selecionada com o próprio rótulo** em vez de cair no placeholder; quando não há opção vazia declarada, `''` segue virando `undefined` para o placeholder aparecer, como antes.
+
+**Regra que fica**: um componente de `components/ui/` que embrulha um primitive de terceiro precisa absorver as restrições dele, não repassá-las ao chamador — o contrato público do `UiSelect` é "uma lista de `{value, label}`", e o chamador não tem como saber que um valor é proibido.
+
+### Achado: E2E de convidados desatualizado em relação ao redesign do painel
+
+O mesmo esforço de validação expôs `tests/e2e/guests-invites-rsvp.spec.ts` desatualizado: `getByRole('button', { name: /Família X/ })` passou a casar com três elementos desde que cada linha da tabela de convites ganhou os botões de ação "Abrir convite <nome>"/"Excluir convite <nome>" (redesign do painel). Corrigido para nome exato. O teste ainda não passa até o fim — o modal de detalhe do convite não abre pelo caminho que ele espera —, o que é trabalho da fase que redesenhou aquela tela, não desta. Fica registrado aqui para não ser reencontrado do zero.
+
+---
+
 ### Achado real: view sem `security_invoker` ignorando RLS (Security Definer View) — CLAUDE.md §13/§28.4
 
 O Supabase Security Advisor sinalizou em produção, com severidade **CRITICAL**, a view `wedding_rsvp_summary` (criada na Fase 1, seção 32) como "Security Definer View".
@@ -355,3 +373,30 @@ Pedido do usuário: o campo de endereço do Cronograma "não possui uma integra�
 
 **Schema/arquivos**: migration `20260904140001_etapas_evento_localizacao`; `server/utils/` (`places-provider`, `places-google`, `event-segment-venue-columns`, `rate-limit` +grupo `places`, `validate` corrigido); `server/api/places/**`; `shared/utils/` (`endereco-local`, `mapa-local`) + `shared/schemas/event-segments.ts` reescrito; `app/components/admin/location/**` (`Field`, `SearchBox`, `ManualForm`, `MapPicker.client`); `app/components/ui/VenueMap.vue` (movido); `app/composables/usePlaces.ts`; `app/utils/event-segment-location.ts`; `app/types/` (`place`, `event-segment-location`). Nova env opcional `GOOGLE_MAPS_API_KEY`; nova dependência `leaflet`.
 
+---
+
+### Fase Classificação Etária — faixa etária deixa de ser propriedade do convidado (concluída, fora da sequência numerada)
+
+Pedido do usuário, com o problema formulado antes da solução: a plataforma usava a data de nascimento para decidir quem é criança, mas "na prática o casal frequentemente não sabe a data de nascimento de todos os convidados". E, mais de fundo, a definição de "criança" não é universal — um casamento considera criança até 7 anos, outro até 11. A diretriz foi explícita: **a classificação etária não deve ser uma propriedade fixa do convidado**. O princípio central, nas palavras do pedido: *a data de nascimento pertence ao convidado; a regra de classificação pertence ao evento*.
+
+**O que existia antes.** `casamentos.idade_maxima_crianca` (um inteiro, default 11) + `convidado_e_crianca(data_nascimento, casamento_id)` no Postgres, espelhada em `shared/utils/guest-age.ts#computeIsChild` para o client. Duas consequências ruins: sem data de nascimento o convidado contava como **adulto** silenciosamente (não como "não informado"), e a idade era calculada contra `current_date` — ou seja, contra o dia em que alguém abriu a tela, não contra o dia do casamento. Uma criança de 11 anos cadastrada dois anos antes do evento aparecia como criança até virar 12 no calendário, mesmo que fosse fazer 13 antes da festa.
+
+**Três conceitos separados** (o desenho que resolve o pedido): data de nascimento (informação do convidado, **opcional**), idade no evento (derivada) e classificação etária (derivada das faixas do evento). Nada além dos dois primeiros é persistido.
+
+**Modelo de dados.** `casamentos.config_faixas_etarias` (jsonb) e `convidados.faixa_etaria_manual` (texto com CHECK). `casamentos.idade_maxima_crianca` e a função `convidado_e_crianca()` foram **removidas** — diferente da remoção da restrição alimentar (entrada acima), aqui não havia dado a preservar: o valor do limite antigo foi migrado para dentro das faixas de cada casamento, então manter a coluna deixaria duas fontes de verdade para "criança", exatamente o que a remodelagem elimina. O backfill acomoda também limites atípicos (`greatest`): um casamento com criança até 20 sai como 0–20 / 21–21 / 22–59 / 60+, sempre um conjunto válido.
+
+**jsonb em vez de tabela `faixas_etarias`, com dois motivos concretos**: (1) a regra "exatamente uma faixa se aplica a cada idade" é validada de uma vez, sobre um valor só (`shared/schemas/wedding.ts#faixasEtariasSchema`), em vez de entre linhas dentro de uma transação; (2) "Restaurar classificação padrão" é uma escrita só. A configuração é gravada sob a chave `principal` — não como um array solto — porque o pedido pede explicitamente para não impedir classificações por finalidade no futuro (alimentação, mesas, recreação): elas entram como chaves irmãs, sem migration de formato.
+
+**Conjunto de faixas fixo, limites configuráveis.** O catálogo (Criança/Adolescente/Adulto/Idoso) é vocabulário da plataforma e espelha o CHECK de `faixa_etaria_manual`; o critério de aceite pedia que "os limites das faixas puderem ser personalizados", não que faixas pudessem ser criadas/removidas. A *estrutura* gravada, porém, é genérica (array de min/max), então `classificarFaixaEtaria` é função pura do array e já funciona para um conjunto parcial ou não contínuo — o formato que as finalidades futuras vão usar.
+
+**Recorte no banco, não em memória — a decisão menos óbvia da fase.** A listagem de convidados é paginada e o "N confirmados" do cabeçalho é contado no banco (achado antigo, registrado em `server/api/guests/index.get.ts`): filtrar por faixa em memória faria o contador descrever uma lista diferente da exibida. Como `idade(D, nascimento) >= min` equivale a `nascimento <= D - min anos`, a faixa é traduzida em **intervalo de datas de nascimento** (`server/utils/age-groups.ts#buildAgeGroupFilter`) — aritmética exata, nenhuma função SQL nova, nenhuma coluna derivada. A parcela da faixa manual sempre exige `data_nascimento is null`, o que replica no banco a mesma regra de prioridade da função de domínio; sem isso, quem tivesse data e faixa manual divergentes apareceria em dois recortes.
+
+**Achado durante a implementação: 29/02.** Subtrair anos de uma data com `Date.UTC(ano - n, mes, dia)` transforma 29/02 em 01/03 no ano de destino. Num evento em 29/02/2028, isso colocava quem nasceu em 01/03/2010 (que ainda tem 17 anos no evento) dentro do recorte dos 18+ — erro de um dia, invisível fora do ano bissexto. `subtrairAnos` gruda no último dia do mês, e o teste correspondente compara os dois caminhos (cálculo de idade × intervalo de datas) para garantir que classificam exatamente as mesmas pessoas.
+
+**Onde a classificação aparece.** Cadastro do convidado com a faixa como campo de primeira classe e a data de nascimento como informação complementar (que, quando preenchida, mostra idade no evento + classificação em leitura e desabilita o seletor manual — a interface diz sempre se o valor foi calculado ou informado à mão); coluna "Faixa etária" e chips de filtro na lista de convidados (recorte na URL, `?faixa=`, para ser compartilhável e linkável); painel "Pessoas por faixa etária" no dashboard, com cada número linkando para o mesmo recorte da lista. As duas métricas antigas do dashboard ("Adultos"/"Crianças") deram lugar a "Pessoas na lista" + esse painel.
+
+**O que deliberadamente não mudou.** O fluxo de RSVP não pergunta idade nem data de nascimento — a classificação é ferramenta de organização do casal, não pergunta ao convidado. Não há histórico de classificações: alterar os limites passa a valer imediatamente, sem tocar em nenhum convidado (é a demonstração prática de por que a classificação não é armazenada).
+
+**Dois bugs pré-existentes encontrados na validação** (nenhum causado por esta fase, os dois registrados na seção de achados acima): o `UiSelect` sobre Reka UI derrubava com 500 qualquer tela que tivesse uma opção de valor vazio — o que já quebrava o cadastro de convidado em `main` — e o E2E de convidados tinha um locator ambíguo desde o redesign do painel.
+
+**Schema/arquivos**: migration `20260904150001_faixas_etarias_do_evento` (inclui `sincronizar_nucleo_convidado` recriada para gravar `faixaEtariaManual`); `shared/utils/faixa-etaria.ts` (novo, substitui `guest-age.ts`, removido); `shared/schemas/wedding.ts` (+`faixasEtariasSchema`) e `guests.ts` (+`faixaEtariaManual`); `server/utils/age-groups.ts` (novo); `server/api/` (`guests/index.get` +filtro `ageGroup`, `dashboard/summary.get` +`byAgeGroup`, `wedding/index.patch`); `app/composables/useAgeGroups.ts` (novo); `app/components/admin/settings/AgeGroupsField.vue` (novo) + `GeneralTab.vue`; `app/components/admin/guests/**`; lista de convidados, dashboard e sub-menu de Configurações; `app/components/ui/Select.vue` (correção do achado). Testes novos: `tests/unit/shared/utils/faixa-etaria.spec.ts`, `tests/unit/server/age-groups.spec.ts` e a suíte de faixas em `tests/unit/shared/schemas/wedding.spec.ts`.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computeIsChild } from '#shared/utils/guest-age'
+import { isFaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
 import type { Guest } from '~/types/guest'
 
 definePageMeta({ layout: 'admin' })
@@ -9,21 +9,31 @@ const router = useRouter()
 
 const { listGuests, deleteGuest } = useGuests()
 const { listGroups } = useGroups()
-const { getWedding } = useWedding()
-
-const { data: wedding } = getWedding()
-const childMaxAge = computed(() => wedding.value?.idade_maxima_crianca ?? 11)
+const { classify, label: ageGroupLabel, originLabel, filterChips } = useAgeGroups()
 
 const page = ref(1)
 const search = ref('')
 const groupFilter = ref('')
 const PAGE_SIZE = 25
 
+// Na URL (não em ref local, como o recorte por grupo): o dashboard linka
+// direto para "as 8 crianças" a partir do contador por faixa, e o endereço do
+// recorte precisa ser compartilhável.
+const ageGroupFilter = computed(() =>
+  isFaixaEtariaFiltro(route.query.faixa) ? route.query.faixa : '',
+)
+
+function handleAgeGroupChange(value: string): void {
+  page.value = 1
+  router.replace({ query: { ...route.query, faixa: value || undefined } })
+}
+
 const listParams = computed(() => ({
   page: page.value,
   pageSize: PAGE_SIZE,
   search: search.value.trim() || undefined,
   groupId: groupFilter.value || undefined,
+  ageGroup: ageGroupFilter.value || undefined,
 }))
 
 const { data, status, error, refresh } = listGuests(listParams)
@@ -105,12 +115,28 @@ function companionsOf(guest: Guest): Guest[] {
   )
 }
 
+// Classificado uma vez por linha (mesmo padrão de companionCountByParty):
+// o template lê rótulo e procedência do mesmo resultado, sem reclassificar a
+// cada interpolação.
+const ageGroupByGuest = computed(() => {
+  const cells = new Map<string, { label: string; title: string }>()
+  for (const guest of data.value?.data ?? []) {
+    const classificacao = classify(guest)
+    cells.set(guest.id, {
+      label: classificacao.chave ? ageGroupLabel(classificacao.chave) : '—',
+      title: originLabel(classificacao.origem),
+    })
+  }
+  return cells
+})
+
 function groupNameOf(guest: Guest): string {
   return groupOptions.value.find((option) => option.value === guest.grupo_id)?.label ?? '—'
 }
 
 const columns = [
   { key: 'nome', label: 'Convidado' },
+  { key: 'faixa', label: 'Faixa etária' },
   { key: 'grupo', label: 'Grupo' },
   { key: 'acompanhantes', label: 'Acompanhantes' },
   { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
@@ -191,12 +217,20 @@ async function confirmDelete() {
 
     <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
       <template #headerActions>
-        <AdminFilterChips
-          :model-value="groupFilter"
-          :items="groupChips"
-          group-label="Filtrar convidados por grupo"
-          @update:model-value="handleGroupChange"
-        />
+        <div class="flex flex-col items-end gap-1.5">
+          <AdminFilterChips
+            :model-value="groupFilter"
+            :items="groupChips"
+            group-label="Filtrar convidados por grupo"
+            @update:model-value="handleGroupChange"
+          />
+          <AdminFilterChips
+            :model-value="ageGroupFilter"
+            :items="filterChips"
+            group-label="Filtrar convidados por faixa etária"
+            @update:model-value="handleAgeGroupChange"
+          />
+        </div>
       </template>
 
       <div v-if="status === 'pending'" class="flex flex-col gap-2 p-4 sm:p-5">
@@ -230,17 +264,19 @@ async function confirmDelete() {
             >
               {{ row.nome_completo }}
             </button>
-            <UiBadge
-              v-if="computeIsChild(row.data_nascimento, childMaxAge)"
-              tone="neutral"
-              class="ml-2"
-            >
-              criança
-            </UiBadge>
             <!-- primary: papel no casamento é identidade, não estado. -->
             <UiBadge v-if="row.papel_casamento" tone="primary" class="ml-2">
               {{ row.papel_casamento === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
             </UiBadge>
+          </template>
+
+          <!-- Sempre a classificação válida PARA ESTE evento: derivada da
+               idade na data do casamento contra as faixas configuradas, com a
+               procedência no title (calculada x informada à mão). -->
+          <template #cell-faixa="{ row }">
+            <span class="text-text-muted" :title="ageGroupByGuest.get(row.id)?.title">
+              {{ ageGroupByGuest.get(row.id)?.label ?? '—' }}
+            </span>
           </template>
 
           <template #cell-grupo="{ row }">

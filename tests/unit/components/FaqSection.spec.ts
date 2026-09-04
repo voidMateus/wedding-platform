@@ -15,7 +15,6 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
     nomes_noivos: 'Ana & João',
     data_evento: '2027-05-16',
     horario_evento: '20:30:00',
-    idade_maxima_crianca: 11,
     modo_lista_convidados: 'fechada',
     modo_entrega_presente_fisico: 'ambos',
     status_ciclo_vida: 'publicado',

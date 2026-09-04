@@ -1,3 +1,5 @@
+import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
+
 export interface DashboardSummary {
   rsvpDeadline: string | null
   invites: {
@@ -14,8 +16,12 @@ export interface DashboardSummary {
     declined: number
     pending: number
     waitlisted: number
-    children: number
-    adults: number
+    /**
+     * Pessoas por faixa etária do evento — derivado a cada requisição da
+     * idade na data do casamento contra `config_faixas_etarias`, nunca lido
+     * de uma coluna (CLAUDE.md, seção 12).
+     */
+    byAgeGroup: Record<FaixaEtariaFiltro, number>
     padrinhos: number
     madrinhas: number
   }

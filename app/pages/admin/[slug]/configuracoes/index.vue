@@ -13,6 +13,7 @@ const SETTINGS_TABS = {
     sections: [
       { id: 'evento', label: 'O evento' },
       { id: 'rsvp', label: 'RSVP e convidados' },
+      { id: 'faixas-etarias', label: 'Classificação etária' },
       { id: 'pagamentos', label: 'Presentes e pagamentos' },
     ],
   },

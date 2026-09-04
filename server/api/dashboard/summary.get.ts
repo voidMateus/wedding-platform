@@ -1,5 +1,12 @@
 import { serverSupabaseClient } from '#supabase/server'
-import { computeIsChild } from '#shared/utils/guest-age'
+import {
+  FAIXA_ETARIA_CHAVES,
+  FAIXA_ETARIA_NAO_INFORMADA,
+  classificarFaixaEtaria,
+  resolverFaixasEtarias,
+  type FaixaEtariaChave,
+  type FaixaEtariaFiltro,
+} from '#shared/utils/faixa-etaria'
 
 type ResponseStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 
@@ -20,25 +27,33 @@ export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
   const client = await serverSupabaseClient(event)
 
-  const [weddingResult, invitesResult, guestsResult, responsesResult, firstAccessResult] = await Promise.all([
-    client.from('casamentos').select('prazo_rsvp, idade_maxima_crianca').eq('id', weddingId).single(),
-    client
-      .from('convites')
-      .select('id, status_convite, enviado_em, arquivado_em')
-      .eq('casamento_id', weddingId)
-      .is('excluido_em', null),
-    client
-      .from('convidados')
-      .select('id, convite_id, data_nascimento, papel_casamento')
-      .eq('casamento_id', weddingId)
-      .is('excluido_em', null),
-    client.from('respostas_rsvp').select('convidado_id, convite_id, status_rsvp, respondido_em').eq('casamento_id', weddingId),
-    client
-      .from('historico_convite')
-      .select('convite_id')
-      .eq('casamento_id', weddingId)
-      .eq('tipo_evento', 'rsvp.first_access'),
-  ])
+  const [weddingResult, invitesResult, guestsResult, responsesResult, firstAccessResult] =
+    await Promise.all([
+      client
+        .from('casamentos')
+        .select('prazo_rsvp, data_evento, config_faixas_etarias')
+        .eq('id', weddingId)
+        .single(),
+      client
+        .from('convites')
+        .select('id, status_convite, enviado_em, arquivado_em')
+        .eq('casamento_id', weddingId)
+        .is('excluido_em', null),
+      client
+        .from('convidados')
+        .select('id, convite_id, data_nascimento, faixa_etaria_manual, papel_casamento')
+        .eq('casamento_id', weddingId)
+        .is('excluido_em', null),
+      client
+        .from('respostas_rsvp')
+        .select('convidado_id, convite_id, status_rsvp, respondido_em')
+        .eq('casamento_id', weddingId),
+      client
+        .from('historico_convite')
+        .select('convite_id')
+        .eq('casamento_id', weddingId)
+        .eq('tipo_evento', 'rsvp.first_access'),
+    ])
 
   if (weddingResult.error) throw badRequestError(weddingResult.error.message)
   if (invitesResult.error) throw badRequestError(invitesResult.error.message)
@@ -78,9 +93,21 @@ export default defineEventHandler(async (event) => {
   let declined = 0
   let waitlisted = 0
   let pending = 0
-  let children = 0
   let padrinhos = 0
   let madrinhas = 0
+
+  // Faixa etária é sempre derivada (idade na data do evento x faixas do
+  // evento), nunca uma coluna — mudar a configuração muda estes números sem
+  // que nenhum convidado seja alterado (CLAUDE.md, seção 12).
+  const faixas = resolverFaixasEtarias(wedding.config_faixas_etarias)
+  const porFaixaEtaria: Record<FaixaEtariaFiltro, number> = {
+    ...(Object.fromEntries(FAIXA_ETARIA_CHAVES.map((chave) => [chave, 0])) as Record<
+      FaixaEtariaChave,
+      number
+    >),
+    [FAIXA_ETARIA_NAO_INFORMADA]: 0,
+  }
+
   for (const guest of guests) {
     const status = statusByGuest.get(guest.id) ?? 'pendente'
     if (status === 'confirmado') confirmed += 1
@@ -88,19 +115,25 @@ export default defineEventHandler(async (event) => {
     else if (status === 'lista_espera') waitlisted += 1
     else pending += 1
 
-    if (computeIsChild(guest.data_nascimento, wedding.idade_maxima_crianca)) children += 1
+    const faixa = classificarFaixaEtaria(guest, faixas, wedding.data_evento)
+    porFaixaEtaria[faixa.chave ?? FAIXA_ETARIA_NAO_INFORMADA] += 1
+
     if (guest.papel_casamento === 'padrinho') padrinhos += 1
     if (guest.papel_casamento === 'madrinha') madrinhas += 1
   }
 
   // --- RSVP (comportamento ao longo do tempo) ---
   const respondedRows = responses.filter((r) => r.status_rsvp !== 'pendente' && r.respondido_em)
-  const respondedTimestamps = respondedRows.map((r) => new Date(r.respondido_em as string).getTime())
+  const respondedTimestamps = respondedRows.map((r) =>
+    new Date(r.respondido_em as string).getTime(),
+  )
   const now = Date.now()
   const oneDayMs = 24 * 60 * 60 * 1000
 
   const sentAtByInvite = new Map(
-    invites.filter((i) => i.enviado_em).map((i) => [i.id, new Date(i.enviado_em as string).getTime()]),
+    invites
+      .filter((i) => i.enviado_em)
+      .map((i) => [i.id, new Date(i.enviado_em as string).getTime()]),
   )
   const responseDurationsHours = respondedRows
     .map((r) => {
@@ -133,19 +166,26 @@ export default defineEventHandler(async (event) => {
       declined,
       pending,
       waitlisted,
-      children,
-      adults: guests.length - children,
+      byAgeGroup: porFaixaEtaria,
       padrinhos,
       madrinhas,
     },
     rsvp: {
-      firstResponseAt: respondedTimestamps.length ? new Date(Math.min(...respondedTimestamps)).toISOString() : null,
-      lastResponseAt: respondedTimestamps.length ? new Date(Math.max(...respondedTimestamps)).toISOString() : null,
+      firstResponseAt: respondedTimestamps.length
+        ? new Date(Math.min(...respondedTimestamps)).toISOString()
+        : null,
+      lastResponseAt: respondedTimestamps.length
+        ? new Date(Math.max(...respondedTimestamps)).toISOString()
+        : null,
       respondedToday: respondedTimestamps.filter((t) => now - t < oneDayMs).length,
       respondedThisWeek: respondedTimestamps.filter((t) => now - t < 7 * oneDayMs).length,
-      responseRatePercent: guests.length ? Math.round((respondedRows.length / guests.length) * 100) : 0,
+      responseRatePercent: guests.length
+        ? Math.round((respondedRows.length / guests.length) * 100)
+        : 0,
       avgHoursToRespond: responseDurationsHours.length
-        ? Math.round(responseDurationsHours.reduce((a, b) => a + b, 0) / responseDurationsHours.length)
+        ? Math.round(
+            responseDurationsHours.reduce((a, b) => a + b, 0) / responseDurationsHours.length,
+          )
         : null,
       viewedNotResponded,
     },
