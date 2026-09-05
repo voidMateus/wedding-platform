@@ -447,4 +447,12 @@ Presentes trocou os chips de situação por filtro de coluna em Status (múltipl
 
 **Grupos ficou de fora, e não por esquecimento**: aquela tela não é tabela — é uma lista de grupos com barra de andamento por linha, sem colunas. Filtro por coluna não tem onde existir ali, e o chip Ativos/Arquivados continua sendo o certo, porque é escopo da consulta (`includeArchived`), não recorte de uma coluna.
 
-**Próxima etapa**: Convites — exige reestruturar a consulta do endpoint (`responseStatus`/`memberCount` são calculados depois da paginação) e é o que corrige o achado dos chips que filtram só a página carregada.
+**Convites: o achado corrigido, e um bug de contagem no caminho.** Era a tela que motivava a etapa. `responseStatus` e `memberCount` eram calculados na aplicação **depois** de paginar, então os chips recortavam só os 25 da vez — "Arquivados" achava apenas os arquivados que por acaso caíssem na página atual. A saída foi a segunda view do projeto, `convites_com_resumo` (mesma regra da primeira: `security_invoker = true`), que resolve total de membros, total de respostas e status consolidado antes da paginação. O endpoint encolheu junto: três consultas auxiliares viraram uma, porque a view faz as contas.
+
+**Correção de comportamento no meio disso**: o denominador de "respondeu" era o número de linhas em `respostas_rsvp`, não o de membros do convite. Como a tabela só ganha linha quando alguém responde, um convite de 3 pessoas em que **uma** respondeu tinha "1 de 1" e aparecia como **Respondido** — exatamente o convite que o casal precisa cobrar. Agora é "1 de 3" e aparece como Parcial. É a mesma família de erro do "pendente" dos convidados: ausência de linha sendo lida como ausência de pendência.
+
+Os quatro chips (Todos/Respondidos/Aguardando/Arquivados) viraram filtro de coluna em Status (múltipla escolha) mais um chip de duas opções para Ativos/Arquivados — que continua chip porque é escopo da consulta, não recorte de coluna. O parâmetro `includeArchived` deu lugar a `archived: active|archived|all`: o antigo não sabia dizer "só os arquivados", e era justamente por isso que a tela recortava no client.
+
+**A prévia do dashboard tinha o mesmo vício**: os chips filtravam sobre os 8 convites já carregados, então "Aguardando" mostrava "os que sobraram dos 8 mais recentes de todos", não os 8 mais recentes aguardando. Agora o recorte vai no parâmetro da requisição.
+
+**Fase concluída.** Todas as telas com tabela passaram: Convidados, Convites, Presentes e Plataforma. Grupos não é tabela (lista com barra de andamento, sem colunas) e segue com o chip de escopo.

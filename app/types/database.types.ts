@@ -1585,6 +1585,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "guests_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guests_party_id_fkey"
             columns: ["nucleo_id"]
             isOneToOne: false
@@ -1596,6 +1603,51 @@ export type Database = {
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      convites_com_resumo: {
+        Row: {
+          arquivado_em: string | null
+          casamento_id: string | null
+          codigo_interno: string | null
+          convidado_responsavel_id: string | null
+          created_at: string | null
+          enviado_em: string | null
+          excluido_em: string | null
+          id: string | null
+          max_acompanhantes: number | null
+          mensagem_rsvp: string | null
+          mensagem_rsvp_em: string | null
+          nome: string | null
+          observacoes: string | null
+          status_convite: string | null
+          status_resposta: string | null
+          total_membros: number | null
+          total_respondidos: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_groups_wedding_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invites_responsible_guest_id_fkey"
+            columns: ["convidado_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "convidados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invites_responsible_guest_id_fkey"
+            columns: ["convidado_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "convidados_com_status"
             referencedColumns: ["id"]
           },
         ]

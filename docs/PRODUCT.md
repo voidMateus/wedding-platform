@@ -170,6 +170,7 @@ Dois conceitos independentes, fáceis de confundir pelo nome:
 - Etiquetas internas reutilizáveis (`etiquetas_convite`, ex.: "VIP", "Mesa 01") — só uso administrativo.
 - Linha do Tempo do convite (`historico_convite`): criado, token enviado, primeiro acesso, RSVP alterado, mensagem enviada, arquivado.
 - Visualização: convite → convidados → status de RSVP de cada um.
+- **Status consolidado do convite** (`pendente`/`parcial`/`respondido`), resolvido no banco (`convites_com_resumo`): pendente enquanto ninguém respondeu, respondido quando **todos os membros** responderam, parcial no meio do caminho. O denominador é o número de membros do convite — um convite de 3 pessoas em que só 1 respondeu é **parcial**, nunca respondido, porque ainda falta cobrar alguém.
 
 **Grupos (etiqueta livre):**
 - Criar/renomear/excluir grupos, definir cor.

@@ -53,6 +53,13 @@ export function rsvpStatusPresentation(status: RsvpStatus): StatusPresentation {
   return RSVP_PRESENTATION[status]
 }
 
+/** Os três estados consolidados de um convite, na ordem em que a tela oferece. */
+export const INVITE_RESPONSE_STATUS_VALUES: readonly InviteResponseStatus[] = [
+  'responded',
+  'partial',
+  'pending',
+]
+
 /**
  * Resposta consolidada de um convite. `sent` decide o tom de "pendente": sem
  * ter sido enviado, ninguém deve nada e o estado é só "ainda não aconteceu";
