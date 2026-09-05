@@ -33,6 +33,7 @@ function emptyPerson(): GuestPersonInput {
     apelido: '',
     sexo: undefined,
     dataNascimento: '',
+    faixaEtariaManual: undefined,
     papelCasamento: undefined,
     observacoes: '',
     grupoId: '',
@@ -46,6 +47,8 @@ function personFromGuest(guest: GuestDetail): GuestPersonInput {
     apelido: guest.apelido ?? '',
     sexo: (guest.sexo as GuestPersonInput['sexo']) ?? undefined,
     dataNascimento: guest.data_nascimento ?? '',
+    faixaEtariaManual:
+      (guest.faixa_etaria_manual as GuestPersonInput['faixaEtariaManual']) ?? undefined,
     papelCasamento: (guest.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
     observacoes: guest.observacoes ?? '',
     grupoId: guest.grupo_id ?? '',

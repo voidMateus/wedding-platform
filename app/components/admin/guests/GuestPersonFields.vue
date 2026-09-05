@@ -31,6 +31,35 @@ const weddingRoleOptions = [
   { value: 'madrinha', label: 'Madrinha' },
 ]
 
+// Data de nascimento e faixa etária respondem à mesma pergunta, com
+// precedência: a data, quando existe, sempre vence a faixa informada à mão.
+// Mas nenhuma das duas é obrigatória — o casal quase nunca sabe a data de
+// nascimento de todos os convidados, e "sei que ele é adulto" precisa ser
+// suficiente para concluir o cadastro (CLAUDE.md, seção 12).
+const { classify, manualOptions } = useAgeGroups()
+
+const classificacao = computed(() =>
+  classify({
+    data_nascimento: props.modelValue.dataNascimento || null,
+    faixa_etaria_manual: props.modelValue.faixaEtariaManual || null,
+  }),
+)
+
+/** Com data de nascimento, a faixa é calculada e o seletor manual não compete com ela. */
+const isCalculada = computed(() => classificacao.value.origem === 'calculada')
+
+/**
+ * Travado, o campo mostra a faixa CALCULADA — não o valor manual guardado.
+ * Exibir "Não informada" ao lado de uma data de nascimento válida diria o
+ * oposto do que o sistema faz. O valor manual continua gravado intacto, e
+ * volta a valer se a data for apagada.
+ */
+const faixaExibida = computed(() =>
+  isCalculada.value
+    ? (classificacao.value.chave ?? '')
+    : (props.modelValue.faixaEtariaManual ?? ''),
+)
+
 // Criar um grupo sem sair do cadastro do convidado (CLAUDE.md, seção 12.1) —
 // evita o casal precisar ir em Grupos cadastrar tudo antes de começar.
 const { createGroup } = useGroups()
@@ -74,7 +103,57 @@ async function handleCreateGroup() {
       />
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-3">
+    <!--
+      Data de nascimento ANTES da faixa etária, e as duas lado a lado: é a
+      ordem da regra de precedência (a data válida sempre vence a faixa
+      manual), então ler de cima para baixo descreve o que o sistema faz.
+      Pareadas, também fica claro que as duas respondem à mesma pergunta — a
+      faixa é o caminho de quem não sabe a data.
+    -->
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium text-text" :for="`nascimento-${modelValue.id ?? 'novo'}`">
+          Data de nascimento (opcional)
+        </label>
+        <input
+          :id="`nascimento-${modelValue.id ?? 'novo'}`"
+          type="date"
+          :value="modelValue.dataNascimento"
+          class="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text"
+          @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
+        />
+
+        <!-- Idade e classificação são sempre derivadas (idade na data do
+             evento x faixas do evento) — exibidas, nunca gravadas. -->
+        <p
+          v-if="classificacao.idadeNoEvento !== null"
+          class="text-xs leading-relaxed text-text-muted"
+        >
+          <span class="num font-medium text-text">{{ classificacao.idadeNoEvento }}</span>
+          {{ classificacao.idadeNoEvento === 1 ? 'ano' : 'anos' }} na data do casamento
+        </p>
+        <p v-else class="text-xs leading-relaxed text-text-muted">
+          Preenchendo a data, a faixa etária passa a ser calculada.
+        </p>
+      </div>
+
+      <UiSelect
+        :model-value="faixaExibida"
+        label="Faixa etária"
+        :options="manualOptions"
+        :disabled="isCalculada"
+        :hint="
+          isCalculada
+            ? 'Calculada pela data de nascimento.'
+            : 'Use quando não souber a data de nascimento.'
+        "
+        @update:model-value="
+          update('faixaEtariaManual', $event as GuestPersonInput['faixaEtariaManual'])
+        "
+      />
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2">
       <UiSelect
         :model-value="modelValue.sexo"
         label="Sexo (opcional)"
@@ -82,15 +161,6 @@ async function handleCreateGroup() {
         :options="sexOptions"
         @update:model-value="update('sexo', $event as GuestPersonInput['sexo'])"
       />
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium text-text">Data de nascimento (opcional)</label>
-        <input
-          type="date"
-          :value="modelValue.dataNascimento"
-          class="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text"
-          @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
       <UiSelect
         :model-value="modelValue.papelCasamento"
         label="Padrinho/Madrinha"

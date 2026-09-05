@@ -1,4 +1,5 @@
 import type { GuestPartyReorderInput, GuestPartySyncInput } from '#shared/schemas/guests'
+import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
 import type { Guest } from '~/types/guest'
 
 export interface GuestListResponse {
@@ -15,6 +16,8 @@ interface GuestListParams {
   groupId?: string
   unassigned?: boolean
   withoutParty?: boolean
+  /** Recorte por faixa etária calculada na data do evento — resolvido no banco. */
+  ageGroup?: FaixaEtariaFiltro
 }
 
 export interface GuestDetail extends Guest {
@@ -65,5 +68,13 @@ export function useGuests() {
     return $fetch<{ id: string }>(`/api/guests/${id}`, { method: 'DELETE' })
   }
 
-  return { listGuests, getGuest, fetchGuests, fetchGuestDetail, syncGuestParty, reorderGuestParty, deleteGuest }
+  return {
+    listGuests,
+    getGuest,
+    fetchGuests,
+    fetchGuestDetail,
+    syncGuestParty,
+    reorderGuestParty,
+    deleteGuest,
+  }
 }

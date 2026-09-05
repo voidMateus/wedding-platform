@@ -63,11 +63,31 @@ const describedBy = computed(() => {
   return ids.length ? ids.join(' ') : undefined
 })
 
-// SelectRoot trata string vazia como "nenhum valor" mal: o v-model precisa
-// virar `undefined` para o placeholder aparecer, e voltar a string no emit.
+// A string vazia é reservada pelo primitive para "sem seleção": `SelectItem`
+// com `value=""` lança em tempo de execução ("must have a value prop that is
+// not an empty string") e derruba a tela inteira. Só que "Nenhum"/"Não
+// informada" é uma opção legítima de vários formulários do admin — e nesses
+// casos ela precisa aparecer selecionada, com o próprio rótulo, não como
+// placeholder. O sentinel abaixo existe só dentro do primitive: entra no
+// lugar do '' nos itens e volta a ser '' no emit, então nenhum chamador
+// precisa saber que ele existe.
+const EMPTY_OPTION_SENTINEL = '__ui-select-empty__'
+
+const hasEmptyOption = computed(() => options.some((option) => option.value === ''))
+
+function toItemValue(value: string): string {
+  return value === '' ? EMPTY_OPTION_SENTINEL : value
+}
+
+// Sem opção vazia declarada, '' segue virando `undefined` para o placeholder
+// aparecer (comportamento de sempre — ex.: "Sexo (opcional)").
 const selected = computed({
-  get: () => (modelValue === '' ? undefined : modelValue),
-  set: (value: string | undefined) => emit('update:modelValue', value ?? ''),
+  get: () => {
+    if (modelValue !== '') return modelValue
+    return hasEmptyOption.value ? EMPTY_OPTION_SENTINEL : undefined
+  },
+  set: (value: string | undefined) =>
+    emit('update:modelValue', value === EMPTY_OPTION_SENTINEL ? '' : (value ?? '')),
 })
 </script>
 
@@ -106,7 +126,7 @@ const selected = computed({
             <SelectItem
               v-for="option in options"
               :key="option.value"
-              :value="option.value"
+              :value="toItemValue(option.value)"
               class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-text transition-brand outline-none select-none data-[highlighted]:bg-surface-muted data-[state=checked]:bg-primary/[0.06] data-[state=checked]:font-medium data-[state=checked]:text-primary"
             >
               <SelectItemText class="min-w-0">{{ option.label }}</SelectItemText>

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import { formatDatePtBR } from '#shared/utils/format-date'
+import {
+  FAIXA_ETARIA_NAO_INFORMADA,
+  FAIXA_ETARIA_ROTULO_NAO_INFORMADA,
+  descreverLimitesFaixaEtaria,
+} from '#shared/utils/faixa-etaria'
 import type { InviteListItem } from '~/types/invite'
 
 definePageMeta({ layout: 'admin' })
@@ -72,10 +77,40 @@ const metrics = computed(() => {
   if (!data.value) return []
   return [
     { label: 'Convites enviados', value: data.value.invites.sent },
-    { label: 'Adultos', value: data.value.people.adults },
-    { label: 'Crianças', value: data.value.people.children },
+    { label: 'Pessoas na lista', value: data.value.people.total },
     { label: 'Confirmações hoje', value: data.value.rsvp.respondedToday, tone: 'primary' as const },
   ]
+})
+
+// --- pessoas por faixa etária ---
+//
+// Cada número é derivado a cada carregamento (idade na data do casamento x
+// faixas configuradas), nunca lido de uma coluna: mudar os limites em
+// Configurações muda esta contagem sem alterar nenhum convidado. Cada item
+// linka para o mesmo recorte na lista de convidados — o contador e o filtro
+// descrevem sempre a mesma classificação.
+const { faixas, label: ageGroupLabel } = useAgeGroups()
+
+const ageGroupCounts = computed(() => {
+  const counts = data.value?.people.byAgeGroup
+  if (!counts) return []
+  const items = faixas.value.map((faixa) => ({
+    key: faixa.chave as string,
+    label: ageGroupLabel(faixa.chave),
+    hint: descreverLimitesFaixaEtaria(faixa),
+    value: counts[faixa.chave] ?? 0,
+  }))
+  // "Não informada" só aparece quando existe de fato — num casamento com
+  // todas as faixas resolvidas, é ruído.
+  if (counts[FAIXA_ETARIA_NAO_INFORMADA] > 0) {
+    items.push({
+      key: FAIXA_ETARIA_NAO_INFORMADA,
+      label: FAIXA_ETARIA_ROTULO_NAO_INFORMADA,
+      hint: 'Sem data de nascimento nem faixa informada',
+      value: counts[FAIXA_ETARIA_NAO_INFORMADA],
+    })
+  }
+  return items
 })
 
 // --- convites recentes ---
@@ -250,6 +285,32 @@ function statusOf(invite: InviteListItem) {
           </UiButton>
         </div>
       </div>
+
+      <AdminPanel title="Pessoas por faixa etária" meta="Calculada na data do casamento">
+        <template #headerActions>
+          <NuxtLink
+            :to="`/admin/${slug}/configuracoes#faixas-etarias`"
+            class="text-xs font-medium text-primary hover:underline"
+          >
+            Ajustar faixas
+          </NuxtLink>
+        </template>
+
+        <dl class="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4 sm:px-5">
+          <div v-for="item in ageGroupCounts" :key="item.key">
+            <dt class="text-xs font-medium text-text-muted">{{ item.label }}</dt>
+            <dd class="mt-1">
+              <NuxtLink
+                :to="`/admin/${slug}/convidados?faixa=${item.key}`"
+                class="num text-2xl font-semibold text-text hover:underline"
+              >
+                {{ item.value }}
+              </NuxtLink>
+            </dd>
+            <p class="mt-0.5 text-xs text-text-muted">{{ item.hint }}</p>
+          </div>
+        </dl>
+      </AdminPanel>
 
       <AdminPanel title="Convites recentes" :meta="invitesPanelMeta">
         <template #headerActions>

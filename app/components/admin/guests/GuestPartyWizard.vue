@@ -18,6 +18,7 @@ const props = withDefaults(defineProps<Props>(), { initialGuest: null, embedded:
 
 const { syncGuestParty } = useGuests()
 const { listGroups } = useGroups()
+const { classify, label: ageGroupLabel } = useAgeGroups()
 
 const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
 const groupOptions = computed(() => [
@@ -30,6 +31,7 @@ function emptyPerson(): GuestPersonInput {
     apelido: '',
     sexo: undefined,
     dataNascimento: '',
+    faixaEtariaManual: undefined,
     papelCasamento: undefined,
     observacoes: '',
     grupoId: '',
@@ -44,6 +46,8 @@ function personFromGuest(guest: GuestDetail | Record<string, unknown>): GuestPer
     apelido: (g.apelido as string) ?? '',
     sexo: (g.sexo as GuestPersonInput['sexo']) ?? undefined,
     dataNascimento: (g.data_nascimento as string) ?? '',
+    faixaEtariaManual:
+      (g.faixa_etaria_manual as GuestPersonInput['faixaEtariaManual']) ?? undefined,
     papelCasamento: (g.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
     observacoes: (g.observacoes as string) ?? '',
     grupoId: (g.grupo_id as string) ?? '',
@@ -51,6 +55,15 @@ function personFromGuest(guest: GuestDetail | Record<string, unknown>): GuestPer
 }
 
 const isEditing = computed(() => Boolean(props.initialGuest))
+
+/** Faixa mostrada na revisão — derivada, igual à que a listagem vai exibir. */
+function ageGroupOf(person: GuestPersonInput): string {
+  const classificacao = classify({
+    data_nascimento: person.dataNascimento || null,
+    faixa_etaria_manual: person.faixaEtariaManual || null,
+  })
+  return classificacao.chave ? ageGroupLabel(classificacao.chave) : ''
+}
 
 const primary = ref<GuestPersonInput>(
   props.initialGuest ? personFromGuest(props.initialGuest) : emptyPerson(),
@@ -273,9 +286,15 @@ async function handleSubmit() {
               <Icon name="lucide:star" class="h-4 w-4 text-primary" />
               {{ primary.nomeCompleto }}
               <UiBadge tone="neutral">responsável</UiBadge>
+              <span v-if="ageGroupOf(primary)" class="text-text-muted">
+                {{ ageGroupOf(primary) }}
+              </span>
             </li>
             <li v-for="entry in companions" :key="entry.key" class="flex items-center gap-2 pl-6">
               {{ entry.person.nomeCompleto }}
+              <span v-if="ageGroupOf(entry.person)" class="text-text-muted">
+                {{ ageGroupOf(entry.person) }}
+              </span>
             </li>
           </ul>
           <p

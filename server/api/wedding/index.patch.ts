@@ -14,7 +14,10 @@ export default defineEventHandler(async (event) => {
       data_evento: input.dataEvento,
       horario_evento: input.horarioEvento || null,
       prazo_rsvp: input.prazoRsvp || null,
-      idade_maxima_crianca: input.idadeMaximaCrianca,
+      // Objeto inteiro reescrito de propósito: a validação de continuidade
+      // (shared/schemas/wedding.ts) só vale sobre o conjunto completo de
+      // faixas — um merge parcial poderia deixar duas faixas sobrepostas.
+      config_faixas_etarias: { principal: input.faixasEtarias },
       modo_lista_convidados: input.modoListaConvidados,
       handle_infinitepay: input.handleInfinitepay || null,
       modo_entrega_presente_fisico: input.modoEntregaPresenteFisico,

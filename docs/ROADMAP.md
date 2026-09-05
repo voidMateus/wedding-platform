@@ -58,6 +58,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 - **Fase Presentes 2.0**: refatoração completa do módulo de presentes — vitrine em três seções, pagamento Pix real via InfinitePay, cotas fixas, identificação por nome/telefone, cancelamento self-service removido. Estado atual em [`PRODUCT.md`](PRODUCT.md) seção 6.
 - **Fase Mensagens Personalizáveis**: `casamentos.config_conteudo` permite ao casal reescrever as mensagens narrativas do site público sem tocar em código.
 - **Fase Galeria via Google Drive**: upload manual substituído por sincronização com uma pasta do Google Drive do casal.
+- **Fase Classificação Etária**: faixa etária do convidado deixou de ser propriedade da pessoa — passou a ser derivada da idade na data do evento contra faixas configuráveis por casamento (`casamentos.config_faixas_etarias`), com faixa manual opcional para quem não tem data de nascimento. Estado atual em [`PRODUCT.md`](PRODUCT.md) seção 3.4.
 - **Reorganização de documentação (2026-08)**: CLAUDE.md reduzido a índice operacional; conteúdo de produto/banco/design system/roadmap movido para `docs/PRODUCT.md`, `docs/DATABASE.md`, `docs/DESIGN-SYSTEM.md` e este arquivo. `docs/ARCHITECTURE.md` e `docs/CHANGELOG.md` mantidos como já estavam (já tinham o escopo certo).
 
 ## 3. Fase 4 — Preparação para Escala
@@ -120,6 +121,8 @@ Essas tabelas não têm UI de gestão na v1 — existem apenas para que o modelo
 
 - Ainda não decidido se o modelo multi-tenant será por **schema separado por tenant** ou **RLS em schema compartilhado** — a abordagem atual (RLS + schema compartilhado) é a assumida como padrão pela comunidade Supabase e a mais provável de seguir, mas deve ser revisitada com dados reais de volume antes da Fase 5.
 - Estratégia de billing (Stripe Billing vs. solução própria) não definida — item de pesquisa antes da Fase 5.
+- **Classificações etárias por finalidade** (alimentação: infantil 0–7 / adulto 8+; organização de mesas; recreação: bebê 0–2 / criança 3–7) não implementadas — hoje existe uma classificação principal por evento. A estrutura já não impede: `casamentos.config_faixas_etarias` grava as faixas sob a chave `principal`, então outras finalidades entram como chaves irmãs, e `classificarFaixaEtaria` já é função pura do array de faixas (aceita conjunto parcial ou não contínuo). Falta decidir o que o produto realmente precisa antes de multiplicar configuração na tela do casal — ver [`PRODUCT.md`](PRODUCT.md) seção 3.4.
+- **Histórico/versão da configuração de faixas** não existe: alterar os limites passa a valer imediatamente para toda a lista. Só vale implementar se aparecer um caso real de precisar reconstruir "como a lista estava classificada em tal data".
 
 ---
 

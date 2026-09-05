@@ -136,13 +136,13 @@ export type Database = {
         Row: {
           arquivado_em: string | null
           config_conteudo: Json | null
+          config_faixas_etarias: Json
           config_tema: Json
           created_at: string
           data_evento: string
           handle_infinitepay: string | null
           horario_evento: string | null
           id: string
-          idade_maxima_crianca: number
           modo_entrega_presente_fisico: string
           modo_lista_convidados: string
           nomes_noivos: string
@@ -154,13 +154,13 @@ export type Database = {
         Insert: {
           arquivado_em?: string | null
           config_conteudo?: Json | null
+          config_faixas_etarias?: Json
           config_tema?: Json
           created_at?: string
           data_evento: string
           handle_infinitepay?: string | null
           horario_evento?: string | null
           id?: string
-          idade_maxima_crianca?: number
           modo_entrega_presente_fisico?: string
           modo_lista_convidados?: string
           nomes_noivos: string
@@ -172,13 +172,13 @@ export type Database = {
         Update: {
           arquivado_em?: string | null
           config_conteudo?: Json | null
+          config_faixas_etarias?: Json
           config_tema?: Json
           created_at?: string
           data_evento?: string
           handle_infinitepay?: string | null
           horario_evento?: string | null
           id?: string
-          idade_maxima_crianca?: number
           modo_entrega_presente_fisico?: string
           modo_lista_convidados?: string
           nomes_noivos?: string
@@ -466,6 +466,7 @@ export type Database = {
           data_nascimento: string | null
           email: string | null
           excluido_em: string | null
+          faixa_etaria_manual: string | null
           grupo_id: string | null
           id: string
           nome_completo: string
@@ -487,6 +488,7 @@ export type Database = {
           data_nascimento?: string | null
           email?: string | null
           excluido_em?: string | null
+          faixa_etaria_manual?: string | null
           grupo_id?: string | null
           id?: string
           nome_completo: string
@@ -508,6 +510,7 @@ export type Database = {
           data_nascimento?: string | null
           email?: string | null
           excluido_em?: string | null
+          faixa_etaria_manual?: string | null
           grupo_id?: string | null
           id?: string
           nome_completo?: string
@@ -1593,10 +1596,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      convidado_e_crianca: {
-        Args: { p_casamento_id: string; p_data_nascimento: string }
-        Returns: boolean
       }
       convidado_nome_corresponde: {
         Args: { p_apelido: string; p_busca: string; p_nome_completo: string }
