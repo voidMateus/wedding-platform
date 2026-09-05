@@ -85,7 +85,7 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
-- Importação em massa (CSV) — colunas definidas pelo catálogo central de campos (ver seção 3.5).
+- Importação em massa (CSV) em três passos — arquivo, conferência das colunas, revisão — sem escrever nada antes do último (ver seção 3.5).
 - Gerador de modelo de planilha — o casal escolhe as colunas e o sistema monta o CSV compatível com o importador (ver seção 3.5).
 - Exportação em CSV do **recorte que está na tela** (mesmos filtros de nome, grupo e faixa etária da listagem), com as colunas exportáveis do catálogo (ver seção 3.5).
 - Contato (e-mail/telefone) editável no cadastro do convidado, para o principal e para cada acompanhante — cada pessoa tem o próprio, nunca herdado de quem responde pelo convite.
@@ -161,6 +161,22 @@ Cada campo declara o que se pode fazer com ele:
 **Formato.** O modelo sai com `;` e BOM UTF-8 (Excel em pt-BR), cabeçalho na chave canônica (`nome_completo`, não "Nome completo") e uma linha de exemplo preenchida. A **leitura** é deliberadamente mais permissiva que a escrita: detecta o separador (`;`, `,` ou tabulação), tolera BOM ausente e reconhece rótulos e apelidos comuns de coluna ("celular", "WhatsApp", "E-MAIL") — aceitar só o próprio dialeto tornaria falsa a promessa de importar a planilha que o casal já tem.
 
 **Linha de exemplo.** Resolve "qual formato a data espera?", mas cria o risco de virar uma convidada chamada "Maria Exemplo". Há aviso antes do download **e** o importador reconhece a linha pelo nome e a ignora — contar só com o aviso seria contar com a memória de quem edita a planilha dias depois.
+
+### 3.6 Importação
+
+**Três passos, nada escrito antes do último:** arquivo → conferência das colunas → revisão. O arquivo nunca sobe cru: é lido e interpretado no navegador, e só as linhas normalizadas viajam como JSON — o servidor revalida tudo com o mesmo schema Zod, porque o client nunca é fonte de verdade.
+
+**O passo de conferência existe porque a planilha real vem de qualquer lugar** — do modelo que o próprio sistema gerou, de uma exportação antiga, de uma lista que a cerimonialista mandou. A autodetecção acerta a maioria (chave canônica, rótulo visível e apelidos comuns como "celular" ou "WhatsApp"); o que sobra, o casal reaponta ali mesmo, em vez de ter que renomear colunas no Excel. Duas colunas apontando para o mesmo campo não é permitido: a segunda sobrescreveria a primeira em silêncio.
+
+**`id` decide entre criar e atualizar.** Preenchido, a linha atualiza aquele convidado; vazio, cadastra um novo. É o que faz "exportar → editar no Excel → reimportar" ser um caminho real, sem heurística de nome para achar duplicata. Um `id` de outro casamento é recusado — a cláusula de `casamento_id` na função é o que impede uma planilha de alcançar dado alheio.
+
+**Coluna ausente nunca apaga dado.** A planilha diz o que trouxe, não o que falta: uma de `id;nome_completo;grupo` atualiza três colunas e não encosta em e-mail, telefone ou data de nascimento. Limpar de propósito continua possível — a coluna vai presente com a célula vazia. É a mesma semântica que o cadastro já aplica ao contato (ver [`CHANGELOG.md`](CHANGELOG.md)).
+
+**Grupo e convite entram por nome, e a criação é confirmada.** Nome existente vincula; nome novo só é criado depois de o casal marcar explicitamente a confirmação, com a lista do que será criado à vista. Sem isso, um erro de digitação numa coluna ("Familia da Noiva" em três linhas) criaria entidades em silêncio, e desfazer isso é trabalho manual. A comparação ignora acento e caixa, então "familia silva" e "Família Silva" resolvem para o mesmo convite.
+
+**Erro de uma linha não derruba as outras.** A revisão mostra, por número de linha (contando o cabeçalho como 1, igual ao Excel), o que está errado e o que será ignorado; o casal importa o resto. Já **dentro** de um lote a transação é tudo ou nada: metade de uma planilha aplicada, sem saber onde parou, é pior que nada. Acima de 500 linhas o arquivo é enviado em lotes sequenciais — nunca em paralelo, senão dois lotes citando o mesmo convite novo poderiam criá-lo duas vezes.
+
+**Fora do escopo desta versão:** acompanhantes (`nucleos_acompanhantes`). O conceito é simétrico e não cabe numa coluna de planilha sem inventar sintaxe; pessoas sob o mesmo `convite` já cobrem a intenção real, que é o que habilita o RSVP.
 
 ## 4. Sistema de RSVP
 

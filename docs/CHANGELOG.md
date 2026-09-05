@@ -144,6 +144,27 @@ A exportação de convidados busca nome do grupo, nome do convite e status do RS
 
 **Rótulo de status do RSVP saiu de `app/utils/status-presentation.ts` para o catálogo de campos.** A exportação roda no servidor, de onde `app/` não é importável, e duas listas dos mesmos cinco status divergiriam no primeiro ajuste de texto. Aquele arquivo agora lê o rótulo do catálogo e guarda só o tom visual, que é decisão de tela.
 
+### Decisão: importação sem índice único de nome, embora ele fosse o reflexo natural (2026-09-04)
+
+`importar_convidados()` resolve grupo e convite **por nome**, criando o que não existe. O reflexo é proteger isso com um índice único sobre `(casamento_id, nome normalizado)` em `grupos` e `convites`. Escrito e depois removido, por dois motivos verificados antes de decidir:
+
+1. **A base real já viola.** O ambiente de dev tem dois convites "Família Teste" e dois "teste" — a migration falharia na criação do índice.
+2. **Quebraria fluxos existentes.** Nem `sincronizar_nucleo_convidado` nem o "Criar novo grupo" embutido no wizard de convidado checam nome antes de inserir. O índice faria os dois passarem a estourar erro cru de banco na cara do casal — mudança de comportamento muito além da importação.
+
+A resolução correta **dentro de um lote** não depende do índice: as vinte linhas que citam "Família Silva" enxergam a linha inserida pela primeira delas, porque estão na mesma transação. O índice só protegeria contra duas importações simultâneas, cenário que não justifica o risco acima.
+
+### Achado: outra árvore de trabalho aplicou migrations no mesmo banco de dev (2026-09-04)
+
+Ao aplicar `20260905090001_importar_convidados`, o Supabase CLI recusou: *"Remote migration versions not found in local migrations directory"* — o dev tinha `20260904180001` e `20260904190001`, aplicadas por outra sessão trabalhando em paralelo (filtros por coluna na lista de convidados). O CLI sugere `supabase migration repair --status reverted`, que teria marcado o trabalho da outra sessão como revertido no histórico compartilhado.
+
+**Não foi o que se fez.** `20260904180001` estava na branch `feature/filtros-por-coluna`; `20260904190001` não existia em lugar nenhum do git (trabalho ainda não commitado). A saída foi criar dois arquivos de marcação **locais e temporários** com as versões correspondentes, aplicar só a migration nova e apagá-los em seguida: o CLI pula migrations já presentes no histórico remoto, então nada além da própria migration foi enviado e nenhum registro alheio foi tocado.
+
+**Lição para a próxima:** o banco de dev é compartilhado entre árvores de trabalho. Antes de `db push`, `supabase migration list` mostra o descompasso — e a resposta certa a "remote não está no local" quase nunca é `repair --status reverted`.
+
+### Verificação da importação contra o banco, não só em teste unitário (2026-09-04)
+
+Quinze asserções rodadas contra o dev antes do commit, cobrindo o que teste de unidade não alcança: criação com resolução de vínculo por nome (variações de acentuação e caixa criando **um** grupo, não três); update parcial preservando coluna ausente e limpando célula vazia; recusa de vínculo novo sem confirmação; **rollback** de lote com linha inválida (a linha boa não fica aplicada); e recusa de `id` pertencente a outro casamento, com o convidado alheio intacto depois da tentativa.
+
 ---
 
 ## Fases concluídas (histórico completo por fase, fora da sequência numerada do roadmap)

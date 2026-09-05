@@ -40,6 +40,14 @@ interface Props {
   /** Linha de apoio abaixo do campo — mesmo contrato do UiInput. */
   hint?: string
   disabled?: boolean
+  /**
+   * Nome acessível quando o campo não tem `label` desenhado — mesmo contrato
+   * do `UiInput`. É o caso de um seletor repetido linha a linha, onde o rótulo
+   * visível é o texto ao lado (ex.: escolher o campo de cada coluna da
+   * planilha no importador): um `<label>` por linha seria ruído visual, mas
+   * sem nome nenhum o leitor de tela anuncia só "combobox".
+   */
+  ariaLabel?: string
 }
 
 const {
@@ -50,6 +58,7 @@ const {
   error,
   hint,
   disabled = false,
+  ariaLabel,
 } = defineProps<Props>()
 
 const emit = defineEmits<{
@@ -103,6 +112,7 @@ const selected = computed({
         class="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 text-left text-sm text-text transition-brand hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-text-muted"
         :aria-invalid="Boolean(error)"
         :aria-describedby="describedBy"
+        :aria-label="label ? undefined : ariaLabel"
       >
         <SelectValue :placeholder="placeholder" class="truncate" />
         <SelectIcon class="shrink-0 text-text-muted">

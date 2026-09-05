@@ -28,7 +28,7 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 - [x] Dashboard administrativo com contadores essenciais — originalmente lido de uma view removida por achado de segurança (ver `docs/CHANGELOG.md`); hoje computado em memória.
 
 ### Fase 2 — Consolidação
-- [ ] Importação de convidados via CSV.
+- [x] Importação de convidados via CSV — wizard de três passos, catálogo central de campos e gerador de modelo; ver [`PRODUCT.md`](PRODUCT.md) seções 3.5 e 3.6. Acompanhantes ficaram deliberadamente fora.
 - [ ] Lembretes automáticos de RSVP por e-mail.
 - [ ] Exportação de dados em CSV/PDF — **convidados em CSV entregue** (segue os filtros da tela, colunas do catálogo central; ver [`PRODUCT.md`](PRODUCT.md) seção 3.5). Falta presentes, e PDF em qualquer um dos dois.
 - [ ] Convite com geração de link/QR code.

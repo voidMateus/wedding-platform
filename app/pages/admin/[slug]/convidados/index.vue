@@ -208,6 +208,17 @@ function openCreateGuest() {
 // arquivo baixado, não um estado da tela.
 const isTemplateModalOpen = ref(false)
 
+// O gerador de modelo deixou de ter botão próprio na barra: ele é um passo
+// do caminho de importar, não uma ação de mesmo peso que "Adicionar
+// convidado". Quem precisa dele chega pelo link do primeiro passo do
+// importador — que fecha antes de abrir este, porque modal dentro de modal é
+// proibido (DESIGN-SYSTEM.md, seção 2).
+const isImportModalOpen = ref(false)
+
+async function handleImported() {
+  await refresh()
+}
+
 // Exporta o MESMO recorte que a tabela está mostrando (`listParams`), não a
 // lista inteira: um botão que ignorasse os filtros logo acima dele
 // contradiria o que a tela acabou de dizer.
@@ -278,9 +289,9 @@ async function confirmDelete() {
         <Icon name="lucide:download" class="h-4 w-4" />
         {{ isExporting ? 'Exportando...' : 'Exportar' }}
       </UiButton>
-      <UiButton variant="ghost" @click="isTemplateModalOpen = true">
-        <Icon name="lucide:file-down" class="h-4 w-4" />
-        Baixar modelo
+      <UiButton variant="ghost" @click="isImportModalOpen = true">
+        <Icon name="lucide:upload" class="h-4 w-4" />
+        Importar
       </UiButton>
       <UiButton @click="openCreateGuest">
         <Icon name="lucide:plus" class="h-4 w-4" />
@@ -431,6 +442,12 @@ async function confirmDelete() {
       :guest-id="editingGuestId"
       @update:model-value="(isOpen) => !isOpen && closeGuestModal()"
       @saved="handleGuestSaved"
+    />
+
+    <AdminGuestsGuestImportModal
+      v-model="isImportModalOpen"
+      @imported="handleImported"
+      @request-template="isTemplateModalOpen = true"
     />
 
     <AdminGuestsGuestImportTemplateModal v-model="isTemplateModalOpen" />
