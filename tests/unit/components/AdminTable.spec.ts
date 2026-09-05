@@ -56,15 +56,38 @@ function makeFilters(
   }
 }
 
-function mountTable(filters?: TableFiltersApi) {
+function mountTable(filters?: TableFiltersApi, extraProps: Record<string, unknown> = {}) {
   return mount(AdminTable, {
-    props: { columns, rows, ...(filters ? { filters } : {}) },
+    props: { columns, rows, ...(filters ? { filters } : {}), ...extraProps },
     global: {
       components: { AdminColumnFilter, UiInput: Input, UiCheckbox: Checkbox },
       stubs: ICON_STUBS,
     },
   })
 }
+
+describe('AdminTable — cabeçalho fixo', () => {
+  it('a grade rola por padrão, e é nela que o cabeçalho gruda', () => {
+    const wrapper = mountTable()
+    expect(wrapper.find('.table-scroll').exists()).toBe(true)
+    expect(wrapper.find('thead').classes()).toContain('sticky')
+  })
+
+  it('scrollable=false devolve a rolagem para a página', () => {
+    const wrapper = mountTable(undefined, { scrollable: false })
+    expect(wrapper.find('.table-scroll').exists()).toBe(false)
+    // O sticky continua declarado: sem caixa própria ele se ancora no <main>.
+    expect(wrapper.find('thead').classes()).toContain('sticky')
+  })
+
+  it('o cabeçalho tem fundo opaco — parado sobre as linhas, meio-tom deixaria o conteúdo passar', () => {
+    const classes = mountTable().find('thead th').classes()
+    expect(classes).toContain('bg-surface-muted')
+    expect(classes.some((name) => name.startsWith('bg-surface-muted/'))).toBe(false)
+    // Borda na célula, não no <thead>: é a célula que gruda.
+    expect(classes).toContain('border-b')
+  })
+})
 
 describe('AdminTable — filtros por coluna', () => {
   it('não desenha gatilho de filtro quando a página não passa o estado de filtros', () => {

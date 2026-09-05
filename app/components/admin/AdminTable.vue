@@ -9,6 +9,18 @@
   <th> escritos à mão: a versão empilhada precisa do mesmo rótulo dentro de
   cada célula.
 
+  O cabeçalho de colunas acompanha a rolagem. Por padrão quem rola é a própria
+  grade (`.table-scroll`, ver app/assets/css/main.css), não a página: o `sticky`
+  gruda no topo dessa caixa, e cabeçalho, filtros e paginação ficam em vista ao
+  mesmo tempo. Como a caixa é contêiner de rolagem nos dois eixos, a rolagem
+  horizontal de tabela larga volta a caber junto — o que não seria possível se o
+  cabeçalho dependesse do scroller da página.
+
+  `scrollable: false` devolve o comportamento antigo (a tabela cresce e quem
+  rola é a página). Aí o `sticky` se ancora no <main> do app shell, e passa a
+  valer a condição de que nenhum ancestral seja contêiner de rolagem — é por
+  isso que AdminPanel usa `overflow-clip` e não `overflow-hidden`.
+
   Não substitui UiTable (casca fina usada pelas telas ainda não migradas) —
   quando todas as listas do admin estiverem aqui, UiTable sai.
 -->
@@ -42,6 +54,12 @@ interface Props {
    */
   rowClickable?: boolean
   /**
+   * Grade rolável (padrão). `false` deixa a tabela crescer e a página rolar —
+   * para lista curta por natureza (prévia do dashboard), onde uma caixa de
+   * rolagem só somaria uma barra a mais na tela.
+   */
+  scrollable?: boolean
+  /**
    * Estado dos filtros por coluna (`useTableFilters`). Com ele, as colunas que
    * declaram `filter`/`sort` ganham o menu no próprio cabeçalho; sem ele a
    * tabela desenha exatamente como antes. O menu só existe do `md` pra cima,
@@ -57,6 +75,7 @@ const {
   emptyLabel = 'Nenhum registro com esses filtros.',
   isExpanded,
   rowClickable = false,
+  scrollable = true,
   filters,
 } = defineProps<Props>()
 
@@ -125,16 +144,22 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
 </script>
 
 <template>
-  <div class="overflow-hidden">
-    <div class="md:overflow-x-auto">
+  <!-- break-words é herdado, então vale para toda célula: conteúdo comprido
+       quebra linha em vez de empurrar a largura da tabela. -->
+  <div class="overflow-clip break-words">
+    <div :class="scrollable && 'table-scroll'">
       <table class="w-full text-left text-sm">
-        <thead class="hidden border-b border-border bg-surface-muted/50 md:table-header-group">
+        <!-- Fundo opaco (e não `bg-surface-muted/50`): parado sobre as linhas, o
+             meio-tom deixaria o conteúdo passar por baixo. Borda e fundo ficam
+             na <th>, não no <thead> — é a célula que gruda, e no <thead> a borda
+             some assim que a rolagem começa. -->
+        <thead class="sticky top-0 z-10 hidden md:table-header-group">
           <tr>
             <th
               v-for="column in columns"
               :key="column.key"
               scope="col"
-              class="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+              class="border-b border-border bg-surface-muted px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
               :class="headClass(column)"
               :aria-sort="ariaSort(column)"
             >

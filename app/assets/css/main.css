@@ -184,6 +184,37 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* Área rolável de uma tabela do admin: a grade rola dentro do painel em vez
+     de esticar a página. É o que mantém em vista, sem `position: fixed` em
+     nada, três coisas que o casal usa junto — o cabeçalho de colunas (que gruda
+     no topo DESTA caixa), a barra de filtros ativos acima e a paginação abaixo.
+
+     Também é o que devolve a rolagem horizontal: um contêiner de rolagem ancora
+     o `sticky` de dentro nele mesmo, então aqui os dois eixos convivem — o que
+     não aconteceria se o cabeçalho dependesse do scroller da página (aí
+     qualquer `overflow` no caminho anularia o `sticky`, a mesma armadilha
+     descrita na nota de `overflow-x` mais abaixo).
+
+     `max-height` (não `height`): tabela curta não vira caixa rolável à toa —
+     lista de 3 grupos continua desenhando do tamanho dela. O limite é em `vh`
+     pra caber junto do cabeçalho do painel e da paginação numa tela típica sem
+     obrigar a página a rolar.
+
+     O teto de altura só existe do `md` pra cima: abaixo disso a `AdminTable` vira
+     blocos empilhados e quem rola é a página, como em qualquer lista de celular.
+     A rolagem em si vale em toda largura — é ela que segura tabela larga (a
+     `UiTable`, que não empilha) sem estourar a régua no celular. */
+  .table-scroll {
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  @media (width >= 48rem) {
+    .table-scroll {
+      max-height: 60vh;
+    }
+  }
 }
 
 /* O drawer mobile (NavBar.vue/admin.vue) fica fora da tela via

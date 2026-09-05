@@ -336,9 +336,12 @@ function statusOf(invite: InviteListItem) {
         </div>
 
         <template v-else>
+          <!-- Prévia de 8 linhas: sem rolagem própria, que só somaria uma barra
+               dentro de um bloco que já cabe inteiro na tela. -->
           <AdminTable
             :columns="inviteColumns"
             :rows="recentInvites"
+            :scrollable="false"
             empty-label="Nenhum convite com esse recorte."
           >
             <template #cell-nome="{ row }">

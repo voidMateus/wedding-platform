@@ -20,7 +20,15 @@ defineProps<Props>()
 </script>
 
 <template>
-  <section class="overflow-hidden rounded-lg border border-border bg-surface-elevated">
+  <!--
+    `overflow-clip`, nunca `overflow-hidden`: os dois recortam igual, mas
+    `hidden` faz do painel um contêiner de rolagem, e aí o cabeçalho fixo de uma
+    tabela sem rolagem própria (`AdminTable :scrollable="false"`) passaria a se
+    ancorar neste painel — que não rola — em vez do <main>. O `sticky`
+    continuaria declarado e simplesmente não aconteceria, a mesma armadilha
+    descrita na nota de `overflow-x` em app/assets/css/main.css.
+  -->
+  <section class="overflow-clip rounded-lg border border-border bg-surface-elevated">
     <div
       v-if="title || $slots.headerActions"
       class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5"
