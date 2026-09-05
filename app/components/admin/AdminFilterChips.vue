@@ -42,12 +42,16 @@ const emit = defineEmits<{
 
 const GROUP_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   chip: 'flex flex-wrap gap-1',
-  segmented: 'flex w-full gap-1 rounded-lg border border-border bg-surface-elevated p-1',
+  segmented: 'flex w-full gap-0.5 rounded-lg border border-border bg-surface-elevated p-0.5',
 }
 
+// Mais baixo que a régua de abas de `UiTabs`: aqui o seletor divide a altura
+// do quadro com a lista que ele controla, e cada pixel gasto na moldura é um
+// item a menos visível — o oposto de uma aba, que ocupa a largura de uma tela
+// inteira.
 const ITEM_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   chip: 'h-8 rounded-lg px-3 text-xs font-medium',
-  segmented: 'flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium',
+  segmented: 'h-8 flex-1 whitespace-nowrap rounded-md px-3 text-xs font-medium',
 }
 
 const ACTIVE_CLASSES: Record<NonNullable<Props['variant']>, string> = {

@@ -92,37 +92,45 @@ function handleDownload() {
     scroll="content"
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <div class="flex min-h-0 flex-1 flex-col gap-4">
-      <!-- Fora da área rolável: o recorte é a decisão principal da tela e não
-           pode sair de vista enquanto se percorre uma lista de doze itens. -->
-      <div class="flex shrink-0 flex-col gap-2">
-        <AdminFilterChips
-          :model-value="activePreset"
-          :items="presetChips"
-          variant="segmented"
-          group-label="Modelos prontos de importação"
-          @update:model-value="applyPreset"
-        />
-        <p class="text-xs leading-relaxed text-text-muted">{{ activePresetDescription }}</p>
-      </div>
+    <div class="flex min-h-0 flex-1 flex-col gap-3">
+      <!--
+        Fora da área rolável: o recorte é a decisão principal da tela e não
+        pode sair de vista enquanto se percorre a lista. Mas tudo que fica
+        fora dela é altura roubada da lista, que é o conteúdo em foco do
+        quadro — daí o seletor baixo e a descrição do modelo na mesma linha do
+        cabeçalho, em vez de uma linha própria.
+      -->
+      <AdminFilterChips
+        class="shrink-0"
+        :model-value="activePreset"
+        :items="presetChips"
+        variant="segmented"
+        group-label="Modelos prontos de importação"
+        @update:model-value="applyPreset"
+      />
 
-      <div class="flex shrink-0 items-baseline justify-between gap-2 border-t border-border pt-4">
-        <h3 class="text-sm font-medium text-text">Colunas da planilha</h3>
+      <div class="flex shrink-0 items-baseline justify-between gap-3">
+        <p class="min-w-0 truncate text-xs text-text-muted">
+          <span class="font-medium text-text">Colunas da planilha</span>
+          <span aria-hidden="true"> · </span>{{ activePresetDescription }}
+        </p>
         <UiBadge tone="neutral">{{ selectionSummary }}</UiBadge>
       </div>
 
-      <div class="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">
-        <div class="flex flex-col gap-5 pb-1">
-          <section v-for="secao in sections" :key="secao.chave" class="flex flex-col gap-2">
+      <!-- min-h garante que a lista nunca some por completo numa janela
+           baixa: sem ela, o `flex-1` cede tudo para o cromo fixo. -->
+      <div class="-mx-6 min-h-56 flex-1 overflow-y-auto border-y border-border px-6 py-3">
+        <div class="flex flex-col gap-4">
+          <section v-for="secao in sections" :key="secao.chave" class="flex flex-col gap-1.5">
             <h4 class="text-xs font-semibold uppercase tracking-wide text-text-muted">
               {{ secao.rotulo }}
             </h4>
 
-            <ul class="flex flex-col gap-2">
+            <ul class="flex flex-col gap-1.5">
               <li
                 v-for="campo in secao.campos"
                 :key="campo.chave"
-                class="rounded-md border px-4 py-3 transition-brand"
+                class="rounded-md border px-3 py-2 transition-brand"
                 :class="
                   isSelected(campo)
                     ? 'border-primary/50 bg-surface-elevated'
@@ -156,14 +164,14 @@ function handleDownload() {
                   </UiBadge>
                 </div>
 
-                <p class="mt-1 pl-6 text-xs leading-relaxed text-text-muted">
+                <p class="mt-0.5 pl-6 text-xs leading-snug text-text-muted">
                   {{ campo.descricao }}
                 </p>
 
                 <!-- Valores de enum em etiqueta, não em frase: "Valores
                      aceitos: Criança, Adolescente, Adulto, Idoso" dentro de um
                      parágrafo cinza vira parede de texto na lista inteira. -->
-                <div v-if="campo.valores?.length" class="mt-1.5 flex flex-wrap gap-1 pl-6">
+                <div v-if="campo.valores?.length" class="mt-1 flex flex-wrap gap-1 pl-6">
                   <UiBadge v-for="valor in campo.valores" :key="valor.valor" tone="neutral">
                     {{ valor.rotulo }}
                   </UiBadge>
@@ -174,32 +182,23 @@ function handleDownload() {
         </div>
       </div>
 
-      <div class="flex shrink-0 flex-col gap-2 border-t border-border pt-4">
-        <AdminSettingsToggleRow
-          v-model="withExample"
-          icon="lucide:sparkles"
-          label="Incluir uma linha de exemplo"
-          hint="Mostra o formato esperado de cada coluna — útil sobretudo para a data de nascimento."
-        />
+      <!--
+        A linha de exemplo resolve "qual formato a data espera?", mas cria
+        outro risco: esquecida na planilha, viraria uma convidada chamada
+        "Maria Exemplo". O aviso vem antes do download, e o importador ainda
+        reconhece e ignora a linha pelo nome — cinto e suspensório, porque
+        contar só com o aviso seria contar com a memória de quem edita a
+        planilha dias depois.
 
-        <!--
-          A linha de exemplo resolve "qual formato a data espera?", mas cria
-          outro risco: esquecida na planilha, viraria uma convidada chamada
-          "Maria Exemplo". O aviso vem antes do download, e o importador ainda
-          reconhece e ignora a linha pelo nome — cinto e suspensório, porque
-          contar só com o aviso seria contar com a memória de quem edita a
-          planilha dias depois.
-        -->
-        <p
-          v-if="withExample"
-          class="flex items-start gap-2 rounded-md bg-surface-muted/60 px-3 py-2 text-xs leading-relaxed text-text-muted"
-        >
-          <Icon name="lucide:info" class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span>
-            Apague a linha de exemplo antes de importar. Se ela ficar, o sistema a reconhece pelo
-            nome e a ignora — mas conferir é mais seguro.
-          </span>
-        </p>
+        Uma linha só, e não a `ToggleRow` com caixa de aviso que estava aqui:
+        é um ajuste secundário do arquivo, e ocupando três linhas ele comia a
+        altura da lista de colunas, que é o conteúdo principal do quadro.
+      -->
+      <div class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <UiCheckbox v-model="withExample" label="Incluir uma linha de exemplo" />
+        <span v-if="withExample" class="text-xs text-text-muted">
+          — apague antes de importar; se ficar, o sistema a ignora.
+        </span>
       </div>
     </div>
 
