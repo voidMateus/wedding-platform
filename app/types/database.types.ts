@@ -1544,7 +1544,62 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      convidados_com_status: {
+        Row: {
+          apelido: string | null
+          caminho_foto: string | null
+          casamento_id: string | null
+          convite_id: string | null
+          created_at: string | null
+          data_nascimento: string | null
+          email: string | null
+          excluido_em: string | null
+          faixa_etaria_manual: string | null
+          grupo_id: string | null
+          id: string | null
+          nome_completo: string | null
+          nucleo_id: string | null
+          observacoes: string | null
+          ordem_nucleo: number | null
+          papel_casamento: string | null
+          respondido_em: string | null
+          restricoes_alimentares: string | null
+          sexo: string | null
+          status_rsvp: string | null
+          telefone: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guests_group_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_party_id_fkey"
+            columns: ["nucleo_id"]
+            isOneToOne: false
+            referencedRelation: "nucleos_acompanhantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_wedding_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       buscar_convidados_por_nome: {

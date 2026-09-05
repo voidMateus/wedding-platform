@@ -5,8 +5,10 @@ import {
   buildActiveFilters,
   buildClearAllPatch,
   buildSortPatch,
-  resolveFilterValue,
+  resolveFilterValues,
+  serializeFilterValues,
   tableSortLabels,
+  toggleFilterValue,
 } from '~/utils/table-filters'
 import type { AdminTableColumn } from '~/types/table'
 
@@ -33,6 +35,20 @@ const grupo: AdminTableColumn<Row> = {
   },
 }
 
+const faixa: AdminTableColumn<Row> = {
+  key: 'faixa',
+  label: 'Faixa etária',
+  filter: {
+    type: 'select',
+    multiple: true,
+    options: [
+      { value: 'crianca', label: 'Crianças' },
+      { value: 'adolescente', label: 'Adolescentes' },
+      { value: 'adulto', label: 'Adultos' },
+    ],
+  },
+}
+
 const acompanhantes: AdminTableColumn<Row> = { key: 'acompanhantes', label: 'Acompanhantes' }
 
 describe('tableSortLabels', () => {
@@ -43,50 +59,101 @@ describe('tableSortLabels', () => {
   })
 })
 
-describe('resolveFilterValue', () => {
+describe('resolveFilterValues', () => {
   it('devolve vazio para coluna sem filtro declarado', () => {
-    expect(resolveFilterValue(acompanhantes, 'qualquer coisa')).toBe('')
+    expect(resolveFilterValues(acompanhantes, 'qualquer coisa')).toEqual([])
   })
 
   it('devolve vazio quando a coluna não existe na tabela', () => {
-    expect(resolveFilterValue(undefined, 'ana')).toBe('')
+    expect(resolveFilterValues(undefined, 'ana')).toEqual([])
   })
 
   it('aceita e apara texto livre', () => {
-    expect(resolveFilterValue(nome, '  ana  ')).toBe('ana')
-    expect(resolveFilterValue(nome, '   ')).toBe('')
+    expect(resolveFilterValues(nome, '  ana  ')).toEqual(['ana'])
+    expect(resolveFilterValues(nome, '   ')).toEqual([])
   })
 
-  it('aceita valor de select que existe na lista', () => {
-    expect(resolveFilterValue(grupo, 'g2')).toBe('g2')
+  it('não divide texto livre pela vírgula (é conteúdo do nome, não separador)', () => {
+    expect(resolveFilterValues(nome, 'Silva, Jr.')).toEqual(['Silva, Jr.'])
   })
 
-  it('descarta valor de select fora da lista (URL editada à mão viraria 400 no endpoint)', () => {
-    expect(resolveFilterValue(grupo, 'inexistente')).toBe('')
+  it('lê vários valores de uma coluna de múltipla escolha', () => {
+    expect(resolveFilterValues(faixa, 'crianca,adolescente')).toEqual(['crianca', 'adolescente'])
+  })
+
+  it('descarta valor fora da lista de opções (URL editada à mão viraria 400 no endpoint)', () => {
+    expect(resolveFilterValues(grupo, 'inexistente')).toEqual([])
+    expect(resolveFilterValues(faixa, 'crianca,inventada')).toEqual(['crianca'])
   })
 
   it('deixa passar o valor enquanto a lista de opções ainda não chegou', () => {
     const carregando: AdminTableColumn<Row> = { ...grupo, filter: { type: 'select', options: [] } }
-    expect(resolveFilterValue(carregando, 'g2')).toBe('g2')
+    expect(resolveFilterValues(carregando, 'g2')).toEqual(['g2'])
+  })
+
+  it('coluna de valor único com dois valores na URL fica com o primeiro', () => {
+    expect(resolveFilterValues(grupo, 'g2,g1')).toEqual(['g2'])
+  })
+
+  it('ignora repetição e entradas vazias', () => {
+    expect(resolveFilterValues(faixa, 'crianca,,crianca,adulto')).toEqual(['crianca', 'adulto'])
+  })
+})
+
+describe('serializeFilterValues', () => {
+  it('junta por vírgula e some da URL quando não há nada marcado', () => {
+    expect(serializeFilterValues(['crianca', 'adulto'])).toBe('crianca,adulto')
+    expect(serializeFilterValues([])).toBeUndefined()
+  })
+})
+
+describe('toggleFilterValue', () => {
+  it('valor único: marcar troca a opção anterior', () => {
+    expect(toggleFilterValue(['g1'], 'g2')).toEqual(['g2'])
+  })
+
+  it('valor único: clicar de novo na opção marcada desmarca', () => {
+    expect(toggleFilterValue(['g1'], 'g1')).toEqual([])
+  })
+
+  it('múltipla escolha: acumula e desmarca uma por vez', () => {
+    const comCrianca = toggleFilterValue([], 'crianca', { multiple: true })
+    expect(comCrianca).toEqual(['crianca'])
+
+    const comAdolescente = toggleFilterValue(comCrianca, 'adolescente', { multiple: true })
+    expect(comAdolescente).toEqual(['crianca', 'adolescente'])
+
+    expect(toggleFilterValue(comAdolescente, 'crianca', { multiple: true })).toEqual([
+      'adolescente',
+    ])
+  })
+
+  it('a opção vazia limpa a seleção inteira, nunca vira mais um valor marcado', () => {
+    expect(toggleFilterValue(['crianca', 'adulto'], '', { multiple: true })).toEqual([])
+    expect(toggleFilterValue(['g1'], '')).toEqual([])
   })
 })
 
 describe('buildActiveFilters', () => {
-  it('devolve um chip por coluna preenchida, na ordem das colunas', () => {
-    const chips = buildActiveFilters([nome, grupo, acompanhantes], { grupo: 'g1', nome: 'ana' })
+  it('devolve um chip por valor marcado, na ordem das colunas', () => {
+    const chips = buildActiveFilters([nome, faixa, acompanhantes], {
+      faixa: ['crianca', 'adulto'],
+      nome: ['ana'],
+    })
     expect(chips).toEqual([
-      { key: 'nome', columnLabel: 'Convidado', valueLabel: 'ana' },
-      { key: 'grupo', columnLabel: 'Grupo', valueLabel: 'Família da Noiva' },
+      { key: 'nome', value: 'ana', columnLabel: 'Convidado', valueLabel: 'ana' },
+      { key: 'faixa', value: 'crianca', columnLabel: 'Faixa etária', valueLabel: 'Crianças' },
+      { key: 'faixa', value: 'adulto', columnLabel: 'Faixa etária', valueLabel: 'Adultos' },
     ])
   })
 
   it('mostra o rótulo da opção, não o valor cru (uuid de grupo não diz nada a quem lê)', () => {
-    const [chip] = buildActiveFilters([grupo], { grupo: 'g2' })
+    const [chip] = buildActiveFilters([grupo], { grupo: ['g2'] })
     expect(chip?.valueLabel).toBe('Trabalho')
   })
 
   it('ignora coluna sem valor', () => {
-    expect(buildActiveFilters([nome, grupo], { nome: '' })).toEqual([])
+    expect(buildActiveFilters([nome, grupo], { nome: [] })).toEqual([])
   })
 })
 
@@ -122,11 +189,11 @@ describe('buildSortPatch', () => {
 
 describe('buildClearAllPatch', () => {
   it('apaga toda coluna filtrável e a ordenação, e só isso', () => {
-    expect(buildClearAllPatch([nome, grupo, acompanhantes])).toEqual({
+    expect(buildClearAllPatch([nome, faixa, acompanhantes])).toEqual({
       [TABLE_SORT_KEY_PARAM]: undefined,
       [TABLE_SORT_DIRECTION_PARAM]: undefined,
       nome: undefined,
-      grupo: undefined,
+      faixa: undefined,
     })
   })
 })

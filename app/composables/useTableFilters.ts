@@ -8,12 +8,12 @@ import type { AdminTableColumn, TableActiveFilter, TableSortDirection } from '~/
  * da listagem de convidados já vivia lá: o dashboard linka direto para "as 8
  * crianças", a busca global linka para um registro e o botão Voltar precisa
  * desfazer o recorte, não a página inteira. Cada coluna usa o próprio `key`
- * como nome do parâmetro (`?grupo=<uuid>&faixa=crianca`), então os links que
- * já existiam continuam valendo.
+ * como nome do parâmetro (`?grupo=<uuid>&faixa=crianca,adolescente`), então os
+ * links que já existiam continuam valendo.
  *
- * As regras (validar valor de select, alternar sentido, montar os chips do que
- * está ativo) ficam em `~/utils/table-filters` — aqui é só a ligação com a
- * URL, que é a parte que depende do runtime do Nuxt.
+ * As regras (validar valor de select, alternar opção marcada, montar os chips)
+ * ficam em `~/utils/table-filters` — aqui é só a ligação com a URL, que é a
+ * parte que depende do runtime do Nuxt.
  */
 
 function firstQueryValue(value: LocationQueryValue | LocationQueryValue[] | undefined): string {
@@ -22,16 +22,21 @@ function firstQueryValue(value: LocationQueryValue | LocationQueryValue[] | unde
 }
 
 export interface TableFiltersApi {
-  /** Valor de cada coluna filtrada, pronto pra virar parâmetro do endpoint. */
-  values: ComputedRef<Record<string, string>>
+  /** Valores marcados por coluna, prontos pra virar parâmetro do endpoint. */
+  values: ComputedRef<Record<string, string[]>>
   activeFilters: ComputedRef<TableActiveFilter[]>
   hasActive: ComputedRef<boolean>
   sortKey: ComputedRef<string | null>
   sortDirection: ComputedRef<TableSortDirection>
-  valueOf: (key: string) => string
+  valuesOf: (key: string) => string[]
   sortOf: (key: string) => TableSortDirection | null
   isActive: (key: string) => boolean
-  setValue: (key: string, value: string) => void
+  /** Filtro de texto: um valor só, substituído a cada digitação. */
+  setText: (key: string, value: string) => void
+  /** Filtro de lista: marca/desmarca uma opção (a opção vazia limpa a coluna). */
+  toggleValue: (key: string, value: string) => void
+  /** Tira um valor marcado — o "x" de um chip da barra de filtros ativos. */
+  clearValue: (key: string, value: string) => void
   setSort: (key: string, direction: TableSortDirection) => void
   clearColumn: (key: string) => void
   clearAll: () => void
@@ -45,17 +50,20 @@ export function useTableFilters<T>(
 
   const list = computed(() => toValue(columns))
 
-  function valueOf(key: string): string {
-    const column = list.value.find((item) => item.key === key)
-    return resolveFilterValue(column, firstQueryValue(route.query[key]))
+  function columnOf(key: string): AdminTableColumn<T> | undefined {
+    return list.value.find((item) => item.key === key)
+  }
+
+  function valuesOf(key: string): string[] {
+    return resolveFilterValues(columnOf(key), firstQueryValue(route.query[key]))
   }
 
   const values = computed(() => {
-    const result: Record<string, string> = {}
+    const result: Record<string, string[]> = {}
     for (const column of list.value) {
       if (!column.filter) continue
-      const value = valueOf(column.key)
-      if (value) result[column.key] = value
+      const marked = valuesOf(column.key)
+      if (marked.length) result[column.key] = marked
     }
     return result
   })
@@ -74,7 +82,7 @@ export function useTableFilters<T>(
   }
 
   function isActive(key: string): boolean {
-    return Boolean(valueOf(key)) || sortKey.value === key
+    return valuesOf(key).length > 0 || sortKey.value === key
   }
 
   const activeFilters = computed(() => buildActiveFilters(list.value, values.value))
@@ -91,8 +99,24 @@ export function useTableFilters<T>(
     void router.replace({ query })
   }
 
-  function setValue(key: string, value: string): void {
+  function setValues(key: string, next: string[]): void {
+    applyQuery({ [key]: serializeFilterValues(next) })
+  }
+
+  function setText(key: string, value: string): void {
     applyQuery({ [key]: value.trim() || undefined })
+  }
+
+  function toggleValue(key: string, value: string): void {
+    const filter = columnOf(key)?.filter
+    setValues(key, toggleFilterValue(valuesOf(key), value, { multiple: filter?.multiple }))
+  }
+
+  function clearValue(key: string, value: string): void {
+    setValues(
+      key,
+      valuesOf(key).filter((entry) => entry !== value),
+    )
   }
 
   function setSort(key: string, direction: TableSortDirection): void {
@@ -120,10 +144,12 @@ export function useTableFilters<T>(
     hasActive,
     sortKey,
     sortDirection,
-    valueOf,
+    valuesOf,
     sortOf,
     isActive,
-    setValue,
+    setText,
+    toggleValue,
+    clearValue,
     setSort,
     clearColumn,
     clearAll,

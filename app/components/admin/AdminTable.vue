@@ -91,8 +91,8 @@ function isFilterable(column: AdminTableColumn<Row>): boolean {
   return Boolean(filters) && Boolean(column.filter || column.sort)
 }
 
-function filterValueOf(column: AdminTableColumn<Row>): string {
-  return filters?.valueOf(column.key) ?? ''
+function filterValuesOf(column: AdminTableColumn<Row>): string[] {
+  return filters?.valuesOf(column.key) ?? []
 }
 
 function sortDirectionOf(column: AdminTableColumn<Row>): TableSortDirection | null {
@@ -113,7 +113,7 @@ function triggerIcon(column: AdminTableColumn<Row>): string {
   const direction = sortDirectionOf(column)
   if (direction === 'asc') return 'lucide:arrow-up'
   if (direction === 'desc') return 'lucide:arrow-down'
-  if (filterValueOf(column)) return 'lucide:filter'
+  if (filterValuesOf(column).length) return 'lucide:filter'
   return 'lucide:chevron-down'
 }
 
@@ -165,9 +165,10 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                         :label="column.label"
                         :filter="column.filter"
                         :sort="column.sort"
-                        :value="filterValueOf(column)"
+                        :values="filterValuesOf(column)"
                         :direction="sortDirectionOf(column)"
-                        @update:value="filters?.setValue(column.key, $event)"
+                        @select="filters?.toggleValue(column.key, $event)"
+                        @update:text="filters?.setText(column.key, $event)"
                         @sort="filters?.setSort(column.key, $event)"
                         @clear="filters?.clearColumn(column.key)"
                       />

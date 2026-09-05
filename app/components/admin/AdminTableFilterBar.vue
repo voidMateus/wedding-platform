@@ -33,12 +33,14 @@ const hasActive = computed(() => filters.hasActive.value)
 
 <template>
   <div class="flex flex-wrap items-center justify-end gap-2" role="group" :aria-label="groupLabel">
+    <!-- Um chip por valor marcado: com duas faixas etárias no recorte, tirar
+         uma não pode derrubar a outra. -->
     <UiChip
       v-for="filter in activeFilters"
-      :key="filter.key"
+      :key="`${filter.key}:${filter.value}`"
       :label="`${filter.columnLabel}: ${filter.valueLabel}`"
       removable
-      @remove="filters.clearColumn(filter.key)"
+      @remove="filters.clearValue(filter.key, filter.value)"
     />
 
     <button
@@ -72,9 +74,10 @@ const hasActive = computed(() => filters.hasActive.value)
             :label="column.label"
             :filter="column.filter"
             :sort="column.sort"
-            :value="filters.valueOf(column.key)"
+            :values="filters.valuesOf(column.key)"
             :direction="filters.sortOf(column.key)"
-            @update:value="filters.setValue(column.key, $event)"
+            @select="filters.toggleValue(column.key, $event)"
+            @update:text="filters.setText(column.key, $event)"
             @sort="filters.setSort(column.key, $event)"
             @clear="filters.clearColumn(column.key)"
           />

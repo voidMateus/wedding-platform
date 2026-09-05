@@ -28,6 +28,12 @@ export interface TableColumnFilter {
   /** Obrigatório em 'select' — pode chegar vazio enquanto a lista carrega. */
   options?: readonly TableFilterOption[]
   placeholder?: string
+  /**
+   * Múltipla escolha (só 'select'): marcar duas faixas etárias recorta as duas
+   * ao mesmo tempo. Exige que o endpoint aceite lista naquele parâmetro — sem
+   * isso o segundo valor seria ignorado em silêncio.
+   */
+  multiple?: boolean
 }
 
 export interface AdminTableColumn<T> {
@@ -49,9 +55,14 @@ export interface AdminTableColumn<T> {
   sort?: TableSortKind
 }
 
-/** Filtro de coluna com valor preenchido — uma linha da barra de filtros ativos. */
+/**
+ * Um valor marcado num filtro de coluna — um chip da barra de filtros ativos.
+ * É por valor, não por coluna: com duas faixas marcadas são dois chips, e tirar
+ * uma não derruba a outra.
+ */
 export interface TableActiveFilter {
   key: string
+  value: string
   columnLabel: string
   valueLabel: string
 }

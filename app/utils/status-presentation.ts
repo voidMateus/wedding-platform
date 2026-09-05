@@ -1,3 +1,4 @@
+import type { RsvpStatus } from '#shared/utils/rsvp-status'
 import type { InviteResponseStatus } from '~/types/invite'
 
 /**
@@ -35,9 +36,6 @@ export interface StatusPresentation {
   label: string
   tone: StatusTone
 }
-
-/** Espelha o CHECK de respostas_rsvp.status_rsvp. */
-export type RsvpStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 
 const RSVP_PRESENTATION: Record<RsvpStatus, StatusPresentation> = {
   // Responder é a ação que o produto inteiro existe para cobrar.

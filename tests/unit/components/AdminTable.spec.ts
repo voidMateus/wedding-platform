@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import AdminTable from '~/components/admin/AdminTable.vue'
 import AdminColumnFilter from '~/components/admin/AdminColumnFilter.vue'
+import Checkbox from '~/components/ui/Checkbox.vue'
 import Input from '~/components/ui/Input.vue'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
 import type { TableFiltersApi } from '~/composables/useTableFilters'
@@ -30,21 +31,25 @@ const columns: AdminTableColumn<Row>[] = [
 ]
 
 /** Dublê do estado de filtros — o de verdade mora na URL (useTableFilters). */
-function makeFilters(initial: { value?: string; sortKey?: string | null } = {}): TableFiltersApi {
-  const value = ref(initial.value ?? '')
+function makeFilters(
+  initial: { values?: string[]; sortKey?: string | null } = {},
+): TableFiltersApi {
+  const values = ref<string[]>(initial.values ?? [])
   const sortKey = ref<string | null>(initial.sortKey ?? null)
   const sortDirection = ref<TableSortDirection>('asc')
 
   return {
-    values: computed(() => (value.value ? { nome: value.value } : {})),
+    values: computed(() => (values.value.length ? { nome: values.value } : {})),
     activeFilters: computed(() => []),
-    hasActive: computed(() => Boolean(value.value) || sortKey.value !== null),
+    hasActive: computed(() => values.value.length > 0 || sortKey.value !== null),
     sortKey: computed(() => sortKey.value),
     sortDirection: computed(() => sortDirection.value),
-    valueOf: (key) => (key === 'nome' ? value.value : ''),
+    valuesOf: (key) => (key === 'nome' ? values.value : []),
     sortOf: (key) => (sortKey.value === key ? sortDirection.value : null),
-    isActive: (key) => (key === 'nome' && Boolean(value.value)) || sortKey.value === key,
-    setValue: vi.fn(),
+    isActive: (key) => (key === 'nome' && values.value.length > 0) || sortKey.value === key,
+    setText: vi.fn(),
+    toggleValue: vi.fn(),
+    clearValue: vi.fn(),
     setSort: vi.fn(),
     clearColumn: vi.fn(),
     clearAll: vi.fn(),
@@ -55,7 +60,7 @@ function mountTable(filters?: TableFiltersApi) {
   return mount(AdminTable, {
     props: { columns, rows, ...(filters ? { filters } : {}) },
     global: {
-      components: { AdminColumnFilter, UiInput: Input },
+      components: { AdminColumnFilter, UiInput: Input, UiCheckbox: Checkbox },
       stubs: ICON_STUBS,
     },
   })
@@ -90,7 +95,7 @@ describe('AdminTable — filtros por coluna', () => {
     const semFiltro = mountTable(makeFilters())
     expect(semFiltro.find('thead button').classes()).not.toContain('text-primary')
 
-    const comFiltro = mountTable(makeFilters({ value: 'ana' }))
+    const comFiltro = mountTable(makeFilters({ values: ['ana'] }))
     expect(comFiltro.find('thead button').classes()).toContain('text-primary')
   })
 
