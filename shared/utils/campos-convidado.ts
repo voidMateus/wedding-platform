@@ -271,8 +271,26 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
     importacao: 'nao',
     obrigatorio: false,
     aliases: [],
+    // Espelha o CHECK de `respostas_rsvp.status_rsvp`. Os rótulos vivem aqui,
+    // e não em `app/utils/status-presentation.ts`, porque a exportação roda no
+    // servidor e `app/` não é importável de lá — aquele arquivo passou a ler
+    // daqui e guarda só o tom visual, que é decisão de tela.
+    valores: [
+      { valor: 'pendente', rotulo: 'Pendente' },
+      { valor: 'confirmado', rotulo: 'Estará lá' },
+      { valor: 'recusado', rotulo: 'Não poderá ir' },
+      { valor: 'lista_espera', rotulo: 'Em espera' },
+      { valor: 'removido', rotulo: 'Removido' },
+    ],
   },
 ]
+
+/** Rótulo legível de um valor de enum; devolve o próprio valor se desconhecido. */
+export function rotuloDeValor(chaveDoCampo: string, valor: string | null | undefined): string {
+  if (!valor) return ''
+  const campo = campoPorChave(chaveDoCampo)
+  return campo?.valores?.find((opcao) => opcao.valor === valor)?.rotulo ?? valor
+}
 
 const POR_CHAVE = new Map(CAMPOS_CONVIDADO.map((campo) => [campo.chave, campo]))
 

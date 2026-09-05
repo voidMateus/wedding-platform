@@ -132,6 +132,18 @@ A consequência era concreta, não teórica: com `id` marcado importável, o pre
 
 **A garantia de compatibilidade virou teste, não intenção.** `tests/unit/shared/utils/modelo-importacao.spec.ts` gera cada preset, lê de volta pelo parser e confere que a autodetecção mapeia 100% das colunas, que todo valor de enum da linha de exemplo é interpretável e que a linha de exemplo é reconhecida como tal. Campo novo no catálogo sem suporte na leitura quebra o CI em vez de virar bug de produção.
 
+### Achado: duas relações entre `convidados` e `convites` quebram o embed do PostgREST (2026-09-04)
+
+A exportação de convidados busca nome do grupo, nome do convite e status do RSVP por junção, para não fazer N+1 nem esbarrar num segundo teto de 1000 linhas numa tabela auxiliar. O `select` com `convites(nome)` foi recusado: *"Could not embed because more than one relationship was found for 'convidados' and 'convites'"*.
+
+**Causa:** existem duas chaves estrangeiras entre as tabelas, em sentidos opostos — `convidados.convite_id → convites` e `convites.convidado_responsavel_id → convidados` (o Convidado Responsável, ver [`DATABASE.md`](DATABASE.md)). O PostgREST não escolhe por conta própria.
+
+**Correção:** `convites!convite_id(nome)`, com a dica pelo nome da **coluna**. Testado contra o banco de dev também com o nome do constraint (`convites!convidados_convite_id_fkey`), que falha — o cache de schema não expõe o constraint por nome aqui. `grupos(nome)` e `respostas_rsvp(status_rsvp)` não precisam de dica: têm uma relação só.
+
+**Verificação de paridade.** Para cada filtro (nome, grupo, faixa etária, e combinações), a contagem de linhas do CSV foi comparada com `meta.total` de `/api/guests` no mesmo recorte — os dois têm que descrever a mesma lista, senão o botão "Exportar" mente sobre o que a tela está mostrando. Confirmado o BOM nos bytes crus da resposta: `Response.text()` remove o BOM por especificação, então checá-lo pelo texto decodificado daria falso negativo.
+
+**Rótulo de status do RSVP saiu de `app/utils/status-presentation.ts` para o catálogo de campos.** A exportação roda no servidor, de onde `app/` não é importável, e duas listas dos mesmos cinco status divergiriam no primeiro ajuste de texto. Aquele arquivo agora lê o rótulo do catálogo e guarda só o tom visual, que é decisão de tela.
+
 ---
 
 ## Fases concluídas (histórico completo por fase, fora da sequência numerada do roadmap)

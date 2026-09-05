@@ -30,7 +30,7 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 ### Fase 2 — Consolidação
 - [ ] Importação de convidados via CSV.
 - [ ] Lembretes automáticos de RSVP por e-mail.
-- [ ] Exportação de dados (convidados, presentes) em CSV/PDF.
+- [ ] Exportação de dados em CSV/PDF — **convidados em CSV entregue** (segue os filtros da tela, colunas do catálogo central; ver [`PRODUCT.md`](PRODUCT.md) seção 3.5). Falta presentes, e PDF em qualquer um dos dois.
 - [ ] Convite com geração de link/QR code.
 - [x] Colaboradores — convite/remoção com papel binário `dono`/`colaborador`, checagem de `owner` no servidor (ver [`PRODUCT.md`](PRODUCT.md) seção 7.3), tela em Configurações → Colaboradores. Implementado no Passo 3 do `docs/PLANO-SAAS.md`.
 - [ ] Permissões granulares por funcionalidade (ex.: colaborador que só edita convidados, não presentes/configurações) — decisão consciente de manter o modelo binário por ora (2026-08-24); schema novo fica pra quando houver demanda real.

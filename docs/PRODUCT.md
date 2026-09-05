@@ -87,6 +87,7 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) — colunas definidas pelo catálogo central de campos (ver seção 3.5).
 - Gerador de modelo de planilha — o casal escolhe as colunas e o sistema monta o CSV compatível com o importador (ver seção 3.5).
+- Exportação em CSV do **recorte que está na tela** (mesmos filtros de nome, grupo e faixa etária da listagem), com as colunas exportáveis do catálogo (ver seção 3.5).
 - Contato (e-mail/telefone) editável no cadastro do convidado, para o principal e para cada acompanhante — cada pessoa tem o próprio, nunca herdado de quem responde pelo convite.
 - Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
@@ -147,7 +148,9 @@ Cada campo declara o que se pode fazer com ele:
 
 **Campo derivado nunca é importável.** `faixa_etaria_calculada` é exportada para consulta e jamais oferecida como coluna de modelo: ela muda sozinha quando o casal altera as faixas do evento (seção 3.4), então aceitá-la de volta criaria uma segunda fonte de verdade para a classificação. A regra é estrutural — o gerador só sabe listar campos `gravavel` —, não uma convenção que alguém precise lembrar.
 
-**Exportação e modelo não têm as mesmas colunas**, de propósito: a exportação representa *dados que existem*, o modelo representa *a estrutura que o sistema aceita receber*.
+**Exportação e modelo não têm as mesmas colunas**, de propósito: a exportação representa *dados que existem*, o modelo representa *a estrutura que o sistema aceita receber*. A exportação leva `id`, `faixa_etaria_calculada` e `status_rsvp` — que nenhum modelo oferece — e escreve os enums com o rótulo legível ("Criança", não `crianca`), porque a planilha é lida por gente; o importador aceita as duas formas de volta.
+
+**A exportação segue os filtros da tela** (nome, grupo, faixa etária): um botão que sempre baixasse a lista inteira contradiria os filtros logo acima dele. A leitura pagina em blocos de 1000 — o teto padrão do PostgREST — porque um CSV truncado em silêncio é o pior modo de falha possível numa exportação: o arquivo *parece* completo. O registro em `trilha_auditoria` guarda a contagem e quais filtros estavam ativos, nunca o termo buscado nem dado de convidado.
 
 **Três presets, uma tela só** — chips sobre a mesma lista de caixas, porque os três produzem o mesmo tipo de arquivo e diferem apenas em quais colunas vêm marcadas:
 

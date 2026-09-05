@@ -9,7 +9,7 @@ definePageMeta({ layout: 'admin' })
 const route = useRoute()
 const router = useRouter()
 
-const { listGuests, deleteGuest } = useGuests()
+const { listGuests, deleteGuest, exportGuests } = useGuests()
 const { listGroups } = useGroups()
 const { classify, label: ageGroupLabel, originLabel, filterChips } = useAgeGroups()
 
@@ -208,6 +208,20 @@ function openCreateGuest() {
 // arquivo baixado, não um estado da tela.
 const isTemplateModalOpen = ref(false)
 
+// Exporta o MESMO recorte que a tabela está mostrando (`listParams`), não a
+// lista inteira: um botão que ignorasse os filtros logo acima dele
+// contradiria o que a tela acabou de dizer.
+const isExporting = ref(false)
+
+async function handleExport() {
+  isExporting.value = true
+  try {
+    await exportGuests(listParams.value)
+  } finally {
+    isExporting.value = false
+  }
+}
+
 function openEditGuest(guest: GuestListItem) {
   router.push({ query: { ...route.query, novo: undefined, editar: guest.id } })
 }
@@ -260,6 +274,10 @@ async function confirmDelete() {
         placeholder="Filtrar por nome..."
         class="w-full sm:w-64"
       />
+      <UiButton variant="ghost" :disabled="isExporting" @click="handleExport">
+        <Icon name="lucide:download" class="h-4 w-4" />
+        {{ isExporting ? 'Exportando...' : 'Exportar' }}
+      </UiButton>
       <UiButton variant="ghost" @click="isTemplateModalOpen = true">
         <Icon name="lucide:file-down" class="h-4 w-4" />
         Baixar modelo
