@@ -294,15 +294,25 @@ onBeforeUnmount(() => {
           <p class="mt-0.5 truncate">{{ weddingDateLabel }}</p>
         </div>
 
+        <!-- Recolher/expandir mora no rodapé da sidebar e o "Sair" foi para o
+             header: com a sidebar recolhida os dois viram só ícone, e enquanto
+             dividiam a mesma coluna o clique de "expandir de novo" caía no de
+             sair. Separados por região, um ícone solto no rodapé só pode ser o
+             do menu. Só desktop — no drawer do mobile quem fecha é o "x" do
+             topo. -->
         <button
           type="button"
-          aria-label="Sair"
-          class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="hidden items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
           :class="!uiStore.sidebarOpen && 'lg:justify-center lg:px-0'"
-          @click="signOut"
+          :aria-label="uiStore.sidebarOpen ? 'Recolher menu' : 'Expandir menu'"
+          :aria-expanded="uiStore.sidebarOpen"
+          @click="uiStore.sidebarOpen = !uiStore.sidebarOpen"
         >
-          <Icon name="lucide:log-out" class="h-4 w-4 shrink-0" />
-          <span v-if="uiStore.sidebarOpen">Sair</span>
+          <Icon
+            :name="uiStore.sidebarOpen ? 'lucide:panel-left-close' : 'lucide:panel-left-open'"
+            class="h-4 w-4 shrink-0"
+          />
+          <span v-if="uiStore.sidebarOpen">Recolher menu</span>
         </button>
       </div>
     </aside>
@@ -324,24 +334,6 @@ onBeforeUnmount(() => {
           <Icon name="lucide:menu" class="h-5 w-5" />
         </button>
 
-        <!-- Mesma posição do hambúrguer do mobile: os dois controlam "mostrar ou
-             não a navegação", e aqui o botão fica ancorado na régua do header e
-             alinhado ao campo de busca. Solto no cabeçalho da sidebar ele não
-             encostava em nada; no rodapé, ficava colado no "Sair" com um ícone
-             de silhueta quase idêntica. -->
-        <button
-          type="button"
-          class="hidden shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:block"
-          :aria-label="uiStore.sidebarOpen ? 'Recolher menu' : 'Expandir menu'"
-          :aria-expanded="uiStore.sidebarOpen"
-          @click="uiStore.sidebarOpen = !uiStore.sidebarOpen"
-        >
-          <Icon
-            :name="uiStore.sidebarOpen ? 'lucide:panel-left-close' : 'lucide:panel-left-open'"
-            class="h-5 w-5"
-          />
-        </button>
-
         <AdminGlobalSearch />
 
         <div class="ml-auto flex shrink-0 items-center gap-3">
@@ -361,6 +353,19 @@ onBeforeUnmount(() => {
             </div>
             <span class="sr-only">{{ operatorEmail }}</span>
           </div>
+
+          <!-- Sair fica na ponta direita, ancorado no bloco de quem está
+               logado: é uma ação de conta, e aqui nunca divide vizinhança com
+               o controle de recolher a sidebar. -->
+          <button
+            type="button"
+            aria-label="Sair"
+            title="Sair"
+            class="shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            @click="signOut"
+          >
+            <Icon name="lucide:log-out" class="h-5 w-5" />
+          </button>
         </div>
       </header>
 
