@@ -84,9 +84,9 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 ### 3.2 Funcionalidades previstas
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
-- Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), foto, papel de padrinho/madrinha, observações internas.
+- Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) — mapeamento de colunas para `nome_completo`, `email`, `telefone`.
-- Edição inline de dados de contato.
+- Contato (e-mail/telefone) editável no cadastro do convidado, para o principal e para cada acompanhante — cada pessoa tem o próprio, nunca herdado de quem responde pelo convite.
 - Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
 - Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP, grupo e faixa etária.

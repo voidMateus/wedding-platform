@@ -104,6 +104,18 @@ A restrição alimentar era coletada em dois lugares — no RSVP público (campo
 
 **Assinaturas mantidas de propósito.** `p_restricoes_alimentares` segue existindo em `salvar_rsvp_convidado` (e a chave jsonb `restricoesAlimentares` segue sendo aceita nas outras duas) — agora ignorados. Manter a assinatura estável evita ter que editar `app/types/database.types.ts` à mão, que é gerado pelo Supabase CLI e nunca editado manualmente (CLAUDE.md §8). Quando/se as colunas forem dropadas, a mesma migration que fizer o `drop column` dropa também o parâmetro, e os tipos são regerados no mesmo passo.
 
+### Achado: contato do convidado era coluna morta há todo o projeto (2026-09-04)
+
+Encontrado ao planejar a importação/exportação de convidados. `convidados.email` e `convidados.telefone` existem desde o schema inicial, mas **nunca tiveram caminho de escrita**: não estavam em `guestPersonSchema`, `sincronizar_nucleo_convidado()` (o único caminho de gravação de convidado do produto) não as mencionava, e nenhuma tela do painel as exibia. Enquanto isso, `docs/PRODUCT.md` §3.2/3.3 descrevia contato como se existisse ("ao menos um canal de contato é recomendado pela UI"), e §3.2 já especificava a importação CSV mapeando justamente `nome_completo`, `email`, `telefone`.
+
+**Por que virou bloqueio da importação.** Importar uma planilha com 200 telefones para colunas que nenhuma tela lê nem edita produz dado *write-only* — pior que não importar, porque ninguém consegue nem conferir nem corrigir depois. Daí a decisão de ligar contato de verdade como passo A.0, antes de qualquer código de importação ou exportação.
+
+**Semântica de "chave ausente = não mexer".** Contato é o único campo dos UPDATEs de `sincronizar_nucleo_convidado` lido por `p_principal ? 'email'` em vez de `nullif(... ->> ...)` direto. Sem essa guarda, dois cenários apagariam contato em silêncio: um client anterior a este deploy (que manda o payload sem as chaves) zeraria o contato a cada "Salvar" — o mesmo acidente descrito acima para `restricoes_alimentares`, invertido; e a importação em massa, que vai atualizar convidados a partir de planilhas que quase nunca trazem todas as colunas, faria uma planilha `id;nome_completo;grupo` zerar o e-mail de todo mundo. Limpar de propósito continua funcionando: a chave vai presente com string vazia (é o que o formulário manda) e o `nullif` a converte em `NULL`. As três semânticas — grava, preserva na ausência da chave, limpa na string vazia — foram verificadas contra o banco de dev antes do commit.
+
+**Duplicação removida junto.** `GuestPartyWizard` e `GuestPartyCompanionsStep` tinham cópias idênticas de `emptyPerson()`/`personFromGuest()`. Ligar contato exigiria editar as duas, e esquecer uma faria o campo sumir silenciosamente só para acompanhantes — o mesmo tipo de divergência que criou o problema original. Extraídas para `app/utils/guest-person.ts` (dois contextos reais, então não é abstração especulativa — CLAUDE.md §5).
+
+**Coluna de contato na listagem ficou de fora**, deliberadamente: a tela de Convidados estava sendo reestruturada em paralelo (filtros por coluna) e uma coluna nova ali colidiria com esse trabalho. Contato já é visível e editável no cadastro; a listagem entra depois que aquele trabalho aterrissar.
+
 ---
 
 ## Fases concluídas (histórico completo por fase, fora da sequência numerada do roadmap)
