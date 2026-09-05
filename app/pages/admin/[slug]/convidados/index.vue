@@ -260,7 +260,7 @@ async function confirmDelete() {
         placeholder="Filtrar por nome..."
         class="w-full sm:w-64"
       />
-      <UiButton variant="outline" @click="isTemplateModalOpen = true">
+      <UiButton variant="ghost" @click="isTemplateModalOpen = true">
         <Icon name="lucide:file-down" class="h-4 w-4" />
         Baixar modelo
       </UiButton>

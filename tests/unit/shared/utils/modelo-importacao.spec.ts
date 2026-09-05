@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   CAMPOS_CONVIDADO,
   NOME_DA_LINHA_DE_EXEMPLO,
+  SECOES_CAMPOS,
   camposGravaveis,
+  camposImportaveis,
   campoPorChave,
   detectarCampo,
   interpretarValorDeEnum,
@@ -39,6 +41,21 @@ describe('catálogo de campos', () => {
     const obrigatorios = CAMPOS_CONVIDADO.filter((campo) => campo.obrigatorio).map((c) => c.chave)
 
     expect(obrigatorios).toEqual(['nome_completo'])
+  })
+
+  it('põe todo campo numa seção conhecida — sem isso ele sumiria da tela do gerador', () => {
+    const secoes = SECOES_CAMPOS.map((secao) => secao.chave)
+
+    for (const campo of CAMPOS_CONVIDADO) {
+      expect(secoes, `campo ${campo.chave}`).toContain(campo.secao)
+    }
+  })
+
+  it('não deixa seção sem nenhum campo importável — cabeçalho vazio na tela', () => {
+    for (const secao of SECOES_CAMPOS) {
+      const temCampo = camposImportaveis().some((campo) => campo.secao === secao.chave)
+      expect(temCampo, `seção ${secao.chave}`).toBe(true)
+    }
   })
 
   it('não repete chave', () => {

@@ -43,11 +43,27 @@ export interface ValorAceito {
   rotulo: string
 }
 
+/**
+ * Agrupamento dos campos na tela do gerador. É apresentação, não domínio —
+ * mora aqui pelo mesmo motivo que `rotulo` e `descricao`: uma lista de doze
+ * caixas seguidas é uma parede de texto, e quem adiciona um campo ao catálogo
+ * precisa decidir onde ele aparece no mesmo lugar em que decide tudo o mais.
+ */
+export type SecaoCampo = 'identificacao' | 'idade' | 'contato' | 'organizacao'
+
+export const SECOES_CAMPOS: readonly { chave: SecaoCampo; rotulo: string }[] = [
+  { chave: 'identificacao', rotulo: 'Identificação' },
+  { chave: 'idade', rotulo: 'Idade' },
+  { chave: 'contato', rotulo: 'Contato' },
+  { chave: 'organizacao', rotulo: 'Organização' },
+]
+
 export interface CampoConvidado {
   chave: string
   rotulo: string
   /** Explica o campo no gerador e nos erros do importador. */
   descricao: string
+  secao: SecaoCampo
   origem: OrigemCampo
   exportavel: boolean
   importacao: PapelImportacao
@@ -76,6 +92,7 @@ export const NOME_DA_LINHA_DE_EXEMPLO = 'Maria Exemplo — apague esta linha'
 export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   {
     chave: 'id',
+    secao: 'identificacao',
     rotulo: 'Identificador',
     descricao:
       'Identificador interno do convidado. Preenchido, o importador ATUALIZA esse convidado em vez de criar um novo. Deixe em branco (ou fora da planilha) para cadastrar gente nova.',
@@ -87,6 +104,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'nome_completo',
+    secao: 'identificacao',
     rotulo: 'Nome completo',
     descricao: 'Único campo obrigatório. Uma linha por pessoa.',
     origem: 'coluna',
@@ -98,6 +116,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'apelido',
+    secao: 'identificacao',
     rotulo: 'Apelido',
     descricao: 'Como a pessoa é chamada. Também entra na busca por nome.',
     origem: 'coluna',
@@ -109,6 +128,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'sexo',
+    secao: 'identificacao',
     rotulo: 'Sexo',
     descricao: 'Opcional.',
     origem: 'coluna',
@@ -125,6 +145,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'data_nascimento',
+    secao: 'idade',
     rotulo: 'Data de nascimento',
     descricao:
       'Opcional, no formato AAAA-MM-DD. Quando preenchida, a faixa etária passa a ser calculada na data do casamento e a faixa informada à mão é ignorada.',
@@ -137,6 +158,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'faixa_etaria_manual',
+    secao: 'idade',
     rotulo: 'Faixa etária (informada)',
     descricao:
       'Use quando não souber a data de nascimento. Com data de nascimento preenchida, este valor é ignorado.',
@@ -150,6 +172,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'faixa_etaria_calculada',
+    secao: 'idade',
     rotulo: 'Faixa etária (final)',
     descricao:
       'Classificação que vale hoje: a idade na data do casamento aplicada às faixas do evento, ou a faixa informada à mão quando não há data. Só leitura — muda sozinha quando você altera as faixas em Configurações, e por isso nunca é importada.',
@@ -161,6 +184,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'email',
+    secao: 'contato',
     rotulo: 'E-mail',
     descricao: 'Opcional. Canal para enviar o convite.',
     origem: 'coluna',
@@ -172,6 +196,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'telefone',
+    secao: 'contato',
     rotulo: 'Telefone',
     descricao: 'Opcional. Guardado exatamente como digitado.',
     origem: 'coluna',
@@ -183,6 +208,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'papel_casamento',
+    secao: 'organizacao',
     rotulo: 'Padrinho/Madrinha',
     descricao: 'Opcional. Deixe em branco para convidado sem papel na cerimônia.',
     origem: 'coluna',
@@ -198,6 +224,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'observacoes',
+    secao: 'organizacao',
     rotulo: 'Observações internas',
     descricao: 'Nunca exibidas ao convidado.',
     origem: 'coluna',
@@ -209,6 +236,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'grupo',
+    secao: 'organizacao',
     rotulo: 'Grupo',
     descricao:
       'Etiqueta livre de organização (Família da Noiva, Trabalho...). Pelo NOME, não pelo código: um grupo que ainda não existe é criado na importação, com a sua confirmação.',
@@ -221,6 +249,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'convite',
+    secao: 'organizacao',
     rotulo: 'Convite',
     descricao:
       'Quem recebeu o mesmo convite. Pessoas com o mesmo valor aqui entram no mesmo convite — é o que habilita o RSVP. Pelo NOME; um convite que ainda não existe é criado na importação, com a sua confirmação.',
@@ -233,6 +262,7 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
   },
   {
     chave: 'status_rsvp',
+    secao: 'organizacao',
     rotulo: 'Status do RSVP',
     descricao:
       'Resposta de presença do convidado. Só leitura: quem responde é o convidado, pelo site — a importação nunca confirma presença por ele.',
