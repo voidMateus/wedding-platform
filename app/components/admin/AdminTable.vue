@@ -21,8 +21,9 @@
   valer a condição de que nenhum ancestral seja contêiner de rolagem — é por
   isso que AdminPanel usa `overflow-clip` e não `overflow-hidden`.
 
-  Não substitui UiTable (casca fina usada pelas telas ainda não migradas) —
-  quando todas as listas do admin estiverem aqui, UiTable sai.
+  É a única tabela da plataforma desde que a listagem interna de casamentos
+  migrou para cá — a `UiTable`, casca fina que servia as telas ainda não
+  migradas, saiu sem nenhum uso restante.
 -->
 <script setup lang="ts" generic="Row extends { id: string }">
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'

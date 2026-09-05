@@ -68,7 +68,9 @@ export function inviteResponsePresentation(
 }
 
 /** Estado derivado de um presente na listagem administrativa. */
-export type GiftStatus = 'disponivel' | 'reservado' | 'inativo'
+export const GIFT_STATUS_VALUES = ['disponivel', 'reservado', 'inativo'] as const
+
+export type GiftStatus = (typeof GIFT_STATUS_VALUES)[number]
 
 const GIFT_PRESENTATION: Record<GiftStatus, StatusPresentation> = {
   // Nenhum dos três pede providência: disponível é "ainda não aconteceu",
@@ -83,7 +85,9 @@ export function giftStatusPresentation(status: GiftStatus): StatusPresentation {
 }
 
 /** Espelha casamentos.status_ciclo_vida. */
-export type WeddingLifecycleStatus = 'rascunho' | 'publicado' | 'arquivado'
+export const WEDDING_LIFECYCLE_VALUES = ['rascunho', 'publicado', 'arquivado'] as const
+
+export type WeddingLifecycleStatus = (typeof WEDDING_LIFECYCLE_VALUES)[number]
 
 const LIFECYCLE_PRESENTATION: Record<WeddingLifecycleStatus, StatusPresentation> = {
   rascunho: { label: 'Rascunho', tone: 'neutral' },
