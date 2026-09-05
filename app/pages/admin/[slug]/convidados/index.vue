@@ -203,6 +203,11 @@ function openCreateGuest() {
   router.push({ query: { ...route.query, novo: '1', editar: undefined } })
 }
 
+// Gerador de modelo de planilha. Ref local, e não na URL como o modal de
+// convidado: não há nada a compartilhar por link aqui — o resultado é um
+// arquivo baixado, não um estado da tela.
+const isTemplateModalOpen = ref(false)
+
 function openEditGuest(guest: GuestListItem) {
   router.push({ query: { ...route.query, novo: undefined, editar: guest.id } })
 }
@@ -255,6 +260,10 @@ async function confirmDelete() {
         placeholder="Filtrar por nome..."
         class="w-full sm:w-64"
       />
+      <UiButton variant="outline" @click="isTemplateModalOpen = true">
+        <Icon name="lucide:file-down" class="h-4 w-4" />
+        Baixar modelo
+      </UiButton>
       <UiButton @click="openCreateGuest">
         <Icon name="lucide:plus" class="h-4 w-4" />
         Adicionar convidado
@@ -405,6 +414,8 @@ async function confirmDelete() {
       @update:model-value="(isOpen) => !isOpen && closeGuestModal()"
       @saved="handleGuestSaved"
     />
+
+    <AdminGuestsGuestImportTemplateModal v-model="isTemplateModalOpen" />
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
       <p class="text-sm text-text">

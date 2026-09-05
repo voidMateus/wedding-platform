@@ -116,6 +116,22 @@ Encontrado ao planejar a importação/exportação de convidados. `convidados.em
 
 **Coluna de contato na listagem ficou de fora**, deliberadamente: a tela de Convidados estava sendo reestruturada em paralelo (filtros por coluna) e uma coluna nova ali colidiria com esse trabalho. Contato já é visível e editável no cadastro; a listagem entra depois que aquele trabalho aterrissar.
 
+### Decisão: catálogo de campos com papel, não com flags booleanas (2026-09-04)
+
+Ao especificar o gerador de modelo de importação, a proposta inicial descrevia cada campo com `importable: boolean` / `exportable: boolean` / `required` / `derived`. O modelo quebrou no primeiro exemplo da própria especificação: `id` foi descrito como *"importável: sim, mas apenas para identificar um registro existente"* — que não é `true` nem `false`.
+
+A consequência era concreta, não teórica: com `id` marcado importável, o preset "Completo" (definido como "todos os campos compatíveis com importação") geraria uma planilha de cadastro novo **com uma coluna `id` em branco** — convite a preencher 1, 2, 3 e receber erro de identificador inexistente em toda linha.
+
+**Correção:** `importacao: 'gravavel' | 'identificador' | 'nao'`. As três regras desejadas passaram a ser consequência estrutural em vez de convenção: modelo de criação lista `gravavel`; modelo de atualização lista `gravavel` + `identificador`; e campo derivado (`faixa_etaria_calculada`, `status_rsvp`) **não tem como** aparecer num modelo, porque o gerador só sabe listar graváveis. A regra "o modelo nunca oferece campo derivado" deixou de depender de alguém lembrar dela.
+
+**Segunda correção, `origem`.** Quatro dos campos do catálogo não são colunas de `convidados`: `grupo` e `convite` são vínculos resolvidos por nome (`grupo_id`/`convite_id`), `faixa_etaria_calculada` é calculada de duas tabelas e `status_rsvp` vem de `respostas_rsvp`. Sem `origem: 'coluna' | 'relacao' | 'derivado'`, o catálogo daria a entender que `chave` ≡ coluna do Postgres, e o primeiro `insert` genérico escrito em cima dele quebraria.
+
+**Presets colapsados numa tela só.** A especificação pedia três caminhos no wizard (Recomendado / Personalizar / Completo). Mas "Completo" é "Personalizado com tudo marcado" e "Recomendado" é "Personalizado com um preset marcado" — viraram chips sobre a mesma lista de caixas, com um passo a menos e o mesmo resultado.
+
+**"Recomendado" foi enxugado.** A lista original tinha onze campos — todo campo importável menos `id`, ou seja, o mesmo arquivo que o "Completo". Reduzido ao que só dá para fazer em massa (nome, data de nascimento, faixa informada, e-mail, telefone, grupo, convite); apelido, sexo, papel e observações são refinamento individual.
+
+**A garantia de compatibilidade virou teste, não intenção.** `tests/unit/shared/utils/modelo-importacao.spec.ts` gera cada preset, lê de volta pelo parser e confere que a autodetecção mapeia 100% das colunas, que todo valor de enum da linha de exemplo é interpretável e que a linha de exemplo é reconhecida como tal. Campo novo no catálogo sem suporte na leitura quebra o CI em vez de virar bug de produção.
+
 ---
 
 ## Fases concluídas (histórico completo por fase, fora da sequência numerada do roadmap)

@@ -85,7 +85,8 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
-- Importação em massa (CSV) — mapeamento de colunas para `nome_completo`, `email`, `telefone`.
+- Importação em massa (CSV) — colunas definidas pelo catálogo central de campos (ver seção 3.5).
+- Gerador de modelo de planilha — o casal escolhe as colunas e o sistema monta o CSV compatível com o importador (ver seção 3.5).
 - Contato (e-mail/telefone) editável no cadastro do convidado, para o principal e para cada acompanhante — cada pessoa tem o próprio, nunca herdado de quem responde pelo convite.
 - Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
@@ -125,6 +126,38 @@ Três conceitos distintos, nessa ordem:
 **Ao alterar a configuração**, nenhum dado de convidado muda: só a classificação calculada. Um convidado de 11 anos exibido como "Adolescente" com criança até 7 passa a "Criança" quando o limite vira 11. Não há histórico de classificações nesta versão — a regra vigente é a atual.
 
 **Evolução prevista** (não implementada): classificações diferentes por finalidade — alimentação (infantil 0–7 / adulto 8+), organização de mesas, recreação (bebê 0–2 / criança 3–7). Por isso a configuração é gravada sob a chave `principal`, e não como um array solto: outras finalidades entram como chaves irmãs, sem migration de formato. Ver [`ROADMAP.md`](ROADMAP.md).
+
+### 3.5 Catálogo de campos e modelo de importação
+
+**O princípio:** o casal não deveria precisar conhecer o schema do banco para preparar uma planilha. A pergunta "como eu preparo um arquivo para importar meus convidados?" é respondida com "escolha os campos que quer preencher e o sistema monta a planilha".
+
+**Catálogo central** (`shared/utils/campos-convidado.ts`) — fonte única de exportação, importação e gerador de modelo. Três listas independentes fariam com que adicionar um campo ao cadastro exigisse lembrar de três lugares, e esquecer um é silencioso: a coluna simplesmente não aparece, ou aparece e é ignorada.
+
+Cada campo declara o que se pode fazer com ele:
+
+| Propriedade | Significado |
+|---|---|
+| `origem` | `coluna` (direto de `convidados`), `relacao` (vínculo resolvido por nome — `grupo`, `convite`) ou `derivado` (calculado, não existe como coluna) |
+| `exportavel` | Aparece na exportação |
+| `importacao` | `gravavel` (aceito como valor), `identificador` (só diz *qual* registro atualizar — é o caso de `id`) ou `nao` |
+| `obrigatorio` | Só `nome_completo` |
+| `aliases`/`valores` | Cabeçalhos alternativos reconhecidos e, em campos de enum, os rótulos aceitos |
+
+**`chave` é o contrato do CSV, não a coluna do Postgres.** A maioria coincide, mas `grupo`/`convite` são vínculos por nome e `faixa_etaria_calculada`/`status_rsvp` não existem em `convidados`.
+
+**Campo derivado nunca é importável.** `faixa_etaria_calculada` é exportada para consulta e jamais oferecida como coluna de modelo: ela muda sozinha quando o casal altera as faixas do evento (seção 3.4), então aceitá-la de volta criaria uma segunda fonte de verdade para a classificação. A regra é estrutural — o gerador só sabe listar campos `gravavel` —, não uma convenção que alguém precise lembrar.
+
+**Exportação e modelo não têm as mesmas colunas**, de propósito: a exportação representa *dados que existem*, o modelo representa *a estrutura que o sistema aceita receber*.
+
+**Três presets, uma tela só** — chips sobre a mesma lista de caixas, porque os três produzem o mesmo tipo de arquivo e diferem apenas em quais colunas vêm marcadas:
+
+- **Recomendado** — só o que faz sentido preencher em massa: nome, data de nascimento, faixa etária informada, e-mail, telefone, grupo, convite. Apelido, sexo, papel na cerimônia e observações são refinamento individual; uma planilha com onze colunas em branco intimida justamente quem o preset deveria ajudar.
+- **Completo** — todos os campos graváveis.
+- **Atualizar existentes** — inclui `id`. Só aqui: numa planilha de cadastro novo, uma coluna `id` em branco é convite a inventar valores.
+
+**Formato.** O modelo sai com `;` e BOM UTF-8 (Excel em pt-BR), cabeçalho na chave canônica (`nome_completo`, não "Nome completo") e uma linha de exemplo preenchida. A **leitura** é deliberadamente mais permissiva que a escrita: detecta o separador (`;`, `,` ou tabulação), tolera BOM ausente e reconhece rótulos e apelidos comuns de coluna ("celular", "WhatsApp", "E-MAIL") — aceitar só o próprio dialeto tornaria falsa a promessa de importar a planilha que o casal já tem.
+
+**Linha de exemplo.** Resolve "qual formato a data espera?", mas cria o risco de virar uma convidada chamada "Maria Exemplo". Há aviso antes do download **e** o importador reconhece a linha pelo nome e a ignora — contar só com o aviso seria contar com a memória de quem edita a planilha dias depois.
 
 ## 4. Sistema de RSVP
 
