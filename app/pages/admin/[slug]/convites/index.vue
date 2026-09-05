@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatDatePtBR } from '#shared/utils/format-date'
-import type { InviteListItem } from '~/types/invite'
+import type { InviteListItem, InviteResponseStatus } from '~/types/invite'
+import type { AdminTableColumn } from '~/types/table'
 
 definePageMeta({ layout: 'admin' })
 
@@ -10,47 +11,109 @@ const router = useRouter()
 const { listInvites, deleteInvite } = useInvites()
 
 const page = ref(1)
-const search = ref('')
-const statusFilter = ref('todos')
 const PAGE_SIZE = 25
 
-// includeArchived: true de propósito. O recorte "Arquivados" da barra de
-// filtros não existiria sem isso — e hoje um convite arquivado desaparece da
-// listagem sem nenhuma forma de reencontrá-lo pela UI (o arquivamento é feito
-// na tela de detalhe). "Todos" continua escondendo arquivado, como antes.
+// Arquivado continua sendo chip, e não filtro de coluna: é escopo da consulta
+// (o soft delete do convite), não recorte de uma coluna da tabela. Sem ele um
+// convite arquivado desapareceria da listagem sem forma de reencontrá-lo pela
+// UI, já que o arquivamento é feito na tela de detalhe.
+const archiveFilter = ref<'active' | 'archived'>('active')
+const archiveChips = [
+  { value: 'active', label: 'Ativos' },
+  { value: 'archived', label: 'Arquivados' },
+] as const
+
+// Rótulo do estado consolidado, do mapa único de estados da plataforma. `sent`
+// só muda o tom de "pendente" (providência ou não), nunca o texto — então aqui,
+// onde a opção descreve o recorte e não um convite específico, `true` serve.
+const statusOptions = INVITE_RESPONSE_STATUS_VALUES.map((value) => ({
+  value,
+  label: inviteResponsePresentation(value, { sent: true }).label,
+}))
+
+// Todo recorte é do endpoint, nunca da página carregada: a listagem é paginada,
+// e filtrar aqui recortaria só os 25 da vez — era exatamente o que os chips
+// antigos faziam ("Arquivados" só achava os arquivados que por acaso caíssem na
+// página atual). O status consolidado passou a existir no banco, na view
+// convites_com_resumo, justamente para poder ser filtrado e ordenado antes de
+// paginar.
+const columns = computed<AdminTableColumn<InviteListItem>[]>(() => [
+  {
+    key: 'nome',
+    label: 'Convite',
+    filter: { type: 'text', placeholder: 'Buscar convite' },
+    sort: 'alpha',
+  },
+  { key: 'responsavel', label: 'Responsável' },
+  { key: 'pessoas', label: 'Pessoas', align: 'right', sort: 'numeric' },
+  {
+    key: 'status',
+    label: 'Status',
+    align: 'right',
+    filter: { type: 'select', multiple: true, options: statusOptions },
+  },
+  { key: 'enviado', label: 'Enviado em', align: 'right', sort: 'date' },
+  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
+])
+
+const filters = useTableFilters(columns)
+
+// O campo de busca do cabeçalho e o filtro de texto da coluna "Convite" são o
+// mesmo estado, com duas portas de entrada — nunca dois recortes que podem
+// divergir.
+const searchDraft = useDebouncedText(
+  () => filters.valuesOf('nome')[0] ?? '',
+  (value) => filters.setText('nome', value),
+)
+
+// A URL é editável à mão: valor fora do catálogo é descartado aqui, senão o
+// endpoint devolveria 400 (tela de erro) em vez da lista sem o recorte inválido.
+const statusFilter = computed(() =>
+  (filters.values.value.status ?? []).filter((value): value is InviteResponseStatus =>
+    (INVITE_RESPONSE_STATUS_VALUES as readonly string[]).includes(value),
+  ),
+)
+
+// Só as três que o endpoint sabe ordenar (a view resolve `pessoas` e `enviado`
+// antes de paginar); qualquer outra coisa na URL vira "sem ordenação".
+type InviteSortKey = 'nome' | 'pessoas' | 'enviado'
+const INVITE_SORT_KEYS: readonly InviteSortKey[] = ['nome', 'pessoas', 'enviado']
+
+const sortKey = computed<InviteSortKey | undefined>(() => {
+  const key = filters.sortKey.value
+  return INVITE_SORT_KEYS.find((candidate) => candidate === key)
+})
+
 const listParams = computed(() => ({
   page: page.value,
   pageSize: PAGE_SIZE,
-  search: search.value.trim() || undefined,
-  includeArchived: true,
+  search: filters.values.value.nome?.[0],
+  archived: archiveFilter.value,
+  responseStatus: statusFilter.value.length ? statusFilter.value : undefined,
+  sort: sortKey.value,
+  dir: filters.sortDirection.value,
 }))
 
 const { data, status, error, refresh } = listInvites(listParams)
+
+// Esqueleto só na primeira carga: trocar a tabela por esqueleto a cada recorte
+// desmontaria o cabeçalho e, com ele, o menu de filtro aberto — marcar dois
+// status seguidos viraria impossível. Enquanto atualiza, a lista anterior
+// continua na tela, esmaecida.
+const isFirstLoad = computed(() => status.value === 'pending' && !data.value)
+const isRefreshing = computed(() => status.value === 'pending' && Boolean(data.value))
+
+// Mudou o recorte, a página 3 do resultado anterior não descreve nada no novo.
+watch([filters.values, filters.sortKey, filters.sortDirection, archiveFilter], () => {
+  page.value = 1
+})
 
 const totalPages = computed(() => {
   const total = data.value?.meta.total ?? 0
   return Math.max(1, Math.ceil(total / PAGE_SIZE))
 })
 
-const statusChips = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'respondidos', label: 'Respondidos' },
-  { value: 'aguardando', label: 'Aguardando' },
-  { value: 'arquivados', label: 'Arquivados' },
-] as const
-
-const visibleInvites = computed(() => {
-  const rows = data.value?.data ?? []
-  if (statusFilter.value === 'arquivados') return rows.filter((invite) => invite.arquivado_em)
-  const active = rows.filter((invite) => !invite.arquivado_em)
-  if (statusFilter.value === 'respondidos') {
-    return active.filter((invite) => invite.responseStatus === 'responded')
-  }
-  if (statusFilter.value === 'aguardando') {
-    return active.filter((invite) => invite.responseStatus !== 'responded')
-  }
-  return active
-})
+const visibleInvites = computed(() => data.value?.data ?? [])
 
 const peopleInView = computed(() =>
   visibleInvites.value.reduce((total, invite) => total + invite.memberCount, 0),
@@ -60,15 +123,6 @@ const totalLabel = computed(() => {
   const total = data.value?.meta.total ?? 0
   return `${total} convite${total === 1 ? '' : 's'}`
 })
-
-const columns = [
-  { key: 'nome', label: 'Convite' },
-  { key: 'responsavel', label: 'Responsável' },
-  { key: 'pessoas', label: 'Pessoas', align: 'right' },
-  { key: 'status', label: 'Status', align: 'right' },
-  { key: 'enviado', label: 'Enviado em', align: 'right' },
-  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
-] as const
 
 // Badge também na tabela (preferência do usuário em 2026-09-04, depois de ver
 // as duas apresentações lado a lado): o preenchimento suave separa o status do
@@ -141,9 +195,10 @@ async function confirmDelete() {
   <AdminSection title="Convites" :meta="totalLabel">
     <template #actions>
       <UiInput
-        v-model="search"
+        v-model="searchDraft"
         icon="lucide:search"
         tone="muted"
+        aria-label="Filtrar convites por nome"
         placeholder="Filtrar por nome..."
         class="w-full sm:w-64"
       />
@@ -159,13 +214,18 @@ async function confirmDelete() {
     >
       <template #headerActions>
         <AdminFilterChips
-          v-model="statusFilter"
-          :items="statusChips"
-          group-label="Filtrar convites por situação"
+          v-model="archiveFilter"
+          :items="archiveChips"
+          group-label="Ver convites ativos ou arquivados"
+        />
+        <AdminTableFilterBar
+          :columns="columns"
+          :filters="filters"
+          group-label="Filtros da lista de convites"
         />
       </template>
 
-      <div v-if="status === 'pending'" class="flex flex-col gap-2 p-4 sm:p-5">
+      <div v-if="isFirstLoad" class="flex flex-col gap-2 p-4 sm:p-5">
         <UiSkeleton v-for="n in 3" :key="n" class="h-12 w-full" />
       </div>
 
@@ -190,59 +250,62 @@ async function confirmDelete() {
       </div>
 
       <template v-else>
-        <AdminTable
-          :columns="columns"
-          :rows="visibleInvites"
-          row-clickable
-          empty-label="Nenhum convite com esse recorte."
-          @row-click="openDetailModal"
-        >
-          <template #cell-nome="{ row }">
-            <button
-              type="button"
-              class="font-medium text-text transition-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              @click="openDetailModal(row)"
-            >
-              {{ row.nome }}
-            </button>
-            <UiBadge v-if="row.arquivado_em" tone="neutral" class="ml-2">arquivado</UiBadge>
-          </template>
-
-          <template #cell-responsavel="{ row }">
-            <span v-if="row.responsibleGuestName" class="text-text-muted">
-              {{ row.responsibleGuestName }}
-            </span>
-            <span v-else class="text-text-muted">—</span>
-          </template>
-
-          <template #cell-pessoas="{ row }">
-            <span class="num text-text-muted">{{ row.memberCount }}</span>
-          </template>
-
-          <template #cell-status="{ row }">
-            <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
-          </template>
-
-          <template #cell-enviado="{ row }">
-            <span class="text-text-muted">{{ formatDatePtBR(row.enviado_em) }}</span>
-          </template>
-
-          <template #cell-acoes="{ row }">
-            <span class="inline-flex justify-end gap-1">
-              <AdminRowAction
-                icon="lucide:pencil"
-                :label="`Abrir convite ${row.nome}`"
+        <div :class="isRefreshing && 'opacity-60'" class="transition-brand">
+          <AdminTable
+            :columns="columns"
+            :rows="visibleInvites"
+            :filters="filters"
+            row-clickable
+            empty-label="Nenhum convite com esse recorte."
+            @row-click="openDetailModal"
+          >
+            <template #cell-nome="{ row }">
+              <button
+                type="button"
+                class="font-medium text-text transition-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 @click="openDetailModal(row)"
-              />
-              <AdminRowAction
-                icon="lucide:trash-2"
-                tone="danger"
-                :label="`Excluir convite ${row.nome}`"
-                @click="openDeleteModal(row.id)"
-              />
-            </span>
-          </template>
-        </AdminTable>
+              >
+                {{ row.nome }}
+              </button>
+              <UiBadge v-if="row.arquivado_em" tone="neutral" class="ml-2">arquivado</UiBadge>
+            </template>
+
+            <template #cell-responsavel="{ row }">
+              <span v-if="row.responsibleGuestName" class="text-text-muted">
+                {{ row.responsibleGuestName }}
+              </span>
+              <span v-else class="text-text-muted">—</span>
+            </template>
+
+            <template #cell-pessoas="{ row }">
+              <span class="num text-text-muted">{{ row.memberCount }}</span>
+            </template>
+
+            <template #cell-status="{ row }">
+              <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
+            </template>
+
+            <template #cell-enviado="{ row }">
+              <span class="text-text-muted">{{ formatDatePtBR(row.enviado_em) }}</span>
+            </template>
+
+            <template #cell-acoes="{ row }">
+              <span class="inline-flex justify-end gap-1">
+                <AdminRowAction
+                  icon="lucide:pencil"
+                  :label="`Abrir convite ${row.nome}`"
+                  @click="openDetailModal(row)"
+                />
+                <AdminRowAction
+                  icon="lucide:trash-2"
+                  tone="danger"
+                  :label="`Excluir convite ${row.nome}`"
+                  @click="openDeleteModal(row.id)"
+                />
+              </span>
+            </template>
+          </AdminTable>
+        </div>
 
         <div
           class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-text-muted sm:px-5"

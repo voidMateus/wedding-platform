@@ -6,7 +6,7 @@ import {
   FAIXA_ETARIA_ROTULO_NAO_INFORMADA,
   descreverLimitesFaixaEtaria,
 } from '#shared/utils/faixa-etaria'
-import type { InviteListItem } from '~/types/invite'
+import type { InviteListItem, InviteResponseStatus } from '~/types/invite'
 
 definePageMeta({ layout: 'admin' })
 
@@ -129,36 +129,41 @@ const RECENT_INVITES_LIMIT = 8
 const INVITES_PAGE_SIZE = 25
 
 const { listInvites } = useInvites()
-// Sem includeArchived: o painel mostra o que está em jogo agora, não o
-// arquivo. A chave 'invites' é compartilhada com a tela de convites (que pede
-// includeArchived), então navegar entre as duas refaz o fetch — nunca as duas
-// montadas ao mesmo tempo, e o custo é uma listagem paginada.
-const {
-  data: invitesData,
-  status: invitesStatus,
-  error: invitesError,
-  refresh: refreshInvites,
-} = listInvites({ page: 1, pageSize: INVITES_PAGE_SIZE })
 
-const inviteFilter = ref('todos')
+const inviteFilter = ref<'todos' | 'aguardando' | 'respondidos'>('todos')
 const inviteFilters = [
   { value: 'todos', label: 'Todos' },
   { value: 'aguardando', label: 'Aguardando' },
   { value: 'respondidos', label: 'Respondidos' },
 ] as const
 
-const filteredInvites = computed(() => {
-  const rows = invitesData.value?.data ?? []
-  if (inviteFilter.value === 'aguardando') {
-    return rows.filter((invite) => invite.responseStatus !== 'responded')
-  }
-  if (inviteFilter.value === 'respondidos') {
-    return rows.filter((invite) => invite.responseStatus === 'responded')
-  }
-  return rows
+// O recorte vai para o endpoint, não é aplicado sobre a página carregada: o
+// painel mostra os 8 mais recentes DO RECORTE, e não "os que sobraram dos 8 mais
+// recentes de todos" — que era o que acontecia enquanto o filtro rodava aqui.
+const inviteResponseStatus = computed<InviteResponseStatus[] | undefined>(() => {
+  if (inviteFilter.value === 'respondidos') return ['responded']
+  if (inviteFilter.value === 'aguardando') return ['pending', 'partial']
+  return undefined
 })
 
-const recentInvites = computed(() => filteredInvites.value.slice(0, RECENT_INVITES_LIMIT))
+// Sem `archived`: o painel mostra o que está em jogo agora, não o arquivo (o
+// default do endpoint já esconde arquivados). A chave 'invites' é compartilhada
+// com a tela de convites, então navegar entre as duas refaz o fetch — nunca as
+// duas montadas ao mesmo tempo, e o custo é uma listagem paginada.
+const {
+  data: invitesData,
+  status: invitesStatus,
+  error: invitesError,
+  refresh: refreshInvites,
+} = listInvites(
+  computed(() => ({
+    page: 1,
+    pageSize: INVITES_PAGE_SIZE,
+    responseStatus: inviteResponseStatus.value,
+  })),
+)
+
+const recentInvites = computed(() => (invitesData.value?.data ?? []).slice(0, RECENT_INVITES_LIMIT))
 
 const invitesPanelMeta = computed(() => {
   const total = invitesData.value?.meta.total ?? 0
@@ -336,9 +341,12 @@ function statusOf(invite: InviteListItem) {
         </div>
 
         <template v-else>
+          <!-- Prévia de 8 linhas: sem rolagem própria, que só somaria uma barra
+               dentro de um bloco que já cabe inteiro na tela. -->
           <AdminTable
             :columns="inviteColumns"
             :rows="recentInvites"
+            :scrollable="false"
             empty-label="Nenhum convite com esse recorte."
           >
             <template #cell-nome="{ row }">

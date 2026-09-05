@@ -90,6 +90,7 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 - Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
 - Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP, grupo e faixa etária.
+- Na lista do admin, cada recorte é o filtro da própria coluna (nome, status de RSVP, faixa etária, grupo), e status/faixa/grupo aceitam **mais de um valor ao mesmo tempo** — "quem ainda não respondeu ou está em espera" é uma pergunta só do casal, não duas. O status de cada convidado aparece na própria linha, e "pendente" inclui quem nunca respondeu (não é valor gravado; ver `convidados_com_status` em [`DATABASE.md`](DATABASE.md)).
 
 ### 3.3 Regras de negócio
 
@@ -169,6 +170,7 @@ Dois conceitos independentes, fáceis de confundir pelo nome:
 - Etiquetas internas reutilizáveis (`etiquetas_convite`, ex.: "VIP", "Mesa 01") — só uso administrativo.
 - Linha do Tempo do convite (`historico_convite`): criado, token enviado, primeiro acesso, RSVP alterado, mensagem enviada, arquivado.
 - Visualização: convite → convidados → status de RSVP de cada um.
+- **Status consolidado do convite** (`pendente`/`parcial`/`respondido`), resolvido no banco (`convites_com_resumo`): pendente enquanto ninguém respondeu, respondido quando **todos os membros** responderam, parcial no meio do caminho. O denominador é o número de membros do convite — um convite de 3 pessoas em que só 1 respondeu é **parcial**, nunca respondido, porque ainda falta cobrar alguém.
 
 **Grupos (etiqueta livre):**
 - Criar/renomear/excluir grupos, definir cor.

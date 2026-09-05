@@ -142,7 +142,7 @@ docs/                          # ver seção 15
 - Soft delete (`excluido_em`) para entidades com valor histórico (convidados, presentes, convites, grupos); exclusão física só onde não há referência de terceiros nem valor histórico próprio.
 - Credencial nunca em texto plano em repouso. Hash de mão única (`codigo_hash`, SHA-256) quando o segredo só precisa ser **comparado** — é sempre o hash que autentica. Cifra reversível (AES-256-GCM, chave só no ambiente do servidor, `server/utils/token-cipher.ts`) só quando o valor original precisa voltar: token OAuth do Drive (precisa ser *usado*) e código de acesso do convite (precisa ser *reexibido* pro casal reenviar sem invalidar o link/QR já compartilhado). Cifra **nunca** autentica, e chave é separada por finalidade — uma env por uso.
 - Concorrência em operação de estoque/limite (reserva de presente, `max_acompanhantes`) é **sempre** função Postgres com `SELECT ... FOR UPDATE` numa transação — nunca `check-then-insert` na aplicação.
-- View nova **precisa** de `security_invoker = true` — sem isso roda com privilégio do dono (ignora RLS). Não há nenhuma view em produção hoje (achado de segurança real, ver `docs/CHANGELOG.md`).
+- View nova **precisa** de `security_invoker = true` — sem isso roda com privilégio do dono (ignora RLS). A regra vem de um achado de segurança real (`docs/CHANGELOG.md`). Existem duas hoje — `convidados_com_status` e `convites_com_resumo` (`docs/DATABASE.md`) —, ambas resolvendo estado consolidado que o PostgREST não expressa a partir da tabela e que a aplicação não pode calcular depois de paginar. View é o último recurso para esse caso, nunca conveniência de consulta.
 
 Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md)**.
 

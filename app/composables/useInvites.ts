@@ -1,5 +1,11 @@
 import type { InviteInput } from '#shared/schemas/invites'
-import type { Invite, InviteDetail, InviteEvent, InviteListItem } from '~/types/invite'
+import type {
+  Invite,
+  InviteDetail,
+  InviteEvent,
+  InviteListItem,
+  InviteResponseStatus,
+} from '~/types/invite'
 
 interface InviteListResponse {
   data: InviteListItem[]
@@ -10,7 +16,13 @@ interface InviteListParams {
   page?: number
   pageSize?: number
   search?: string
-  includeArchived?: boolean
+  /** 'active' (padrão) esconde arquivados; 'archived' mostra só eles; 'all' junta os dois. */
+  archived?: 'active' | 'archived' | 'all'
+  /** Status consolidado do convite — resolvido no banco, aceita mais de um valor. */
+  responseStatus?: InviteResponseStatus | InviteResponseStatus[]
+  /** Ordenação pedida pela coluna da tabela (ver /api/invites). */
+  sort?: 'nome' | 'pessoas' | 'enviado'
+  dir?: 'asc' | 'desc'
 }
 
 /**

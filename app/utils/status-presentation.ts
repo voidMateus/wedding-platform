@@ -1,3 +1,4 @@
+import type { RsvpStatus } from '#shared/utils/rsvp-status'
 import type { InviteResponseStatus } from '~/types/invite'
 
 /**
@@ -36,9 +37,6 @@ export interface StatusPresentation {
   tone: StatusTone
 }
 
-/** Espelha o CHECK de respostas_rsvp.status_rsvp. */
-export type RsvpStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
-
 const RSVP_PRESENTATION: Record<RsvpStatus, StatusPresentation> = {
   // Responder é a ação que o produto inteiro existe para cobrar.
   pendente: { label: 'Pendente', tone: 'warning' },
@@ -55,6 +53,13 @@ export function rsvpStatusPresentation(status: RsvpStatus): StatusPresentation {
   return RSVP_PRESENTATION[status]
 }
 
+/** Os três estados consolidados de um convite, na ordem em que a tela oferece. */
+export const INVITE_RESPONSE_STATUS_VALUES: readonly InviteResponseStatus[] = [
+  'responded',
+  'partial',
+  'pending',
+]
+
 /**
  * Resposta consolidada de um convite. `sent` decide o tom de "pendente": sem
  * ter sido enviado, ninguém deve nada e o estado é só "ainda não aconteceu";
@@ -70,7 +75,9 @@ export function inviteResponsePresentation(
 }
 
 /** Estado derivado de um presente na listagem administrativa. */
-export type GiftStatus = 'disponivel' | 'reservado' | 'inativo'
+export const GIFT_STATUS_VALUES = ['disponivel', 'reservado', 'inativo'] as const
+
+export type GiftStatus = (typeof GIFT_STATUS_VALUES)[number]
 
 const GIFT_PRESENTATION: Record<GiftStatus, StatusPresentation> = {
   // Nenhum dos três pede providência: disponível é "ainda não aconteceu",
@@ -85,7 +92,9 @@ export function giftStatusPresentation(status: GiftStatus): StatusPresentation {
 }
 
 /** Espelha casamentos.status_ciclo_vida. */
-export type WeddingLifecycleStatus = 'rascunho' | 'publicado' | 'arquivado'
+export const WEDDING_LIFECYCLE_VALUES = ['rascunho', 'publicado', 'arquivado'] as const
+
+export type WeddingLifecycleStatus = (typeof WEDDING_LIFECYCLE_VALUES)[number]
 
 const LIFECYCLE_PRESENTATION: Record<WeddingLifecycleStatus, StatusPresentation> = {
   rascunho: { label: 'Rascunho', tone: 'neutral' },

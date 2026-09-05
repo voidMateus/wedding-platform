@@ -1,16 +1,38 @@
 import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
 import { FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA } from '#shared/utils/faixa-etaria'
+import { RSVP_STATUS_VALUES } from '#shared/utils/rsvp-status'
+import type { GuestListItem } from '~/types/guest'
 
 const querySchema = paginationQuerySchema(25).extend({
   search: z.string().trim().max(200).optional(),
-  groupId: z.string().uuid().optional(),
+  // Multivalor (queryList) porque o filtro da coluna aceita marcar mais de uma
+  // opção — dois grupos, duas faixas. Valor único continua entrando igual, então
+  // as telas que só mandam um não mudaram.
+  groupId: queryList(z.string().uuid()),
   unassigned: z.coerce.boolean().optional(),
   withoutParty: z.coerce.boolean().optional(),
   // Faixa etária calculada na data do evento — nunca uma coluna de
   // `convidados`, sempre um recorte derivado (CLAUDE.md, seção 12).
-  ageGroup: z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA]).optional(),
+  ageGroup: queryList(z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA])),
+  // "pendente" inclui quem nunca respondeu (não há linha em respostas_rsvp) —
+  // é a view convidados_com_status que resolve isso, ver abaixo.
+  statusRsvp: queryList(z.enum(RSVP_STATUS_VALUES)),
+  // Ordenação pedida pela coluna correspondente da tabela do admin. Só `nome`
+  // por enquanto, e a lista curta é deliberada:
+  // - Grupo só existe aqui como `grupo_id` (uuid), então ordenar por ele daria
+  //   uma ordem sem significado nenhum pra quem lê a tela;
+  // - Faixa etária é derivada da data de nascimento MAIS a faixa manual de
+  //   quem não tem data (CLAUDE.md, seção 12) — não há coluna única que
+  //   traduza essa regra em `order by`;
+  // - Acompanhantes é contado por página, na aplicação.
+  // Cada uma delas continua filtrável (o filtro tem tradução exata em SQL); o
+  // que não entra aqui simplesmente não oferece ordenação na tela.
+  sort: z.enum(['nome']).optional(),
+  dir: z.enum(['asc', 'desc']).default('asc'),
 })
+
+const SORT_COLUMNS = { nome: 'nome_completo' } as const
 
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
@@ -22,14 +44,24 @@ export default defineEventHandler(async (event) => {
     unassigned,
     withoutParty,
     ageGroup,
+    statusRsvp,
+    sort,
+    dir,
   } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
+  // A leitura é da view, não da tabela: `respostas_rsvp` só ganha linha quando
+  // alguém responde, então "pendente" é "sem linha OU status pendente" — e essa
+  // condição não é expressável a partir de `convidados` (com `!inner` o
+  // convidado que nunca respondeu some; com `!left` o filtro corta a resposta
+  // embutida, não o convidado). A view resolve o status por linha respeitando a
+  // RLS das duas tabelas (security_invoker), ver a migration
+  // 20260904180001_convidados_com_status_rsvp.
   let query = client
-    .from('convidados')
+    .from('convidados_com_status')
     .select('*', { count: 'exact' })
     .eq('casamento_id', weddingId)
     .is('excluido_em', null)
@@ -46,19 +78,24 @@ export default defineEventHandler(async (event) => {
   // para a página, o "N confirmados" passa a descrever uma lista diferente da
   // que está na tela.
   let confirmedQuery = client
-    .from('convidados')
-    .select('id, respostas_rsvp!inner(status_rsvp)', { count: 'exact', head: true })
+    .from('convidados_com_status')
+    .select('id', { count: 'exact', head: true })
     .eq('casamento_id', weddingId)
     .is('excluido_em', null)
-    .eq('respostas_rsvp.status_rsvp', 'confirmado')
+    .eq('status_rsvp', 'confirmado')
 
-  if (ageGroup) {
+  if (ageGroup?.length) {
     // Traduzido para intervalo de datas de nascimento em vez de classificar
     // em memória: a lista é paginada e o "N confirmados" é contado no banco,
     // então um recorte feito no client descreveria uma lista diferente da que
     // está na tela. Quem não tem data de nascimento entra pela faixa manual —
     // e só nesse caso, porque a data sempre tem prioridade.
-    const filtro = buildAgeGroupFilter(ageGroup, await loadAgeGroupContext(client, weddingId))
+    //
+    // Várias faixas marcadas viram uma união só: cada faixa já devolve uma
+    // lista de condições `or`, e concatená-las mantém o sentido ("está em
+    // alguma destas"), sem multiplicar consultas.
+    const context = await loadAgeGroupContext(client, weddingId)
+    const filtro = ageGroup.map((faixa) => buildAgeGroupFilter(faixa, context)).join(',')
     query = query.or(filtro)
     confirmedQuery = confirmedQuery.or(filtro)
   }
@@ -66,9 +103,13 @@ export default defineEventHandler(async (event) => {
     query = query.ilike('nome_completo', `%${search}%`)
     confirmedQuery = confirmedQuery.ilike('nome_completo', `%${search}%`)
   }
-  if (groupId) {
-    query = query.eq('grupo_id', groupId)
-    confirmedQuery = confirmedQuery.eq('grupo_id', groupId)
+  if (groupId?.length) {
+    query = query.in('grupo_id', groupId)
+    confirmedQuery = confirmedQuery.in('grupo_id', groupId)
+  }
+  if (statusRsvp?.length) {
+    query = query.in('status_rsvp', statusRsvp)
+    confirmedQuery = confirmedQuery.in('status_rsvp', statusRsvp)
   }
   // Convidados ainda sem convite — usado pelo seletor "adicionar convidado"
   // na tela de detalhe do convite (CLAUDE.md, seção 12.1).
@@ -86,8 +127,13 @@ export default defineEventHandler(async (event) => {
     confirmedQuery = confirmedQuery.is('nucleo_id', null)
   }
 
+  // Ordem padrão continua sendo nome ↑ — `sort` ausente não muda nada do que
+  // as telas já mostravam. A ordenação não toca `confirmedQuery`: lá é uma
+  // contagem (`head: true`), onde ordem não significa nada.
+  const orderColumn = sort ? SORT_COLUMNS[sort] : 'nome_completo'
+
   const [pageResult, confirmedResult] = await Promise.all([
-    query.order('nome_completo', { ascending: true }).range(from, to),
+    query.order(orderColumn, { ascending: dir !== 'desc' }).range(from, to),
     confirmedQuery,
   ])
 
@@ -98,8 +144,14 @@ export default defineEventHandler(async (event) => {
     throw badRequestError(confirmedResult.error.message)
   }
 
+  // A view não declara NOT NULL em coluna nenhuma — o Postgres não infere isso
+  // para view —, então o tipo gerado sai todo anulável. As colunas vêm 1:1 de
+  // `convidados`, onde id/nome_completo/casamento_id são NOT NULL: cada linha é
+  // um convidado com uma coluna derivada a mais.
+  const data = pageResult.data as unknown as GuestListItem[]
+
   return {
-    data: pageResult.data,
+    data,
     meta: { page, pageSize, total: pageResult.count ?? 0 },
     summary: { confirmed: confirmedResult.count ?? 0 },
   }

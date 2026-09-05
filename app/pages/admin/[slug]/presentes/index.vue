@@ -5,6 +5,8 @@ import { giftCategoryInputSchema } from '#shared/schemas/gift-categories'
 import { formatCentsToBRL, formatCentsToBRLOrDash } from '#shared/utils/format-currency'
 import type { GiftCategory } from '~/types/gift-category'
 import type { Gift } from '~/types/gift'
+import type { AdminTableColumn } from '~/types/table'
+import type { ClientColumn } from '~/utils/table-rows'
 import type { GiftReservationsView } from '~/types/gift-public'
 
 definePageMeta({ layout: 'admin' })
@@ -72,25 +74,67 @@ function giftStatus(gift: Gift): GiftStatus {
   return 'disponivel'
 }
 
-const statusFilter = ref('todos')
-const statusChips = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'disponiveis', label: 'Disponíveis' },
-  { value: 'reservados', label: 'Reservados' },
-  { value: 'inativos', label: 'Inativos' },
-] as const
+const statusOptions = GIFT_STATUS_VALUES.map((status) => ({
+  value: status,
+  label: giftStatusPresentation(status).label,
+}))
 
-const filterByChip: Record<string, GiftStatus> = {
-  disponiveis: 'disponivel',
-  reservados: 'reservado',
-  inativos: 'inativo',
+const categoryOptions = computed(
+  () =>
+    categoriesData.value?.data.map((category) => ({ value: category.id, label: category.nome })) ??
+    [],
+)
+
+// A lista de presentes vem inteira numa requisição só (não é paginada), então
+// aqui o recorte é aplicado no client — diferente de convidados, onde filtrar
+// na tela recortaria só a página carregada.
+const columns = computed<AdminTableColumn<Gift>[]>(() => [
+  {
+    key: 'titulo',
+    label: 'Presente',
+    filter: { type: 'text', placeholder: 'Buscar presente' },
+    sort: 'alpha',
+  },
+  {
+    key: 'categoria',
+    label: 'Categoria',
+    filter: { type: 'select', multiple: true, options: categoryOptions.value },
+  },
+  {
+    key: 'reservado',
+    label: 'Reservado por',
+    filter: { type: 'text', placeholder: 'Buscar quem presenteou' },
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    align: 'right',
+    filter: { type: 'select', multiple: true, options: statusOptions },
+  },
+  { key: 'valor', label: 'Valor', align: 'right', sort: 'numeric' },
+  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
+])
+
+const filters = useTableFilters(columns)
+
+// De onde sai o valor de cada coluna: quase nenhuma é campo direto da linha —
+// status vem das reservas, categoria vem de outra requisição, "reservado por"
+// é uma lista de nomes.
+const accessors: Record<string, ClientColumn<Gift>> = {
+  titulo: { value: (gift) => gift.titulo, compare: compareText((gift) => gift.titulo) },
+  categoria: { value: (gift) => gift.categoria_id },
+  reservado: { value: (gift) => giversOf(gift) },
+  status: { value: (gift) => giftStatus(gift) },
+  valor: { compare: compareNumber((gift) => priceCents(gift)) },
 }
 
-const visibleGifts = computed(() => {
-  const rows = giftsData.value?.data ?? []
-  const wanted = filterByChip[statusFilter.value]
-  return wanted ? rows.filter((gift) => giftStatus(gift) === wanted) : rows
-})
+const visibleGifts = computed(() =>
+  applyTableFilters(giftsData.value?.data ?? [], columns.value, accessors, {
+    values: filters.values.value,
+    sortKey: filters.sortKey.value,
+    sortDirection: filters.sortDirection.value,
+  }),
+)
 
 const totalLabel = computed(() => {
   const total = giftsData.value?.data.length ?? 0
@@ -112,19 +156,14 @@ const paymentMetrics = computed(() => {
   ]
 })
 
-const columns = [
-  { key: 'titulo', label: 'Presente' },
-  { key: 'categoria', label: 'Categoria' },
-  { key: 'reservado', label: 'Reservado por' },
-  { key: 'status', label: 'Status', align: 'right' },
-  { key: 'valor', label: 'Valor', align: 'right' },
-  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
-] as const
+// Cota mostra a meta; presente físico, o preço. A ordenação por valor usa o
+// mesmo número que a coluna exibe, senão ordenaria por um valor invisível.
+function priceCents(gift: Gift): number | null {
+  return gift.e_presente_cota ? gift.valor_meta_centavos : gift.preco_centavos
+}
 
 function priceLabel(gift: Gift): string {
-  return gift.e_presente_cota
-    ? formatCentsToBRLOrDash(gift.valor_meta_centavos)
-    : formatCentsToBRLOrDash(gift.preco_centavos)
+  return formatCentsToBRLOrDash(priceCents(gift))
 }
 
 // --- categorias (CRUD compacto) ---
@@ -265,10 +304,10 @@ async function confirmDelete() {
 
     <AdminPanel title="Lista de presentes" :meta="`${visibleGifts.length} exibidos`">
       <template #headerActions>
-        <AdminFilterChips
-          v-model="statusFilter"
-          :items="statusChips"
-          group-label="Filtrar presentes por situação"
+        <AdminTableFilterBar
+          :columns="columns"
+          :filters="filters"
+          group-label="Filtros da lista de presentes"
         />
         <UiButton size="sm" variant="ghost" @click="isCategoriesModalOpen = true">
           Categorias
@@ -306,6 +345,7 @@ async function confirmDelete() {
         v-else
         :columns="columns"
         :rows="visibleGifts"
+        :filters="filters"
         empty-label="Nenhum presente com esse recorte."
       >
         <template #cell-titulo="{ row }">

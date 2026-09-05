@@ -1,9 +1,10 @@
 import type { GuestPartyReorderInput, GuestPartySyncInput } from '#shared/schemas/guests'
 import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
-import type { Guest } from '~/types/guest'
+import type { RsvpStatus } from '#shared/utils/rsvp-status'
+import type { Guest, GuestListItem } from '~/types/guest'
 
 export interface GuestListResponse {
-  data: Guest[]
+  data: GuestListItem[]
   meta: { page: number; pageSize: number; total: number }
   /** Agregado do recorte inteiro, não só da página — ver /api/guests. */
   summary: { confirmed: number }
@@ -13,11 +14,17 @@ interface GuestListParams {
   page?: number
   pageSize?: number
   search?: string
-  groupId?: string
+  /** Aceita lista: o filtro da coluna permite marcar mais de um grupo. */
+  groupId?: string | string[]
   unassigned?: boolean
   withoutParty?: boolean
   /** Recorte por faixa etária calculada na data do evento — resolvido no banco. */
-  ageGroup?: FaixaEtariaFiltro
+  ageGroup?: FaixaEtariaFiltro | FaixaEtariaFiltro[]
+  /** Status de RSVP, com "pendente" incluindo quem nunca respondeu (view convidados_com_status). */
+  statusRsvp?: RsvpStatus | RsvpStatus[]
+  /** Ordenação pedida pela coluna da tabela — só `nome` tem tradução em SQL (ver /api/guests). */
+  sort?: 'nome'
+  dir?: 'asc' | 'desc'
 }
 
 export interface GuestDetail extends Guest {
