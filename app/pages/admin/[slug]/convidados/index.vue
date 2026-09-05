@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { isFaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
 import type { Guest } from '~/types/guest'
+import type { AdminTableColumn } from '~/types/table'
 
 definePageMeta({ layout: 'admin' })
 
@@ -12,57 +13,75 @@ const { listGroups } = useGroups()
 const { classify, label: ageGroupLabel, originLabel, filterChips } = useAgeGroups()
 
 const page = ref(1)
-const search = ref('')
-const groupFilter = ref('')
 const PAGE_SIZE = 25
-
-// Na URL (não em ref local, como o recorte por grupo): o dashboard linka
-// direto para "as 8 crianças" a partir do contador por faixa, e o endereço do
-// recorte precisa ser compartilhável.
-const ageGroupFilter = computed(() =>
-  isFaixaEtariaFiltro(route.query.faixa) ? route.query.faixa : '',
-)
-
-function handleAgeGroupChange(value: string): void {
-  page.value = 1
-  router.replace({ query: { ...route.query, faixa: value || undefined } })
-}
-
-const listParams = computed(() => ({
-  page: page.value,
-  pageSize: PAGE_SIZE,
-  search: search.value.trim() || undefined,
-  groupId: groupFilter.value || undefined,
-  ageGroup: ageGroupFilter.value || undefined,
-}))
-
-const { data, status, error, refresh } = listGuests(listParams)
 
 const { data: groupsData } = listGroups({ pageSize: 100 })
 const groupOptions = computed(
   () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? [],
 )
 
-// Recorte por grupo em chip, no lugar do select — a barra de filtros do painel
-// é a mesma linguagem em todas as listas do admin.
+// Cada recorte é o filtro da própria coluna, não mais uma fileira de chips no
+// cabeçalho: com um chip por grupo, o painel virava uma parede de botões em
+// qualquer casamento com mais de meia dúzia de etiquetas. O estado vive na URL
+// (`?nome=&faixa=&grupo=&ordenar=&direcao=`, ver useTableFilters), então o link
+// do dashboard para "as 8 crianças" (`?faixa=crianca`) continua valendo igual.
 //
-// TODO(admin/convidados): o desenho original pedia também os recortes de RSVP
-// (Todos / Confirmados / Pendentes / Recusados) e uma coluna Status. O total
-// de confirmados do cabeçalho já vem de /api/guests (`summary.confirmed`,
-// agregado no banco), mas isso é um número só: cada linha de `data` continua
-// sendo `convidados.Row` puro, sem o status daquela pessoa. Para os chips e a
-// coluna, /api/guests precisa devolver o status por convidado (embed de
-// respostas_rsvp na consulta da página) e aceitar um filtro por status —
-// feito isso, basta somar os chips a `groupChips` e a coluna a `columns`.
-const groupChips = computed(() => [
-  { value: '', label: 'Todos' },
-  ...groupOptions.value.map((option) => ({ value: option.value, label: option.label })),
+// TODO(admin/convidados): falta a coluna Status de RSVP, que o desenho pedia. O
+// total de confirmados do cabeçalho já vem agregado do banco
+// (`summary.confirmed`), mas cada linha de `data` continua sendo
+// `convidados.Row` puro, sem o status daquela pessoa. O filtro dessa coluna não
+// é um `eq` simples: `respostas_rsvp` só ganha linha quando alguém responde
+// (`registrar_resposta_rsvp`), então "pendente" é "sem linha OU status
+// pendente" — condição que o PostgREST não expressa e que a listagem não pode
+// resolver na aplicação sem quebrar a contagem do recorte inteiro. Precisa de
+// função no banco; até lá a coluna não entra, porque filtro que não filtra de
+// verdade é pior que filtro ausente.
+const columns = computed<AdminTableColumn<Guest>[]>(() => [
+  {
+    key: 'nome',
+    label: 'Convidado',
+    filter: { type: 'text', placeholder: 'Buscar nome' },
+    sort: 'alpha',
+  },
+  { key: 'faixa', label: 'Faixa etária', filter: { type: 'select', options: filterChips.value } },
+  { key: 'grupo', label: 'Grupo', filter: { type: 'select', options: groupOptions.value } },
+  { key: 'acompanhantes', label: 'Acompanhantes' },
+  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
 ])
 
-function handleGroupChange(value: string): void {
-  groupFilter.value = value
+const filters = useTableFilters(columns)
+
+// O campo de busca do cabeçalho e o filtro de texto da coluna "Convidado" são
+// o mesmo estado, com duas portas de entrada — nunca dois recortes que podem
+// divergir. Por isso remover o chip do filtro limpa também a caixa de busca.
+const searchDraft = useDebouncedText(
+  () => filters.valueOf('nome'),
+  (value) => filters.setValue('nome', value),
+)
+
+const ageGroupFilter = computed(() => {
+  const value = filters.values.value.faixa ?? ''
+  return isFaixaEtariaFiltro(value) ? value : undefined
+})
+
+const listParams = computed(() => ({
+  page: page.value,
+  pageSize: PAGE_SIZE,
+  search: filters.values.value.nome || undefined,
+  groupId: filters.values.value.grupo || undefined,
+  ageGroup: ageGroupFilter.value,
+  sort: filters.sortKey.value === 'nome' ? ('nome' as const) : undefined,
+  dir: filters.sortDirection.value,
+}))
+
+const { data, status, error, refresh } = listGuests(listParams)
+
+// Mudou o recorte, a página 4 do resultado anterior não descreve nada no novo —
+// sem isto o casal filtra e vê "nenhum convidado" porque continuou depois do
+// fim da lista nova.
+watch([filters.values, filters.sortKey, filters.sortDirection], () => {
   page.value = 1
-}
+})
 
 const totalPages = computed(() => {
   const total = data.value?.meta.total ?? 0
@@ -134,14 +153,6 @@ function groupNameOf(guest: Guest): string {
   return groupOptions.value.find((option) => option.value === guest.grupo_id)?.label ?? '—'
 }
 
-const columns = [
-  { key: 'nome', label: 'Convidado' },
-  { key: 'faixa', label: 'Faixa etária' },
-  { key: 'grupo', label: 'Grupo' },
-  { key: 'acompanhantes', label: 'Acompanhantes' },
-  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
-] as const
-
 // --- criar/editar ---
 //
 // O modal é governado pela URL (`?novo=1` / `?editar=<id>`), não por um ref
@@ -202,12 +213,12 @@ async function confirmDelete() {
   <AdminSection title="Convidados" :meta="totalLabel">
     <template #actions>
       <UiInput
-        v-model="search"
+        v-model="searchDraft"
         icon="lucide:search"
         tone="muted"
+        aria-label="Filtrar convidados por nome"
         placeholder="Filtrar por nome..."
         class="w-full sm:w-64"
-        @keyup.enter="page = 1"
       />
       <UiButton @click="openCreateGuest">
         <Icon name="lucide:plus" class="h-4 w-4" />
@@ -217,20 +228,11 @@ async function confirmDelete() {
 
     <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
       <template #headerActions>
-        <div class="flex flex-col items-end gap-1.5">
-          <AdminFilterChips
-            :model-value="groupFilter"
-            :items="groupChips"
-            group-label="Filtrar convidados por grupo"
-            @update:model-value="handleGroupChange"
-          />
-          <AdminFilterChips
-            :model-value="ageGroupFilter"
-            :items="filterChips"
-            group-label="Filtrar convidados por faixa etária"
-            @update:model-value="handleAgeGroupChange"
-          />
-        </div>
+        <AdminTableFilterBar
+          :columns="columns"
+          :filters="filters"
+          group-label="Filtros da lista de convidados"
+        />
       </template>
 
       <div v-if="status === 'pending'" class="flex flex-col gap-2 p-4 sm:p-5">
@@ -251,6 +253,7 @@ async function confirmDelete() {
         <AdminTable
           :columns="columns"
           :rows="data?.data ?? []"
+          :filters="filters"
           :is-expanded="isPartyExpanded"
           row-clickable
           empty-label="Nenhum convidado com esses filtros."

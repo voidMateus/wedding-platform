@@ -10,7 +10,21 @@ const querySchema = paginationQuerySchema(25).extend({
   // Faixa etária calculada na data do evento — nunca uma coluna de
   // `convidados`, sempre um recorte derivado (CLAUDE.md, seção 12).
   ageGroup: z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA]).optional(),
+  // Ordenação pedida pela coluna correspondente da tabela do admin. Só `nome`
+  // por enquanto, e a lista curta é deliberada:
+  // - Grupo só existe aqui como `grupo_id` (uuid), então ordenar por ele daria
+  //   uma ordem sem significado nenhum pra quem lê a tela;
+  // - Faixa etária é derivada da data de nascimento MAIS a faixa manual de
+  //   quem não tem data (CLAUDE.md, seção 12) — não há coluna única que
+  //   traduza essa regra em `order by`;
+  // - Acompanhantes é contado por página, na aplicação.
+  // Cada uma delas continua filtrável (o filtro tem tradução exata em SQL); o
+  // que não entra aqui simplesmente não oferece ordenação na tela.
+  sort: z.enum(['nome']).optional(),
+  dir: z.enum(['asc', 'desc']).default('asc'),
 })
+
+const SORT_COLUMNS = { nome: 'nome_completo' } as const
 
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
@@ -22,6 +36,8 @@ export default defineEventHandler(async (event) => {
     unassigned,
     withoutParty,
     ageGroup,
+    sort,
+    dir,
   } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
@@ -86,8 +102,13 @@ export default defineEventHandler(async (event) => {
     confirmedQuery = confirmedQuery.is('nucleo_id', null)
   }
 
+  // Ordem padrão continua sendo nome ↑ — `sort` ausente não muda nada do que
+  // as telas já mostravam. A ordenação não toca `confirmedQuery`: lá é uma
+  // contagem (`head: true`), onde ordem não significa nada.
+  const orderColumn = sort ? SORT_COLUMNS[sort] : 'nome_completo'
+
   const [pageResult, confirmedResult] = await Promise.all([
-    query.order('nome_completo', { ascending: true }).range(from, to),
+    query.order(orderColumn, { ascending: dir !== 'desc' }).range(from, to),
     confirmedQuery,
   ])
 

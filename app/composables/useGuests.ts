@@ -18,6 +18,9 @@ interface GuestListParams {
   withoutParty?: boolean
   /** Recorte por faixa etária calculada na data do evento — resolvido no banco. */
   ageGroup?: FaixaEtariaFiltro
+  /** Ordenação pedida pela coluna da tabela — só `nome` tem tradução em SQL (ver /api/guests). */
+  sort?: 'nome'
+  dir?: 'asc' | 'desc'
 }
 
 export interface GuestDetail extends Guest {

@@ -13,15 +13,9 @@
   quando todas as listas do admin estiverem aqui, UiTable sai.
 -->
 <script setup lang="ts" generic="Row extends { id: string }">
-export interface AdminTableColumn<T> {
-  key: string
-  label: string
-  align?: 'left' | 'right'
-  /** Coluna de ações: rótulo só para leitor de tela, nunca desenhado. */
-  labelHidden?: boolean
-  /** Valor padrão da célula quando a página não passa o slot `cell-<key>`. */
-  value?: (row: T) => string | number
-}
+import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
+import type { TableFiltersApi } from '~/composables/useTableFilters'
+import type { AdminTableColumn, TableSortDirection } from '~/types/table'
 
 interface Props {
   /**
@@ -47,6 +41,14 @@ interface Props {
    * focável nem anunciada como botão.
    */
   rowClickable?: boolean
+  /**
+   * Estado dos filtros por coluna (`useTableFilters`). Com ele, as colunas que
+   * declaram `filter`/`sort` ganham o menu no próprio cabeçalho; sem ele a
+   * tabela desenha exatamente como antes. O menu só existe do `md` pra cima,
+   * onde há cabeçalho: no empilhado quem abre os filtros é
+   * `AdminTableFilterBar`, com o mesmo painel dentro de um modal.
+   */
+  filters?: TableFiltersApi
 }
 
 const {
@@ -55,6 +57,7 @@ const {
   emptyLabel = 'Nenhum registro com esses filtros.',
   isExpanded,
   rowClickable = false,
+  filters,
 } = defineProps<Props>()
 
 const emit = defineEmits<{
@@ -82,6 +85,38 @@ function headClass(column: AdminTableColumn<Row>): string {
   return column.align === 'right' ? 'text-right' : ''
 }
 
+// Coluna sem `filter` nem `sort` declarados não abre menu nenhum — é assim que
+// a tabela evita oferecer um recorte que o endpoint não sabe fazer.
+function isFilterable(column: AdminTableColumn<Row>): boolean {
+  return Boolean(filters) && Boolean(column.filter || column.sort)
+}
+
+function filterValueOf(column: AdminTableColumn<Row>): string {
+  return filters?.valueOf(column.key) ?? ''
+}
+
+function sortDirectionOf(column: AdminTableColumn<Row>): TableSortDirection | null {
+  return filters?.sortOf(column.key) ?? null
+}
+
+function ariaSort(column: AdminTableColumn<Row>): 'ascending' | 'descending' | 'none' | undefined {
+  if (!isFilterable(column) || !column.sort) return undefined
+  const direction = sortDirectionOf(column)
+  if (!direction) return 'none'
+  return direction === 'asc' ? 'ascending' : 'descending'
+}
+
+// O sentido da ordenação vale mais que o funil na hora de bater o olho: é o
+// que explica por que a lista está nessa ordem. Só quando não há ordenação o
+// ícone volta a falar do filtro.
+function triggerIcon(column: AdminTableColumn<Row>): string {
+  const direction = sortDirectionOf(column)
+  if (direction === 'asc') return 'lucide:arrow-up'
+  if (direction === 'desc') return 'lucide:arrow-down'
+  if (filterValueOf(column)) return 'lucide:filter'
+  return 'lucide:chevron-down'
+}
+
 // Vale só para a versão empilhada (rótulo à esquerda, valor à direita). No
 // desktop o alinhamento por coluna tem que estar na <td>, não aqui: o span é
 // inline dentro de um table-cell, e text-align não posiciona elemento inline
@@ -101,9 +136,45 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
               scope="col"
               class="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
               :class="headClass(column)"
+              :aria-sort="ariaSort(column)"
             >
               <span v-if="column.labelHidden" class="sr-only">{{ column.label }}</span>
-              <template v-else>{{ column.label }}</template>
+              <span v-else class="inline-flex items-center gap-1">
+                {{ column.label }}
+                <PopoverRoot v-if="isFilterable(column)">
+                  <PopoverTrigger
+                    :aria-label="`Filtrar e ordenar por ${column.label}`"
+                    class="rounded p-0.5 transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    :class="
+                      filters?.isActive(column.key)
+                        ? 'text-primary'
+                        : 'text-text-muted/70 hover:text-text'
+                    "
+                  >
+                    <Icon :name="triggerIcon(column)" class="h-3.5 w-3.5" />
+                  </PopoverTrigger>
+                  <!-- z-60 pelo mesmo motivo de UiSelect/UiColorPicker: listas
+                       do admin também aparecem dentro de modal (z-50). -->
+                  <PopoverPortal>
+                    <PopoverContent
+                      align="start"
+                      :side-offset="6"
+                      class="z-60 rounded-lg border border-border bg-surface-elevated p-3 text-left normal-case shadow-lg"
+                    >
+                      <AdminColumnFilter
+                        :label="column.label"
+                        :filter="column.filter"
+                        :sort="column.sort"
+                        :value="filterValueOf(column)"
+                        :direction="sortDirectionOf(column)"
+                        @update:value="filters?.setValue(column.key, $event)"
+                        @sort="filters?.setSort(column.key, $event)"
+                        @clear="filters?.clearColumn(column.key)"
+                      />
+                    </PopoverContent>
+                  </PopoverPortal>
+                </PopoverRoot>
+              </span>
             </th>
           </tr>
         </thead>

@@ -45,7 +45,7 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 - [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
 
-### Fases fora da sequência numerada (todas concluídas)
+### Fases fora da sequência numerada (concluídas, salvo onde indicado)
 
 Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha aqui:
 
@@ -59,6 +59,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 - **Fase Mensagens Personalizáveis**: `casamentos.config_conteudo` permite ao casal reescrever as mensagens narrativas do site público sem tocar em código.
 - **Fase Galeria via Google Drive**: upload manual substituído por sincronização com uma pasta do Google Drive do casal.
 - **Fase Classificação Etária**: faixa etária do convidado deixou de ser propriedade da pessoa — passou a ser derivada da idade na data do evento contra faixas configuráveis por casamento (`casamentos.config_faixas_etarias`), com faixa manual opcional para quem não tem data de nascimento. Estado atual em [`PRODUCT.md`](PRODUCT.md) seção 3.4.
+- **Fase Filtros por Coluna (em andamento)**: recorte de lista deixa de ser fileira de chips e vira filtro/ordenação da própria coluna, com o estado na URL. **Convidados entregue**; faltam Presentes, Grupos e Plataforma (client, sem mudança de API) e Convites — este último exige reestruturar a consulta do endpoint, porque `responseStatus`/`memberCount` são calculados depois da paginação e os chips de hoje filtram só a página carregada (achado registrado em [`CHANGELOG.md`](CHANGELOG.md)). Pendência conhecida: coluna de Status de RSVP depende de função no banco ("pendente" é "sem linha em `respostas_rsvp` OU status pendente", que o PostgREST não expressa).
 - **Reorganização de documentação (2026-08)**: CLAUDE.md reduzido a índice operacional; conteúdo de produto/banco/design system/roadmap movido para `docs/PRODUCT.md`, `docs/DATABASE.md`, `docs/DESIGN-SYSTEM.md` e este arquivo. `docs/ARCHITECTURE.md` e `docs/CHANGELOG.md` mantidos como já estavam (já tinham o escopo certo).
 
 ## 3. Fase 4 — Preparação para Escala
