@@ -25,6 +25,7 @@ const SETTINGS_TABS = {
       { id: 'tema', label: 'Opções de tema' },
       { id: 'avancado', label: 'Opções avançadas' },
       { id: 'experiencia', label: 'Experiência' },
+      { id: 'ordem', label: 'Ordem das seções' },
     ],
   },
   conteudo: {

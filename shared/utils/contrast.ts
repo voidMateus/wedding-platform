@@ -79,6 +79,25 @@ export function checkColorContrast(colorHex: string): ColorContrastResult {
 }
 
 /**
+ * Contraste do dourado de ornamento contra a cor primária — o par exato da
+ * seção Versículo, único lugar do site em que --color-ornament vira texto de
+ * verdade (Fase Rebrand do Convite).
+ *
+ * Existe separado de checkColorContrast() porque a pergunta é outra: lá o
+ * fundo é sempre o marfim da página; aqui é a faixa cheia na cor primária.
+ * Medir o dourado contra o marfim reprovaria uma combinação que na tela é
+ * legível — e é justamente por isso que o ornamento é isento da regra geral
+ * (ver ornamentHexColorSchema).
+ */
+export function checkOrnamentOnPrimary(
+  ornamentHex: string,
+  primaryHex: string,
+): { ratio: number; meetsMinimum: boolean } {
+  const ratio = getContrastRatio(ornamentHex, primaryHex)
+  return { ratio, meetsMinimum: ratio >= WCAG_AA_MIN_CONTRAST }
+}
+
+/**
  * Devolve o tom mais próximo da cor escolhida que passa no mínimo AA contra a
  * superfície padrão, ou `null` se a cor já passa.
  *

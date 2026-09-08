@@ -7,6 +7,7 @@ import {
   WCAG_AA_MIN_CONTRAST,
   suggestAccessibleColor,
   checkColorContrast,
+  checkOrnamentOnPrimary,
   getContrastRatio,
   isValidHexColor,
 } from '#shared/utils/contrast'
@@ -117,5 +118,27 @@ describe('suggestAccessibleColor', () => {
     // Garante que o laço de escurecimento sempre termina: qualquer cor
     // escurecida até o preto atinge o mínimo.
     expect(checkColorContrast('#000000').meetsMinimum).toBe(true)
+  })
+})
+
+describe('checkOrnamentOnPrimary', () => {
+  it('mede o dourado contra a PRIMÁRIA, não contra o fundo claro', () => {
+    // O mesmo dourado reprova contra o marfim (~2.3:1) e passa sobre o
+    // borgonha — que é o fundo real do Versículo. Medir contra o fundo errado
+    // reprovaria uma combinação legível, e é por isso que a função existe.
+    expect(checkColorContrast('#cbaa71').meetsMinimum).toBe(false)
+    expect(checkOrnamentOnPrimary('#cbaa71', '#7a1f24').meetsMinimum).toBe(true)
+  })
+
+  it('reprova um dourado claro sobre uma primária clara', () => {
+    const result = checkOrnamentOnPrimary('#cbaa71', '#dc2626')
+    expect(result.meetsMinimum).toBe(false)
+    expect(result.ratio).toBeLessThan(WCAG_AA_MIN_CONTRAST)
+  })
+
+  it('devolve a razão medida junto do veredito', () => {
+    const result = checkOrnamentOnPrimary('#ffffff', '#000000')
+    expect(result.ratio).toBeCloseTo(21, 1)
+    expect(result.meetsMinimum).toBe(true)
   })
 })

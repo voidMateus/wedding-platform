@@ -250,7 +250,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente — tudo na própria página `/admin/presentes` |
 | **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
-| **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
+| **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, ordem das seções da home, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
 | **Colaboradores** | Convidar/remover pessoas com acesso administrativo, definir permissões |
 
 ### 7.3 Regras de negócio
@@ -276,6 +276,28 @@ O local de cada etapa é uma **entidade selecionada**, não um texto digitado. O
 **O Maps é o caminho principal, nunca uma dependência.** Sem provedor configurado, ou com o provedor fora do ar, o cadastro manual continua completo por si só e o painel abre direto nele.
 
 **Compatibilidade com o que já existe.** Etapas cadastradas antes desta fase têm só o endereço em texto. Elas continuam sendo exibidas normalmente e nenhuma é convertida automaticamente para um resultado do Maps — substituir o endereço de um casal por um palpite de geocodificação, sem ele confirmar, é o oposto do que esta mudança resolve.
+
+### 7.5 Conteúdo do site — seções opcionais
+
+Duas seções do site público não têm texto padrão de plataforma, ao contrário de todas as outras (boas-vindas, história, dress code, manual do convidado, presentes, FAQ, que já nascem preenchidas com uma redação genérica editável).
+
+**Versículo.** Faixa colorida entre blocos claros, com o texto em dourado — o "respiro" que no convite impresso é a página cheia. Não tem texto padrão **de propósito**: é a única seção do site que fala em nome da fé do casal, e uma redação genérica da plataforma apareceria no site de todo mundo dizendo algo que ninguém escolheu. Sem texto preenchido, a seção não existe. A referência ("Salmos 118:24") é opcional e sozinha não sustenta a seção — sem o versículo em si, não há o que exibir.
+
+**Manual dos Padrinhos.** Público diferente do Manual dos Convidados: aqui é o traje combinado e a paleta que padrinhos e madrinhas precisam comprar; lá é estacionamento, horário e hospedagem. Tem introdução, traje "para eles", traje "para elas" e uma paleta de até 8 cores. Todos os campos são opcionais e cada bloco aparece só se preenchido; sem nada, a seção some. A maioria dos casamentos não tem manual de padrinhos, e essa é a razão de a seção nascer vazia em vez de nascer com um exemplo.
+
+**Toda cor da paleta tem nome obrigatório.** O nome aparece escrito embaixo da amostra e não é legenda decorativa: é a única forma de a informação chegar a quem não distingue aquele tom, e é também o que a madrinha usa para procurar o tecido numa loja. As cores da paleta são o único lugar do produto em que uma cor escolhida no painel não passa por validação de contraste — ali ela não pinta interface nenhuma, ela é o conteúdo (um champanhe ou um rosé são exatamente o tipo de cor que um casal quer mostrar, e a régua de contraste os proibiria).
+
+**Esvaziar o conteúdo é como se remove uma seção.** Vale para estas duas e para Manual, FAQ e Galeria. Não existe interruptor de "ocultar seção" na tela de ordem — seria um segundo estado dizendo a mesma coisa que o conteúdo já diz, e os dois sairiam de sincronia.
+
+### 7.6 Ordem das seções da home
+
+A sequência dos capítulos da página inicial é escolhida pelo casal em Configurações → Aparência → "Ordem das seções", arrastando as linhas ou usando as setas de subir/descer. O catálogo de seções é fixo (a plataforma decide quais existem); só a ordem é editável.
+
+**A capa fica sempre no topo e não entra na lista** — o Hero não é um capítulo da narrativa, é a capa.
+
+**Uma seção lançada depois nunca nasce invisível.** Se o casal salvou a ordem antes de uma seção existir, ela é anexada no fim automaticamente na hora de renderizar. Sem essa garantia, toda seção nova da plataforma deixaria de aparecer para quem já tivesse personalizado a ordem — um bug silencioso que só apareceria como "essa funcionalidade não funciona no meu site".
+
+**A ordem padrão** é: Boas-vindas → Versículo → Nossa História → O Grande Dia → Confirme sua Presença → Dress Code → Manual dos Convidados → Manual dos Padrinhos → Lista de Presentes → Nossos Momentos → Perguntas Frequentes. O RSVP vem logo depois de "O Grande Dia" porque é ali que a pergunta faz mais sentido — o convidado acabou de ler onde e quando.
 
 
 ---

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { PUBLIC_ORNAMENT_FRAME_KEY } from '~/utils/public-theme-context'
+
 // Wrapper padrão de "capítulo" da home editorial (Fase Editorial —
 // CLAUDE.md, seção 22.2). Título/divisor sempre centralizados; o conteúdo
 // do slot default fica livre para o próprio layout de cada seção (texto
@@ -16,6 +18,14 @@ interface Props {
 }
 
 const { title, eyebrow, tone = 'default', divider = true, seam = true, id } = defineProps<Props>()
+
+// Moldura de filete duplo (config_tema.ornamentFrame, Fase Rebrand do
+// Convite): quando o casal liga, TODA seção editorial recebe a borda do
+// convite impresso. Injetado pelo layout público — o porquê está em
+// PUBLIC_ORNAMENT_FRAME_KEY. Sem provider (um teste montando a seção
+// sozinha), o default `false` desenha a seção de sempre.
+const ornamentFrame = inject(PUBLIC_ORNAMENT_FRAME_KEY, false)
+const hasOrnamentFrame = computed(() => toValue(ornamentFrame))
 
 // Tons sólidos (não translúcidos) de propósito: a costura curva do topo é
 // preenchida com a MESMA cor do fundo da seção — um tom translúcido
@@ -37,7 +47,11 @@ const SEAM_FILL_CLASSES: Record<NonNullable<Props['tone']>, string> = {
 </script>
 
 <template>
-  <section :id="id" class="relative px-4 py-20 sm:py-28" :class="TONE_CLASSES[tone]">
+  <section
+    :id="id"
+    class="relative px-4 py-20 sm:py-28"
+    :class="[TONE_CLASSES[tone], hasOrnamentFrame ? 'ornament-frame sm:px-12 sm:py-32' : '']"
+  >
     <!--
       Costura curva: uma "colina" preenchida com a cor desta seção, subindo
       sobre a seção anterior (bottom-full). Entre seções da mesma cor fica
@@ -61,7 +75,9 @@ const SEAM_FILL_CLASSES: Record<NonNullable<Props['tone']>, string> = {
       class="mx-auto flex max-w-5xl flex-col gap-10"
     >
       <div v-if="title" class="flex flex-col items-center gap-3 text-center">
-        <p v-if="eyebrow" class="text-xs font-medium tracking-[0.3em] text-primary/60 uppercase">{{ eyebrow }}</p>
+        <p v-if="eyebrow" class="text-xs font-medium tracking-[0.3em] text-primary/60 uppercase">
+          {{ eyebrow }}
+        </p>
         <h2 class="font-display text-4xl font-semibold text-heading sm:text-5xl">{{ title }}</h2>
         <UiSectionDivider v-if="divider" />
       </div>

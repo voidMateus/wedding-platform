@@ -69,6 +69,23 @@
   --color-heading: var(--color-text);
   --color-body: var(--color-text);
 
+  /* Cor de ORNAMENTO (Fase Rebrand do Convite) — filetes, o "&" do Hero,
+     divisores, moldura das seções, monograma. Existe porque o dourado de um
+     convite impresso não é uma terceira cor de texto: ele reprovaria em
+     contraste como texto (e com razão — como texto é ilegível), mas é
+     exatamente a cor certa para um filete.
+
+     Default = a secundária, e não um dourado fixo. É o mesmo padrão de
+     --color-heading caindo em --color-text: quem nunca escolheu um ornamento
+     continua vendo o site que já via, com os acentos na cor secundária do
+     próprio tema — um dourado imposto por default brigaria com a paleta de
+     um casal que escolheu verde ou azul.
+
+     Onde ele NUNCA entra: texto de corpo, título e rótulo de botão. A única
+     aparição como texto é o Versículo, sobre a faixa na cor primária — par
+     validado por checkOrnamentOnPrimary() e avisado na tela de Aparência. */
+  --color-ornament: var(--color-secondary);
+
   /* Serifada no site público (identidade emocional), sans-serif densa
      no admin (legibilidade de dados) — CLAUDE.md, seção 22.1. O par
      tipográfico do site público varia por preset de tema (Fase Visual,
@@ -172,6 +189,40 @@
     box-shadow: var(--shadow-md);
   }
 
+  /* Moldura de filete duplo (Fase Rebrand do Convite) — a borda do convite
+     impresso: um traço mais firme por fora, um fio mais claro logo dentro. Os
+     dois saem de --color-ornament por opacidade, nunca de cores novas.
+
+     Pseudo-elementos, não `border` no próprio elemento: a moldura precisa
+     flutuar POR DENTRO da seção, sem participar do fluxo nem empurrar o
+     conteúdo, e some no mobile — num celular a régua de 24px de cada lado
+     comeria a largura útil de leitura em troca de um enfeite. Quem usa isto
+     precisa ser `relative`. */
+  .ornament-frame::before,
+  .ornament-frame::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    display: none;
+  }
+
+  @media (width >= 40rem) {
+    .ornament-frame::before,
+    .ornament-frame::after {
+      display: block;
+    }
+
+    .ornament-frame::before {
+      inset: 1.5rem;
+      border: 1px solid color-mix(in srgb, var(--color-ornament) 55%, transparent);
+    }
+
+    .ornament-frame::after {
+      inset: 1.75rem;
+      border: 1px solid color-mix(in srgb, var(--color-ornament) 28%, transparent);
+    }
+  }
+
   /* Faixa que rola na horizontal sem desenhar a barra de rolagem — usada em
      controles de navegação que precisam caber numa tela estreita sem quebrar
      linha (abas segmentadas e chips de seção de Configurações). A barra
@@ -243,6 +294,31 @@ body {
   background-color: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-sans);
+}
+
+/* Estilo tipográfico dos títulos do site público (config_tema.headingStyle,
+   Fase Rebrand do Convite). O convite impresso escreve nomes e títulos em
+   serifada capitular com espaçamento largo — 'engraved' traz isso para a
+   página; 'classic' (o default) é o que o site sempre foi.
+
+   Escopado por `data-heading-style` no wrapper do layout público, não em
+   <html>: assim o painel administrativo nunca herda a caixa alta de um tema
+   de casamento, sem precisar de uma segunda regra desfazendo a primeira.
+
+   O tracking do h1 é bem menor que o dos h2/h3 de propósito: o h1 é o nome do
+   casal em text-7xl e ali cada 0.01em de espaçamento vale dezenas de pixels
+   de largura. O degrau de tamanho que compensa a caixa alta é escolhido no
+   próprio Hero, onde as classes de tamanho vivem. */
+[data-heading-style='engraved'] :is(h1, h2, h3) {
+  text-transform: uppercase;
+}
+
+[data-heading-style='engraved'] h1 {
+  letter-spacing: 0.04em;
+}
+
+[data-heading-style='engraved'] :is(h2, h3) {
+  letter-spacing: 0.12em;
 }
 
 /* Escopo tipográfico do admin. Reaponta as MESMAS variáveis que as utilities

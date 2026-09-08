@@ -26,9 +26,15 @@ interface Props {
    * props vindos de useRoute()/dados já carregados).
    */
   featuredButtonId?: string
+  /**
+   * Arte própria do monograma (config_tema.monogramImageUrl), quando existe —
+   * o PublicMonogram cai nas iniciais do casal sem ela. Resolvido pelo
+   * layout, como os demais props vindos de dados já carregados.
+   */
+  monogramImageUrl?: string | null
 }
 
-const { coupleNames, slug, code, featuredButtonId } = defineProps<Props>()
+const { coupleNames, slug, code, featuredButtonId, monogramImageUrl } = defineProps<Props>()
 
 // "/{slug}/presentes" fica de fora da lista de texto — vira um CTA
 // destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
@@ -69,11 +75,25 @@ function closeMobileMenu() {
 <template>
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
     <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <!--
+        Monograma + nome, na mesma linha: a marca do convite passa a assinar
+        também a navegação (Fase Rebrand do Convite). O monograma é
+        aria-hidden e o nome continua sendo o texto acessível do link — quem
+        usa leitor de tela ouve o nome do casal, não duas iniciais soltas.
+        Some abaixo do sm para não disputar largura com o botão do menu.
+      -->
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 shrink-0 items-center whitespace-nowrap font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 shrink-0 items-center gap-2.5 whitespace-nowrap font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
+        <PublicMonogram
+          v-if="coupleNames"
+          :couple-names="coupleNames"
+          :image-url="monogramImageUrl"
+          size="sm"
+          class="hidden sm:inline-flex"
+        />
         {{ coupleNames || 'MeuSiteCasamento' }}
       </NuxtLink>
 
@@ -83,7 +103,11 @@ function closeMobileMenu() {
           :key="link.to"
           :to="link.to"
           class="shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 transition-all duration-200 hover:bg-surface-muted hover:text-text"
-          :class="link.id === featuredButtonId ? 'bg-secondary/10 font-semibold text-primary' : 'text-text-muted'"
+          :class="
+            link.id === featuredButtonId
+              ? 'bg-secondary/10 font-semibold text-primary'
+              : 'text-text-muted'
+          "
         >
           {{ link.label }}
         </NuxtLink>
@@ -102,7 +126,6 @@ function closeMobileMenu() {
         <Icon :name="isMobileMenuOpen ? 'lucide:x' : 'lucide:menu'" class="h-5 w-5" />
       </button>
     </nav>
-
   </header>
 
   <!--

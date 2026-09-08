@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import EditorialSection from '~/components/public/EditorialSection.vue'
 import SectionDivider from '~/components/ui/SectionDivider.vue'
+import { PUBLIC_ORNAMENT_FRAME_KEY } from '~/utils/public-theme-context'
 
 function mountSection(props = {}, slots = {}) {
   return mount(EditorialSection, {
@@ -70,5 +71,36 @@ describe('PublicEditorialSection', () => {
     const wrapper = mountSection({ title: 'Dress Code' })
     expect(wrapper.text()).not.toContain('undefined')
     expect(wrapper.findAll('p').some((p) => p.classes().includes('tracking-[0.3em]'))).toBe(false)
+  })
+})
+
+describe('PublicEditorialSection — moldura de filete', () => {
+  it('sem provider, não desenha moldura (default do inject)', () => {
+    // O contrato que mantém as ~20 suítes de seção montáveis sem Pinia nem
+    // layout: a seção desenha normalmente quando ninguém proveu nada.
+    const wrapper = mountSection({ title: 'Nossa História' })
+    expect(wrapper.classes()).not.toContain('ornament-frame')
+  })
+
+  it('desenha a moldura quando o layout provê ornamentFrame', () => {
+    const wrapper = mount(EditorialSection, {
+      props: { title: 'Nossa História' },
+      global: {
+        components: { UiSectionDivider: SectionDivider },
+        provide: { [PUBLIC_ORNAMENT_FRAME_KEY as symbol]: () => true },
+      },
+    })
+    expect(wrapper.classes()).toContain('ornament-frame')
+  })
+
+  it('aceita um valor cru, não só um getter', () => {
+    const wrapper = mount(EditorialSection, {
+      props: { title: 'Nossa História' },
+      global: {
+        components: { UiSectionDivider: SectionDivider },
+        provide: { [PUBLIC_ORNAMENT_FRAME_KEY as symbol]: true },
+      },
+    })
+    expect(wrapper.classes()).toContain('ornament-frame')
   })
 })

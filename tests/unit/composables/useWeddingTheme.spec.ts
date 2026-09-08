@@ -58,3 +58,18 @@ describe('useWeddingTheme', () => {
     expect(style['--font-button']).toBeUndefined()
   })
 })
+
+describe('useWeddingTheme — cor de ornamento', () => {
+  it('não emite --color-ornament quando o casal não escolheu um', () => {
+    // Ausente, o token continua herdando --color-secondary pelo default de
+    // main.css. Emitir um valor aqui apagaria essa herança e travaria o
+    // ornamento numa cor que ninguém pediu.
+    const style = useWeddingTheme({ primaryColor: '#7a1f24', secondaryColor: '#8a6a1f' })
+    expect(style['--color-ornament']).toBeUndefined()
+  })
+
+  it('emite --color-ornament quando definido', () => {
+    const style = useWeddingTheme({ ornamentColor: '#cbaa71' })
+    expect(style['--color-ornament']).toBe('#cbaa71')
+  })
+})

@@ -189,6 +189,123 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       expect(after?.config_tema).toEqual(before?.config_tema)
     })
 
+    it('grava os campos da Fase Rebrand do Convite (ornamento, título, moldura, ordem)', async () => {
+      // Este é o teste que fecha a classe de bug documentada no endpoint:
+      // campo novo do schema descartado em silêncio. As chaves gravadas
+      // passaram a ser derivadas do próprio themeConfigSchema, e é isso que
+      // este caso verifica de ponta a ponta.
+      const client = createTestApiClient({ cookie })
+      const res = await client.patch('/api/wedding/theme', {
+        presetId: 'convite-luxo',
+        primaryColor: '#7a1f24',
+        secondaryColor: '#8a6a1f',
+        titleColor: '',
+        bodyColor: '',
+        ornamentColor: '#cbaa71',
+        fontPairId: 'cinzel-inter-montserrat',
+        headingStyle: 'engraved',
+        ornamentFrame: true,
+        showCountdown: true,
+        heroButtons: ['presentes'],
+        heroFeaturedButton: 'presentes',
+        sectionOrder: ['versiculo', 'boas-vindas'],
+      })
+      expect(res.status).toBe(200)
+
+      const { data: stored } = await admin
+        .from('casamentos')
+        .select('config_tema')
+        .eq('id', wedding.id)
+        .single()
+      const storedTheme = stored?.config_tema as Record<string, unknown>
+      expect(storedTheme.ornamentColor).toBe('#cbaa71')
+      expect(storedTheme.headingStyle).toBe('engraved')
+      expect(storedTheme.ornamentFrame).toBe(true)
+      expect(storedTheme.sectionOrder).toEqual(['versiculo', 'boas-vindas'])
+    })
+
+    it('aceita um ornamento claro demais para ser texto, mas segue recusando a mesma cor como corpo', async () => {
+      // A isenção de contraste vale só para o ornamento. Se um dia ela vazar
+      // para as outras cores, é aqui que aparece.
+      const client = createTestApiClient({ cookie })
+      const base = {
+        presetId: '',
+        primaryColor: '#6b4a35',
+        secondaryColor: '#5f6f52',
+        titleColor: '',
+        bodyColor: '',
+        fontPairId: 'classico',
+        showCountdown: true,
+        heroButtons: ['presentes'],
+        heroFeaturedButton: 'presentes',
+      }
+
+      const aceito = await client.patch('/api/wedding/theme', {
+        ...base,
+        ornamentColor: '#c8a56a',
+      })
+      expect(aceito.status).toBe(200)
+
+      const recusado = await client.patch('/api/wedding/theme', {
+        ...base,
+        bodyColor: '#c8a56a',
+      })
+      expect(recusado.status).toBe(400)
+    })
+
+    it('salvar a aparência preserva as chaves geridas por outros endpoints', async () => {
+      // coverImageUrl, storyImageUrl, monogramImageUrl, pontos de foco e
+      // galleryPreviewCount ficam FORA do schema de propósito, e é essa
+      // ausência que os mantém intactos no merge. Um campo desses entrando no
+      // schema por engano apagaria a foto do casal ao salvar cor/fonte.
+      const geridoPorOutroEndpoint = {
+        coverImageUrl: 'https://exemplo.test/cover.jpg',
+        storyImageUrl: 'https://exemplo.test/story.jpg',
+        monogramImageUrl: 'https://exemplo.test/monogram.png',
+        coverFocalX: 30,
+        coverFocalY: 70,
+        galleryPreviewCount: 6,
+      }
+      const { data: atual } = await admin
+        .from('casamentos')
+        .select('config_tema')
+        .eq('id', wedding.id)
+        .single()
+      await admin
+        .from('casamentos')
+        .update({
+          config_tema: { ...(atual?.config_tema as object), ...geridoPorOutroEndpoint },
+        })
+        .eq('id', wedding.id)
+
+      const client = createTestApiClient({ cookie })
+      const res = await client.patch('/api/wedding/theme', {
+        presetId: '',
+        primaryColor: '#2f4858',
+        secondaryColor: '#5c5450',
+        titleColor: '',
+        bodyColor: '',
+        fontPairId: 'classico',
+        showCountdown: false,
+        heroButtons: ['presentes'],
+        heroFeaturedButton: 'presentes',
+      })
+      expect(res.status).toBe(200)
+
+      const { data: stored } = await admin
+        .from('casamentos')
+        .select('config_tema')
+        .eq('id', wedding.id)
+        .single()
+      const storedTheme = stored?.config_tema as Record<string, unknown>
+      for (const [chave, valor] of Object.entries(geridoPorOutroEndpoint)) {
+        expect(storedTheme[chave]).toEqual(valor)
+      }
+      // E o que o formulário de fato enviou mudou junto.
+      expect(storedTheme.primaryColor).toBe('#2f4858')
+      expect(storedTheme.showCountdown).toBe(false)
+    })
+
     it('sem sessão nenhuma, a requisição é rejeitada com 401', async () => {
       const client = createTestApiClient()
       const res = await client.patch('/api/wedding/theme', {

@@ -48,6 +48,21 @@ const monogramInitials = computed(() => {
   return a && b ? { a, b } : null
 })
 
+// Arte própria do monograma (Fase Rebrand do Convite). Quando existe, ela
+// substitui a cascata de iniciais como marca d'água — na mesma opacidade de
+// textura, para continuar sendo fundo e não ilustração.
+const monogramImageUrl = computed(() => theme.value.monogramImageUrl ?? null)
+
+// Caixa alta come largura: "MATEUS AUGUSTO" ocupa bem mais que "Mateus
+// Augusto" no mesmo corpo, e no celular o nome estouraria a régua. Por isso o
+// estilo 'engraved' desce um degrau na escala de tamanho — a compensação vive
+// aqui, junto das classes de tamanho, e não no CSS global que aplica a caixa
+// alta (main.css), que não tem como saber o corpo de cada título.
+const headingStyle = computed(() => theme.value.headingStyle ?? 'classic')
+const coupleNameSizeClasses = computed(() =>
+  headingStyle.value === 'engraved' ? 'text-4xl sm:text-7xl' : 'text-6xl sm:text-8xl',
+)
+
 // Textura de papel de algodão (ruído SVG inline, sem request externo) —
 // aplicada em opacidade mínima sobre o fundo marfim para o Hero não ser um
 // bloco de cor chapado (brief da Rodada 6: "papel premium para convites").
@@ -125,7 +140,11 @@ const heroButtons = computed(() =>
     />
 
     <!-- Profundidade do fundo (brief Rodada 6): textura de papel + luz suave, nunca cor chapada. -->
-    <div aria-hidden="true" class="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-multiply" :style="{ backgroundImage: PAPER_TEXTURE }" />
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-multiply"
+      :style="{ backgroundImage: PAPER_TEXTURE }"
+    />
     <div
       aria-hidden="true"
       class="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0)_45%)]"
@@ -135,15 +154,30 @@ const heroButtons = computed(() =>
       class="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_70%_at_50%_0%,rgba(255,255,255,0.45),transparent_60%)]"
     />
 
+    <!-- Arte própria do casal como marca d'água — mesma opacidade de textura
+         da cascata de iniciais que ela substitui: continua sendo fundo. -->
+    <img
+      v-if="monogramImageUrl"
+      :src="monogramImageUrl"
+      alt=""
+      data-test="hero-monogram-image"
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-y-0 right-0 my-auto h-[70%] w-auto translate-x-[12%] select-none object-contain opacity-[0.06]"
+    />
+
     <div
-      v-if="monogramInitials"
+      v-else-if="monogramInitials"
       data-test="hero-monogram"
       aria-hidden="true"
       class="pointer-events-none absolute inset-y-0 right-0 flex translate-x-[12%] select-none items-center font-display font-medium leading-none text-heading/[0.04]"
     >
       <span class="text-[13rem] sm:text-[22rem]">{{ monogramInitials.a }}</span>
-      <span class="translate-y-[4.5rem] text-[10rem] italic sm:translate-y-[8rem] sm:text-[17rem]">&amp;</span>
-      <span class="translate-y-[9rem] text-[13rem] sm:translate-y-[16rem] sm:text-[22rem]">{{ monogramInitials.b }}</span>
+      <span class="translate-y-[4.5rem] text-[10rem] italic sm:translate-y-[8rem] sm:text-[17rem]"
+        >&amp;</span
+      >
+      <span class="translate-y-[9rem] text-[13rem] sm:translate-y-[16rem] sm:text-[22rem]">{{
+        monogramInitials.b
+      }}</span>
     </div>
 
     <div
@@ -152,24 +186,33 @@ const heroButtons = computed(() =>
       :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
       class="relative flex flex-col items-center gap-5"
     >
-      <p class="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-text-muted sm:text-sm">
-        <span class="h-px w-6 bg-secondary/60" aria-hidden="true" />
+      <!-- Filetes, ramo e o "&" são ornamento, não acento de interface: desde
+           a Fase Rebrand do Convite saem de --color-ornament, que por default
+           ainda é a secundária (main.css) — quem não escolheu um dourado
+           continua vendo exatamente o Hero de antes. -->
+      <p
+        class="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-text-muted sm:text-sm"
+      >
+        <span class="h-px w-6 bg-ornament/60" aria-hidden="true" />
         Vamos nos casar
-        <span class="h-px w-6 bg-secondary/60" aria-hidden="true" />
+        <span class="h-px w-6 bg-ornament/60" aria-hidden="true" />
       </p>
-      <PublicHeroFlourish class="text-secondary" />
+      <PublicHeroFlourish class="text-ornament" />
       <h1
         v-if="coupleNameParts"
-        class="font-display text-6xl font-semibold leading-[1.05] text-heading sm:text-8xl"
+        class="font-display font-semibold leading-[1.05] text-heading"
+        :class="coupleNameSizeClasses"
       >
         <span class="block">{{ coupleNameParts[0] }}</span>
-        <span class="block py-1 text-[0.45em] font-normal italic leading-none text-secondary">&amp;</span>
+        <span class="block py-1 text-[0.45em] font-normal italic leading-none text-ornament"
+          >&amp;</span
+        >
         <span class="block">{{ coupleNameParts[1] }}</span>
       </h1>
-      <h1 v-else class="font-display text-6xl font-semibold text-heading sm:text-8xl">
+      <h1 v-else class="font-display font-semibold text-heading" :class="coupleNameSizeClasses">
         {{ wedding.nomes_noivos }}
       </h1>
-      <span class="h-px w-14 bg-secondary/80" aria-hidden="true" />
+      <span class="h-px w-14 bg-ornament/80" aria-hidden="true" />
       <p class="text-xs uppercase tracking-[0.3em] text-text-muted sm:text-sm">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
@@ -196,10 +239,14 @@ const heroButtons = computed(() =>
         </UiButton>
       </div>
 
-      <div class="mt-8 flex flex-col items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-text-muted">
+      <div
+        class="mt-8 flex flex-col items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-text-muted"
+      >
         <span>Role para descobrir</span>
-        <span class="h-5 w-px bg-secondary/50" aria-hidden="true" />
-        <span class="flex h-8 w-8 items-center justify-center rounded-full border border-secondary/50 text-secondary">
+        <span class="h-5 w-px bg-ornament/50" aria-hidden="true" />
+        <span
+          class="flex h-8 w-8 items-center justify-center rounded-full border border-ornament/50 text-ornament"
+        >
           <Icon name="lucide:arrow-down" class="h-3.5 w-3.5 animate-bounce" />
         </span>
       </div>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ThemeConfig } from '#shared/schemas/theme'
+import { resolveHomeSectionOrder } from '#shared/home-sections'
 import { groupEventSegmentsByVenue } from '~/utils/group-event-segments-by-venue'
 
 const { getPublicWedding } = usePublicWedding()
@@ -31,15 +33,28 @@ const resolvedSegments = computed(() => {
 // diferentes viram dois cards lado a lado na mesma seção.
 const eventSegmentGroups = computed(() => groupEventSegmentsByVenue(resolvedSegments.value))
 
+// Ordem dos capítulos escolhida pelo casal (config_tema.sectionOrder — Fase
+// Rebrand do Convite). O `v-for` sobre ids com um `v-if` por seção substitui
+// a lista fixa de componentes que existia aqui: é a mesma leitura de cima
+// para baixo, mas a sequência passa a vir do banco.
+//
+// `<component :is>` seria mais curto e foi descartado de propósito: cada
+// seção recebe props diferentes, então um mapa id → componente precisaria
+// vir acompanhado de um mapa id → props para não perder a tipagem — mais
+// indireção para ler exatamente a mesma coisa.
+const sectionOrder = computed(() => {
+  const theme = (wedding.value?.config_tema ?? {}) as Partial<ThemeConfig>
+  return resolveHomeSectionOrder(theme.sectionOrder)
+})
+
 // Meta dinâmica por casamento (CLAUDE.md, seção 26) — essencial para o
 // preview correto ao compartilhar o link no WhatsApp. Slug inexistente
 // nunca deve ser indexado (não há conteúdo real por trás dele).
 useSeoMeta({
-  title: () => (wedding.value ? `${wedding.value.nomes_noivos} — Casamento` : 'Casamento não encontrado'),
+  title: () =>
+    wedding.value ? `${wedding.value.nomes_noivos} — Casamento` : 'Casamento não encontrado',
   description: () =>
-    wedding.value
-      ? `Confira as informações do nosso casamento e confirme presença.`
-      : undefined,
+    wedding.value ? `Confira as informações do nosso casamento e confirme presença.` : undefined,
   ogTitle: () => (wedding.value ? `${wedding.value.nomes_noivos} — Casamento` : undefined),
   robots: () => (wedding.value ? undefined : 'noindex, nofollow'),
 })
@@ -60,16 +75,35 @@ useSeoMeta({
     />
 
     <template v-else>
+      <!-- O Hero é a capa, não um capítulo: fica fora da ordem configurável. -->
       <PublicHero :wedding="wedding" :segments="resolvedSegments" :code="code" />
-      <PublicWelcomeSection :wedding="wedding" />
-      <PublicStorySection :wedding="wedding" />
-      <PublicGrandeDiaSection :groups="eventSegmentGroups" :event-date="wedding.data_evento" />
-      <PublicDressCodeSection :wedding="wedding" />
-      <PublicGuestManualSection :wedding="wedding" />
-      <PublicRsvpTeaserSection :wedding="wedding" />
-      <PublicGiftsShowcaseSection />
-      <PublicFaqSection :wedding="wedding" />
-      <PublicGallerySection />
+
+      <template v-for="sectionId in sectionOrder" :key="sectionId">
+        <PublicWelcomeSection v-if="sectionId === 'boas-vindas'" :wedding="wedding" />
+        <PublicVerseSection v-else-if="sectionId === 'versiculo'" :wedding="wedding" />
+        <PublicStorySection v-else-if="sectionId === 'historia'" :wedding="wedding" />
+        <PublicGrandeDiaSection
+          v-else-if="sectionId === 'grande-dia'"
+          :groups="eventSegmentGroups"
+          :event-date="wedding.data_evento"
+        />
+        <PublicRsvpTeaserSection
+          v-else-if="sectionId === 'confirmar-presenca'"
+          :wedding="wedding"
+        />
+        <PublicDressCodeSection v-else-if="sectionId === 'dress-code'" :wedding="wedding" />
+        <PublicGuestManualSection
+          v-else-if="sectionId === 'manual-convidados'"
+          :wedding="wedding"
+        />
+        <PublicGroomsmenManualSection
+          v-else-if="sectionId === 'manual-padrinhos'"
+          :wedding="wedding"
+        />
+        <PublicGiftsShowcaseSection v-else-if="sectionId === 'presentes'" />
+        <PublicGallerySection v-else-if="sectionId === 'nossos-momentos'" />
+        <PublicFaqSection v-else-if="sectionId === 'faq'" :wedding="wedding" />
+      </template>
     </template>
   </div>
 </template>

@@ -6,9 +6,11 @@
 interface Props {
   coupleNames?: string | null
   eventDate?: string | null
+  /** Arte própria do monograma — sem ela, o PublicMonogram desenha as iniciais do casal. */
+  monogramImageUrl?: string | null
 }
 
-const { coupleNames, eventDate } = defineProps<Props>()
+const { coupleNames, eventDate, monogramImageUrl } = defineProps<Props>()
 
 const formattedDate = computed(() =>
   eventDate
@@ -33,13 +35,27 @@ const formattedDate = computed(() =>
       <path fill="currentColor" d="M0,96 L0,64 Q720,0 1440,64 L1440,96 Z" />
     </svg>
     <div class="mx-auto flex max-w-md flex-col items-center gap-3">
-      <Icon name="lucide:sparkle" class="h-5 w-5 text-primary/50" />
-      <p v-if="coupleNames" class="font-display text-2xl font-semibold text-heading">{{ coupleNames }}</p>
-      <p v-if="formattedDate" class="text-xs font-medium tracking-[0.3em] text-primary/50 uppercase">
+      <!--
+        O monograma assina o rodapé como assina o pé de cada página do convite
+        (Fase Rebrand do Convite) — substitui o ícone genérico de brilho, que
+        não dizia nada sobre este casamento em particular. Sem nome de casal
+        para derivar iniciais, o PublicMonogram não desenha nada e o rodapé
+        segue com o resto.
+      -->
+      <PublicMonogram :couple-names="coupleNames" :image-url="monogramImageUrl" size="lg" />
+      <p v-if="coupleNames" class="font-display text-2xl font-semibold text-heading">
+        {{ coupleNames }}
+      </p>
+      <p
+        v-if="formattedDate"
+        class="text-xs font-medium tracking-[0.3em] text-primary/50 uppercase"
+      >
         {{ formattedDate }}
       </p>
       <UiSectionDivider />
-      <p class="text-xs text-text-muted">Feito com <span class="text-primary">♥</span> por MeuSiteCasamento</p>
+      <p class="text-xs text-text-muted">
+        Feito com <span class="text-primary">♥</span> por MeuSiteCasamento
+      </p>
     </div>
   </footer>
 </template>

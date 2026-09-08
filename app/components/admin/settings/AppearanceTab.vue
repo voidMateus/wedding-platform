@@ -5,6 +5,8 @@ import { themeConfigSchema, type ThemeConfig } from '#shared/schemas/theme'
 import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from '#shared/utils/contrast'
 import { DEFAULT_FONT_PAIR_ID, findThemePreset } from '#shared/theme-presets'
 import { DEFAULT_HERO_BUTTONS, DEFAULT_HERO_FEATURED_BUTTON } from '#shared/hero-buttons'
+import { resolveHomeSectionOrder } from '#shared/home-sections'
+import { hasVerseContent, resolveWeddingContent } from '#shared/wedding-content'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
@@ -30,6 +32,20 @@ const storyImageUrl = computed(() => {
   const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.storyImageUrl ?? null
 })
+const monogramImageUrl = computed(() => {
+  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
+  return theme.monogramImageUrl ?? null
+})
+
+/**
+ * A seção Versículo tem texto? É a única situação em que a cor de ornamento
+ * vira letra, e por isso a única em que faz sentido avisar sobre contraste
+ * (ver AdminSettingsOrnamentField). Vem de config_conteudo, editado na OUTRA
+ * aba — a cor mora aqui, o texto mora lá, e o aviso precisa dos dois.
+ */
+const verseActive = computed(() =>
+  hasVerseContent(resolveWeddingContent(props.wedding?.config_conteudo).verse),
+)
 
 const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = useForm({
   validationSchema: toTypedSchema(themeConfigSchema),
@@ -40,10 +56,22 @@ const [primaryColor] = defineField('primaryColor')
 const [secondaryColor] = defineField('secondaryColor')
 const [titleColor] = defineField('titleColor')
 const [bodyColor] = defineField('bodyColor')
+const [ornamentColor] = defineField('ornamentColor')
 const [fontPairId] = defineField('fontPairId')
+const [headingStyle] = defineField('headingStyle')
+const [ornamentFrame] = defineField('ornamentFrame')
 const [showCountdown] = defineField('showCountdown')
 const [heroButtons] = defineField('heroButtons')
 const [heroFeaturedButton] = defineField('heroFeaturedButton')
+const [sectionOrder] = defineField('sectionOrder')
+
+// Caixa alta com espaçamento largo é o tratamento do convite impresso; a
+// escolha aparece como duas opções nomeadas, não como um interruptor
+// "tipografia de convite" — ligado/desligado não diz o que muda na página.
+const HEADING_STYLE_OPTIONS = [
+  { value: 'classic', label: 'Clássico — como está escrito' },
+  { value: 'engraved', label: 'Convite — CAIXA ALTA E ESPAÇADA' },
+]
 
 // Personalização avançada (Fase Editorial, CLAUDE.md seção 22.3): título e
 // corpo de texto continuam opcionais mesmo com o modo ligado — o toggle só
@@ -64,10 +92,18 @@ function applyWeddingToForm() {
       secondaryColor: theme.secondaryColor ?? DEFAULT_SECONDARY_COLOR,
       titleColor: theme.titleColor ?? '',
       bodyColor: theme.bodyColor ?? '',
+      ornamentColor: theme.ornamentColor ?? '',
       fontPairId: theme.fontPairId ?? DEFAULT_FONT_PAIR_ID,
+      headingStyle: theme.headingStyle ?? 'classic',
+      ornamentFrame: theme.ornamentFrame ?? false,
       showCountdown: theme.showCountdown ?? true,
       heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
       heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
+      // Resolvido (não o valor cru do banco): a lista precisa chegar completa
+      // ao campo de ordenação, senão uma seção que ainda não existia quando o
+      // casal salvou a ordem sumiria da tela — e sumiria do site no próximo
+      // salvamento, agora de forma persistida.
+      sectionOrder: resolveHomeSectionOrder(theme.sectionOrder),
     },
   })
   advancedColorEnabled.value = Boolean(theme.titleColor || theme.bodyColor)
@@ -87,13 +123,18 @@ function applyPreset(id: string) {
   presetId.value = id
   primaryColor.value = preset.primaryColor
   secondaryColor.value = preset.secondaryColor
+  // Preset sem ornamento próprio LIMPA o campo em vez de manter o dourado do
+  // preset anterior: sem isso, trocar "Convite de Luxo" por "Natural Orgânico"
+  // deixaria filetes dourados atravessados numa paleta verde, e o casal não
+  // teria como adivinhar de onde aquilo veio.
+  ornamentColor.value = preset.ornamentColor ?? ''
   fontPairId.value = preset.fontPairId
   nextTick(() => {
     isApplyingPreset.value = false
   })
 }
 
-watch([primaryColor, secondaryColor, fontPairId], () => {
+watch([primaryColor, secondaryColor, ornamentColor, fontPairId], () => {
   if (isApplyingPreset.value) return
   if (presetId.value !== 'custom') {
     presetId.value = 'custom'
@@ -119,7 +160,7 @@ const advancedThemeItems = [
   {
     id: 'avancado',
     trigger: 'Personalizar manualmente',
-    hint: 'Tipografia, cor primária, cor secundária e cores de texto.',
+    hint: 'Tipografia, estilo dos títulos, cores da paleta e ornamentos.',
   },
 ]
 const defaultOpenAdvancedId = computed(() => (activePresetId.value ? undefined : 'avancado'))
@@ -154,15 +195,19 @@ const onSubmit = handleSubmit(
     <AdminSettingsSectionCard
       section-id="branding"
       title="Branding"
-      description="As duas fotos que aparecem no site dos convidados — cada uma é salva no próprio envio."
+      description="As imagens que aparecem no site dos convidados — cada uma é salva no próprio envio."
     >
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid gap-4 md:grid-cols-3">
         <AdminCoverImageUploader
           :model-value="coverImageUrl"
           @update:model-value="() => emit('refresh')"
         />
         <AdminStoryImageUploader
           :model-value="storyImageUrl"
+          @update:model-value="() => emit('refresh')"
+        />
+        <AdminMonogramUploader
+          :model-value="monogramImageUrl"
           @update:model-value="() => emit('refresh')"
         />
       </div>
@@ -218,6 +263,14 @@ const onSubmit = handleSubmit(
               <AdminFontPairPicker v-model="fontPairId" :sample-text="coupleNames || undefined" />
             </AdminSettingsField>
 
+            <UiSelect
+              v-model="headingStyle"
+              label="Estilo dos títulos"
+              hint="“Convite” escreve nomes e títulos em caixa alta com bastante espaço entre as letras, como num convite impresso."
+              class="sm:max-w-sm"
+              :options="HEADING_STYLE_OPTIONS"
+            />
+
             <AdminSettingsColorFields
               v-model:primary-color="primaryColor"
               v-model:secondary-color="secondaryColor"
@@ -228,6 +281,20 @@ const onSubmit = handleSubmit(
               :secondary-error="errors.secondaryColor"
               :title-error="errors.titleColor"
               :body-error="errors.bodyColor"
+            />
+
+            <AdminSettingsOrnamentField
+              :model-value="ornamentColor"
+              :primary-color="primaryColor"
+              :verse-active="verseActive"
+              :error="errors.ornamentColor"
+              @update:model-value="(value) => (ornamentColor = value)"
+            />
+
+            <AdminSettingsToggleRow
+              v-model="ornamentFrame"
+              label="Moldura de filete"
+              hint="Desenha a borda dupla do convite em volta de cada seção, na cor de ornamento. Só aparece em telas maiores."
             />
           </div>
         </template>
@@ -250,6 +317,17 @@ const onSubmit = handleSubmit(
         :featured="heroFeaturedButton"
         @update:model-value="(value) => (heroButtons = value)"
         @update:featured="(value) => (heroFeaturedButton = value)"
+      />
+    </AdminSettingsSectionCard>
+
+    <AdminSettingsSectionCard
+      section-id="ordem"
+      title="Ordem das seções"
+      description="A sequência dos capítulos da página inicial do site."
+    >
+      <AdminSettingsSectionOrderField
+        :model-value="sectionOrder ?? []"
+        @update:model-value="(value) => (sectionOrder = value)"
       />
     </AdminSettingsSectionCard>
 

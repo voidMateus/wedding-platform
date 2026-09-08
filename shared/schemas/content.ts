@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MANUAL_TOPIC_ICON_VALUES } from '../manual-topic-icons'
+import { isValidHexColor } from '../utils/contrast'
 
 // Personalização das mensagens narrativas do site público (CLAUDE.md,
 // roadmap "Fase Mensagens Personalizáveis") — compartilhado entre client
@@ -18,6 +19,47 @@ export const contentManualTopicSchema = z.object({
   description: z.string().trim().min(1, 'Informe a descrição.').max(300),
 })
 
+/**
+ * Amostra da paleta do Manual dos Padrinhos — a "bolinha de cor" do convite
+ * impresso (Fase Rebrand do Convite).
+ *
+ * `hex` NÃO passa por contraste, e por um motivo diferente do ornamento: aqui
+ * a cor não pinta nada da interface. Ela é o conteúdo — a amostra do tom do
+ * vestido que a madrinha vai comprar. Exigir 4.5:1 proibiria justamente um
+ * dourado claro ou um rosé, que são exatamente as cores que um casal quer
+ * mostrar. O nome ao lado da bolinha é que carrega a informação para quem não
+ * distingue a cor (ver PublicColorSwatches).
+ */
+export const contentPaletteSwatchSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome da cor.').max(40),
+  hex: z
+    .string()
+    .trim()
+    .refine(isValidHexColor, 'Informe uma cor em formato hexadecimal (ex: #8b0000).'),
+})
+
+/**
+ * Manual dos Padrinhos — seção própria, separada do Manual dos Convidados
+ * (público diferente, informação diferente: aqui é o traje combinado e a
+ * paleta, lá é estacionamento e horário).
+ *
+ * Todo campo é opcional e a seção só aparece quando há de fato o que mostrar
+ * — mesmo contrato de "lista vazia esconde a seção" já usado em Manual e FAQ,
+ * porque a maioria dos casamentos não tem manual de padrinhos nenhum.
+ */
+export const contentGroomsmenManualSchema = z.object({
+  intro: z.string().trim().max(500).optional(),
+  attireGroomsmen: z.string().trim().max(500).optional(),
+  attireBridesmaids: z.string().trim().max(500).optional(),
+  palette: z.array(contentPaletteSwatchSchema).max(8),
+})
+
+/** Versículo/citação em faixa cheia — respiro entre blocos claros, como a página vermelha do convite. */
+export const contentVerseSchema = z.object({
+  text: z.string().trim().max(600).optional(),
+  reference: z.string().trim().max(120).optional(),
+})
+
 // Campos escalares são sempre obrigatórios — não há "limpar pra voltar ao
 // padrão" nesta fase (CLAUDE.md, decisão de escopo). Os dois arrays podem
 // ficar vazios: é como o casal remove a seção inteira (Manual/FAQ), tratado
@@ -32,6 +74,13 @@ export const weddingContentConfigSchema = z.object({
   guestManualTopics: z.array(contentManualTopicSchema).max(12),
   giftsIntroMessage: z.string().trim().min(1, 'Informe a mensagem de presentes.').max(1000),
   faqItems: z.array(contentFaqItemSchema).max(20),
+  // As duas seções da Fase Rebrand do Convite são opcionais de ponta a ponta
+  // — diferente dos campos acima, não têm texto padrão que apareceria sozinho
+  // no site de quem nunca abriu esta aba. Um versículo genérico inventado pela
+  // plataforma seria pior que nenhum: é a única seção do site que fala em nome
+  // da fé do casal.
+  verse: contentVerseSchema.default({}),
+  groomsmenManual: contentGroomsmenManualSchema.default({ palette: [] }),
 })
 
 export type WeddingContentConfigInput = z.infer<typeof weddingContentConfigSchema>
@@ -47,4 +96,13 @@ export interface WeddingContentConfig {
   guestManualTopics?: { icon: string; title: string; description: string }[]
   giftsIntroMessage?: string
   faqItems?: { question: string; answer: string }[]
+  /** Versículo/citação em faixa cheia. Sem texto, a seção não é renderizada. */
+  verse?: { text?: string; reference?: string }
+  /** Manual dos Padrinhos. Sem nenhum campo preenchido, a seção não é renderizada. */
+  groomsmenManual?: {
+    intro?: string
+    attireGroomsmen?: string
+    attireBridesmaids?: string
+    palette?: { name: string; hex: string }[]
+  }
 }
