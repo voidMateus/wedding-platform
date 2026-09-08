@@ -86,10 +86,14 @@ export function useGuests() {
    * nome; aqui ele é reaplicado porque um download de blob não o lê.
    */
   async function exportGuests(params: GuestListParams = {}): Promise<void> {
+    // Só os recortes: `page`/`pageSize`/`sort` não vão junto de propósito — o
+    // CSV é a lista inteira do filtro, em ordem de nome, não a página que
+    // está na tela.
     const query = {
       search: params.search || undefined,
       groupId: params.groupId || undefined,
       ageGroup: params.ageGroup || undefined,
+      statusRsvp: params.statusRsvp || undefined,
     }
 
     const blob = await $fetch<Blob>('/api/guests/export', { query, responseType: 'blob' })

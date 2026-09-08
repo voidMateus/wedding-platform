@@ -144,6 +144,16 @@ A exportação de convidados busca nome do grupo, nome do convite e status do RS
 
 **Rótulo de status do RSVP saiu de `app/utils/status-presentation.ts` para o catálogo de campos.** A exportação roda no servidor, de onde `app/` não é importável, e duas listas dos mesmos cinco status divergiriam no primeiro ajuste de texto. Aquele arquivo agora lê o rótulo do catálogo e guarda só o tom visual, que é decisão de tela.
 
+### Achado: a exportação parou de descrever a tela quando os filtros viraram multivalor (2026-09-08)
+
+Encontrado no rebase da branch de importação/exportação sobre a `main` já com o PR #95 (filtros e ordenação por coluna). O rebase não deu conflito nesse ponto — os dois lados mexeram em arquivos diferentes —, mas o contrato entre eles tinha mudado: a tela passou a mandar `groupId`, `ageGroup` e o novo `statusRsvp` como **listas**, e o `querySchema` de `/api/guests/export` ainda aceitava valor único. Marcar dois grupos e clicar em "Exportar" devolveria 400; o filtro por status simplesmente não existia no CSV.
+
+É o modo de falha que o comentário do próprio endpoint promete evitar ("exporta o recorte que está vendo na tela"), e nenhum teste pegaria: a incompatibilidade é entre duas partes que só se encontram em runtime.
+
+**Correção:** o schema da exportação passou a usar `queryList` nos três filtros, como `index.get.ts`, e a leitura saiu de `convidados` para a view `convidados_com_status` — filtrar por status exige a view pelo mesmo motivo da listagem (pendente é "sem linha em `respostas_rsvp` OU linha com status pendente"). Com isso o `respostas_rsvp(status_rsvp)` embutido saiu: a coluna já vem resolvida da view. Verificado contra o banco de dev que o embed `grupos(nome), convites!convite_id(nome)` continua funcionando **a partir da view** — a dica pelo nome da coluna segue necessária, e o PostgREST resolve as duas junções pelas colunas de origem do `c.*`.
+
+**Regra que fica:** filtro novo na listagem de convidados entra nos dois endpoints na mesma mudança. São duas telas do mesmo recorte, e a que mente é sempre a exportação, porque o CSV sai sem nada na tela indicando o que ficou de fora.
+
 ### Decisão: importação sem índice único de nome, embora ele fosse o reflexo natural (2026-09-04)
 
 `importar_convidados()` resolve grupo e convite **por nome**, criando o que não existe. O reflexo é proteger isso com um índice único sobre `(casamento_id, nome normalizado)` em `grupos` e `convites`. Escrito e depois removido, por dois motivos verificados antes de decidir:

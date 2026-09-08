@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
 import { FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA } from '#shared/utils/faixa-etaria'
+import { RSVP_STATUS_VALUES } from '#shared/utils/rsvp-status'
 import {
   gerarCsvExportacao,
   nomeDoArquivoDaExportacao,
@@ -19,8 +20,14 @@ import {
  */
 const querySchema = z.object({
   search: z.string().trim().max(200).optional(),
-  groupId: z.string().uuid().optional(),
-  ageGroup: z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA]).optional(),
+  // Multivalor pelo mesmo motivo de `index.get.ts`: o filtro da coluna deixa
+  // marcar mais de um grupo, mais de uma faixa, mais de um status. Um schema
+  // de valor único aqui rejeitaria (400) exatamente o recorte que a tela
+  // acabou de oferecer — e a promessa deste endpoint é exportar o que está na
+  // tela, não uma lista parecida.
+  groupId: queryList(z.string().uuid()),
+  ageGroup: queryList(z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA])),
+  statusRsvp: queryList(z.enum(RSVP_STATUS_VALUES)),
 })
 
 /**
@@ -45,14 +52,14 @@ interface LinhaComJuncoes {
   telefone: string | null
   papel_casamento: string | null
   observacoes: string | null
+  status_rsvp: string | null
   grupos: { nome: string } | null
   convites: { nome: string } | null
-  respostas_rsvp: { status_rsvp: string }[] | null
 }
 
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
-  const { search, groupId, ageGroup } = validateQuery(event, querySchema)
+  const { search, groupId, ageGroup, statusRsvp } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
   const contextoFaixas = await loadAgeGroupContext(client, weddingId)
@@ -61,8 +68,15 @@ export default defineEventHandler(async (event) => {
 
   for (let pagina = 0; ; pagina++) {
     const de = pagina * TAMANHO_DA_PAGINA
-    // Junções em vez de consultas separadas por grupo/convite/RSVP: nome do
-    // grupo e do convite e status vêm na mesma linha, sem N+1 e sem um
+    // A leitura é da view `convidados_com_status`, não da tabela, pelo mesmo
+    // motivo de `index.get.ts`: "pendente" é "sem linha em respostas_rsvp OU
+    // linha com status pendente", e essa condição não é expressável pelo
+    // PostgREST a partir de `convidados` — com `!inner` some quem nunca
+    // respondeu, com `!left` o filtro corta a resposta embutida e não o
+    // convidado. Filtrar em memória também não serve aqui: a exportação é
+    // paginada de 1000 em 1000, então o recorte precisa ser do banco.
+    //
+    // Nome do grupo e do convite continuam vindo por junção, sem N+1 e sem um
     // segundo teto de 1000 escondido numa tabela auxiliar.
     //
     // `convites!convite_id` é obrigatório, não estilo: existem DUAS relações
@@ -70,21 +84,29 @@ export default defineEventHandler(async (event) => {
     // `convites.convidado_responsavel_id` de volta), e sem a dica de coluna o
     // PostgREST recusa a consulta ("more than one relationship was found").
     let query = client
-      .from('convidados')
+      .from('convidados_com_status')
       .select(
-        'id, nome_completo, apelido, sexo, data_nascimento, faixa_etaria_manual, email, telefone, papel_casamento, observacoes, grupos(nome), convites!convite_id(nome), respostas_rsvp(status_rsvp)',
+        'id, nome_completo, apelido, sexo, data_nascimento, faixa_etaria_manual, email, telefone, papel_casamento, observacoes, status_rsvp, grupos(nome), convites!convite_id(nome)',
       )
       .eq('casamento_id', weddingId)
       .is('excluido_em', null)
 
-    if (ageGroup) {
-      query = query.or(buildAgeGroupFilter(ageGroup, contextoFaixas))
+    // Os quatro recortes são os mesmos de `index.get.ts`, aplicados do mesmo
+    // jeito — filtro que existisse só num dos dois faria o CSV descrever uma
+    // lista diferente da que a tela anuncia.
+    if (ageGroup?.length) {
+      query = query.or(
+        ageGroup.map((faixa) => buildAgeGroupFilter(faixa, contextoFaixas)).join(','),
+      )
     }
     if (search) {
       query = query.ilike('nome_completo', `%${search}%`)
     }
-    if (groupId) {
-      query = query.eq('grupo_id', groupId)
+    if (groupId?.length) {
+      query = query.in('grupo_id', groupId)
+    }
+    if (statusRsvp?.length) {
+      query = query.in('status_rsvp', statusRsvp)
     }
 
     const { data, error } = await query
@@ -102,9 +124,7 @@ export default defineEventHandler(async (event) => {
         ...linha,
         grupoNome: linha.grupos?.nome ?? null,
         conviteNome: linha.convites?.nome ?? null,
-        // `respostas_rsvp` tem no máximo uma linha por convidado (índice único
-        // parcial em convidado_id), então a junção nunca traz mais de um item.
-        statusRsvp: linha.respostas_rsvp?.[0]?.status_rsvp ?? null,
+        statusRsvp: linha.status_rsvp,
       })
     }
 
@@ -129,8 +149,9 @@ export default defineEventHandler(async (event) => {
       total: convidados.length,
       filtros: {
         comBusca: Boolean(search),
-        grupo: Boolean(groupId),
+        grupo: groupId?.length ?? 0,
         faixaEtaria: ageGroup ?? null,
+        statusRsvp: statusRsvp ?? null,
       },
     },
   })
