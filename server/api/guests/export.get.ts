@@ -28,6 +28,9 @@ const querySchema = z.object({
   groupId: queryList(z.string().uuid()),
   ageGroup: queryList(z.enum([...FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_NAO_INFORMADA])),
   statusRsvp: queryList(z.enum(RSVP_STATUS_VALUES)),
+  // Mesmo padrão de `index.get.ts`: ausente exporta só convidados de verdade,
+  // `true` exporta só o rascunho da lista.
+  emConsideracao: z.coerce.boolean().optional(),
 })
 
 /**
@@ -53,16 +56,25 @@ interface LinhaComJuncoes {
   papel_casamento: string | null
   observacoes: string | null
   status_rsvp: string | null
-  grupos: { nome: string } | null
+  grupos: { nome: string; grupo_pai: { nome: string } | null } | null
   convites: { nome: string } | null
 }
 
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
-  const { search, groupId, ageGroup, statusRsvp } = validateQuery(event, querySchema)
+  const { search, groupId, ageGroup, statusRsvp, emConsideracao } = validateQuery(
+    event,
+    querySchema,
+  )
 
   const client = await serverSupabaseClient(event)
   const contextoFaixas = await loadAgeGroupContext(client, weddingId)
+
+  // Igual à listagem: filtrar por um grupo-pai tem que alcançar quem está nas
+  // subdivisões dele, senão o CSV sai menor que a tela que o ofereceu.
+  const gruposDoRecorte = groupId?.length
+    ? await expandirGruposComSubdivisoes(client, weddingId, groupId)
+    : groupId
 
   const convidados: ConvidadoExportavel[] = []
 
@@ -86,7 +98,7 @@ export default defineEventHandler(async (event) => {
     let query = client
       .from('convidados_com_status')
       .select(
-        'id, nome_completo, apelido, sexo, data_nascimento, faixa_etaria_manual, email, telefone, papel_casamento, observacoes, status_rsvp, grupos(nome), convites!convite_id(nome)',
+        'id, nome_completo, apelido, sexo, data_nascimento, faixa_etaria_manual, email, telefone, papel_casamento, observacoes, status_rsvp, grupos(nome, grupo_pai:grupo_pai_id(nome)), convites!convite_id(nome)',
       )
       .eq('casamento_id', weddingId)
       .is('excluido_em', null)
@@ -102,12 +114,13 @@ export default defineEventHandler(async (event) => {
     if (search) {
       query = query.ilike('nome_completo', `%${search}%`)
     }
-    if (groupId?.length) {
-      query = query.in('grupo_id', groupId)
+    if (gruposDoRecorte?.length) {
+      query = query.in('grupo_id', gruposDoRecorte)
     }
     if (statusRsvp?.length) {
       query = query.in('status_rsvp', statusRsvp)
     }
+    query = query.eq('em_consideracao', emConsideracao === true)
 
     const { data, error } = await query
       .order('nome_completo', { ascending: true })
@@ -120,9 +133,15 @@ export default defineEventHandler(async (event) => {
     const linhas = (data ?? []) as unknown as LinhaComJuncoes[]
 
     for (const linha of linhas) {
+      // `convidados.grupo_id` aponta para a folha, então a coluna "Grupo" do
+      // CSV é o pai quando existe um, e a folha vira "Subdivisão". Exportar a
+      // folha como grupo faria a reimportação recriar "Tios paternos" no
+      // primeiro nível — hierarquia perdida sem nada acusar.
+      const grupoPai = linha.grupos?.grupo_pai ?? null
       convidados.push({
         ...linha,
-        grupoNome: linha.grupos?.nome ?? null,
+        grupoNome: grupoPai?.nome ?? linha.grupos?.nome ?? null,
+        subgrupoNome: grupoPai ? (linha.grupos?.nome ?? null) : null,
         conviteNome: linha.convites?.nome ?? null,
         statusRsvp: linha.status_rsvp,
       })
@@ -150,6 +169,7 @@ export default defineEventHandler(async (event) => {
       filtros: {
         comBusca: Boolean(search),
         grupo: groupId?.length ?? 0,
+        emConsideracao: emConsideracao === true,
         faixaEtaria: ageGroup ?? null,
         statusRsvp: statusRsvp ?? null,
       },

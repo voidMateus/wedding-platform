@@ -10,12 +10,22 @@ export default defineEventHandler(async (event) => {
   const input = await validateBody(event, groupInputSchema)
 
   const client = await serverSupabaseClient(event)
+
+  // `grupoPaiId` ausente não entra no update: o formulário de renomear grupo
+  // não manda o campo, e um `?? null` aqui promoveria a grupo raiz toda
+  // subdivisão que fosse só renomeada. `null` explícito continua chegando e é
+  // justamente o que desvincula do pai.
+  const patch: Record<string, unknown> = {
+    nome: input.nome,
+    cor: input.cor ?? null,
+  }
+  if (input.grupoPaiId !== undefined) {
+    patch.grupo_pai_id = input.grupoPaiId
+  }
+
   const { data, error } = await client
     .from('grupos')
-    .update({
-      nome: input.nome,
-      cor: input.cor ?? null,
-    })
+    .update(patch)
     .eq('id', id)
     .eq('casamento_id', weddingId)
     .is('excluido_em', null)
@@ -23,7 +33,7 @@ export default defineEventHandler(async (event) => {
     .maybeSingle()
 
   if (error) {
-    throw badRequestError(error.message)
+    throw badRequestError(traduzirErroHierarquiaGrupo(error.message) ?? error.message)
   }
   if (!data) {
     throw notFoundError('Grupo não encontrado.')
@@ -33,7 +43,7 @@ export default defineEventHandler(async (event) => {
     action: 'group.update',
     entityType: 'group',
     entityId: data.id,
-    metadata: { name: data.nome },
+    metadata: { name: data.nome, parentId: data.grupo_pai_id },
   })
 
   return data

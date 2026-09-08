@@ -49,6 +49,33 @@ export const guestPartySyncSchema = z.object({
 
 export type GuestPartySyncInput = z.infer<typeof guestPartySyncSchema>
 
+/**
+ * Entrada rápida do Modo Lista: o casal digita um nome e aperta Enter.
+ *
+ * Deliberadamente separado de `guestPartySyncSchema`: aquele descreve o wizard
+ * inteiro (principal + acompanhantes + convite) e exige um objeto grande para
+ * criar uma pessoa. Aqui o ponto é justamente não ter formulário — nome é o
+ * único campo obrigatório, e todo o resto do cadastro é preenchido depois, na
+ * própria lista ou no wizard.
+ *
+ * `grupoId` aponta para a folha onde a pessoa entra, que pode ser um grupo ou
+ * uma subdivisão (`grupos.grupo_pai_id`) — o convidado nunca guarda as duas
+ * coisas. Que o grupo pertença a este casamento é garantido por trigger no
+ * Postgres (migration 20260821090003), não por checagem aqui.
+ */
+export const guestQuickCreateSchema = z.object({
+  nomeCompleto: z.string().trim().min(1, 'Informe o nome.').max(200),
+  grupoId: z.string().uuid().nullish(),
+  /**
+   * Nasce no rascunho da lista ("Em consideração") em vez de na lista de
+   * convidados. Rascunho nunca tem convite — a constraint
+   * `convidados_em_consideracao_sem_convite` garante isso no banco.
+   */
+  emConsideracao: z.boolean().default(false),
+})
+
+export type GuestQuickCreateInput = z.infer<typeof guestQuickCreateSchema>
+
 export const guestPartyReorderSchema = z.object({
   partyId: z.string().uuid(),
   orderedGuestIds: z.array(z.string().uuid()).min(1),

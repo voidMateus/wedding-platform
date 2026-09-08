@@ -26,6 +26,7 @@ function convidado(overrides: Partial<ConvidadoExportavel> = {}): ConvidadoExpor
     papel_casamento: 'madrinha',
     observacoes: 'Chega cedo',
     grupoNome: 'Família da Noiva',
+    subgrupoNome: null,
     conviteNome: 'Família Silva',
     statusRsvp: 'confirmado',
     ...overrides,
@@ -54,6 +55,21 @@ describe('valorExportado', () => {
 
   it('deixa vínculo vazio em branco — convidado sem convite é estado legítimo', () => {
     expect(celula('convite', convidado({ conviteNome: null }))).toBe('')
+  })
+
+  // O convidado aponta para a folha (`convidados.grupo_id`), então quem monta
+  // a linha sobe até o pai antes: "Grupo" é sempre a raiz e "Subdivisão" a
+  // folha. Exportar a folha como grupo faria a reimportação recriar "Tios
+  // paternos" no primeiro nível e desfazer a hierarquia em silêncio.
+  it('separa grupo raiz de subdivisão em duas colunas', () => {
+    const linha = convidado({ grupoNome: 'Família do Mateus', subgrupoNome: 'Tios paternos' })
+
+    expect(celula('grupo', linha)).toBe('Família do Mateus')
+    expect(celula('subgrupo', linha)).toBe('Tios paternos')
+  })
+
+  it('deixa a subdivisão em branco para quem está direto no grupo', () => {
+    expect(celula('subgrupo', convidado({ subgrupoNome: null }))).toBe('')
   })
 
   it('escreve enum com o rótulo legível, não a chave crua', () => {

@@ -18,6 +18,12 @@ const querySchema = paginationQuerySchema(25).extend({
   // "pendente" inclui quem nunca respondeu (não há linha em respostas_rsvp) —
   // é a view convidados_com_status que resolve isso, ver abaixo.
   statusRsvp: queryList(z.enum(RSVP_STATUS_VALUES)),
+  // Rascunho da lista. Ausente = só convidados de verdade, que é o que todas as
+  // telas anteriores ao Modo Lista esperam — o padrão nunca muda o que elas já
+  // mostravam. `true` lista SÓ o rascunho (o painel "Em consideração"): os dois
+  // conjuntos nunca aparecem misturados numa mesma tabela, senão a pergunta
+  // "quantos convidados eu tenho?" perde resposta.
+  emConsideracao: z.coerce.boolean().optional(),
   // Ordenação pedida pela coluna correspondente da tabela do admin. Só `nome`
   // por enquanto, e a lista curta é deliberada:
   // - Grupo só existe aqui como `grupo_id` (uuid), então ordenar por ele daria
@@ -34,6 +40,20 @@ const querySchema = paginationQuerySchema(25).extend({
 
 const SORT_COLUMNS = { nome: 'nome_completo' } as const
 
+/**
+ * Métodos de filtro que `aplicarRecorte` usa. Genérico com auto-referência
+ * (`Q extends FiltravelPor<Q>`) porque os builders do PostgREST devolvem
+ * `this`: assim o helper serve às três consultas — que têm `select` diferente,
+ * e portanto tipo de linha diferente — sem `any` e sem repetir o recorte.
+ */
+interface FiltravelPor<Q> {
+  or(filtro: string): Q
+  ilike(coluna: string, padrao: string): Q
+  in(coluna: string, valores: readonly string[]): Q
+  is(coluna: string, valor: null): Q
+  eq(coluna: string, valor: string | boolean): Q
+}
+
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
   const {
@@ -45,6 +65,7 @@ export default defineEventHandler(async (event) => {
     withoutParty,
     ageGroup,
     statusRsvp,
+    emConsideracao,
     sort,
     dir,
   } = validateQuery(event, querySchema)
@@ -53,6 +74,68 @@ export default defineEventHandler(async (event) => {
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
+  // Filtrar por um grupo-pai precisa alcançar quem está nas subdivisões dele:
+  // o convidado aponta sempre para a folha, então "Família do Mateus" sozinho
+  // deixaria de fora todo mundo que está em "Tios paternos".
+  const gruposDoRecorte = groupId?.length
+    ? await expandirGruposComSubdivisoes(client, weddingId, groupId)
+    : groupId
+
+  // Traduzida para intervalo de datas de nascimento em vez de classificada em
+  // memória: a lista é paginada e as contagens são feitas no banco, então um
+  // recorte feito no client descreveria uma lista diferente da que está na
+  // tela. Quem não tem data de nascimento entra pela faixa manual — e só nesse
+  // caso, porque a data sempre tem prioridade.
+  //
+  // Várias faixas marcadas viram uma união só: cada faixa já devolve uma lista
+  // de condições `or`, e concatená-las mantém o sentido ("está em alguma
+  // destas"), sem multiplicar consultas.
+  let filtroFaixaEtaria: string | null = null
+  if (ageGroup?.length) {
+    const context = await loadAgeGroupContext(client, weddingId)
+    filtroFaixaEtaria = ageGroup.map((faixa) => buildAgeGroupFilter(faixa, context)).join(',')
+  }
+
+  /**
+   * O recorte é aplicado por uma função só, em vez de repetido consulta a
+   * consulta, porque as três precisam descrever EXATAMENTE a mesma lista: se um
+   * filtro valesse só para a página, o "N confirmados" do cabeçalho passaria a
+   * descrever uma lista diferente da que está na tela. Filtro novo entra aqui
+   * e vale para as três de uma vez.
+   *
+   * `em_consideracao` é o único recorte que fica fora: é justamente o que
+   * separa as três consultas entre si.
+   */
+  function aplicarRecorte<Q extends FiltravelPor<Q>>(query: Q): Q {
+    let recortada = query.eq('casamento_id', weddingId).is('excluido_em', null)
+    if (filtroFaixaEtaria) {
+      recortada = recortada.or(filtroFaixaEtaria)
+    }
+    if (search) {
+      recortada = recortada.ilike('nome_completo', `%${search}%`)
+    }
+    if (gruposDoRecorte?.length) {
+      recortada = recortada.in('grupo_id', gruposDoRecorte)
+    }
+    if (statusRsvp?.length) {
+      recortada = recortada.in('status_rsvp', statusRsvp)
+    }
+    // Convidados ainda sem convite — usado pelo seletor "adicionar convidado"
+    // na tela de detalhe do convite (CLAUDE.md, seção 12.1).
+    if (unassigned) {
+      recortada = recortada.is('convite_id', null)
+    }
+    // Convidados que ainda não são acompanhantes de ninguém — usado pela busca
+    // de "convidado já cadastrado" ao adicionar um acompanhante no wizard
+    // (CLAUDE.md, seção 12.1), pra não sugerir alguém que já pertence a outro
+    // grupo (sincronizar_nucleo_convidado ainda bloqueia o caso de convite
+    // divergente, este filtro só evita a sugestão ambígua na UI).
+    if (withoutParty) {
+      recortada = recortada.is('nucleo_id', null)
+    }
+    return recortada
+  }
+
   // A leitura é da view, não da tabela: `respostas_rsvp` só ganha linha quando
   // alguém responde, então "pendente" é "sem linha OU status pendente" — e essa
   // condição não é expressável a partir de `convidados` (com `!inner` o
@@ -60,81 +143,40 @@ export default defineEventHandler(async (event) => {
   // embutida, não o convidado). A view resolve o status por linha respeitando a
   // RLS das duas tabelas (security_invoker), ver a migration
   // 20260904180001_convidados_com_status_rsvp.
-  let query = client
-    .from('convidados_com_status')
-    .select('*', { count: 'exact' })
-    .eq('casamento_id', weddingId)
-    .is('excluido_em', null)
+  const query = aplicarRecorte(
+    client.from('convidados_com_status').select('*', { count: 'exact' }),
+  ).eq('em_consideracao', emConsideracao === true)
 
-  // Total de confirmados do MESMO recorte, contado no banco (join interno com
-  // respostas_rsvp + `head`, sem trazer linha nenhuma). Não dá pra somar isso
-  // no client: a lista é paginada, então o client só enxerga uma página. E não
-  // dá pra baixar respostas_rsvp inteira pra contar aqui: o select do Supabase
-  // corta em 1000 linhas por padrão, e a conta sairia silenciosamente menor num
-  // casamento grande. `respostas_rsvp` tem no máximo uma linha por convidado
-  // (índice único parcial em convidado_id), então o join não duplica ninguém.
-  //
-  // Todo recorte novo precisa entrar NAS DUAS consultas: se um filtro valer só
-  // para a página, o "N confirmados" passa a descrever uma lista diferente da
-  // que está na tela.
-  let confirmedQuery = client
-    .from('convidados_com_status')
-    .select('id', { count: 'exact', head: true })
-    .eq('casamento_id', weddingId)
-    .is('excluido_em', null)
+  // Total de confirmados do MESMO recorte, contado no banco (sem trazer linha
+  // nenhuma, via `head`). Não dá pra somar isso no client: a lista é paginada,
+  // então o client só enxerga uma página. E não dá pra baixar respostas_rsvp
+  // inteira pra contar aqui: o select do Supabase corta em 1000 linhas por
+  // padrão, e a conta sairia silenciosamente menor num casamento grande.
+  // `respostas_rsvp` tem no máximo uma linha por convidado (índice único
+  // parcial em convidado_id), então o join da view não duplica ninguém.
+  const confirmedQuery = aplicarRecorte(
+    client.from('convidados_com_status').select('id', { count: 'exact', head: true }),
+  )
+    .eq('em_consideracao', emConsideracao === true)
     .eq('status_rsvp', 'confirmado')
 
-  if (ageGroup?.length) {
-    // Traduzido para intervalo de datas de nascimento em vez de classificar
-    // em memória: a lista é paginada e o "N confirmados" é contado no banco,
-    // então um recorte feito no client descreveria uma lista diferente da que
-    // está na tela. Quem não tem data de nascimento entra pela faixa manual —
-    // e só nesse caso, porque a data sempre tem prioridade.
-    //
-    // Várias faixas marcadas viram uma união só: cada faixa já devolve uma
-    // lista de condições `or`, e concatená-las mantém o sentido ("está em
-    // alguma destas"), sem multiplicar consultas.
-    const context = await loadAgeGroupContext(client, weddingId)
-    const filtro = ageGroup.map((faixa) => buildAgeGroupFilter(faixa, context)).join(',')
-    query = query.or(filtro)
-    confirmedQuery = confirmedQuery.or(filtro)
-  }
-  if (search) {
-    query = query.ilike('nome_completo', `%${search}%`)
-    confirmedQuery = confirmedQuery.ilike('nome_completo', `%${search}%`)
-  }
-  if (groupId?.length) {
-    query = query.in('grupo_id', groupId)
-    confirmedQuery = confirmedQuery.in('grupo_id', groupId)
-  }
-  if (statusRsvp?.length) {
-    query = query.in('status_rsvp', statusRsvp)
-    confirmedQuery = confirmedQuery.in('status_rsvp', statusRsvp)
-  }
-  // Convidados ainda sem convite — usado pelo seletor "adicionar convidado"
-  // na tela de detalhe do convite (CLAUDE.md, seção 12.1).
-  if (unassigned) {
-    query = query.is('convite_id', null)
-    confirmedQuery = confirmedQuery.is('convite_id', null)
-  }
-  // Convidados que ainda não são acompanhantes de ninguém — usado pela busca
-  // de "convidado já cadastrado" ao adicionar um acompanhante no wizard
-  // (CLAUDE.md, seção 12.1), pra não sugerir alguém que já pertence a outro
-  // grupo (sincronizar_nucleo_convidado ainda bloqueia o caso de convite
-  // divergente, este filtro só evita a sugestão ambígua na UI).
-  if (withoutParty) {
-    query = query.is('nucleo_id', null)
-    confirmedQuery = confirmedQuery.is('nucleo_id', null)
-  }
+  // O rascunho é contado sempre, independente de qual conjunto está listado: o
+  // cabeçalho do Modo Lista mostra "142 convidados + 18 em consideração" de uma
+  // vez, e sem esta consulta o segundo número custaria uma segunda ida ao
+  // servidor só para preencher um contador.
+  const draftsQuery = aplicarRecorte(
+    client.from('convidados_com_status').select('id', { count: 'exact', head: true }),
+  ).eq('em_consideracao', true)
 
   // Ordem padrão continua sendo nome ↑ — `sort` ausente não muda nada do que
-  // as telas já mostravam. A ordenação não toca `confirmedQuery`: lá é uma
-  // contagem (`head: true`), onde ordem não significa nada.
+  // as telas já mostravam. A ordenação não toca as contagens: lá ordem não
+  // significa nada.
   const orderColumn = sort ? SORT_COLUMNS[sort] : 'nome_completo'
 
-  const [pageResult, confirmedResult] = await Promise.all([
+  const [pageResult, confirmedResult, draftsResult] = await Promise.all([
     query.order(orderColumn, { ascending: dir !== 'desc' }).range(from, to),
     confirmedQuery,
+    draftsQuery,
   ])
 
   if (pageResult.error) {
@@ -142,6 +184,9 @@ export default defineEventHandler(async (event) => {
   }
   if (confirmedResult.error) {
     throw badRequestError(confirmedResult.error.message)
+  }
+  if (draftsResult.error) {
+    throw badRequestError(draftsResult.error.message)
   }
 
   // A view não declara NOT NULL em coluna nenhuma — o Postgres não infere isso
@@ -153,6 +198,9 @@ export default defineEventHandler(async (event) => {
   return {
     data,
     meta: { page, pageSize, total: pageResult.count ?? 0 },
-    summary: { confirmed: confirmedResult.count ?? 0 },
+    summary: {
+      confirmed: confirmedResult.count ?? 0,
+      emConsideracao: draftsResult.count ?? 0,
+    },
   }
 })

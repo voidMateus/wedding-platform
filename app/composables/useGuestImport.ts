@@ -73,6 +73,7 @@ export function useGuestImport() {
       criados: 0,
       atualizados: 0,
       gruposCriados: [],
+      subgruposCriados: [],
       convitesCriados: [],
     }
 
@@ -87,6 +88,7 @@ export function useGuestImport() {
       total.criados += resultado.criados
       total.atualizados += resultado.atualizados
       total.gruposCriados.push(...resultado.gruposCriados)
+      total.subgruposCriados.push(...resultado.subgruposCriados)
       total.convitesCriados.push(...resultado.convitesCriados)
     }
 

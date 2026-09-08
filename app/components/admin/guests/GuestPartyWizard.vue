@@ -21,9 +21,7 @@ const { listGroups } = useGroups()
 const { classify, label: ageGroupLabel } = useAgeGroups()
 
 const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
-const groupOptions = computed(() => [
-  ...(groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? []),
-])
+const groupOptions = computed(() => montarOpcoesDeGrupo(groupsData.value?.data ?? []))
 
 const isEditing = computed(() => Boolean(props.initialGuest))
 

@@ -13,6 +13,7 @@
 <script setup lang="ts">
 import { camposImportaveis } from '#shared/utils/campos-convidado'
 import type { GuestImportResult } from '#shared/schemas/guest-import'
+import { qualificarSubgrupo } from '#shared/utils/grupos'
 import type { MapeamentoColuna, ResultadoPreparacao } from '#shared/utils/importacao-convidados'
 
 interface Props {
@@ -100,19 +101,41 @@ function definirColuna(indice: number, chave: string) {
   )
 }
 
+// A revisão precisa enxergar a hierarquia do mesmo jeito que
+// `importar_convidados`: a coluna "Grupo" resolve só entre grupos de primeiro
+// nível, e a "Subdivisão" dentro do grupo da linha. Mandar todos os grupos
+// como se fossem raízes faria a revisão anunciar "nenhum grupo novo" para um
+// nome que só existe como subdivisão — e a importação falharia depois de
+// confirmada, com o casal já tendo aprovado outra coisa.
+const gruposRaizes = computed(() => (gruposData.value?.data ?? []).filter((g) => !g.grupo_pai_id))
+
+const subgruposQualificados = computed(() => {
+  const nomePorId = new Map((gruposData.value?.data ?? []).map((g) => [g.id, g.nome]))
+  return (gruposData.value?.data ?? []).flatMap((grupo) => {
+    if (!grupo.grupo_pai_id) return []
+    const nomeDoPai = nomePorId.get(grupo.grupo_pai_id)
+    return nomeDoPai ? [qualificarSubgrupo(nomeDoPai, grupo.nome)] : []
+  })
+})
+
 function irParaRevisao() {
   revisao.value = revisar(linhasCsv.value, mapeamento.value, {
-    gruposExistentes: gruposData.value?.data.map((grupo) => grupo.nome) ?? [],
+    gruposExistentes: gruposRaizes.value.map((grupo) => grupo.nome),
+    subgruposExistentes: subgruposQualificados.value,
     convitesExistentes: convitesData.value?.data.map((convite) => convite.nome) ?? [],
   })
   criarVinculos.value = false
   passo.value = 'revisao'
 }
 
-const precisaConfirmarVinculos = computed(
+const totalDeVinculosNovos = computed(
   () =>
-    (revisao.value?.resumo.grupos.length ?? 0) + (revisao.value?.resumo.convites.length ?? 0) > 0,
+    (revisao.value?.resumo.grupos.length ?? 0) +
+    (revisao.value?.resumo.subgrupos.length ?? 0) +
+    (revisao.value?.resumo.convites.length ?? 0),
 )
+
+const precisaConfirmarVinculos = computed(() => totalDeVinculosNovos.value > 0)
 
 const podeImportar = computed(
   () =>
@@ -299,6 +322,9 @@ const tituloDoPasso = computed(
                 <template v-if="revisao.resumo.grupos.length">
                   Grupos: {{ revisao.resumo.grupos.join(', ') }}.
                 </template>
+                <template v-if="revisao.resumo.subgrupos.length">
+                  Subdivisões: {{ revisao.resumo.subgrupos.join(', ') }}.
+                </template>
                 <template v-if="revisao.resumo.convites.length">
                   Convites: {{ revisao.resumo.convites.join(', ') }}.
                 </template>
@@ -336,7 +362,7 @@ const tituloDoPasso = computed(
         <div v-if="precisaConfirmarVinculos" class="shrink-0">
           <UiCheckbox
             v-model="criarVinculos"
-            :label="`Criar os ${revisao.resumo.grupos.length + revisao.resumo.convites.length} grupos/convites listados acima`"
+            :label="`Criar os ${totalDeVinculosNovos} grupos/convites listados acima`"
           />
         </div>
       </template>
@@ -348,11 +374,18 @@ const tituloDoPasso = computed(
           <span class="num font-medium">{{ resultado.atualizados }}</span> atualizados.
         </p>
         <p
-          v-if="resultado.gruposCriados.length || resultado.convitesCriados.length"
+          v-if="
+            resultado.gruposCriados.length ||
+            resultado.subgruposCriados.length ||
+            resultado.convitesCriados.length
+          "
           class="text-xs leading-relaxed text-text-muted"
         >
           <template v-if="resultado.gruposCriados.length">
             Grupos criados: {{ resultado.gruposCriados.join(', ') }}.
+          </template>
+          <template v-if="resultado.subgruposCriados.length">
+            Subdivisões criadas: {{ resultado.subgruposCriados.join(', ') }}.
           </template>
           <template v-if="resultado.convitesCriados.length">
             Convites criados: {{ resultado.convitesCriados.join(', ') }}.

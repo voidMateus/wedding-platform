@@ -49,6 +49,20 @@ export default defineEventHandler(async (event) => {
       )
     }
 
+    const subgrupo = extrairDetalhe(error.message, 'SUBGRUPO_INEXISTENTE')
+    if (subgrupo) {
+      throw badRequestError(
+        `Linha ${subgrupo.linha}: a subdivisão "${subgrupo.alvo}" não existe nesse grupo. Confirme a criação de grupos novos para continuar.`,
+      )
+    }
+
+    const subgrupoSemGrupo = extrairDetalhe(error.message, 'SUBGRUPO_SEM_GRUPO')
+    if (subgrupoSemGrupo) {
+      throw badRequestError(
+        `Linha ${subgrupoSemGrupo.linha}: a subdivisão "${subgrupoSemGrupo.alvo}" precisa de um Grupo na mesma linha para saber onde entrar.`,
+      )
+    }
+
     const convite = extrairDetalhe(error.message, 'CONVITE_INEXISTENTE')
     if (convite) {
       throw badRequestError(
@@ -78,6 +92,7 @@ export default defineEventHandler(async (event) => {
       criados: resultado.criados,
       atualizados: resultado.atualizados,
       gruposCriados: resultado.gruposCriados.length,
+      subgruposCriados: resultado.subgruposCriados.length,
       convitesCriados: resultado.convitesCriados.length,
     },
   })
