@@ -10,9 +10,19 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'default' } = defineProps<Props>()
+
+// Esta seção não passa por PublicEditorialSection (o tratamento de título aqui
+// é de antessala, não de capítulo), então resolve o próprio fundo — mas com as
+// mesmas classes, para que a alternância da página valha igual para ela.
+const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
+  default: 'bg-surface',
+  muted: 'bg-surface-muted',
+}
 
 const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 </script>
@@ -20,7 +30,8 @@ const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 <template>
   <section
     id="boas-vindas"
-    class="relative overflow-hidden bg-surface px-4 pb-24 pt-4 text-center sm:pb-32"
+    class="relative overflow-hidden px-4 pb-24 pt-4 text-center sm:pb-32"
+    :class="TONE_CLASSES[tone]"
   >
     <div
       v-motion

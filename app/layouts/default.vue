@@ -28,6 +28,10 @@ const heroFeaturedButton = computed(() => theme.value.heroFeaturedButton)
 // o rodapé caem nas iniciais derivadas quando não há (ver PublicMonogram).
 const monogramImageUrl = computed(() => theme.value.monogramImageUrl ?? null)
 
+// Seções desligadas pelo casal — o menu não pode oferecer âncora para uma
+// seção que não existe na página (mesma regra dos atalhos do Hero).
+const hiddenSections = computed(() => theme.value.hiddenSections ?? [])
+
 // Estilo tipográfico dos títulos (config_tema.headingStyle). Vai como atributo
 // no wrapper DESTE layout, não em <html>: o painel administrativo compartilha
 // o mesmo documento e não pode herdar a caixa alta do tema de um casamento.
@@ -64,14 +68,34 @@ useHead({
 
 <template>
   <div class="flex min-h-screen flex-col bg-surface text-text" :data-heading-style="headingStyle">
+    <!--
+      Primeiro elemento focável da página: quem navega por teclado chega ao
+      conteúdo sem percorrer os seis links do menu em toda página. Fica
+      invisível até receber foco (`sr-only` + `focus:not-sr-only`) — nunca
+      `display: none`, que o tiraria da ordem de foco e anularia o propósito.
+    -->
+    <a
+      href="#conteudo"
+      class="sr-only rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50"
+    >
+      Pular para o conteúdo
+    </a>
+
     <PublicNavBar
       :couple-names="wedding?.nomes_noivos"
       :slug="slug"
       :code="code"
       :featured-button-id="heroFeaturedButton"
       :monogram-image-url="monogramImageUrl"
+      :hidden-sections="hiddenSections"
+      :current-path="route.path"
     />
-    <main class="flex-1">
+    <!--
+      `tabindex="-1"` para o destino do salto poder RECEBER foco: sem isso o
+      navegador rola até a âncora mas o foco continua no link, e a próxima
+      tabulação volta para o menu — o salto não salta nada.
+    -->
+    <main id="conteudo" tabindex="-1" class="flex-1 focus:outline-none">
       <slot />
     </main>
     <PublicFooter

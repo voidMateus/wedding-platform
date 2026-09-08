@@ -4,9 +4,11 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'default' } = defineProps<Props>()
 
 const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 </script>
@@ -17,7 +19,7 @@ const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
     id="manual-convidados"
     eyebrow="Informações úteis"
     title="Manual dos Convidados"
-    tone="muted"
+    :tone="tone"
   >
     <div class="mx-auto flex max-w-3xl flex-col gap-8">
       <p class="text-center leading-relaxed text-body">{{ content.guestManualIntro }}</p>

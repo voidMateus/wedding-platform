@@ -4,15 +4,17 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'default' } = defineProps<Props>()
 
 const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 </script>
 
 <template>
-  <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code">
+  <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code" :tone="tone">
     <div class="mx-auto flex max-w-xl flex-col items-center gap-8 text-center">
       <PublicDressCodeIllustration />
       <p class="leading-relaxed text-body">{{ content.dressCodeDescription }}</p>

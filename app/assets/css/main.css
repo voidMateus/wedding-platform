@@ -197,7 +197,19 @@
      flutuar POR DENTRO da seção, sem participar do fluxo nem empurrar o
      conteúdo, e some no mobile — num celular a régua de 24px de cada lado
      comeria a largura útil de leitura em troca de um enfeite. Quem usa isto
-     precisa ser `relative`. */
+     precisa ser `relative`.
+
+     O raio é o mesmo `--radius-lg` dos cartões que vivem dentro dela. Com
+     cantos vivos, a moldura passava por fora de cartões arredondados sem
+     nenhuma relação de forma entre as duas bordas — pareciam dois desenhos
+     sobrepostos, não uma peça dentro da outra (achado do usuário na primeira
+     rodada desta fase).
+
+     Quem liga a moldura desliga a costura curva das seções (ver
+     PublicEditorialSection): as duas são metáforas incompatíveis. A costura
+     diz "as seções escorrem uma na outra"; a moldura diz "cada seção é uma
+     página do convite". Juntas, a curva passava por cima da moldura e o
+     retângulo cortava a onda no meio. */
   .ornament-frame::before,
   .ornament-frame::after {
     content: '';
@@ -215,11 +227,13 @@
     .ornament-frame::before {
       inset: 1.5rem;
       border: 1px solid color-mix(in srgb, var(--color-ornament) 55%, transparent);
+      border-radius: var(--radius-lg);
     }
 
     .ornament-frame::after {
       inset: 1.75rem;
       border: 1px solid color-mix(in srgb, var(--color-ornament) 28%, transparent);
+      border-radius: calc(var(--radius-lg) - 0.25rem);
     }
   }
 

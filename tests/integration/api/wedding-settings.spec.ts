@@ -150,7 +150,10 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       expect(storedTheme.secondaryColor).toBe('#5f6f52')
       expect(storedTheme.fontPairId).toBe('classico')
       expect(storedTheme.showCountdown).toBe(true)
-      expect(storedTheme.heroButtons).toEqual(['presentes', 'cronograma'])
+      // 'cronograma' é o id antigo do atalho e chega assim de um formulário
+      // com seleção salva antes da unificação com o catálogo de seções — o
+      // servidor grava já normalizado (ver LEGACY_HERO_BUTTON_IDS).
+      expect(storedTheme.heroButtons).toEqual(['presentes', 'grande-dia'])
       expect(storedTheme.heroFeaturedButton).toBe('presentes')
     })
 

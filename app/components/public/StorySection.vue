@@ -5,9 +5,11 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'default' } = defineProps<Props>()
 
 const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 
@@ -30,7 +32,12 @@ const storyFocalPosition = computed(() => {
 </script>
 
 <template>
-  <PublicEditorialSection id="historia" eyebrow="Como tudo começou" title="Nossa História">
+  <PublicEditorialSection
+    id="historia"
+    eyebrow="Como tudo começou"
+    title="Nossa História"
+    :tone="tone"
+  >
     <div v-if="storyImageUrl" class="grid gap-10 sm:grid-cols-2 sm:items-center">
       <NuxtImg
         :src="storyImageUrl"
@@ -41,7 +48,11 @@ const storyFocalPosition = computed(() => {
         loading="lazy"
       />
       <div class="flex flex-col gap-4 text-body">
-        <p v-for="(paragraph, index) in content.storyParagraphs" :key="index" class="leading-relaxed">
+        <p
+          v-for="(paragraph, index) in content.storyParagraphs"
+          :key="index"
+          class="leading-relaxed"
+        >
           {{ paragraph }}
         </p>
       </div>

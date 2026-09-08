@@ -5,7 +5,14 @@
 const { getPublicPhotos } = usePublicPhotos()
 const { getPublicWedding } = usePublicWedding()
 const { data, status } = getPublicPhotos()
-const { data: wedding } = getPublicWedding()
+const { data: wedding } = await getPublicWedding()
+
+// Slug inexistente responde 404 de verdade (mesma regra da home): a página não
+// pode existir sem o casamento por trás dela. `fatal` para o erro subir no SSR
+// e o status HTTP ser realmente 404, não uma tela de erro dentro de um 200.
+if (!wedding.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Casamento não encontrado', fatal: true })
+}
 const slug = useWeddingSlug()
 
 const photos = computed(() => data.value?.data ?? [])

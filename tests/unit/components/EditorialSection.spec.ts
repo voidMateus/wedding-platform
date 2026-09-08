@@ -34,12 +34,8 @@ describe('PublicEditorialSection', () => {
     expect(wrapper.findComponent(SectionDivider).exists()).toBe(false)
   })
 
-  it('renderiza a costura curva no topo por padrão e a esconde com seam=false', () => {
-    const withSeam = mountSection({})
-    expect(withSeam.find('svg path').exists()).toBe(true)
-
-    const withoutSeam = mountSection({ seam: false })
-    expect(withoutSeam.find('svg').exists()).toBe(false)
+  it('renderiza a costura curva no topo quando não há moldura', () => {
+    expect(mountSection({}).find('svg path').exists()).toBe(true)
   })
 
   it('aplica bg-surface-muted quando tone="muted"', () => {
@@ -91,6 +87,21 @@ describe('PublicEditorialSection — moldura de filete', () => {
       },
     })
     expect(wrapper.classes()).toContain('ornament-frame')
+  })
+
+  it('a moldura substitui a costura — as duas juntas se cortavam', () => {
+    // A curva diz "as seções escorrem uma na outra"; a moldura diz "cada seção
+    // é uma página do convite". Desenhadas juntas, a onda passava por cima da
+    // borda e o retângulo cortava a onda no meio (achado do usuário).
+    const wrapper = mount(EditorialSection, {
+      props: { title: 'Nossa História' },
+      global: {
+        components: { UiSectionDivider: SectionDivider },
+        provide: { [PUBLIC_ORNAMENT_FRAME_KEY as symbol]: () => true },
+      },
+    })
+    expect(wrapper.classes()).toContain('ornament-frame')
+    expect(wrapper.find('svg path').exists()).toBe(false)
   })
 
   it('aceita um valor cru, não só um getter', () => {

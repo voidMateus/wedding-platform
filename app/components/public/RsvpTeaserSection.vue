@@ -8,9 +8,11 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections). 'accent' é o tom fixo desta seção no catálogo. */
+  tone?: 'default' | 'muted' | 'accent'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'accent' } = defineProps<Props>()
 
 const rsvpLink = computed(() => `/${wedding.slug}/rsvp`)
 
@@ -28,7 +30,7 @@ const formattedDate = computed(() =>
     id="confirmar-presenca"
     eyebrow="R.S.V.P"
     title="Confirme sua Presença"
-    tone="accent"
+    :tone="tone"
   >
     <div
       class="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-primary/15 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"

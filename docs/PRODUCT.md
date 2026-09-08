@@ -287,7 +287,7 @@ Duas seções do site público não têm texto padrão de plataforma, ao contrá
 
 **Toda cor da paleta tem nome obrigatório.** O nome aparece escrito embaixo da amostra e não é legenda decorativa: é a única forma de a informação chegar a quem não distingue aquele tom, e é também o que a madrinha usa para procurar o tecido numa loja. As cores da paleta são o único lugar do produto em que uma cor escolhida no painel não passa por validação de contraste — ali ela não pinta interface nenhuma, ela é o conteúdo (um champanhe ou um rosé são exatamente o tipo de cor que um casal quer mostrar, e a régua de contraste os proibiria).
 
-**Esvaziar o conteúdo é como se remove uma seção.** Vale para estas duas e para Manual, FAQ e Galeria. Não existe interruptor de "ocultar seção" na tela de ordem — seria um segundo estado dizendo a mesma coisa que o conteúdo já diz, e os dois sairiam de sincronia.
+**Esvaziar o conteúdo esconde a seção.** Vale para estas duas e para Manual, FAQ e Galeria — uma seção sem nada a mostrar não aparece.
 
 ### 7.6 Ordem das seções da home
 
@@ -298,6 +298,24 @@ A sequência dos capítulos da página inicial é escolhida pelo casal em Config
 **Uma seção lançada depois nunca nasce invisível.** Se o casal salvou a ordem antes de uma seção existir, ela é anexada no fim automaticamente na hora de renderizar. Sem essa garantia, toda seção nova da plataforma deixaria de aparecer para quem já tivesse personalizado a ordem — um bug silencioso que só apareceria como "essa funcionalidade não funciona no meu site".
 
 **A ordem padrão** é: Boas-vindas → Versículo → Nossa História → O Grande Dia → Confirme sua Presença → Dress Code → Manual dos Convidados → Manual dos Padrinhos → Lista de Presentes → Nossos Momentos → Perguntas Frequentes. O RSVP vem logo depois de "O Grande Dia" porque é ali que a pergunta faz mais sentido — o convidado acabou de ler onde e quando.
+
+**Reordenar a lista nunca remove uma seção dela.** A ordem define a sequência, não o conjunto: uma seção que o casal não mencionou continua entrando, no fim. Quem tira do site é o interruptor abaixo.
+
+### 7.7 Ligar e desligar seções
+
+Cada linha da lista de ordem tem um interruptor (ícone de olho) que liga e desliga a seção no site. É diferente de esvaziar o conteúdo, e as duas coisas coexistem porque respondem a perguntas diferentes: *"não tenho o que dizer aqui"* (conteúdo vazio) e *"tenho, e não quero mostrar agora"* (desligada). Sem o interruptor, tirar o dress code da página exigiria apagar um texto que o casal talvez queira de volta na semana seguinte.
+
+**Seção desligada some do site inteiro, não só da página.** Ela sai da home, dos atalhos do Hero e do menu de navegação — um atalho apontando para uma seção desligada seria um link que o convidado clica e nada acontece.
+
+**Mas continua na lista do admin**, na posição dela, esmaecida e marcada como "Não aparece no site". Tirá-la da lista faria o casal perder de vista que a seção existe, e em que ordem ela voltaria ao ser religada.
+
+**Toda seção pode virar atalho do Hero.** O catálogo de atalhos é o próprio catálogo de seções — se a seção existe e está ligada, ela pode ser escolhida como botão da capa. Duas apontam para página dedicada em vez de âncora (Lista de Presentes e Confirmar Presença), porque mandar o convidado para um teaser que só tem um botão custaria um clique a mais.
+
+### 7.8 Fundo alternado das seções
+
+O fundo de cada seção (off-white ou bege) é decidido pela **posição** dela entre as que aparecem, não fixado por seção. É o que garante que duas seções claras nunca fiquem coladas com o mesmo tom — o que passou a ser possível assim que a ordem e a visibilidade viraram configuráveis.
+
+Versículo e "Confirme sua Presença" têm cor própria (a faixa na cor primária e a banda de destaque) e ficam fora do revezamento, sem interrompê-lo: uma faixa escura entre duas seções claras não dispensa que elas sejam diferentes entre si.
 
 
 ---

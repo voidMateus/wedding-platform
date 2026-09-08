@@ -5,6 +5,9 @@ import type { RsvpInvitePayload, RsvpSearchResult } from '~/types/rsvp'
 
 definePageMeta({ layout: 'default' })
 
+// noindex: a busca por nome é um fluxo pessoal do convidado, não conteúdo
+// para buscador — mas o título ainda identifica o casamento para quem tem a
+// aba aberta entre várias.
 useSeoMeta({
   title: 'Confirmação de Presença',
   robots: 'noindex, nofollow',
@@ -19,7 +22,14 @@ const backToSiteLink = computed(() => `/${slug}`)
 // busca (nome do casal/data). Nada sensível: a mesma informação já é
 // visível pra qualquer pessoa com o link do site.
 const { getPublicWedding } = usePublicWedding()
-const { data: wedding } = getPublicWedding()
+const { data: wedding } = await getPublicWedding()
+
+// Slug inexistente responde 404 de verdade (mesma regra da home): a página não
+// pode existir sem o casamento por trás dela. `fatal` para o erro subir no SSR
+// e o status HTTP ser realmente 404, não uma tela de erro dentro de um 200.
+if (!wedding.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Casamento não encontrado', fatal: true })
+}
 
 const formattedDate = computed(() =>
   wedding.value

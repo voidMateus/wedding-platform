@@ -4,6 +4,7 @@ import {
   HOME_SECTION_CATALOG,
   findHomeSection,
   resolveHomeSectionOrder,
+  resolveHomeSections,
 } from '#shared/home-sections'
 
 describe('HOME_SECTION_CATALOG', () => {
@@ -83,5 +84,138 @@ describe('resolveHomeSectionOrder', () => {
     for (const saved of [[], ['faq'], ['x', 'y'], [...DEFAULT_SECTION_ORDER].reverse()]) {
       expect(new Set(resolveHomeSectionOrder(saved))).toEqual(new Set(DEFAULT_SECTION_ORDER))
     }
+  })
+})
+
+describe('resolveHomeSections — alternância de fundo', () => {
+  const allVisible: Record<string, boolean> = {}
+
+  it('nunca deixa duas seções claras seguidas com o mesmo fundo', () => {
+    // A razão de o tom sair daqui e não de dentro de cada componente: com a
+    // ordem nas mãos do casal, qualquer par pode acabar adjacente.
+    const resolved = resolveHomeSections({
+      order: undefined,
+      hidden: undefined,
+      hasContent: allVisible,
+    })
+    const alternantes = resolved.filter((s) => s.tone === 'default' || s.tone === 'muted')
+    for (let i = 1; i < alternantes.length; i += 1) {
+      expect(alternantes[i]!.tone).not.toBe(alternantes[i - 1]!.tone)
+    }
+  })
+
+  /** Só as seções que se revezam, na ordem final — as de tom fixo ficam de fora. */
+  function alternantes(resolved: ReturnType<typeof resolveHomeSections>) {
+    return resolved.filter((s) => s.tone === 'default' || s.tone === 'muted')
+  }
+
+  it('continua alternando depois de uma seção sumir por falta de conteúdo', () => {
+    // O caso que o tom fixo por componente errava: sem a seção do meio, as
+    // vizinhas viram adjacentes e precisam de tons diferentes.
+    const resolved = resolveHomeSections({
+      order: undefined,
+      hidden: undefined,
+      hasContent: { 'manual-convidados': false },
+    })
+    expect(resolved.map((s) => s.id)).not.toContain('manual-convidados')
+    const lista = alternantes(resolved)
+    for (let i = 1; i < lista.length; i += 1) {
+      expect(lista[i]!.tone).not.toBe(lista[i - 1]!.tone)
+    }
+  })
+
+  it('continua alternando depois de uma seção ser desligada', () => {
+    const resolved = resolveHomeSections({
+      order: undefined,
+      hidden: ['dress-code'],
+      hasContent: allVisible,
+    })
+    expect(resolved.map((s) => s.id)).not.toContain('dress-code')
+    const lista = alternantes(resolved)
+    for (let i = 1; i < lista.length; i += 1) {
+      expect(lista[i]!.tone).not.toBe(lista[i - 1]!.tone)
+    }
+  })
+
+  it('Versículo e RSVP têm tom próprio e não entram no revezamento', () => {
+    const resolved = resolveHomeSections({
+      order: ['historia', 'versiculo', 'confirmar-presenca', 'dress-code'],
+      hidden: undefined,
+      hasContent: allVisible,
+    })
+    const byId = Object.fromEntries(resolved.map((s) => [s.id, s.tone]))
+    expect(byId.versiculo).toBe('primary')
+    expect(byId['confirmar-presenca']).toBe('accent')
+    // As duas claras continuam se revezando apesar das faixas entre elas.
+    expect(byId.historia).not.toBe(byId['dress-code'])
+  })
+
+  it('a primeira seção clara é sempre a mais clara', () => {
+    const resolved = resolveHomeSections({
+      order: ['versiculo', 'historia'],
+      hidden: undefined,
+      hasContent: allVisible,
+    })
+    expect(resolved.find((s) => s.id === 'historia')?.tone).toBe('default')
+  })
+})
+
+describe('resolveHomeSections — visibilidade', () => {
+  it('remove as seções desligadas pelo casal', () => {
+    const resolved = resolveHomeSections({
+      order: undefined,
+      hidden: ['dress-code', 'faq'],
+      hasContent: {},
+    })
+    const ids = resolved.map((s) => s.id)
+    expect(ids).not.toContain('dress-code')
+    expect(ids).not.toContain('faq')
+    expect(ids).toContain('historia')
+  })
+
+  it('remove as seções sem conteúdo, mesmo ligadas', () => {
+    const resolved = resolveHomeSections({
+      order: undefined,
+      hidden: [],
+      hasContent: { versiculo: false, 'manual-padrinhos': false },
+    })
+    const ids = resolved.map((s) => s.id)
+    expect(ids).not.toContain('versiculo')
+    expect(ids).not.toContain('manual-padrinhos')
+  })
+
+  it('id ausente do mapa de conteúdo conta como "sempre tem o que mostrar"', () => {
+    // Um mapa vazio não esconde nada: só quem responde `false` explicitamente
+    // é removido. É o que permite listar ali apenas as seções que podem ficar
+    // vazias, em vez de as onze.
+    const resolved = resolveHomeSections({ order: undefined, hidden: [], hasContent: {} })
+    expect(resolved).toHaveLength(HOME_SECTION_CATALOG.length)
+  })
+
+  it('desligar tudo devolve uma lista vazia sem quebrar', () => {
+    const resolved = resolveHomeSections({
+      order: undefined,
+      hidden: [...DEFAULT_SECTION_ORDER],
+      hasContent: {},
+    })
+    expect(resolved).toEqual([])
+  })
+
+  it('respeita a ordem do casal, não a do catálogo', () => {
+    // `order` define a SEQUÊNCIA, nunca o conjunto: as seções não citadas
+    // continuam entrando no fim (ver resolveHomeSectionOrder). Para restringir
+    // o conjunto é `hidden` que serve.
+    const resolved = resolveHomeSections({
+      order: ['faq', 'historia'],
+      hidden: [...DEFAULT_SECTION_ORDER].filter((id) => id !== 'faq' && id !== 'historia'),
+      hasContent: {},
+    })
+    expect(resolved.map((s) => s.id)).toEqual(['faq', 'historia'])
+  })
+
+  it('uma ordem parcial não esconde as seções que ela não cita', () => {
+    const resolved = resolveHomeSections({ order: ['faq'], hidden: [], hasContent: {} })
+    expect(resolved[0]!.id).toBe('faq')
+    expect(resolved).toHaveLength(HOME_SECTION_CATALOG.length)
   })
 })

@@ -1,11 +1,17 @@
 import { z } from 'zod'
 import { checkColorContrast, isValidHexColor } from '../utils/contrast'
-import { DEFAULT_HERO_BUTTONS, HERO_BUTTON_CATALOG } from '../hero-buttons'
+import { DEFAULT_HERO_BUTTONS, HERO_BUTTON_CATALOG, normalizeHeroButtonId } from '../hero-buttons'
 import { DEFAULT_SECTION_ORDER, HOME_SECTION_CATALOG } from '../home-sections'
 
 const HERO_BUTTON_ID_SET = new Set(HERO_BUTTON_CATALOG.map((button) => button.id))
+
+// Normaliza antes de validar (e grava já normalizado): um formulário aberto
+// com a seleção antiga salva no banco reenviaria 'cronograma'/'galeria' e
+// seria reprovado por "atalho desconhecido" — o casal veria um erro sem ter
+// mudado nada. Ver LEGACY_HERO_BUTTON_IDS.
 const heroButtonIdSchema = z
   .string()
+  .transform(normalizeHeroButtonId)
   .refine((id) => HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.')
 
 const HOME_SECTION_ID_SET = new Set(HOME_SECTION_CATALOG.map((section) => section.id))
@@ -125,6 +131,13 @@ export const themeConfigSchema = z.object({
     .array(homeSectionIdSchema)
     .max(HOME_SECTION_CATALOG.length)
     .default(DEFAULT_SECTION_ORDER),
+  /**
+   * Seções que o casal desligou. Vale junto com o conteúdo, não no lugar dele:
+   * uma seção sem texto continua sumindo sozinha, e esta lista é para desligar
+   * uma seção que TEM conteúdo — o casal que preencheu o dress code mas não
+   * quer exibi-lo agora não precisa apagar o texto para isso.
+   */
+  hiddenSections: z.array(homeSectionIdSchema).max(HOME_SECTION_CATALOG.length).default([]),
   // Atalhos do Hero (CLAUDE.md, seção 21 — "Fase Vermelho Clássico"): o
   // casal escolhe quais botões aparecem e qual fica em destaque (cor
   // preenchida); os demais ficam em outline. Catálogo fixo em
@@ -136,7 +149,7 @@ export const themeConfigSchema = z.object({
   heroFeaturedButton: z
     .string()
     .optional()
-    .transform((value) => (value ? value : undefined))
+    .transform((value) => (value ? normalizeHeroButtonId(value) : undefined))
     .refine((id) => id === undefined || HERO_BUTTON_ID_SET.has(id), 'Atalho desconhecido.'),
 })
 
@@ -173,6 +186,8 @@ export interface ThemeConfig {
   ornamentFrame?: boolean
   /** Ordem dos capítulos da home — ids de shared/home-sections.ts. Ausente = DEFAULT_SECTION_ORDER. */
   sectionOrder?: string[]
+  /** Seções desligadas pelo casal — ids de shared/home-sections.ts. Ausente = nenhuma. */
+  hiddenSections?: string[]
   coverImageUrl?: string
   /**
    * Monograma próprio do casal (PNG/WebP transparente), gerido pelos

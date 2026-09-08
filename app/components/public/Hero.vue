@@ -104,7 +104,13 @@ const coverFocalPosition = computed(
 // slug do casamento (CLAUDE.md, seção 4.4/33) prefixado aqui para navegar
 // para a home certa em vez de cair na raiz neutra sem casamento nenhum.
 const heroButtons = computed(() =>
-  resolveHeroButtons(theme.value.heroButtons, theme.value.heroFeaturedButton).map((button) => {
+  // `hiddenSections` entra aqui porque um atalho para uma seção desligada é um
+  // link para lugar nenhum: o convidado clica e a página não se move.
+  resolveHeroButtons(
+    theme.value.heroButtons,
+    theme.value.heroFeaturedButton,
+    theme.value.hiddenSections,
+  ).map((button) => {
     // 'presentes' é o único atalho que navega pra uma página de verdade
     // (não uma âncora na home) — precisa preservar ?code=, senão o
     // convidado perde a autorização de reservar/contribuir ao clicar.
@@ -239,7 +245,10 @@ const heroButtons = computed(() =>
         </UiButton>
       </div>
 
+      <!-- Instrução de gesto visual: quem usa leitor de tela não "rola para
+           descobrir", navega por landmark e cabeçalho. -->
       <div
+        aria-hidden="true"
         class="mt-8 flex flex-col items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-text-muted"
       >
         <span>Role para descobrir</span>

@@ -12,9 +12,11 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'default' } = defineProps<Props>()
 
 const manual = computed(() => resolveWeddingContent(wedding.config_conteudo).groomsmenManual)
 const hasContent = computed(() => hasGroomsmenManualContent(manual.value))
@@ -41,6 +43,7 @@ const attireCards = computed(() =>
     id="manual-padrinhos"
     eyebrow="Para quem sobe ao altar com a gente"
     title="Manual dos Padrinhos"
+    :tone="tone"
   >
     <div class="mx-auto flex w-full max-w-3xl flex-col gap-10">
       <p v-if="manual.intro" class="text-center leading-relaxed text-body">{{ manual.intro }}</p>

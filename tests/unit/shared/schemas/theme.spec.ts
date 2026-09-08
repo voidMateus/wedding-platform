@@ -63,7 +63,7 @@ describe('themeConfigSchema', () => {
       expect(result.data.heroButtons).toEqual([
         'presentes',
         'confirmar-presenca',
-        'cronograma',
+        'grande-dia',
         'manual-convidados',
       ])
     }
@@ -72,13 +72,28 @@ describe('themeConfigSchema', () => {
   it('aceita uma seleção customizada de heroButtons/heroFeaturedButton', () => {
     const result = themeConfigSchema.safeParse({
       ...BASE,
-      heroButtons: ['galeria', 'faq'],
+      heroButtons: ['nossos-momentos', 'faq'],
       heroFeaturedButton: 'faq',
     })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.heroButtons).toEqual(['galeria', 'faq'])
+      expect(result.data.heroButtons).toEqual(['nossos-momentos', 'faq'])
       expect(result.data.heroFeaturedButton).toBe('faq')
+    }
+  })
+
+  it('normaliza ids de atalho anteriores à unificação com o catálogo de seções', () => {
+    // Um formulário aberto com a seleção antiga salva reenviaria estes ids. Sem
+    // a normalização o casal veria "atalho desconhecido" sem ter mudado nada.
+    const result = themeConfigSchema.safeParse({
+      ...BASE,
+      heroButtons: ['cronograma', 'galeria'],
+      heroFeaturedButton: 'cronograma',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.heroButtons).toEqual(['grande-dia', 'nossos-momentos'])
+      expect(result.data.heroFeaturedButton).toBe('grande-dia')
     }
   })
 

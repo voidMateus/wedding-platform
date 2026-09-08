@@ -5,9 +5,9 @@ import Button from '~/components/ui/Button.vue'
 import { DEFAULT_SECTION_ORDER } from '#shared/home-sections'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
 
-function mountField(modelValue: string[] = [...DEFAULT_SECTION_ORDER]) {
+function mountField(modelValue: string[] = [...DEFAULT_SECTION_ORDER], hidden: string[] = []) {
   return mount(SectionOrderField, {
-    props: { modelValue },
+    props: { modelValue, hidden },
     global: { components: { UiButton: Button }, stubs: ICON_STUBS },
   })
 }
@@ -94,5 +94,35 @@ describe('AdminSettingsSectionOrderField', () => {
       .find((b) => b.text().includes('Voltar à ordem sugerida'))!
     botao.trigger('click')
     expect(lastEmit(wrapper)).toEqual(DEFAULT_SECTION_ORDER)
+  })
+
+  it('o olho liga e desliga a seção sem tirá-la da lista', () => {
+    // Desligada, a seção continua visível no admin, na posição dela — só some
+    // da página do convidado. Tirá-la da lista faria o casal perder de vista
+    // que ela existe e em que ordem voltaria.
+    const wrapper = mountField(['boas-vindas', 'versiculo'])
+    wrapper.get('[aria-label="Ocultar Versículo do site"]').trigger('click')
+    expect(wrapper.emitted('update:hidden')?.at(-1)?.[0]).toEqual(['versiculo'])
+    expect(wrapper.findAll('li')).toHaveLength(2)
+  })
+
+  it('clicar de novo religa a seção', () => {
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['versiculo'])
+    wrapper.get('[aria-label="Mostrar Versículo no site"]').trigger('click')
+    expect(wrapper.emitted('update:hidden')?.at(-1)?.[0]).toEqual([])
+  })
+
+  it('linha desligada anuncia o estado, não só o tom esmaecido', () => {
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['versiculo'])
+    expect(wrapper.text()).toContain('Não aparece no site.')
+    expect(wrapper.get('[aria-label="Mostrar Versículo no site"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
+  })
+
+  it('ocultar não mexe na ordem', () => {
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['versiculo'])
+    wrapper.get('[aria-label="Mostrar Versículo no site"]').trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 })
