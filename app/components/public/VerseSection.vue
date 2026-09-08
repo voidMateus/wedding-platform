@@ -27,35 +27,12 @@ const hasContent = computed(() => hasVerseContent(verse.value))
 </script>
 
 <template>
-  <!--
-    Sem `overflow-hidden`: a costura abaixo é desenhada FORA da seção
-    (`bottom-full`, sobre a seção anterior) e um recorte aqui a apagaria — a
-    mesma razão pela qual EditorialSection também não corta o próprio overflow.
-  -->
-  <section
-    v-if="hasContent"
-    id="versiculo"
-    class="relative bg-primary px-6 py-20 text-center sm:py-24"
-  >
-    <!--
-      Costura curva no topo, preenchida com a cor DESTA seção — mesma
-      linguagem de transição do Hero e das demais seções (EditorialSection).
-      Sem ela, a faixa escura começaria num corte reto no meio da página.
-    -->
-    <svg
-      viewBox="0 0 1440 96"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-      class="pointer-events-none absolute inset-x-0 bottom-full h-10 w-full text-primary sm:h-14"
-    >
-      <path fill="currentColor" d="M0,96 L0,64 Q720,0 1440,64 L1440,96 Z" />
-    </svg>
-
+  <section v-if="hasContent" id="versiculo" class="bg-primary px-6 py-20 text-center">
     <blockquote
       v-motion
       :initial="{ opacity: 0, y: 24 }"
       :visible-once="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="relative mx-auto max-w-3xl"
+      class="mx-auto max-w-3xl"
     >
       <p
         class="font-display text-lg uppercase leading-relaxed tracking-[0.12em] text-ornament sm:text-xl"

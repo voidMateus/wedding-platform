@@ -122,7 +122,7 @@ const heroButtons = computed(() =>
 
 <template>
   <section
-    class="relative flex min-h-[88vh] flex-col items-center justify-center gap-6 overflow-hidden bg-surface-muted px-4 pb-28 pt-20 text-center sm:pb-36 sm:pt-24"
+    class="relative flex min-h-[88vh] flex-col items-center justify-center overflow-hidden bg-surface-muted px-4 pb-28 pt-20 text-center sm:pb-36 sm:pt-24"
   >
     <!--
       ATENÇÃO: a prop `sizes` do NuxtImg NÃO aceita o valor cru do atributo

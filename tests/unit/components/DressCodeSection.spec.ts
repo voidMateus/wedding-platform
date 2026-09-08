@@ -4,6 +4,7 @@ import DressCodeSection from '~/components/public/DressCodeSection.vue'
 import EditorialSection from '~/components/public/EditorialSection.vue'
 import SectionDivider from '~/components/ui/SectionDivider.vue'
 import { DRESS_CODE_CONTENT } from '#shared/wedding-content'
+import { ICON_STUBS } from '../test-utils/icon-stubs'
 import type { Wedding } from '~/types/wedding'
 
 function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
@@ -32,7 +33,10 @@ function mountDressCode(wedding: Wedding) {
     props: { wedding },
     global: {
       components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
-      stubs: { PublicDressCodeIllustration: { template: '<svg data-test="dress-code-illustration" />' } },
+      stubs: {
+        ...ICON_STUBS,
+        PublicDressCodeIllustration: { template: '<svg data-test="dress-code-illustration" />' },
+      },
     },
   })
 }
@@ -65,7 +69,10 @@ describe('PublicDressCodeSection', () => {
   it('usa descrição/sugestões customizadas pelo casal quando presentes em config_conteudo', () => {
     const wrapper = mountDressCode(
       makeWedding({
-        config_conteudo: { dressCodeDescription: 'Traje esporte fino.', dressCodeSuggestions: ['Use tons pastel.'] },
+        config_conteudo: {
+          dressCodeDescription: 'Traje esporte fino.',
+          dressCodeSuggestions: ['Use tons pastel.'],
+        },
       }),
     )
     expect(wrapper.text()).toContain('Traje esporte fino.')
@@ -74,9 +81,7 @@ describe('PublicDressCodeSection', () => {
   })
 
   it('esconde a lista de sugestões quando o casal esvazia config_conteudo.dressCodeSuggestions', () => {
-    const wrapper = mountDressCode(
-      makeWedding({ config_conteudo: { dressCodeSuggestions: [] } }),
-    )
+    const wrapper = mountDressCode(makeWedding({ config_conteudo: { dressCodeSuggestions: [] } }))
     expect(wrapper.find('ul').exists()).toBe(false)
   })
 })

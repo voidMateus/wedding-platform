@@ -154,3 +154,44 @@ describe('weddingContentConfigSchema — Manual dos Padrinhos', () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe('weddingContentConfigSchema — marcos da história', () => {
+  it('nasce vazio: a seção usa o texto corrido enquanto ninguém preencher', () => {
+    const result = weddingContentConfigSchema.safeParse(BASE)
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.storyMilestones).toEqual([])
+  })
+
+  it('aceita marcos completos', () => {
+    const result = weddingContentConfigSchema.safeParse({
+      ...BASE,
+      storyMilestones: [
+        { label: 'O começo', title: 'Conversas que se estenderam', text: 'Papos sem hora.' },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('exige os três campos de cada marco — um cartão sem título não desenha', () => {
+    for (const incompleto of [
+      { label: '', title: 'T', text: 'X' },
+      { label: 'L', title: '', text: 'X' },
+      { label: 'L', title: 'T', text: '' },
+    ]) {
+      expect(
+        weddingContentConfigSchema.safeParse({ ...BASE, storyMilestones: [incompleto] }).success,
+      ).toBe(false)
+    }
+  })
+
+  it('rejeita mais de 6 marcos', () => {
+    const muitos = Array.from({ length: 7 }, (_, i) => ({
+      label: `L${i}`,
+      title: `T${i}`,
+      text: 'X',
+    }))
+    expect(weddingContentConfigSchema.safeParse({ ...BASE, storyMilestones: muitos }).success).toBe(
+      false,
+    )
+  })
+})

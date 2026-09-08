@@ -19,13 +19,15 @@ export interface AccordionItemData {
 interface Props {
   items: AccordionItemData[]
   /**
-   * 'card' é o acordeão premium do site público: moldura arredondada, sombra
-   * e chevron dentro de um disco na cor primária. 'plain' é a linha de
-   * configuração: moldura de 1px, título com linha de apoio, chevron solto e
-   * fundo sutil quando aberto — vários itens empilhados numa mesma seção sem
-   * que cada um pareça um cartão independente.
+   * 'card' é o acordeão em moldura: cartão arredondado, sombra e chevron num
+   * disco na cor primária. 'plain' é a linha de configuração do admin: moldura
+   * de 1px, título com linha de apoio, chevron solto e fundo sutil quando
+   * aberto. 'rule' é o do site público desde o rebrand — sem moldura nenhuma,
+   * só uma régua entre as perguntas, como as dúvidas frequentes do protótipo
+   * do convite: uma pilha de dez cartões com sombra virava uma parede de
+   * caixas justamente onde a página deveria ficar mais leve.
    */
-  variant?: 'card' | 'plain'
+  variant?: 'card' | 'plain' | 'rule'
   /** Item aberto no primeiro render — o resto começa fechado. */
   defaultOpenId?: string
 }
@@ -35,10 +37,14 @@ const { items, variant = 'card', defaultOpenId } = defineProps<Props>()
 const ROOT_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   card: 'flex flex-col gap-3',
   plain: 'flex flex-col gap-2',
+  // Réguas em cima e embaixo da pilha, e uma entre cada par — o bloco inteiro
+  // se lê como uma lista impressa, não como itens soltos.
+  rule: 'flex flex-col divide-y divide-border/70 border-y border-border/70',
 }
 
 const ITEM_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   card: 'overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-sm',
+  rule: '',
   // O item aberto se destaca pela BORDA, nunca por preenchimento: o cartão de
   // seção é branco (`surface-elevated`) e os campos dentro do item são
   // off-white (`surface`); um terceiro tom quente no meio dos dois deixava a
@@ -52,11 +58,13 @@ const ITEM_CLASSES: Record<NonNullable<Props['variant']>, string> = {
 const TRIGGER_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   card: 'p-5 font-medium text-heading',
   plain: 'px-4 py-3',
+  rule: 'px-1 py-5 font-display text-xl text-heading',
 }
 
 const FALLBACK_CONTENT_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   card: 'px-5 pb-5 leading-relaxed',
   plain: 'px-4 pb-3 leading-relaxed',
+  rule: 'px-1 pb-5 leading-relaxed',
 }
 </script>
 
@@ -89,7 +97,7 @@ const FALLBACK_CONTENT_CLASSES: Record<NonNullable<Props['variant']>, string> = 
           <template v-else>{{ item.trigger }}</template>
 
           <span
-            v-if="variant === 'plain'"
+            v-if="variant !== 'card'"
             class="shrink-0 text-text-muted transition-transform duration-200"
           >
             <Icon name="lucide:chevron-down" class="h-4 w-4" />

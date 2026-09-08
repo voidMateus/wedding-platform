@@ -289,6 +289,15 @@ Duas seções do site público não têm texto padrão de plataforma, ao contrá
 
 **Esvaziar o conteúdo esconde a seção.** Vale para estas duas e para Manual, FAQ e Galeria — uma seção sem nada a mostrar não aparece.
 
+### 7.5.1 Nossa História — texto corrido ou marcos
+
+A seção aceita duas formas, e o casal escolhe preenchendo uma ou outra:
+
+- **Texto corrido** (`Mensagem`), opcionalmente com uma foto ao lado — o padrão, e o que aparece enquanto ninguém mexer nos marcos.
+- **Marcos** (`Marcos da história`): até 6 cartões com rótulo curto ("O começo"), título e um parágrafo. Havendo marcos preenchidos, eles substituem o texto corrido na página.
+
+Não é uma configuração com interruptor: quem escreveu três marcos já escolheu contar a história assim. Texto corrido é uma carta; marcos são uma linha do tempo — e qual serve depende do casal, não da plataforma.
+
 ### 7.6 Ordem das seções da home
 
 A sequência dos capítulos da página inicial é escolhida pelo casal em Configurações → Aparência → "Ordem das seções", arrastando as linhas ou usando as setas de subir/descer. O catálogo de seções é fixo (a plataforma decide quais existem); só a ordem é editável.

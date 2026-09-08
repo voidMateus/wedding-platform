@@ -32,7 +32,11 @@ function mountSection(wedding: Wedding = makeWedding()) {
   return mount(RsvpTeaserSection, {
     props: { wedding },
     global: {
-      components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection, UiButton: Button },
+      components: {
+        UiSectionDivider: SectionDivider,
+        PublicEditorialSection: EditorialSection,
+        UiButton: Button,
+      },
       stubs: {
         ...ICON_STUBS,
         NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to', 'target'] },
@@ -48,9 +52,11 @@ describe('PublicRsvpTeaserSection', () => {
     expect(wrapper.find('#confirmar-presenca').exists()).toBe(true)
   })
 
-  it('mostra o nome do casal e a data formatada', () => {
-    const wrapper = mountSection(makeWedding({ nomes_noivos: 'Ana & João', data_evento: '2027-05-16' }))
-    expect(wrapper.text()).toContain('Ana & João')
+  it('mostra a data formatada', () => {
+    // O nome do casal saiu daqui: ele já está no cabeçalho, no Hero e no
+    // rodapé, e repeti-lo dentro da própria chamada de RSVP era a terceira
+    // vez na mesma rolagem.
+    const wrapper = mountSection(makeWedding({ data_evento: '2027-05-16' }))
     expect(wrapper.text()).toContain('16 de maio de 2027')
   })
 

@@ -73,7 +73,7 @@ const accessibleLabel = computed(() => {
     :initial="{ opacity: 0, y: 16 }"
     :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
     aria-live="off"
-    class="flex items-stretch gap-4 sm:gap-8"
+    class="flex items-stretch gap-5 sm:gap-8"
   >
     <p class="sr-only">{{ accessibleLabel }}</p>
     <!--
@@ -85,16 +85,16 @@ const accessibleLabel = computed(() => {
       <span
         v-if="index > 0"
         data-test="countdown-separator"
-        class="w-px self-stretch bg-secondary/30"
+        class="w-px self-stretch bg-ornament/30"
         aria-hidden="true"
       />
       <div class="flex flex-col items-center gap-1" aria-hidden="true">
-        <span class="font-display text-4xl font-semibold text-heading tabular-nums sm:text-5xl">
+        <span class="font-display text-3xl leading-none text-heading tabular-nums sm:text-4xl">
           {{ String(unit.value).padStart(2, '0') }}
         </span>
-        <span class="text-[10px] uppercase tracking-[0.25em] text-text-muted">{{
-          unit.label
-        }}</span>
+        <span class="mt-1 text-[10px] uppercase tracking-[0.3em] text-text-muted">
+          {{ unit.label }}
+        </span>
       </div>
     </template>
   </div>

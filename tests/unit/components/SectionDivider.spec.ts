@@ -8,9 +8,17 @@ describe('UiSectionDivider', () => {
     expect(wrapper.attributes('aria-hidden')).toBe('true')
   })
 
-  it('renderiza o ornamento linha-ponto-losango-ponto-linha', () => {
+  it('é um filete único, não um ornamento composto', () => {
+    // O protótipo do convite não tem ornamento composto em lugar nenhum: a
+    // página respira por espaço em branco e um traço curto. O losango entre
+    // pontos, repetido dez vezes ao descer a home, virava insistente.
     const wrapper = mount(SectionDivider)
-    const spans = wrapper.findAll('span')
-    expect(spans).toHaveLength(5)
+    expect(wrapper.element.tagName).toBe('SPAN')
+    expect(wrapper.findAll('span')).toHaveLength(1)
+    expect(wrapper.classes()).toContain('h-px')
+  })
+
+  it('é tingido pela cor de ornamento', () => {
+    expect(mount(SectionDivider).classes().join(' ')).toContain('bg-ornament')
   })
 })

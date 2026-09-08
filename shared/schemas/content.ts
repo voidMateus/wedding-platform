@@ -54,6 +54,23 @@ export const contentGroomsmenManualSchema = z.object({
   palette: z.array(contentPaletteSwatchSchema).max(8),
 })
 
+/**
+ * Um marco da história do casal — o cartão "O começo / Conversas que se
+ * estenderam / ..." do protótipo do convite (Fase Rebrand do Convite,
+ * rodada 3).
+ *
+ * Existe ao lado de `storyMessage`, não no lugar dele: são duas formas
+ * diferentes de contar a mesma coisa, e qual serve depende do casal. Texto
+ * corrido é uma carta; marcos são uma linha do tempo. Preenchendo os marcos, a
+ * seção passa a desenhá-los; sem eles, segue o texto corrido de sempre.
+ */
+export const contentStoryMilestoneSchema = z.object({
+  /** Rótulo curto acima do título ("O começo", "2019", "A certeza"). */
+  label: z.string().trim().min(1, 'Informe o rótulo.').max(40),
+  title: z.string().trim().min(1, 'Informe o título.').max(80),
+  text: z.string().trim().min(1, 'Informe o texto.').max(400),
+})
+
 /** Versículo/citação em faixa cheia — respiro entre blocos claros, como a página vermelha do convite. */
 export const contentVerseSchema = z.object({
   text: z.string().trim().max(600).optional(),
@@ -79,6 +96,10 @@ export const weddingContentConfigSchema = z.object({
   // no site de quem nunca abriu esta aba. Um versículo genérico inventado pela
   // plataforma seria pior que nenhum: é a única seção do site que fala em nome
   // da fé do casal.
+  // Máximo de 6: o layout do protótipo é uma fileira de três cartões, e além
+  // de duas fileiras a seção deixa de ser um respiro na página e vira um
+  // capítulo próprio.
+  storyMilestones: z.array(contentStoryMilestoneSchema).max(6).default([]),
   verse: contentVerseSchema.default({}),
   groomsmenManual: contentGroomsmenManualSchema.default({ palette: [] }),
 })
@@ -96,6 +117,8 @@ export interface WeddingContentConfig {
   guestManualTopics?: { icon: string; title: string; description: string }[]
   giftsIntroMessage?: string
   faqItems?: { question: string; answer: string }[]
+  /** Marcos da história. Vazio = a seção usa o texto corrido de `storyMessage`. */
+  storyMilestones?: { label: string; title: string; text: string }[]
   /** Versículo/citação em faixa cheia. Sem texto, a seção não é renderizada. */
   verse?: { text?: string; reference?: string }
   /** Manual dos Padrinhos. Sem nenhum campo preenchido, a seção não é renderizada. */

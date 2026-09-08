@@ -104,5 +104,6 @@ useHead({
       :monogram-image-url="monogramImageUrl"
     />
     <PublicScrollToTopButton />
+    <PublicMobileCtaBar :slug="slug" :hidden-sections="hiddenSections" />
   </div>
 </template>

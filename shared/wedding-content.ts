@@ -112,6 +112,12 @@ export const FAQ_CONTENT: FaqItem[] = [
   },
 ]
 
+export interface StoryMilestone {
+  label: string
+  title: string
+  text: string
+}
+
 export interface PaletteSwatch {
   name: string
   hex: string
@@ -133,6 +139,8 @@ export interface ResolvedWeddingContent {
   welcomeTitle: string
   welcomeParagraphs: string[]
   storyParagraphs: string[]
+  /** Marcos da história. Vazio = a seção desenha `storyParagraphs` como texto corrido. */
+  storyMilestones: StoryMilestone[]
   dressCodeDescription: string
   dressCodeSuggestions: string[]
   guestManualIntro: string
@@ -168,6 +176,7 @@ export function resolveWeddingContent(contentConfig: unknown): ResolvedWeddingCo
       ? splitParagraphs(c.welcomeMessage)
       : WELCOME_CONTENT.paragraphs,
     storyParagraphs: c.storyMessage ? splitParagraphs(c.storyMessage) : STORY_CONTENT.paragraphs,
+    storyMilestones: c.storyMilestones ?? [],
     dressCodeDescription: c.dressCodeDescription ?? DRESS_CODE_CONTENT.description,
     dressCodeSuggestions: c.dressCodeSuggestions ?? DRESS_CODE_CONTENT.suggestions,
     guestManualIntro: c.guestManualIntro ?? GUEST_MANUAL_CONTENT.intro,

@@ -516,3 +516,31 @@ Duas decisões que valem registro: `startDate` sai **sem** offset de fuso, porqu
 **404 real**: slug inexistente passou a lançar `createError({ statusCode: 404, fatal: true })` em todas as páginas sob `[slug]`. O `await` no `getPublicWedding()` é o que faz isso funcionar no SSR — sem ele o setup continua antes de a requisição resolver, o servidor responde 200 e o erro só aparece no cliente, o que significa buscador indexando "Casamento não encontrado" como conteúdo válido.
 
 **Acessibilidade**: skip link como primeiro elemento focável (com `tabindex="-1"` no `<main>`, senão o navegador rola mas o foco fica no link e a próxima tabulação volta ao menu); `aria-labelledby` ligando cada `<section>` ao seu `<h2>`; `aria-current` nos links de navegação; `aria-expanded`/`aria-controls` no menu mobile, com `Esc` para fechar e `inert` quando fechado (`aria-hidden` sozinho esconde do leitor de tela mas mantém os links focáveis fora da tela). A contagem regressiva ganhou um texto `sr-only` com só os dias e teve os dígitos marcados `aria-hidden`: lida célula a célula ela sai sem pontuação, e atualizando a cada segundo seria relida sem parar. A foto de capa do Hero virou `alt=""` — a 20% de opacidade sob o texto, ela é fundo-ambiente, e descrevê-la anunciaria uma imagem que ninguém vê.
+
+#### Rodada 3 — o design do protótipo, peça por peça
+
+Pedido do usuário: implementar exatamente o frontend do protótipo `Wedding Sync & Improve`. O que veio dele, e por quê cada coisa:
+
+**A paleta do protótipo passa inteira nas nossas regras.** Convertidos os `oklch` para hex e medidos: título `#4d2623` a 12,99:1, primária `#72121d` a 11,54:1, secundária `#836612` a 5,42:1, e o par dourado-sobre-borgonha do Versículo a 5,36:1. Nenhuma exceção foi necessária — o que também confirma que a validação de contraste do projeto não estava atrapalhando o design, só as escolhas ruins.
+
+A descoberta que mais muda a página: no protótipo `--heading` é um **vermelho escuro**, não o texto neutro. Isso já era alcançável sem código (`titleColor`, o modo de cor avançada), e é o que dá à página a unidade que o modelo tem.
+
+**Os neutros da plataforma foram calibrados contra o protótipo**: marfim um fio mais claro e mais quente, bege de seção alternada mais perto do marfim, cartão que deixou de ser branco puro. O contraste entre as duas faixas era forte demais para uma página que deve parecer papel.
+
+**A página perdeu a elevação e ganhou traço.** Cartão virou retângulo de borda fina sem sombra, em todo lugar — no protótipo não há um único elemento flutuando. Junto com isso saíram a costura curva entre seções (a única onda do site é a que fecha o Hero) e o cartão que envolvia a chamada de RSVP: aquela seção já é a banda de destaque da página, e um cartão elevado dentro dela criava uma segunda moldura em torno de três linhas de texto.
+
+**Três famílias com papéis distintos.** A novidade é `--font-serif` (Cormorant Garamond, fixa): a serifada de *citação*, usada só onde o texto é fala e não informação — as boas-vindas, em itálico grande. É o que separa a voz do casal do resto da página. Ela não podia ser a `--font-display`, que varia por par tipográfico e pode ser uma capitular como a Cinzel, ilegível em texto corrido itálico. Os pesos e o estilo itálico passaram a ser declarados: sem isso o `@nuxt/fonts` baixa só o romano e o navegador inclina a fonte sozinho, um itálico falso visivelmente torto num corpo grande.
+
+**Ornamento composto virou filete.** O `UiSectionDivider` era linha-ponto-losango-ponto-linha; o protótipo não tem ornamento composto em lugar nenhum, e o losango repetido dez vezes ao descer a home virava um enfeite insistente. Agora é um traço de 3,5rem em `--color-ornament`.
+
+**Dúvidas frequentes deixaram de ser uma pilha de cartões** (`UiAccordion variant="rule"`, novo): só uma régua entre as perguntas. Dez cartões com sombra empilhados formavam uma parede de caixas justamente onde a página deveria ficar mais leve.
+
+**Sugestões de dress code viraram cápsulas.** Cada uma é curta e independente, e lado a lado se leem de relance — que é como alguém confere o traje. A lista com marcadores dava a elas peso de regulamento.
+
+**Cartão de "O Grande Dia" reorganizado**: o nome da etapa passou a ser o título do cartão, num ícone em disco e em corpo de display. Antes era uma cápsula em caixa alta acima do local, e o cartão terminava com dois títulos disputando — "CERIMÔNIA" na cápsula e o nome do buffet logo abaixo, em serifada maior. "Ver no mapa" virou link sublinhado: um segundo botão em cápsula competiria com o CTA de confirmar presença.
+
+**Barra fixa de confirmar presença no celular** (`PublicMobileCtaBar`), com espaçador da mesma altura — sem ele as últimas linhas da página ficam sob a barra sem poderem ser roladas até aparecer. Some quando o casal desliga a seção de RSVP. Diferente do protótipo em um ponto deliberado: ele esconde o cabeçalho inteiro no celular, deixando a barra como única navegação; aqui o menu continua, porque perder a navegação móvel inteira é uma regressão de usabilidade que o desenho não pede.
+
+**"Nossa História" ganhou a forma de marcos.** Era a única peça do protótipo que dependia de uma estrutura de conteúdo inexistente no modelo: três cartões com rótulo, título e texto. Virou `config_conteudo.storyMilestones` (até 6), convivendo com o texto corrido em vez de substituí-lo — texto corrido é uma carta, marcos são uma linha do tempo, e qual serve depende do casal. Havendo marcos, eles ganham: quem escreveu três marcos já escolheu contar assim.
+
+**O que não veio do protótipo, e por quê**: o `headingStyle: 'engraved'` (caixa alta forçada por CSS) continua disponível, mas não é o que o protótipo faz — lá a caixa alta vem da própria Cinzel, que é capitular. O tema fiel ao modelo usa `'classic'`.

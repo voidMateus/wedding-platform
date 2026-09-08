@@ -24,16 +24,10 @@ const formattedDate = computed(() =>
 </script>
 
 <template>
-  <footer class="relative bg-gradient-to-b from-surface-muted to-surface px-4 py-14 text-center">
-    <!-- Mesma costura curva das seções (EditorialSection) — sem linha reta antes do rodapé. -->
-    <svg
-      viewBox="0 0 1440 96"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-      class="pointer-events-none absolute inset-x-0 bottom-full h-10 w-full text-surface-muted sm:h-14"
-    >
-      <path fill="currentColor" d="M0,96 L0,64 Q720,0 1440,64 L1440,96 Z" />
-    </svg>
+  <!-- Fundo liso e a mesma troca seca de fundo das seções: no protótipo do
+       convite o rodapé é uma última página em branco com a assinatura no
+       meio, sem gradiente nem onda de transição. -->
+  <footer class="bg-surface px-6 py-14 text-center">
     <div class="mx-auto flex max-w-md flex-col items-center gap-3">
       <!--
         O monograma assina o rodapé como assina o pé de cada página do convite
@@ -43,16 +37,11 @@ const formattedDate = computed(() =>
         segue com o resto.
       -->
       <PublicMonogram :couple-names="coupleNames" :image-url="monogramImageUrl" size="lg" />
-      <p v-if="coupleNames" class="font-display text-2xl font-semibold text-heading">
-        {{ coupleNames }}
-      </p>
-      <p
-        v-if="formattedDate"
-        class="text-xs font-medium tracking-[0.3em] text-primary/50 uppercase"
-      >
+      <p v-if="coupleNames" class="font-display text-3xl text-heading">{{ coupleNames }}</p>
+      <p v-if="formattedDate" class="text-xs tracking-[0.3em] text-text-muted uppercase">
         {{ formattedDate }}
       </p>
-      <UiSectionDivider />
+      <UiSectionDivider class="my-2" />
       <p class="text-xs text-text-muted">
         Feito com <span class="text-primary">♥</span> por MeuSiteCasamento
       </p>

@@ -108,3 +108,26 @@ describe('hasVerseContent / hasGroomsmenManualContent', () => {
     }
   })
 })
+
+describe('resolveWeddingContent — marcos da história', () => {
+  it('sem config, a lista de marcos é vazia (o texto corrido continua sendo o padrão)', () => {
+    expect(resolveWeddingContent(null).storyMilestones).toEqual([])
+  })
+
+  it('resolve os marcos quando o casal os preencheu', () => {
+    const resolved = resolveWeddingContent({
+      storyMilestones: [{ label: 'O começo', title: 'Conversas', text: 'Papos sem hora.' }],
+    })
+    expect(resolved.storyMilestones).toHaveLength(1)
+    expect(resolved.storyMilestones[0]?.title).toBe('Conversas')
+  })
+
+  it('marcos e texto corrido coexistem no dado — quem escolhe é a seção', () => {
+    const resolved = resolveWeddingContent({
+      storyMessage: 'Um texto qualquer.',
+      storyMilestones: [{ label: 'A', title: 'B', text: 'C' }],
+    })
+    expect(resolved.storyParagraphs).toEqual(['Um texto qualquer.'])
+    expect(resolved.storyMilestones).toHaveLength(1)
+  })
+})

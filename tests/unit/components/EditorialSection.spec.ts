@@ -34,8 +34,12 @@ describe('PublicEditorialSection', () => {
     expect(wrapper.findComponent(SectionDivider).exists()).toBe(false)
   })
 
-  it('renderiza a costura curva no topo quando não há moldura', () => {
-    expect(mountSection({}).find('svg path').exists()).toBe(true)
+  it('não desenha costura curva entre seções', () => {
+    // Desde o rebrand, a única onda do site é a que fecha o Hero: a passagem
+    // de um capítulo para o outro é uma troca seca de fundo, como no protótipo
+    // do convite. A curva a cada seção dava à página um movimento de landing
+    // page que briga com o registro de papel impresso.
+    expect(mountSection({}).find('svg').exists()).toBe(false)
   })
 
   it('aplica bg-surface-muted quando tone="muted"', () => {
@@ -89,10 +93,7 @@ describe('PublicEditorialSection — moldura de filete', () => {
     expect(wrapper.classes()).toContain('ornament-frame')
   })
 
-  it('a moldura substitui a costura — as duas juntas se cortavam', () => {
-    // A curva diz "as seções escorrem uma na outra"; a moldura diz "cada seção
-    // é uma página do convite". Desenhadas juntas, a onda passava por cima da
-    // borda e o retângulo cortava a onda no meio (achado do usuário).
+  it('aplica a moldura de filete quando o layout a provê', () => {
     const wrapper = mount(EditorialSection, {
       props: { title: 'Nossa História' },
       global: {
@@ -101,7 +102,6 @@ describe('PublicEditorialSection — moldura de filete', () => {
       },
     })
     expect(wrapper.classes()).toContain('ornament-frame')
-    expect(wrapper.find('svg path').exists()).toBe(false)
   })
 
   it('aceita um valor cru, não só um getter', () => {

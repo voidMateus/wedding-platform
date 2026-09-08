@@ -31,7 +31,11 @@ const conteudoItems = [
     trigger: 'Versículo',
     hint: 'Faixa colorida entre as seções claras. Vazio = não aparece.',
   },
-  { id: 'historia', trigger: 'Nossa História', hint: 'Como vocês se conheceram.' },
+  {
+    id: 'historia',
+    trigger: 'Nossa História',
+    hint: 'Como vocês se conheceram — em texto corrido ou em marcos.',
+  },
   { id: 'dress-code', trigger: 'Dress Code', hint: 'Orientação de traje.' },
   { id: 'manual', trigger: 'Manual dos Convidados', hint: 'Regras e recomendações práticas.' },
   {
@@ -50,6 +54,7 @@ const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = use
 const [welcomeTitle] = defineField('welcomeTitle')
 const [welcomeMessage] = defineField('welcomeMessage')
 const [storyMessage] = defineField('storyMessage')
+const [storyMilestones] = defineField('storyMilestones')
 const [dressCodeDescription] = defineField('dressCodeDescription')
 const [dressCodeSuggestions] = defineField('dressCodeSuggestions')
 const [guestManualIntro] = defineField('guestManualIntro')
@@ -93,6 +98,7 @@ function applyWeddingToForm() {
       welcomeTitle: resolved.welcomeTitle,
       welcomeMessage: resolved.welcomeParagraphs.join('\n\n'),
       storyMessage: resolved.storyParagraphs.join('\n\n'),
+      storyMilestones: resolved.storyMilestones,
       dressCodeDescription: resolved.dressCodeDescription,
       dressCodeSuggestions: resolved.dressCodeSuggestions,
       guestManualIntro: resolved.guestManualIntro,
@@ -205,6 +211,10 @@ const onSubmit = handleSubmit(
                 :rows="6"
                 hint="Separe parágrafos deixando uma linha em branco entre eles."
                 :error="errors.storyMessage"
+              />
+              <AdminStoryMilestonesEditor
+                :model-value="storyMilestones ?? []"
+                @update:model-value="(value) => (storyMilestones = value)"
               />
             </template>
 

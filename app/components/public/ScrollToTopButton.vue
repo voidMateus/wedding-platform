@@ -3,6 +3,9 @@
 // (9 seções) e rolar de volta manualmente até o Hero é incômodo. Pequeno e
 // discreto (não uma sidebar fixa) — só aparece depois que o Hero sai da
 // tela, some de volta perto do topo.
+//
+// `bottom-24` no celular: a barra fixa de confirmar presença (PublicMobileCtaBar)
+// ocupa os ~72px de baixo, e o botão pousava exatamente em cima dela.
 const SHOW_AFTER_PX = 480
 
 const isVisible = ref(false)
@@ -35,7 +38,7 @@ function scrollToTop() {
       v-if="isVisible"
       type="button"
       aria-label="Voltar ao topo"
-      class="shadow-glow-primary fixed bottom-6 right-6 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      class="shadow-glow-primary fixed right-6 bottom-24 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:bottom-6"
       @click="scrollToTop"
     >
       <Icon name="lucide:arrow-up" class="h-5 w-5" />

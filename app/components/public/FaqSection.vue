@@ -29,8 +29,8 @@ const items = computed(() =>
     title="Perguntas Frequentes"
     :tone="tone"
   >
-    <div class="mx-auto w-full max-w-2xl">
-      <UiAccordion :items="items" />
+    <div class="mx-auto w-full max-w-3xl">
+      <UiAccordion :items="items" variant="rule" />
     </div>
   </PublicEditorialSection>
 </template>

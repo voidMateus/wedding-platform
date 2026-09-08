@@ -132,7 +132,7 @@ export default defineNuxtConfig({
   // site público (aplicado globalmente na PR 7).
   fonts: {
     families: [
-      { name: 'Inter', provider: 'google' },
+      { name: 'Inter', provider: 'google', weights: [300, 400, 500, 600] },
       { name: 'Playfair Display', provider: 'google' },
       // Par do painel administrativo (--font-admin-display/--font-admin-sans
       // em main.css) — fixo da plataforma, fora dos FONT_PAIRS por casamento.
@@ -142,7 +142,16 @@ export default defineNuxtConfig({
       // público continuam só com 400 — mesma limitação, conserto separado.
       { name: 'Sora', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Manrope', provider: 'google', weights: [400, 500, 600, 700] },
-      { name: 'Cormorant Garamond', provider: 'google' },
+      // Pesos e estilos explícitos: a Cormorant é a serifada de citação do site
+      // (--font-serif) e aparece em ITÁLICO nas boas-vindas. Sem declarar o
+      // estilo, o módulo baixa só o romano e o navegador inclina a fonte por
+      // conta própria — um itálico falso, visivelmente torto num corpo grande.
+      {
+        name: 'Cormorant Garamond',
+        provider: 'google',
+        weights: [400, 600],
+        styles: ['normal', 'italic'],
+      },
       { name: 'Nunito Sans', provider: 'google' },
       { name: 'DM Serif Display', provider: 'google' },
       { name: 'DM Sans', provider: 'google' },
@@ -150,8 +159,11 @@ export default defineNuxtConfig({
       { name: 'Work Sans', provider: 'google' },
       { name: 'Libre Baskerville', provider: 'google' },
       { name: 'Karla', provider: 'google' },
-      { name: 'Cinzel', provider: 'google' },
-      { name: 'Montserrat', provider: 'google' },
+      // Mesmos pesos do protótipo: a Cinzel é capitular e o peso 600 é o que
+      // dá o corpo dos títulos do convite; a Montserrat só existe como rótulo
+      // de botão, onde 500/600 bastam.
+      { name: 'Cinzel', provider: 'google', weights: [400, 500, 600] },
+      { name: 'Montserrat', provider: 'google', weights: [500, 600] },
     ],
   },
 

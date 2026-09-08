@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  EVENT_SEGMENT_ICONS,
   anchorForEventSegmentTitle,
   classifyEventSegmentTitle,
 } from '#shared/utils/event-segment-keywords'
@@ -15,9 +16,8 @@ const { segments } = defineProps<Props>()
 
 const primary = computed(() => segments[0]!)
 
-function badgeLabelFor(segment: EventSegment): string {
-  const kind = classifyEventSegmentTitle(segment.titulo)
-  return kind === 'other' ? segment.titulo : segment.titulo.toUpperCase()
+function iconFor(segment: EventSegment): string {
+  return EVENT_SEGMENT_ICONS[classifyEventSegmentTitle(segment.titulo)]
 }
 
 function formatTime(value: string | null): string | null {
@@ -56,8 +56,11 @@ const externalMapsUrl = computed(() => montarUrlMapa(primary.value))
 </script>
 
 <template>
+  <!-- Borda em vez de sombra: no protótipo do convite todo cartão é um retângulo
+       de traço fino sobre papel, sem elevação — a sombra dava a ele um peso de
+       interface que a página não tem em nenhum outro lugar. -->
   <div
-    class="flex w-full flex-col overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl"
+    class="flex w-full flex-col overflow-hidden rounded-xl border border-border/70 bg-surface-elevated"
   >
     <span
       v-for="anchorId in anchorIds"
@@ -76,27 +79,40 @@ const externalMapsUrl = computed(() => montarUrlMapa(primary.value))
       loading="lazy"
     />
 
-    <div class="flex flex-col gap-4 p-7">
-      <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-1">
+    <div class="flex flex-col gap-5 p-8">
+      <!--
+        O nome da etapa é o título do cartão, num ícone em disco e em corpo de
+        display — como no protótipo. Antes era uma cápsula em caixa alta acima
+        do local, e o cartão acabava com dois títulos disputando: "CERIMÔNIA"
+        na cápsula e o nome do buffet logo abaixo, em serifada maior.
+      -->
+      <div v-for="segment in segments" :key="segment.id" class="flex flex-col gap-2">
         <span
-          class="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
+          class="flex h-11 w-11 items-center justify-center rounded-full bg-ornament/15 text-ornament"
         >
-          {{ badgeLabelFor(segment) }}
+          <Icon :name="iconFor(segment)" class="h-5 w-5" />
         </span>
-        <p v-if="timeRangeFor(segment)" class="text-sm font-medium text-text-muted">
+        <h3 class="font-display text-3xl text-heading">{{ segment.titulo }}</h3>
+        <p v-if="timeRangeFor(segment)" class="flex items-center gap-2 text-sm text-text-muted">
+          <Icon name="lucide:clock" class="h-4 w-4 shrink-0 text-ornament" aria-hidden="true" />
           {{ timeRangeFor(segment) }}
         </p>
       </div>
 
-      <div v-if="primary.nome_local || primary.endereco_local" class="flex flex-col gap-1">
-        <h3 v-if="primary.nome_local" class="font-display text-2xl font-semibold text-heading">
-          {{ primary.nome_local }}
-        </h3>
-        <p v-if="primary.endereco_local" class="flex items-start gap-1.5 text-sm text-text-muted">
-          <Icon name="lucide:map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
+      <p
+        v-if="primary.nome_local || primary.endereco_local"
+        class="flex items-start gap-2 text-sm text-text-muted"
+      >
+        <Icon
+          name="lucide:map-pin"
+          class="mt-0.5 h-4 w-4 shrink-0 text-ornament"
+          aria-hidden="true"
+        />
+        <span>
+          <span v-if="primary.nome_local" class="block text-heading">{{ primary.nome_local }}</span>
           {{ primary.endereco_local }}
-        </p>
-      </div>
+        </span>
+      </p>
 
       <UiVenueMap
         v-if="locationQuery"
@@ -104,18 +120,19 @@ const externalMapsUrl = computed(() => montarUrlMapa(primary.value))
         :label="primary.nome_local || sectionTitle"
       />
 
-      <UiButton
+      <!-- Link sublinhado, não botão: o protótipo trata "Ver no mapa" como uma
+           saída discreta do cartão, e um segundo botão em cápsula competiria
+           com o CTA de confirmar presença logo abaixo na página. -->
+      <a
         v-if="externalMapsUrl"
-        variant="outline"
-        rounded="full"
-        size="sm"
-        class="self-start"
-        :to="externalMapsUrl"
+        :href="externalMapsUrl"
         target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex min-h-11 items-center gap-1.5 self-start text-xs uppercase tracking-[0.2em] text-primary underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <Icon name="lucide:external-link" class="h-4 w-4" />
-        Abrir no Google Maps
-      </UiButton>
+        Ver no mapa
+        <Icon name="lucide:external-link" class="h-3.5 w-3.5" aria-hidden="true" />
+      </a>
     </div>
   </div>
 </template>
