@@ -25,7 +25,13 @@ export default defineEventHandler(async (event) => {
       .order('created_at', { ascending: false }),
     admin.from('membros_casamento').select('casamento_id, usuario_id').eq('papel', 'dono'),
     admin.auth.admin.listUsers(),
-    admin.from('convidados').select('id, casamento_id').is('excluido_em', null),
+    admin
+      .from('convidados')
+      .select('id, casamento_id')
+      .is('excluido_em', null)
+      // Rascunho da lista não é convidado — o porte do casamento visto pela
+      // plataforma tem que casar com o que o casal vê no próprio painel.
+      .eq('em_consideracao', false),
   ])
 
   if (weddingsResult.error) throw badRequestError(weddingsResult.error.message)
@@ -49,7 +55,10 @@ export default defineEventHandler(async (event) => {
 
   const guestCountByWedding = new Map<string, number>()
   for (const guest of guests) {
-    guestCountByWedding.set(guest.casamento_id, (guestCountByWedding.get(guest.casamento_id) ?? 0) + 1)
+    guestCountByWedding.set(
+      guest.casamento_id,
+      (guestCountByWedding.get(guest.casamento_id) ?? 0) + 1,
+    )
   }
 
   const data: PlatformWeddingOverview[] = weddings.map((wedding) => ({

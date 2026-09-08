@@ -19,9 +19,15 @@ import { classificarFaixaEtaria, rotuloFaixaEtaria, type FaixaEtaria } from './f
  */
 
 /**
- * A linha de `convidados` mais o que vem por junção. Os três últimos campos
+ * A linha de `convidados` mais o que vem por junção. Os quatro últimos campos
  * não são colunas: `grupo`/`convite` são o **nome** por trás de
  * `grupo_id`/`convite_id`, e o status vem de `respostas_rsvp`.
+ *
+ * `grupoNome` é sempre o nome da RAIZ e `subgrupoNome` o da subdivisão, quando
+ * há uma. O convidado aponta para a folha (`convidados.grupo_id`), então quem
+ * monta estas duas propriedades precisa subir até o pai antes — exportar só a
+ * folha faria a reimportação recriar "Tios paternos" como grupo de primeiro
+ * nível, perdendo a hierarquia em silêncio.
  */
 export interface ConvidadoExportavel {
   id: string
@@ -35,6 +41,7 @@ export interface ConvidadoExportavel {
   papel_casamento: string | null
   observacoes: string | null
   grupoNome: string | null
+  subgrupoNome: string | null
   conviteNome: string | null
   statusRsvp: string | null
 }
@@ -57,6 +64,8 @@ export function valorExportado(
   switch (campo.chave) {
     case 'grupo':
       return convidado.grupoNome ?? ''
+    case 'subgrupo':
+      return convidado.subgrupoNome ?? ''
     case 'convite':
       return convidado.conviteNome ?? ''
     case 'status_rsvp':

@@ -17,9 +17,7 @@ const page = ref(1)
 const PAGE_SIZE = 25
 
 const { data: groupsData } = listGroups({ pageSize: 100 })
-const groupOptions = computed(
-  () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? [],
-)
+const groupOptions = computed(() => montarOpcoesDeGrupo(groupsData.value?.data ?? []))
 
 // Rótulo e cor saem do mapa único de estados da plataforma — a mesma fonte do
 // badge do modal de convite, para status nenhum significar duas coisas.

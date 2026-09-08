@@ -42,6 +42,10 @@ export default defineEventHandler(async (event) => {
       .select('id, grupo_id')
       .eq('casamento_id', weddingId)
       .is('excluido_em', null)
+      // Rascunho da lista não é convidado: contá-lo aqui faria o número do
+      // grupo divergir do número da listagem, que o exclui (CLAUDE.md,
+      // seção 12 — ver convidados.em_consideracao).
+      .eq('em_consideracao', false)
       .not('grupo_id', 'is', null),
     client.from('respostas_rsvp').select('convidado_id, status_rsvp').eq('casamento_id', weddingId),
   ])
@@ -74,11 +78,43 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const data = (groupsResult.data ?? []).map((group) => ({
-    ...group,
-    guestCount: guestCountByGroup.get(group.id) ?? 0,
-    confirmedCount: confirmedCountByGroup.get(group.id) ?? 0,
-  }))
+  // O convidado aponta sempre para a folha (`convidados.grupo_id`), então o
+  // grupo-pai não tem convidado nenhum "por herança" — quem está em "Tios
+  // paternos" não conta em "Família do Mateus" sem esta soma. Os dois números
+  // são expostos porque as duas telas querem coisas diferentes: a linha da
+  // subdivisão mostra o próprio total, e o cabeçalho do grupo-pai no Modo
+  // Lista mostra o consolidado ("Família do Mateus — 32 pessoas").
+  //
+  // A soma percorre os grupos da PÁGINA e busca as subdivisões no mesmo
+  // conjunto. Isso é correto hoje porque a lista de grupos nunca pagina de
+  // fato (pageSize 100 e todas as telas pedem tudo); se algum dia paginar, o
+  // total do pai precisará ser agregado no banco, como o de convidados.
+  const grupos = groupsResult.data ?? []
+  const subdivisoesPorPai = new Map<string, string[]>()
+  for (const grupo of grupos) {
+    if (!grupo.grupo_pai_id) continue
+    const irmas = subdivisoesPorPai.get(grupo.grupo_pai_id) ?? []
+    irmas.push(grupo.id)
+    subdivisoesPorPai.set(grupo.grupo_pai_id, irmas)
+  }
+
+  const data = grupos.map((group) => {
+    const guestCount = guestCountByGroup.get(group.id) ?? 0
+    const confirmedCount = confirmedCountByGroup.get(group.id) ?? 0
+    const subdivisoes = subdivisoesPorPai.get(group.id) ?? []
+
+    return {
+      ...group,
+      guestCount,
+      confirmedCount,
+      guestCountTotal:
+        guestCount + subdivisoes.reduce((soma, id) => soma + (guestCountByGroup.get(id) ?? 0), 0),
+      confirmedCountTotal:
+        confirmedCount +
+        subdivisoes.reduce((soma, id) => soma + (confirmedCountByGroup.get(id) ?? 0), 0),
+      subdivisionCount: subdivisoes.length,
+    }
+  })
 
   return {
     data,

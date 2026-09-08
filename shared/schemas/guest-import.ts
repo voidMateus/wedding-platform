@@ -49,6 +49,13 @@ export const guestImportRowSchema = z
     observacoes: textoOpcional(2000),
     /** Nome do grupo, não o uuid — resolvido/criado no servidor. */
     grupo: textoOpcional(120),
+    /**
+     * Nome da subdivisão dentro do grupo, não o uuid. Resolvida SEMPRE dentro
+     * do grupo da mesma linha: "Primos" da Família do Mateus e "Primos" da
+     * Família da Raquel são subdivisões diferentes, e procurar só pelo nome
+     * jogaria as duas listas na mesma.
+     */
+    subgrupo: textoOpcional(120),
     /** Nome do convite, não o uuid — resolvido/criado no servidor. */
     convite: textoOpcional(160),
   })
@@ -61,6 +68,17 @@ export const guestImportRowSchema = z
         code: z.ZodIssueCode.custom,
         path: ['nome_completo'],
         message: 'Informe o nome para cadastrar um convidado novo.',
+      })
+    }
+    // Subdivisão só existe dentro de um grupo, então sem grupo na mesma linha
+    // não há onde pendurá-la. Recusar é melhor que promover a subdivisão a
+    // grupo de primeiro nível: a planilha diria "Tios paternos" e a lista
+    // ganharia um grupo solto com esse nome, sem ninguém pedir.
+    if (linha.subgrupo && !linha.grupo) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['subgrupo'],
+        message: 'Informe também o Grupo: a subdivisão precisa saber a qual grupo pertence.',
       })
     }
   })
@@ -86,5 +104,7 @@ export interface GuestImportResult {
   criados: number
   atualizados: number
   gruposCriados: string[]
+  /** Qualificadas pelo grupo ("Família do Mateus › Primos"): o nome sozinho é ambíguo entre grupos. */
+  subgruposCriados: string[]
   convitesCriados: string[]
 }

@@ -12,19 +12,20 @@ export default defineEventHandler(async (event) => {
       casamento_id: weddingId,
       nome: input.nome,
       cor: input.cor ?? null,
+      grupo_pai_id: input.grupoPaiId ?? null,
     })
     .select()
     .single()
 
   if (error) {
-    throw badRequestError(error.message)
+    throw badRequestError(traduzirErroHierarquiaGrupo(error.message) ?? error.message)
   }
 
   await recordAuditLog(event, weddingId, memberId, {
     action: 'group.create',
     entityType: 'group',
     entityId: data.id,
-    metadata: { name: data.nome },
+    metadata: { name: data.nome, parentId: data.grupo_pai_id },
   })
 
   setResponseStatus(event, 201)

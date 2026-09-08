@@ -27,7 +27,7 @@
 | `membros_casamento` | Usuários com acesso administrativo a um casamento (casal, colaboradores) |
 | `etapas_evento` | Etapas do evento (cerimônia, recepção, festa), cada uma com local e horário próprios |
 | `convites` | Convite — quem recebeu o mesmo convite físico/digital. Unidade real de RSVP, com um Convidado Responsável opcional (`convidado_responsavel_id`) |
-| `grupos` | Etiqueta organizacional livre do convidado (Família da Noiva, Amigos, Trabalho...) — **não é** a unidade de RSVP; não confundir com `convites` nem `nucleos_acompanhantes` (ver seção 3.1) |
+| `grupos` | Etiqueta organizacional livre do convidado (Família da Noiva, Amigos, Trabalho...), com subdivisão opcional de um nível (`grupo_pai_id`) — **não é** a unidade de RSVP; não confundir com `convites` nem `nucleos_acompanhantes` (ver seção 3.1) |
 | `nucleos_acompanhantes` | Agrupamento simétrico de "Acompanhantes" — convidados comumente convidados juntos (casal, pais e filhos); nunca chamado de "família" na UI |
 | `convidados` | Convidados individuais, sempre pertencentes a um convite (`convite_id`) |
 | `respostas_rsvp` | Resposta de confirmação de presença, sempre por convidado (`convidado_id`) |
@@ -92,9 +92,9 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 | `membros_casamento` | `casamento_id`; `usuario_id` (auth) | Acesso administrativo — `papel` |
 | `etapas_evento` | `casamento_id`; `mesmo_local_que` (auto-referência, opcional) | Cerimônia/recepção/festa — local, horário, `ordem_exibicao`. O local é uma entidade selecionável, não texto: `origem_local` (`maps_place`\|`manual`\|null=legado), `place_id_local` + `provedor_local`, `url_mapa_local`, coordenadas e as partes do endereço manual — ver seção 3.2 |
 | `convites` | `casamento_id`; `convidado_responsavel_id` → `convidados` (opcional) | Unidade real de RSVP — `codigo_interno`, `status_convite` (`pendente`\|`enviado`), `max_acompanhantes`, `mensagem_rsvp`, `arquivado_em` |
-| `grupos` | `casamento_id` | Etiqueta organizacional livre — `nome`, `cor` |
+| `grupos` | `casamento_id`; `grupo_pai_id` → `grupos` (opcional, auto-referência, restrict) | Etiqueta organizacional livre — `nome`, `cor`, `grupo_pai_id` (subdivisão) |
 | `nucleos_acompanhantes` | `casamento_id` | Agrupamento simétrico de Acompanhantes — sem colunas de negócio próprias |
-| `convidados` | `casamento_id` (denormalizado); `convite_id` → `convites` (restrict); `grupo_id` → `grupos` (opcional); `nucleo_id` → `nucleos_acompanhantes` (opcional) | Convidado individual — nome, contato, `apelido`/`sexo`/`data_nascimento`/`faixa_etaria_manual`/`caminho_foto`/`papel_casamento`, `ordem_nucleo` |
+| `convidados` | `casamento_id` (denormalizado); `convite_id` → `convites` (restrict); `grupo_id` → `grupos` (opcional, aponta para a **folha**: grupo ou subdivisão); `nucleo_id` → `nucleos_acompanhantes` (opcional) | Convidado individual — nome, contato, `apelido`/`sexo`/`data_nascimento`/`faixa_etaria_manual`/`caminho_foto`/`papel_casamento`, `ordem_nucleo`, `em_consideracao` |
 | `respostas_rsvp` | `casamento_id` (denormalizado); `convidado_id` → `convidados` (obrigatório, único); `convite_id` (denormalizado) | Resposta de RSVP, sempre por convidado — `status_rsvp` (`pendente`\|`confirmado`\|`recusado`\|`lista_espera`\|`removido`) |
 | `acompanhantes_avulsos` | `convite_id` → `convites` | Acompanhante avulso do convite (nome livre) — só quando `modo_lista_convidados = 'aberta'`; soft delete |
 | `etiquetas_convite` / `vinculos_convite_etiqueta` | `casamento_id` (na etiqueta); `convite_id` + `etiqueta_id` (no vínculo) | Etiqueta interna reutilizável de convite, M:N |
@@ -151,6 +151,16 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
   Latitude e longitude continuam existindo, mas **nunca** são digitadas: vêm da seleção no provedor ou do marcador arrastado no mapa (CLAUDE.md, seção 12).
 
 - `casamentos.slug` é validado contra `is_slug_reservado()` (`CHECK casamentos_slug_nao_reservado`) — lista fixa de slugs técnicos da própria plataforma (`admin`, `login`, `api`...) que um casamento nunca pode reivindicar, evitando colisão com uma rota real.
+- **Hierarquia de `grupos`: no máximo dois níveis.** `grupo_pai_id` é auto-referência opcional — null é grupo raiz, preenchido é subdivisão ("Tios paternos" dentro de "Família do Mateus"). O convidado tem **uma só** referência de grupo (`convidados.grupo_id`), sempre para a folha onde ele está; não existe `subgrupo_id`, e o grupo-pai é derivado do `grupo_pai_id` da folha. Uma segunda coluna criaria a classe de bug "grupo_id e subgrupo_id discordam", sem resposta certa em tempo de leitura.
+
+  As quatro regras da hierarquia comparam a linha com OUTRA linha de `grupos`, então nenhuma cabe num `check`: vivem em `validar_grupo_pai()` (trigger `grupos_validar_grupo_pai`), que recusa terceiro nível (`GRUPO_PAI_JA_E_SUBGRUPO`), auto-referência (`GRUPO_PAI_CIRCULAR`), grupo-pai arquivado (`GRUPO_PAI_ARQUIVADO`) e transformar em subdivisão um grupo que já tem subdivisões (`GRUPO_COM_SUBGRUPOS`). O mesmo trigger **deriva** `casamento_id` do grupo-pai, em vez de validar contra ele — a coluna denormalizada nunca é definida de forma independente da hierarquia real (seção 1). Tradução das exceções para o casal em `server/utils/group-hierarchy.ts`.
+
+  Arquivar um grupo-pai arquiva as subdivisões junto, com o **mesmo timestamp** em `excluido_em`; desarquivar restaura só as que casam com aquele timestamp, então uma subdivisão que já estava arquivada por conta própria continua arquivada. É o que permite a cascata reversível sem coluna extra.
+
+- **`convidados.em_consideracao`: rascunho da lista.** `boolean not null default false`. Marca quem está no planejamento sem ser convidado ("Será que convidamos o Marcelo?"). Nunca entra em contagem de convidados — o filtro é explícito em `GET /api/guests` (e no export, que segue os mesmos recortes), em `GET /api/groups`, no dashboard e no painel da plataforma.
+
+  A constraint `convidados_em_consideracao_sem_convite` (`not (em_consideracao and convite_id is not null)`) é o que sustenta o invariante fora desses quatro lugares: quase todo consumidor de `convidados` já filtra por `convite_id`, então rascunho fica de fora de graça em RSVP, convite e payload do convidado. Inclusive com efeito de segurança — a busca pública por nome (`server/api/public/[slug]/rsvp-search.get.ts`) só devolve quem tem `convite_id`, então um rascunho ("Namorada do Gustavo") nunca chega ao site do casamento.
+
 - `casamentos.status_ciclo_vida` (`rascunho`\|`publicado`\|`arquivado`, default `rascunho`) é o único estado agregado do casamento inteiro — distinto do soft delete pontual por entidade filha (`excluido_em` em `convidados`/`convites`/`grupos`/`presentes`). `arquivado_em` é preenchido quando o status vira `arquivado`; comportamento de exportação/exclusão pós-arquivamento é trabalho de produto separado, ainda não existe.
 - `assinaturas` e `funcionalidades_habilitadas` aceitam exatamente um entre `casamento_id` e `conta_id` (`CHECK num_nonnulls(...) = 1`) — "conta" é `auth.users` diretamente, sem tabela própria; suporta o plano Casal (por evento) e o plano Planner (por conta, múltiplos casamentos) em paralelo. Design preliminar (ver [`ROADMAP.md`](ROADMAP.md)).
 - `planos.max_casamentos` limita quantos casamentos uma conta pode possuir como dono simultaneamente (nulo = ilimitado); checado via `COUNT` no momento de criar/assumir um casamento, sem contador materializado.

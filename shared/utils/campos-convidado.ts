@@ -248,6 +248,19 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
     exemplo: 'Família da Noiva',
   },
   {
+    chave: 'subgrupo',
+    secao: 'organizacao',
+    rotulo: 'Subdivisão',
+    descricao:
+      'Subdivisão dentro do grupo (Tios paternos, Primos...). Só faz sentido junto de um Grupo: é ele que diz onde a subdivisão fica. Pelo NOME, como o grupo.',
+    origem: 'relacao',
+    exportavel: true,
+    importacao: 'gravavel',
+    obrigatorio: false,
+    aliases: ['subgrupo', 'subdivisao', 'subgrupo do grupo', 'sublista'],
+    exemplo: 'Tios paternos',
+  },
+  {
     chave: 'convite',
     secao: 'organizacao',
     rotulo: 'Convite',

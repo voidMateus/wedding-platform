@@ -81,9 +81,12 @@ Pontos que geram confusão se não forem lidos com atenção:
 
 Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real de RSVP) para poder responder — o vínculo pode ficar pendente ("Fazer Depois" no wizard) até ser resolvido. Independentemente disso, um convidado pode opcionalmente ter uma etiqueta livre (`grupo`, ex. "Família da Noiva") e pertencer a um agrupamento de Acompanhantes (`nucleos_acompanhantes`) — os três vínculos (`convite_id`, `grupo_id`, `nucleo_id`) são independentes entre si (ver [`DATABASE.md`](DATABASE.md)).
 
+**Rascunho da lista (`em_consideracao`).** Uma lista de casamento não nasce pronta: "será que convidamos o Marcelo?" é o estado mais comum durante o planejamento, e obrigar o casal a decidir na hora do cadastro é o que empurra a lista para o Excel. Uma pessoa marcada como *em consideração* existe no planejamento sem ser convidada — **não conta** em nenhum indicador de convidados, não pode receber convite e portanto nunca entra em RSVP nem aparece na busca pública por nome. Virar convidado de verdade é ação explícita do casal, nunca efeito colateral de preencher outro campo. Detalhe da garantia: [`DATABASE.md`](DATABASE.md), seção 3.2.
+
 ### 3.2 Funcionalidades previstas
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
+- Entrada rápida (`POST /api/guests`): cria um convidado com **só o nome**, para montar a lista digitando em sequência sem abrir formulário. Caminho deliberadamente separado do wizard — não orquestra acompanhante, convite nem limite algum, e é o que mantém o "digitar e apertar Enter" instantâneo. O resto do cadastro é preenchido depois.
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) em três passos — arquivo, conferência das colunas, revisão — sem escrever nada antes do último (ver seção 3.5).
 - Gerador de modelo de planilha — o casal escolhe as colunas e o sistema monta o CSV compatível com o importador (ver seção 3.5).
@@ -176,6 +179,8 @@ Cada campo declara o que se pode fazer com ele:
 
 **Erro de uma linha não derruba as outras.** A revisão mostra, por número de linha (contando o cabeçalho como 1, igual ao Excel), o que está errado e o que será ignorado; o casal importa o resto. Já **dentro** de um lote a transação é tudo ou nada: metade de uma planilha aplicada, sem saber onde parou, é pior que nada. Acima de 500 linhas o arquivo é enviado em lotes sequenciais — nunca em paralelo, senão dois lotes citando o mesmo convite novo poderiam criá-lo duas vezes.
 
+**Grupo e subdivisão são duas colunas.** "Grupo" resolve entre grupos de primeiro nível e "Subdivisão" sempre **dentro** do grupo da mesma linha — "Primos" da Família do Mateus e "Primos" da Família da Raquel são duas subdivisões distintas, e casar só pelo nome jogaria as duas famílias na mesma lista. Subdivisão sem grupo na linha é recusada: promovê-la a grupo de primeiro nível criaria uma etiqueta solta que ninguém pediu. A exportação escreve as duas colunas separadas pelo mesmo motivo — exportar só a folha faria a reimportação do próprio CSV desfazer a hierarquia em silêncio.
+
 **Fora do escopo desta versão:** acompanhantes (`nucleos_acompanhantes`). O conceito é simétrico e não cabe numa coluna de planilha sem inventar sintaxe; pessoas sob o mesmo `convite` já cobrem a intenção real, que é o que habilita o RSVP.
 
 ## 4. Sistema de RSVP
@@ -210,7 +215,7 @@ RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou
 Dois conceitos independentes, fáceis de confundir pelo nome:
 
 - **Convite (`convites`)** é a unidade real de RSVP e comunicação — "quem recebeu o mesmo convite físico/digital". Todo link/QR de acesso, lembrete e mensagem ao casal opera nesse nível. Um convite pode ter um Convidado Responsável (`convidado_responsavel_id`), usado pra personalizar mensagens.
-- **Grupo (`grupos`)** é só uma etiqueta organizacional livre (ex.: "Família da Noiva", "Trabalho") — sem nenhuma semântica de RSVP, comunicação ou limite de acompanhante. Serve pra filtrar/organizar a lista de convidados no admin.
+- **Grupo (`grupos`)** é só uma etiqueta organizacional livre (ex.: "Família da Noiva", "Trabalho") — sem nenhuma semântica de RSVP, comunicação ou limite de acompanhante. Serve pra filtrar/organizar a lista de convidados no admin. Aceita **subdivisão de um nível** (`grupo_pai_id`): "Tios paternos", "Primos" e "Amigos da infância" dentro de "Família do Mateus", o que mantém uma lista grande legível em blocos recolhíveis. Subdivisão é do mesmo tipo que grupo — etiqueta organizacional, nada de RSVP —, e o convidado guarda **uma só** referência de grupo, sempre a da folha onde está; o grupo-pai é derivado. O limite de dois níveis é decisão de produto: é mais fácil liberar um terceiro nível depois do que retirar dados de uma hierarquia que já cresceu.
 - **Acompanhantes (`nucleos_acompanhantes`)** é um terceiro conceito, tratado à parte na seção 3 — agrupamento simétrico de convidados comumente convidados juntos.
 
 ### 5.2 Funcionalidades previstas
@@ -225,6 +230,8 @@ Dois conceitos independentes, fáceis de confundir pelo nome:
 - **Status consolidado do convite** (`pendente`/`parcial`/`respondido`), resolvido no banco (`convites_com_resumo`): pendente enquanto ninguém respondeu, respondido quando **todos os membros** responderam, parcial no meio do caminho. O denominador é o número de membros do convite — um convite de 3 pessoas em que só 1 respondeu é **parcial**, nunca respondido, porque ainda falta cobrar alguém.
 
 **Grupos (etiqueta livre):**
+- Criar subdivisão dentro de um grupo, renomear, e promover subdivisão a grupo de primeiro nível. Arquivar um grupo arquiva as subdivisões junto; desarquivar traz de volta só o que a cascata levou (ver [`DATABASE.md`](DATABASE.md), seção 3.2).
+- Filtrar a lista por um grupo traz também quem está nas subdivisões dele — o convidado aponta para a folha, então o filtro do grupo-pai sozinho devolveria um número plausível e errado.
 - Criar/renomear/excluir grupos, definir cor.
 - Atribuir/remover a etiqueta de um convidado (não move o convidado de convite nem de Acompanhantes).
 
