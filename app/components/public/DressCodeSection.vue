@@ -15,26 +15,37 @@ const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 
 <template>
   <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code" :tone="tone">
-    <div class="mx-auto flex max-w-xl flex-col items-center gap-8 text-center">
+    <div class="mx-auto flex max-w-4xl flex-col items-center gap-8 text-center">
       <PublicDressCodeIllustration />
-      <p class="leading-relaxed text-body">{{ content.dressCodeDescription }}</p>
+      <p class="max-w-xl leading-relaxed text-body">{{ content.dressCodeDescription }}</p>
 
       <!--
-        Chips, não lista com marcadores: cada sugestão de traje é um item
-        independente e curto ("evite branco", "sapato confortável"), e em
-        cápsulas lado a lado elas se leem de relance, que é como alguém
-        confere o traje. A lista vertical dava a elas peso de regulamento.
-        Vira coluna única no celular, onde duas cápsulas por linha
-        espremeriam o texto.
+        Cartões no mesmo molde dos marcos de "Nossa História" — borda fina,
+        alinhado à esquerda, em grade. As cápsulas que havia aqui antes só
+        funcionavam para rótulos de duas ou três palavras; com uma frase
+        inteira dentro, cada uma virava uma barra de largura diferente da
+        vizinha, e a fileira ficava desalinhada em vez de ritmada.
+
+        Sem a linha de título que os marcos têm: uma sugestão de traje É a
+        frase, não tem um nome curto acima dela. O ícone ocupa a posição do
+        rótulo, no mesmo dourado.
       -->
-      <ul v-if="content.dressCodeSuggestions.length" class="flex flex-wrap justify-center gap-3">
+      <ul
+        v-if="content.dressCodeSuggestions.length"
+        class="grid w-full gap-6 text-left"
+        :class="content.dressCodeSuggestions.length > 1 ? 'md:grid-cols-3' : 'mx-auto max-w-xl'"
+      >
         <li
           v-for="tip in content.dressCodeSuggestions"
           :key="tip"
-          class="inline-flex items-center gap-2 rounded-full border border-ornament/50 px-4 py-2 text-left text-xs tracking-[0.06em] text-heading"
+          class="rounded-xl border border-border/70 bg-surface-elevated p-6"
         >
-          <Icon name="lucide:shirt" class="h-3.5 w-3.5 shrink-0 text-ornament" aria-hidden="true" />
-          {{ tip }}
+          <span
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-ornament/15 text-ornament"
+          >
+            <Icon name="lucide:shirt" class="h-5 w-5" aria-hidden="true" />
+          </span>
+          <p class="mt-3 text-sm leading-relaxed text-text-muted">{{ tip }}</p>
         </li>
       </ul>
     </div>
