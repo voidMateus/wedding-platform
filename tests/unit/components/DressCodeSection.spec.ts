@@ -35,7 +35,7 @@ function mountDressCode(wedding: Wedding) {
       components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
       stubs: {
         ...ICON_STUBS,
-        PublicDressCodeIllustration: { template: '<svg data-test="dress-code-illustration" />' },
+        NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
       },
     },
   })
@@ -48,9 +48,24 @@ describe('PublicDressCodeSection', () => {
     expect(wrapper.find('#dress-code').exists()).toBe(true)
   })
 
-  it('renderiza a ilustração decorativa', () => {
+  it('não desenha imagem nenhuma por padrão', () => {
+    // A ilustração da plataforma saiu: era a única arte do site que não vinha
+    // do casal, e aparecia igual em todo casamento. Sem imagem enviada, a
+    // seção é texto e cartões — como no protótipo do convite.
     const wrapper = mountDressCode(makeWedding())
-    expect(wrapper.find('[data-test="dress-code-illustration"]').exists()).toBe(true)
+    expect(wrapper.find('img').exists()).toBe(false)
+  })
+
+  it('mostra a imagem enviada pelo casal quando existe', () => {
+    const wrapper = mountDressCode(
+      makeWedding({ config_tema: { dressCodeImageUrl: 'https://exemplo.test/traje.jpg' } }),
+    )
+    const img = wrapper.find('img')
+    expect(img.exists()).toBe(true)
+    expect(img.attributes('src')).toBe('https://exemplo.test/traje.jpg')
+    // Ilustrativa de verdade (mostra o traje), então tem alt descritivo — ao
+    // contrário da capa do Hero, que é fundo-ambiente sob o texto.
+    expect(img.attributes('alt')).toBeTruthy()
   })
 
   it('renderiza a descrição e todas as dicas', () => {

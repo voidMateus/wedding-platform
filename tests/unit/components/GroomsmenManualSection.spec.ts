@@ -2,7 +2,6 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import GroomsmenManualSection from '~/components/public/GroomsmenManualSection.vue'
 import ColorSwatches from '~/components/public/ColorSwatches.vue'
-import DressCodeIllustration from '~/components/public/DressCodeIllustration.vue'
 import EditorialSection from '~/components/public/EditorialSection.vue'
 import SectionDivider from '~/components/ui/SectionDivider.vue'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
@@ -35,7 +34,6 @@ function mountSection(config_conteudo: unknown = null) {
       components: {
         PublicEditorialSection: EditorialSection,
         PublicColorSwatches: ColorSwatches,
-        PublicDressCodeIllustration: DressCodeIllustration,
         UiSectionDivider: SectionDivider,
       },
       stubs: ICON_STUBS,
@@ -99,12 +97,9 @@ describe('PublicGroomsmenManualSection', () => {
     expect(wrapper.text()).toContain('Dourado')
   })
 
-  it('a ilustração de traje só aparece quando há traje descrito', () => {
-    const semTraje = mountSection({ groomsmenManual: { intro: 'Oi' } })
-    expect(semTraje.findComponent(DressCodeIllustration).exists()).toBe(false)
-
-    const comTraje = mountSection({ groomsmenManual: { attireGroomsmen: 'Terno preto.' } })
-    expect(comTraje.findComponent(DressCodeIllustration).exists()).toBe(true)
+  it('não desenha ilustração — a paleta e os cartões já são o peso visual da seção', () => {
+    const wrapper = mountSection({ groomsmenManual: { attireGroomsmen: 'Terno preto.' } })
+    expect(wrapper.find('svg').exists()).toBe(false)
   })
 })
 

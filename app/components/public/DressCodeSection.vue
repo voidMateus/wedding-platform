@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ThemeConfig } from '#shared/schemas/theme'
 import { resolveWeddingContent } from '#shared/wedding-content'
 import type { Wedding } from '~/types/wedding'
 
@@ -11,12 +12,33 @@ interface Props {
 const { wedding, tone = 'default' } = defineProps<Props>()
 
 const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
+
+/**
+ * Referência visual de traje enviada pelo casal (config_tema.dressCodeImageUrl).
+ *
+ * Substituiu uma ilustração desenhada pela plataforma: era a única arte do
+ * site que não vinha do casal e destoava de uma página feita de tipografia e
+ * filete — além de aparecer igual em todo casamento. Sem imagem, a seção fica
+ * com o texto e os cartões, que é também o que o protótipo do convite faz: a
+ * imagem é um extra, não um buraco a preencher.
+ */
+const dressCodeImageUrl = computed(() => {
+  const theme = (wedding.config_tema ?? {}) as Partial<ThemeConfig>
+  return theme.dressCodeImageUrl ?? null
+})
 </script>
 
 <template>
   <PublicEditorialSection id="dress-code" eyebrow="Como se vestir" title="Dress Code" :tone="tone">
     <div class="mx-auto flex max-w-4xl flex-col items-center gap-8 text-center">
-      <PublicDressCodeIllustration />
+      <NuxtImg
+        v-if="dressCodeImageUrl"
+        :src="dressCodeImageUrl"
+        alt="Referência de traje para o casamento"
+        class="aspect-[4/3] w-full max-w-md rounded-xl border border-border/70 object-cover"
+        sizes="sm:100vw md:50vw lg:28rem xl:28rem 2xl:28rem"
+        loading="lazy"
+      />
       <p class="max-w-xl leading-relaxed text-body">{{ content.dressCodeDescription }}</p>
 
       <!--

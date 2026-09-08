@@ -196,6 +196,12 @@ export interface ThemeConfig {
    * iniciais do casal.
    */
   monogramImageUrl?: string
+  /**
+   * Referência visual de traje na seção "Dress Code" — gerida pelo próprio
+   * endpoint de upload, como as demais imagens. Ausente = a seção mostra só o
+   * texto e os cartões de sugestão, que é o padrão.
+   */
+  dressCodeImageUrl?: string
   /** Foto da seção "Nossa História" — independente de coverImageUrl (Hero). */
   storyImageUrl?: string
   /** Ponto de foco (0-100%, default 50/50 = centro) usado como object-position da foto de capa. */

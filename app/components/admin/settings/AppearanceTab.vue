@@ -36,6 +36,10 @@ const monogramImageUrl = computed(() => {
   const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
   return theme.monogramImageUrl ?? null
 })
+const dressCodeImageUrl = computed(() => {
+  const theme = (props.wedding?.config_tema ?? {}) as Partial<ThemeConfig>
+  return theme.dressCodeImageUrl ?? null
+})
 
 /**
  * A seção Versículo tem texto? É a única situação em que a cor de ornamento
@@ -210,6 +214,10 @@ const onSubmit = handleSubmit(
         />
         <AdminMonogramUploader
           :model-value="monogramImageUrl"
+          @update:model-value="() => emit('refresh')"
+        />
+        <AdminDressCodeImageUploader
+          :model-value="dressCodeImageUrl"
           @update:model-value="() => emit('refresh')"
         />
       </div>

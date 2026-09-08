@@ -544,3 +544,9 @@ A descoberta que mais muda a página: no protótipo `--heading` é um **vermelho
 **"Nossa História" ganhou a forma de marcos.** Era a única peça do protótipo que dependia de uma estrutura de conteúdo inexistente no modelo: três cartões com rótulo, título e texto. Virou `config_conteudo.storyMilestones` (até 6), convivendo com o texto corrido em vez de substituí-lo — texto corrido é uma carta, marcos são uma linha do tempo, e qual serve depende do casal. Havendo marcos, eles ganham: quem escreveu três marcos já escolheu contar assim.
 
 **O que não veio do protótipo, e por quê**: o `headingStyle: 'engraved'` (caixa alta forçada por CSS) continua disponível, mas não é o que o protótipo faz — lá a caixa alta vem da própria Cinzel, que é capitular. O tema fiel ao modelo usa `'classic'`.
+
+**Rodada 3.1 — a ilustração de traje saiu.** O usuário não gostou da arte (o vestido e o terno em line-art do Dress Code, reusada no Manual dos Padrinhos) e ofereceu duas saídas: trocar por uma melhor, ou não desenhar nada e deixar o casal enviar a própria imagem, como na "Nossa História".
+
+Ganhou a segunda, e uma conferência no protótipo confirmou a escolha: **a seção de traje do modelo não tem ilustração nenhuma** — só título, descrição e as sugestões. A arte era a única imagem do site que não vinha do casal, aparecia idêntica em todo casamento e destoava de uma página feita de tipografia e filete.
+
+Entrou `config_tema.dressCodeImageUrl`, com o mesmo par de endpoints das outras imagens do tema (fora do `themeConfigSchema`, que é o que as preserva no merge de Aparência). Sem imagem enviada, a seção fica com o texto e os cartões — o estado padrão, não um vazio a preencher. O Manual dos Padrinhos perdeu a ilustração junto e não ganhou upload próprio: ali os cartões de traje e a paleta de cores já são o peso visual da seção.

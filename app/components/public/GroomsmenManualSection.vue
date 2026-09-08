@@ -48,8 +48,6 @@ const attireCards = computed(() =>
     <div class="mx-auto flex w-full max-w-3xl flex-col gap-10">
       <p v-if="manual.intro" class="text-center leading-relaxed text-body">{{ manual.intro }}</p>
 
-      <PublicDressCodeIllustration v-if="attireCards.length" class="mx-auto" />
-
       <div
         v-if="attireCards.length"
         class="grid gap-6"
