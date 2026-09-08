@@ -19,6 +19,12 @@ export const guestPersonSchema = z.object({
   // com data de nascimento, a classificação é sempre calculada na data do
   // evento (shared/utils/faixa-etaria.ts#classificarFaixaEtaria).
   faixaEtariaManual: z.enum(FAIXA_ETARIA_CHAVES).optional().or(z.literal('')),
+  // Canais de contato — opcionais de verdade (parte da lista chega só por
+  // convite físico), mas a UI recomenda ao menos um. Guardados como digitados:
+  // são dado de envio de convite, nunca chave de busca nem credencial
+  // (o convidado autentica por token/sessão de RSVP — CLAUDE.md, seção 4.2).
+  email: z.string().trim().max(200).email('E-mail inválido.').optional().or(z.literal('')),
+  telefone: z.string().trim().max(40).optional().or(z.literal('')),
   caminhoFoto: z.string().trim().optional().or(z.literal('')),
   papelCasamento: z.enum(['padrinho', 'madrinha']).optional().or(z.literal('')),
   observacoes: z.string().trim().max(2000).optional().or(z.literal('')),

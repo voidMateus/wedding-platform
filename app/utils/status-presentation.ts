@@ -1,3 +1,4 @@
+import { rotuloDeValor } from '#shared/utils/campos-convidado'
 import type { RsvpStatus } from '#shared/utils/rsvp-status'
 import type { InviteResponseStatus } from '~/types/invite'
 
@@ -37,20 +38,27 @@ export interface StatusPresentation {
   tone: StatusTone
 }
 
-const RSVP_PRESENTATION: Record<RsvpStatus, StatusPresentation> = {
+/**
+ * Só o tom, que é decisão de tela. O **rótulo** vem do catálogo de campos
+ * (`#shared/utils/campos-convidado`), porque a exportação de convidados
+ * também precisa dele e roda no servidor, de onde `app/` não é importável —
+ * duas listas dos mesmos cinco status divergiriam no primeiro ajuste de
+ * texto.
+ */
+const RSVP_TONES: Record<RsvpStatus, StatusTone> = {
   // Responder é a ação que o produto inteiro existe para cobrar.
-  pendente: { label: 'Pendente', tone: 'warning' },
-  confirmado: { label: 'Estará lá', tone: 'success' },
+  pendente: 'warning',
+  confirmado: 'success',
   // neutral, não danger: recusar é resposta válida e concluída, não falha do
   // sistema. Vermelho aqui sugeriria problema e concorreria com o vermelho de
   // erro/exclusão.
-  recusado: { label: 'Não poderá ir', tone: 'neutral' },
-  lista_espera: { label: 'Em espera', tone: 'neutral' },
-  removido: { label: 'Removido', tone: 'neutral' },
+  recusado: 'neutral',
+  lista_espera: 'neutral',
+  removido: 'neutral',
 }
 
 export function rsvpStatusPresentation(status: RsvpStatus): StatusPresentation {
-  return RSVP_PRESENTATION[status]
+  return { label: rotuloDeValor('status_rsvp', status), tone: RSVP_TONES[status] }
 }
 
 /** Os três estados consolidados de um convite, na ordem em que a tela oferece. */

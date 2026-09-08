@@ -25,35 +25,6 @@ const groupOptions = computed(() => [
   ...(groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? []),
 ])
 
-function emptyPerson(): GuestPersonInput {
-  return {
-    nomeCompleto: '',
-    apelido: '',
-    sexo: undefined,
-    dataNascimento: '',
-    faixaEtariaManual: undefined,
-    papelCasamento: undefined,
-    observacoes: '',
-    grupoId: '',
-  }
-}
-
-function personFromGuest(guest: GuestDetail | Record<string, unknown>): GuestPersonInput {
-  const g = guest as Record<string, unknown>
-  return {
-    id: g.id as string,
-    nomeCompleto: (g.nome_completo as string) ?? '',
-    apelido: (g.apelido as string) ?? '',
-    sexo: (g.sexo as GuestPersonInput['sexo']) ?? undefined,
-    dataNascimento: (g.data_nascimento as string) ?? '',
-    faixaEtariaManual:
-      (g.faixa_etaria_manual as GuestPersonInput['faixaEtariaManual']) ?? undefined,
-    papelCasamento: (g.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
-    observacoes: (g.observacoes as string) ?? '',
-    grupoId: (g.grupo_id as string) ?? '',
-  }
-}
-
 const isEditing = computed(() => Boolean(props.initialGuest))
 
 /** Faixa mostrada na revisão — derivada, igual à que a listagem vai exibir. */

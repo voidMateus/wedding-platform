@@ -22,28 +22,61 @@ interface Props {
    * e o template resolveria o atributo em vez da prop.
    */
   groupLabel: string
+  /**
+   * 'chip' (default) é o recorte discreto do cabeçalho de painel — some no
+   * fundo até ser procurado, que é o certo para um filtro secundário.
+   *
+   * 'segmented' é a mesma escolha promovida a controle principal, na moldura
+   * de largura cheia de `UiTabs variant="segmented"`: usado quando escolher
+   * o recorte É a tarefa da tela (os modelos prontos do gerador de planilha),
+   * e não um ajuste sobre uma lista que já está lá.
+   */
+  variant?: 'chip' | 'segmented'
 }
 
-defineProps<Props>()
+const { variant = 'chip' } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const GROUP_CLASSES: Record<NonNullable<Props['variant']>, string> = {
+  chip: 'flex flex-wrap gap-1',
+  segmented: 'flex w-full gap-0.5 rounded-lg border border-border bg-surface-elevated p-0.5',
+}
+
+// Mais baixo que a régua de abas de `UiTabs`: aqui o seletor divide a altura
+// do quadro com a lista que ele controla, e cada pixel gasto na moldura é um
+// item a menos visível — o oposto de uma aba, que ocupa a largura de uma tela
+// inteira.
+const ITEM_CLASSES: Record<NonNullable<Props['variant']>, string> = {
+  chip: 'h-8 rounded-lg px-3 text-xs font-medium',
+  segmented: 'h-8 flex-1 whitespace-nowrap rounded-md px-3 text-xs font-medium',
+}
+
+const ACTIVE_CLASSES: Record<NonNullable<Props['variant']>, string> = {
+  chip: 'bg-surface-muted text-text',
+  segmented: 'bg-primary text-primary-foreground',
+}
+
+const IDLE_CLASSES: Record<NonNullable<Props['variant']>, string> = {
+  chip: 'text-text-muted hover:bg-surface-muted/60 hover:text-text',
+  segmented: 'text-text-muted hover:bg-surface-muted hover:text-text',
+}
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-1" role="group" :aria-label="groupLabel">
+  <div :class="GROUP_CLASSES[variant]" role="group" :aria-label="groupLabel">
     <button
       v-for="item in items"
       :key="item.value"
       type="button"
       :aria-pressed="item.value === modelValue"
-      class="h-8 rounded-lg px-3 text-xs font-medium transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      :class="
-        item.value === modelValue
-          ? 'bg-surface-muted text-text'
-          : 'text-text-muted hover:bg-surface-muted/60 hover:text-text'
-      "
+      class="transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      :class="[
+        ITEM_CLASSES[variant],
+        item.value === modelValue ? ACTIVE_CLASSES[variant] : IDLE_CLASSES[variant],
+      ]"
       @click="emit('update:modelValue', item.value)"
     >
       {{ item.label }}

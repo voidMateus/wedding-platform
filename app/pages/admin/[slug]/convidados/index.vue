@@ -9,7 +9,7 @@ definePageMeta({ layout: 'admin' })
 const route = useRoute()
 const router = useRouter()
 
-const { listGuests, deleteGuest } = useGuests()
+const { listGuests, deleteGuest, exportGuests } = useGuests()
 const { listGroups } = useGroups()
 const { classify, label: ageGroupLabel, originLabel, filterChips } = useAgeGroups()
 
@@ -203,6 +203,36 @@ function openCreateGuest() {
   router.push({ query: { ...route.query, novo: '1', editar: undefined } })
 }
 
+// Gerador de modelo de planilha. Ref local, e não na URL como o modal de
+// convidado: não há nada a compartilhar por link aqui — o resultado é um
+// arquivo baixado, não um estado da tela.
+const isTemplateModalOpen = ref(false)
+
+// O gerador de modelo deixou de ter botão próprio na barra: ele é um passo
+// do caminho de importar, não uma ação de mesmo peso que "Adicionar
+// convidado". Quem precisa dele chega pelo link do primeiro passo do
+// importador — que fecha antes de abrir este, porque modal dentro de modal é
+// proibido (DESIGN-SYSTEM.md, seção 2).
+const isImportModalOpen = ref(false)
+
+async function handleImported() {
+  await refresh()
+}
+
+// Exporta o MESMO recorte que a tabela está mostrando (`listParams`), não a
+// lista inteira: um botão que ignorasse os filtros logo acima dele
+// contradiria o que a tela acabou de dizer.
+const isExporting = ref(false)
+
+async function handleExport() {
+  isExporting.value = true
+  try {
+    await exportGuests(listParams.value)
+  } finally {
+    isExporting.value = false
+  }
+}
+
 function openEditGuest(guest: GuestListItem) {
   router.push({ query: { ...route.query, novo: undefined, editar: guest.id } })
 }
@@ -255,6 +285,14 @@ async function confirmDelete() {
         placeholder="Filtrar por nome..."
         class="w-full sm:w-64"
       />
+      <UiButton variant="ghost" :disabled="isExporting" @click="handleExport">
+        <Icon name="lucide:download" class="h-4 w-4" />
+        {{ isExporting ? 'Exportando...' : 'Exportar' }}
+      </UiButton>
+      <UiButton variant="ghost" @click="isImportModalOpen = true">
+        <Icon name="lucide:upload" class="h-4 w-4" />
+        Importar
+      </UiButton>
       <UiButton @click="openCreateGuest">
         <Icon name="lucide:plus" class="h-4 w-4" />
         Adicionar convidado
@@ -405,6 +443,14 @@ async function confirmDelete() {
       @update:model-value="(isOpen) => !isOpen && closeGuestModal()"
       @saved="handleGuestSaved"
     />
+
+    <AdminGuestsGuestImportModal
+      v-model="isImportModalOpen"
+      @imported="handleImported"
+      @request-template="isTemplateModalOpen = true"
+    />
+
+    <AdminGuestsGuestImportTemplateModal v-model="isTemplateModalOpen" />
 
     <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
       <p class="text-sm text-text">

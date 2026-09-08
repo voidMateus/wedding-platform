@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import type { GuestPersonInput } from '#shared/schemas/guests'
-import type { GuestDetail } from '~/composables/useGuests'
 import type { Group } from '~/types/group'
 
 const COMPANION_SEARCH_MIN_CHARS = 2
@@ -26,34 +25,6 @@ const emit = defineEmits<{
   /** Disparado quando um acompanhante removido já existia cadastrado — o wizard acumula pra excluir do grupo no submit. */
   'remove-existing': [guestId: string]
 }>()
-
-function emptyPerson(): GuestPersonInput {
-  return {
-    nomeCompleto: '',
-    apelido: '',
-    sexo: undefined,
-    dataNascimento: '',
-    faixaEtariaManual: undefined,
-    papelCasamento: undefined,
-    observacoes: '',
-    grupoId: '',
-  }
-}
-
-function personFromGuest(guest: GuestDetail): GuestPersonInput {
-  return {
-    id: guest.id,
-    nomeCompleto: guest.nome_completo ?? '',
-    apelido: guest.apelido ?? '',
-    sexo: (guest.sexo as GuestPersonInput['sexo']) ?? undefined,
-    dataNascimento: guest.data_nascimento ?? '',
-    faixaEtariaManual:
-      (guest.faixa_etaria_manual as GuestPersonInput['faixaEtariaManual']) ?? undefined,
-    papelCasamento: (guest.papel_casamento as GuestPersonInput['papelCasamento']) ?? undefined,
-    observacoes: guest.observacoes ?? '',
-    grupoId: guest.grupo_id ?? '',
-  }
-}
 
 const { fetchGuests, fetchGuestDetail } = useGuests()
 

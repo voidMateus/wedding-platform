@@ -1,3 +1,4 @@
+import { nomeDoArquivoDaExportacao } from '#shared/utils/exportacao-convidados'
 import type { GuestPartyReorderInput, GuestPartySyncInput } from '#shared/schemas/guests'
 import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
 import type { RsvpStatus } from '#shared/utils/rsvp-status'
@@ -75,6 +76,36 @@ export function useGuests() {
     return $fetch<{ id: string }>(`/api/guests/${id}`, { method: 'DELETE' })
   }
 
+  /**
+   * Baixa a exportação do **recorte atual** — os mesmos filtros da listagem
+   * (`GuestListParams`), para o arquivo casar com o que está na tela.
+   *
+   * Recebe o CSV como blob em vez de deixar o navegador navegar até a URL:
+   * `/api/guests/export` exige a sessão do Supabase, e uma navegação direta
+   * sairia do contexto do app. O `Content-Disposition` do servidor define o
+   * nome; aqui ele é reaplicado porque um download de blob não o lê.
+   */
+  async function exportGuests(params: GuestListParams = {}): Promise<void> {
+    // Só os recortes: `page`/`pageSize`/`sort` não vão junto de propósito — o
+    // CSV é a lista inteira do filtro, em ordem de nome, não a página que
+    // está na tela.
+    const query = {
+      search: params.search || undefined,
+      groupId: params.groupId || undefined,
+      ageGroup: params.ageGroup || undefined,
+      statusRsvp: params.statusRsvp || undefined,
+    }
+
+    const blob = await $fetch<Blob>('/api/guests/export', { query, responseType: 'blob' })
+
+    const url = URL.createObjectURL(blob)
+    const ancora = document.createElement('a')
+    ancora.href = url
+    ancora.download = nomeDoArquivoDaExportacao(new Date())
+    ancora.click()
+    URL.revokeObjectURL(url)
+  }
+
   return {
     listGuests,
     getGuest,
@@ -83,5 +114,6 @@ export function useGuests() {
     syncGuestParty,
     reorderGuestParty,
     deleteGuest,
+    exportGuests,
   }
 }

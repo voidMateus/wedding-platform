@@ -60,6 +60,11 @@ const faixaExibida = computed(() =>
     : (props.modelValue.faixaEtariaManual ?? ''),
 )
 
+// Contato é recomendação, nunca bloqueio: parte da lista chega só por convite
+// físico e precisa poder ser cadastrada sem e-mail nem telefone
+// (docs/PRODUCT.md, seção 3.3). Por isso vira `hint`, não `error`.
+const semContato = computed(() => !props.modelValue.email && !props.modelValue.telefone)
+
 // Criar um grupo sem sair do cadastro do convidado (CLAUDE.md, seção 12.1) —
 // evita o casal precisar ir em Grupos cadastrar tudo antes de começar.
 const { createGroup } = useGroups()
@@ -150,6 +155,30 @@ async function handleCreateGroup() {
         @update:model-value="
           update('faixaEtariaManual', $event as GuestPersonInput['faixaEtariaManual'])
         "
+      />
+    </div>
+
+    <!--
+      Contato depois da faixa etária, não antes: o par nome → nascimento →
+      faixa é uma sequência só (quem é a pessoa e como ela conta na lista), e
+      quebrá-la no meio com e-mail/telefone separaria a data da faixa que ela
+      determina.
+    -->
+    <div class="grid gap-4 sm:grid-cols-2">
+      <UiInput
+        :model-value="modelValue.email"
+        label="E-mail (opcional)"
+        type="email"
+        placeholder="convidado@email.com"
+        :hint="semContato ? 'Ao menos um canal facilita enviar o convite.' : undefined"
+        @update:model-value="update('email', $event)"
+      />
+      <UiInput
+        :model-value="modelValue.telefone"
+        label="Telefone (opcional)"
+        type="tel"
+        placeholder="(11) 91234-5678"
+        @update:model-value="update('telefone', $event)"
       />
     </div>
 

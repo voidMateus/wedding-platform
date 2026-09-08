@@ -104,6 +104,77 @@ A restrição alimentar era coletada em dois lugares — no RSVP público (campo
 
 **Assinaturas mantidas de propósito.** `p_restricoes_alimentares` segue existindo em `salvar_rsvp_convidado` (e a chave jsonb `restricoesAlimentares` segue sendo aceita nas outras duas) — agora ignorados. Manter a assinatura estável evita ter que editar `app/types/database.types.ts` à mão, que é gerado pelo Supabase CLI e nunca editado manualmente (CLAUDE.md §8). Quando/se as colunas forem dropadas, a mesma migration que fizer o `drop column` dropa também o parâmetro, e os tipos são regerados no mesmo passo.
 
+### Achado: contato do convidado era coluna morta há todo o projeto (2026-09-04)
+
+Encontrado ao planejar a importação/exportação de convidados. `convidados.email` e `convidados.telefone` existem desde o schema inicial, mas **nunca tiveram caminho de escrita**: não estavam em `guestPersonSchema`, `sincronizar_nucleo_convidado()` (o único caminho de gravação de convidado do produto) não as mencionava, e nenhuma tela do painel as exibia. Enquanto isso, `docs/PRODUCT.md` §3.2/3.3 descrevia contato como se existisse ("ao menos um canal de contato é recomendado pela UI"), e §3.2 já especificava a importação CSV mapeando justamente `nome_completo`, `email`, `telefone`.
+
+**Por que virou bloqueio da importação.** Importar uma planilha com 200 telefones para colunas que nenhuma tela lê nem edita produz dado *write-only* — pior que não importar, porque ninguém consegue nem conferir nem corrigir depois. Daí a decisão de ligar contato de verdade como passo A.0, antes de qualquer código de importação ou exportação.
+
+**Semântica de "chave ausente = não mexer".** Contato é o único campo dos UPDATEs de `sincronizar_nucleo_convidado` lido por `p_principal ? 'email'` em vez de `nullif(... ->> ...)` direto. Sem essa guarda, dois cenários apagariam contato em silêncio: um client anterior a este deploy (que manda o payload sem as chaves) zeraria o contato a cada "Salvar" — o mesmo acidente descrito acima para `restricoes_alimentares`, invertido; e a importação em massa, que vai atualizar convidados a partir de planilhas que quase nunca trazem todas as colunas, faria uma planilha `id;nome_completo;grupo` zerar o e-mail de todo mundo. Limpar de propósito continua funcionando: a chave vai presente com string vazia (é o que o formulário manda) e o `nullif` a converte em `NULL`. As três semânticas — grava, preserva na ausência da chave, limpa na string vazia — foram verificadas contra o banco de dev antes do commit.
+
+**Duplicação removida junto.** `GuestPartyWizard` e `GuestPartyCompanionsStep` tinham cópias idênticas de `emptyPerson()`/`personFromGuest()`. Ligar contato exigiria editar as duas, e esquecer uma faria o campo sumir silenciosamente só para acompanhantes — o mesmo tipo de divergência que criou o problema original. Extraídas para `app/utils/guest-person.ts` (dois contextos reais, então não é abstração especulativa — CLAUDE.md §5).
+
+**Coluna de contato na listagem ficou de fora**, deliberadamente: a tela de Convidados estava sendo reestruturada em paralelo (filtros por coluna) e uma coluna nova ali colidiria com esse trabalho. Contato já é visível e editável no cadastro; a listagem entra depois que aquele trabalho aterrissar.
+
+### Decisão: catálogo de campos com papel, não com flags booleanas (2026-09-04)
+
+Ao especificar o gerador de modelo de importação, a proposta inicial descrevia cada campo com `importable: boolean` / `exportable: boolean` / `required` / `derived`. O modelo quebrou no primeiro exemplo da própria especificação: `id` foi descrito como *"importável: sim, mas apenas para identificar um registro existente"* — que não é `true` nem `false`.
+
+A consequência era concreta, não teórica: com `id` marcado importável, o preset "Completo" (definido como "todos os campos compatíveis com importação") geraria uma planilha de cadastro novo **com uma coluna `id` em branco** — convite a preencher 1, 2, 3 e receber erro de identificador inexistente em toda linha.
+
+**Correção:** `importacao: 'gravavel' | 'identificador' | 'nao'`. As três regras desejadas passaram a ser consequência estrutural em vez de convenção: modelo de criação lista `gravavel`; modelo de atualização lista `gravavel` + `identificador`; e campo derivado (`faixa_etaria_calculada`, `status_rsvp`) **não tem como** aparecer num modelo, porque o gerador só sabe listar graváveis. A regra "o modelo nunca oferece campo derivado" deixou de depender de alguém lembrar dela.
+
+**Segunda correção, `origem`.** Quatro dos campos do catálogo não são colunas de `convidados`: `grupo` e `convite` são vínculos resolvidos por nome (`grupo_id`/`convite_id`), `faixa_etaria_calculada` é calculada de duas tabelas e `status_rsvp` vem de `respostas_rsvp`. Sem `origem: 'coluna' | 'relacao' | 'derivado'`, o catálogo daria a entender que `chave` ≡ coluna do Postgres, e o primeiro `insert` genérico escrito em cima dele quebraria.
+
+**Presets colapsados numa tela só.** A especificação pedia três caminhos no wizard (Recomendado / Personalizar / Completo). Mas "Completo" é "Personalizado com tudo marcado" e "Recomendado" é "Personalizado com um preset marcado" — viraram chips sobre a mesma lista de caixas, com um passo a menos e o mesmo resultado.
+
+**"Recomendado" foi enxugado.** A lista original tinha onze campos — todo campo importável menos `id`, ou seja, o mesmo arquivo que o "Completo". Reduzido ao que só dá para fazer em massa (nome, data de nascimento, faixa informada, e-mail, telefone, grupo, convite); apelido, sexo, papel e observações são refinamento individual.
+
+**A garantia de compatibilidade virou teste, não intenção.** `tests/unit/shared/utils/modelo-importacao.spec.ts` gera cada preset, lê de volta pelo parser e confere que a autodetecção mapeia 100% das colunas, que todo valor de enum da linha de exemplo é interpretável e que a linha de exemplo é reconhecida como tal. Campo novo no catálogo sem suporte na leitura quebra o CI em vez de virar bug de produção.
+
+### Achado: duas relações entre `convidados` e `convites` quebram o embed do PostgREST (2026-09-04)
+
+A exportação de convidados busca nome do grupo, nome do convite e status do RSVP por junção, para não fazer N+1 nem esbarrar num segundo teto de 1000 linhas numa tabela auxiliar. O `select` com `convites(nome)` foi recusado: *"Could not embed because more than one relationship was found for 'convidados' and 'convites'"*.
+
+**Causa:** existem duas chaves estrangeiras entre as tabelas, em sentidos opostos — `convidados.convite_id → convites` e `convites.convidado_responsavel_id → convidados` (o Convidado Responsável, ver [`DATABASE.md`](DATABASE.md)). O PostgREST não escolhe por conta própria.
+
+**Correção:** `convites!convite_id(nome)`, com a dica pelo nome da **coluna**. Testado contra o banco de dev também com o nome do constraint (`convites!convidados_convite_id_fkey`), que falha — o cache de schema não expõe o constraint por nome aqui. `grupos(nome)` e `respostas_rsvp(status_rsvp)` não precisam de dica: têm uma relação só.
+
+**Verificação de paridade.** Para cada filtro (nome, grupo, faixa etária, e combinações), a contagem de linhas do CSV foi comparada com `meta.total` de `/api/guests` no mesmo recorte — os dois têm que descrever a mesma lista, senão o botão "Exportar" mente sobre o que a tela está mostrando. Confirmado o BOM nos bytes crus da resposta: `Response.text()` remove o BOM por especificação, então checá-lo pelo texto decodificado daria falso negativo.
+
+**Rótulo de status do RSVP saiu de `app/utils/status-presentation.ts` para o catálogo de campos.** A exportação roda no servidor, de onde `app/` não é importável, e duas listas dos mesmos cinco status divergiriam no primeiro ajuste de texto. Aquele arquivo agora lê o rótulo do catálogo e guarda só o tom visual, que é decisão de tela.
+
+### Achado: a exportação parou de descrever a tela quando os filtros viraram multivalor (2026-09-08)
+
+Encontrado no rebase da branch de importação/exportação sobre a `main` já com o PR #95 (filtros e ordenação por coluna). O rebase não deu conflito nesse ponto — os dois lados mexeram em arquivos diferentes —, mas o contrato entre eles tinha mudado: a tela passou a mandar `groupId`, `ageGroup` e o novo `statusRsvp` como **listas**, e o `querySchema` de `/api/guests/export` ainda aceitava valor único. Marcar dois grupos e clicar em "Exportar" devolveria 400; o filtro por status simplesmente não existia no CSV.
+
+É o modo de falha que o comentário do próprio endpoint promete evitar ("exporta o recorte que está vendo na tela"), e nenhum teste pegaria: a incompatibilidade é entre duas partes que só se encontram em runtime.
+
+**Correção:** o schema da exportação passou a usar `queryList` nos três filtros, como `index.get.ts`, e a leitura saiu de `convidados` para a view `convidados_com_status` — filtrar por status exige a view pelo mesmo motivo da listagem (pendente é "sem linha em `respostas_rsvp` OU linha com status pendente"). Com isso o `respostas_rsvp(status_rsvp)` embutido saiu: a coluna já vem resolvida da view. Verificado contra o banco de dev que o embed `grupos(nome), convites!convite_id(nome)` continua funcionando **a partir da view** — a dica pelo nome da coluna segue necessária, e o PostgREST resolve as duas junções pelas colunas de origem do `c.*`.
+
+**Regra que fica:** filtro novo na listagem de convidados entra nos dois endpoints na mesma mudança. São duas telas do mesmo recorte, e a que mente é sempre a exportação, porque o CSV sai sem nada na tela indicando o que ficou de fora.
+
+### Decisão: importação sem índice único de nome, embora ele fosse o reflexo natural (2026-09-04)
+
+`importar_convidados()` resolve grupo e convite **por nome**, criando o que não existe. O reflexo é proteger isso com um índice único sobre `(casamento_id, nome normalizado)` em `grupos` e `convites`. Escrito e depois removido, por dois motivos verificados antes de decidir:
+
+1. **A base real já viola.** O ambiente de dev tem dois convites "Família Teste" e dois "teste" — a migration falharia na criação do índice.
+2. **Quebraria fluxos existentes.** Nem `sincronizar_nucleo_convidado` nem o "Criar novo grupo" embutido no wizard de convidado checam nome antes de inserir. O índice faria os dois passarem a estourar erro cru de banco na cara do casal — mudança de comportamento muito além da importação.
+
+A resolução correta **dentro de um lote** não depende do índice: as vinte linhas que citam "Família Silva" enxergam a linha inserida pela primeira delas, porque estão na mesma transação. O índice só protegeria contra duas importações simultâneas, cenário que não justifica o risco acima.
+
+### Achado: outra árvore de trabalho aplicou migrations no mesmo banco de dev (2026-09-04)
+
+Ao aplicar `20260905090001_importar_convidados`, o Supabase CLI recusou: *"Remote migration versions not found in local migrations directory"* — o dev tinha `20260904180001` e `20260904190001`, aplicadas por outra sessão trabalhando em paralelo (filtros por coluna na lista de convidados). O CLI sugere `supabase migration repair --status reverted`, que teria marcado o trabalho da outra sessão como revertido no histórico compartilhado.
+
+**Não foi o que se fez.** `20260904180001` estava na branch `feature/filtros-por-coluna`; `20260904190001` não existia em lugar nenhum do git (trabalho ainda não commitado). A saída foi criar dois arquivos de marcação **locais e temporários** com as versões correspondentes, aplicar só a migration nova e apagá-los em seguida: o CLI pula migrations já presentes no histórico remoto, então nada além da própria migration foi enviado e nenhum registro alheio foi tocado.
+
+**Lição para a próxima:** o banco de dev é compartilhado entre árvores de trabalho. Antes de `db push`, `supabase migration list` mostra o descompasso — e a resposta certa a "remote não está no local" quase nunca é `repair --status reverted`.
+
+### Verificação da importação contra o banco, não só em teste unitário (2026-09-04)
+
+Quinze asserções rodadas contra o dev antes do commit, cobrindo o que teste de unidade não alcança: criação com resolução de vínculo por nome (variações de acentuação e caixa criando **um** grupo, não três); update parcial preservando coluna ausente e limpando célula vazia; recusa de vínculo novo sem confirmação; **rollback** de lote com linha inválida (a linha boa não fica aplicada); e recusa de `id` pertencente a outro casamento, com o convidado alheio intacto depois da tentativa.
+
 ---
 
 ## Fases concluídas (histórico completo por fase, fora da sequência numerada do roadmap)
