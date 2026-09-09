@@ -11,12 +11,17 @@ export interface Toast {
 /**
  * Estado de UI global (CLAUDE.md, seção 10): tema ativo do casamento
  * (config_tema bruto — resolvido para CSS vars via useWeddingTheme.ts,
- * aplicado pelos layouts), toasts de feedback (CLAUDE.md, seção 20.1/21 —
- * nunca alert() nativo) e estado da sidebar do admin (colapsável).
+ * aplicado pelos layouts) e toasts de feedback (CLAUDE.md, seção 20.1/21 —
+ * nunca alert() nativo).
+ *
+ * `menuDaSecaoRecolhido` é o único estado de chrome aqui, e é do **menu da
+ * seção** (não da nav primária, que vive no cabeçalho): é preferência de
+ * leitura do casal e precisa sobreviver à navegação entre telas da seção. No
+ * celular não existe — ali quem navega é a barra de abas inferior.
  */
 export const useUiStore = defineStore('ui', () => {
   const themeConfig = ref<unknown>(null)
-  const sidebarOpen = ref(true)
+  const menuDaSecaoRecolhido = ref(false)
   const toasts = ref<Toast[]>([])
 
   function setThemeConfig(config: unknown): void {
@@ -33,5 +38,12 @@ export const useUiStore = defineStore('ui', () => {
     toasts.value = toasts.value.filter((toast) => toast.id !== id)
   }
 
-  return { themeConfig, sidebarOpen, toasts, setThemeConfig, pushToast, dismissToast }
+  return {
+    themeConfig,
+    menuDaSecaoRecolhido,
+    toasts,
+    setThemeConfig,
+    pushToast,
+    dismissToast,
+  }
 })

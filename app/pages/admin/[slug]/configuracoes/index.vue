@@ -1,66 +1,31 @@
+<!--
+  Configurações virou um módulo com menu de seção próprio, como Convidados.
+
+  As quatro abas que ficavam no topo (Geral, Aparência, Conteúdo,
+  Colaboradores) são os GRUPOS do menu lateral, e as seções que eram âncoras
+  numa coluna dentro da página são os ITENS desses grupos. Cronograma e Galeria
+  entraram no mesmo módulo: as duas são o casal preparando o que o convidado
+  vai ver, não operação do dia a dia.
+
+  A aba deixou de ser escolhida — é derivada de `?secao=<id>`. Com a seção na
+  URL, o menu lateral sabe qual item acender, o link é salvável e o botão
+  Voltar funciona; como estado de componente, nada disso valia. A lista de
+  assuntos vive em `app/utils/admin-nav.ts`, porque agora é navegação: o menu
+  monta a coluna a partir dela e esta página lê a MESMA lista para saber qual
+  conteúdo desenhar.
+-->
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
 
-/**
- * Metadado de navegação das abas. `sections` casa 1:1 com o `sectionId` dos
- * AdminSettingsSectionCard de cada aba — é o contrato do sub-menu lateral;
- * renomear um id aqui sem renomear no cartão deixa a âncora sem destino.
- */
-const SETTINGS_TABS = {
-  geral: {
-    label: 'Geral',
-    blurb: 'Dados do evento, RSVP e pagamentos.',
-    sections: [
-      { id: 'evento', label: 'O evento' },
-      { id: 'rsvp', label: 'RSVP e convidados' },
-      { id: 'faixas-etarias', label: 'Classificação etária' },
-      { id: 'pagamentos', label: 'Presentes e pagamentos' },
-    ],
-  },
-  aparencia: {
-    label: 'Aparência',
-    blurb: 'Fotos, tema e recursos do site.',
-    sections: [
-      { id: 'branding', label: 'Branding' },
-      { id: 'tema', label: 'Opções de tema' },
-      { id: 'avancado', label: 'Opções avançadas' },
-      { id: 'experiencia', label: 'Experiência' },
-      { id: 'ordem', label: 'Ordem das seções' },
-    ],
-  },
-  conteudo: {
-    label: 'Conteúdo',
-    blurb: 'Textos exibidos aos convidados.',
-    sections: [{ id: 'mensagens', label: 'Mensagens do site' }],
-  },
-  colaboradores: {
-    label: 'Colaboradores',
-    blurb: 'Quem pode editar este evento.',
-    sections: [
-      { id: 'convidar', label: 'Convidar colaborador' },
-      { id: 'acessos', label: 'Quem tem acesso' },
-    ],
-  },
-}
+const route = useRoute()
+const router = useRouter()
 
-type SettingsTabId = keyof typeof SETTINGS_TABS
-
-const tabItems = Object.entries(SETTINGS_TABS).map(([id, tab]) => ({ id, label: tab.label }))
-
-const activeTab = ref<string>('geral')
-
-// UiTabs emite string (contrato do Reka), não a união literal — o narrowing
-// mantém o acesso indexado seguro sob noUncheckedIndexedAccess, sem cast.
-function isSettingsTabId(value: string): value is SettingsTabId {
-  return value in SETTINGS_TABS
-}
-
-const currentNav = computed(() => {
-  const tab = isSettingsTabId(activeTab.value)
-    ? SETTINGS_TABS[activeTab.value]
-    : SETTINGS_TABS.geral
-  return { label: tab.label, blurb: tab.blurb, sections: tab.sections }
+const secaoAtual = computed(() => {
+  const valor = route.query[QUERY_SECAO_CONFIGURACOES]
+  return typeof valor === 'string' ? valor : null
 })
+
+const assunto = computed(() => assuntoDaSecao(secaoAtual.value))
 
 const { getWedding } = useWedding()
 // Aguardado (não apenas destructuring de useFetch): sem isso, o formulário de
@@ -68,49 +33,57 @@ const { getWedding } = useWedding()
 // renderização do SSR, produzindo HTML de servidor com os presets/fontes
 // ainda não destacados. Vue não corrige esse tipo de mismatch de hidratação
 // em produção (só avisa em dev) — o destaque ficava "preso" incorretamente
-// até uma interação forçar um novo render. Aguardar aqui garante que
-// wedding.value já está resolvido antes do primeiro render, em SSR e client.
+// até uma interação forçar um novo render.
 const { data: wedding, status, refresh } = await getWedding()
+
+/** Rola até o cartão da seção — o `scroll-mt` do SectionCard dá a folga do topo. */
+function rolarAteSecao(secao: string | null) {
+  if (!secao) return
+  nextTick(() => {
+    document.getElementById(secao)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+onMounted(() => {
+  // `/configuracoes` sem seção mostraria o conteúdo de Geral com nenhum item
+  // aceso no menu. `replace`, não `push`: normalizar o endereço não é um passo
+  // que o Voltar deva desfazer.
+  if (!secaoAtual.value) {
+    router.replace({
+      query: {
+        ...route.query,
+        [QUERY_SECAO_CONFIGURACOES]: SETTINGS_ASSUNTOS[0].secoes[0].id,
+      },
+    })
+    return
+  }
+  rolarAteSecao(secaoAtual.value)
+})
+
+watch(secaoAtual, (secao) => rolarAteSecao(secao))
 </script>
 
 <template>
-  <AdminSection
-    title="Configurações"
-    description="Dados do evento, aparência e acesso — organizados por assunto."
-  >
+  <AdminSection title="Configurações" :description="assunto.blurb">
     <div v-if="status === 'pending'" class="flex flex-col gap-5">
       <UiSkeleton class="h-14 w-full" />
       <UiSkeleton class="h-64 w-full" />
     </div>
 
-    <UiTabs v-else v-model="activeTab" variant="segmented" :tabs="tabItems">
-      <template #geral>
-        <AdminSettingsTabLayout v-bind="currentNav">
-          <AdminSettingsGeneralTab :wedding="wedding" @saved="refresh" />
-        </AdminSettingsTabLayout>
-      </template>
-
-      <template #aparencia>
-        <AdminSettingsTabLayout v-bind="currentNav">
-          <AdminSettingsAppearanceTab
-            :wedding="wedding"
-            :couple-names="wedding?.nomes_noivos ?? ''"
-            @refresh="refresh"
-          />
-        </AdminSettingsTabLayout>
-      </template>
-
-      <template #conteudo>
-        <AdminSettingsTabLayout v-bind="currentNav">
-          <AdminSettingsContentTab :wedding="wedding" @saved="refresh" />
-        </AdminSettingsTabLayout>
-      </template>
-
-      <template #colaboradores>
-        <AdminSettingsTabLayout v-bind="currentNav">
-          <AdminSettingsMembersTab />
-        </AdminSettingsTabLayout>
-      </template>
-    </UiTabs>
+    <template v-else>
+      <AdminSettingsGeneralTab v-if="assunto.id === 'geral'" :wedding="wedding" @saved="refresh" />
+      <AdminSettingsAppearanceTab
+        v-else-if="assunto.id === 'aparencia'"
+        :wedding="wedding"
+        :couple-names="wedding?.nomes_noivos ?? ''"
+        @refresh="refresh"
+      />
+      <AdminSettingsContentTab
+        v-else-if="assunto.id === 'conteudo'"
+        :wedding="wedding"
+        @saved="refresh"
+      />
+      <AdminSettingsMembersTab v-else-if="assunto.id === 'colaboradores'" />
+    </template>
   </AdminSection>
 </template>

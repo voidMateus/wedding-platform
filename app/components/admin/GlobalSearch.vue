@@ -59,12 +59,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="relative min-w-0 flex-1 md:max-w-md">
+  <!-- `min-w-0` sem `flex-1`: no cabeçalho a largura é dada por quem usa
+       (`class="xl:w-64"`), e o `flex-1` disputava espaço com a nav. -->
+  <div ref="rootEl" class="relative min-w-0">
     <UiInput
       v-model="query"
       icon="lucide:search"
       tone="muted"
-      placeholder="Buscar convidado, convite ou grupo..."
+      placeholder="Buscar convidado ou convite..."
+      class="[&_input]:pr-16"
       @focus="isOpen = results.length > 0"
     />
     <ClientOnly>
