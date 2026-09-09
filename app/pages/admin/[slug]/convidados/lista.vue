@@ -481,24 +481,19 @@ async function confirmarExclusao() {
                 <span class="text-text-muted">{{ row.observacoes || '—' }}</span>
               </template>
 
-              <!-- Lápis E lixeira, como na Visão Geral: o nome também abre a
-                   edição, mas um alvo descobrível só por tentativa não é um
-                   controle — e as duas telas mostram o mesmo cadastro, então a
-                   linha não pode oferecer ações diferentes em cada uma. -->
+              <!-- Só a lixeira. O lápis foi um terceiro caminho para o mesmo
+                   formulário: o NOME já é um `<button>` que abre a edição — e é
+                   ele o alvo acessível, porque `row-click` é conveniência de
+                   mouse (uma `<tr>` não é focável nem anunciada como botão).
+                   Três controles para uma ação, repetidos linha a linha, são
+                   peso visual sem capacidade nova. -->
               <template #cell-acoes="{ row }">
-                <span class="inline-flex justify-end gap-1">
-                  <AdminRowAction
-                    icon="lucide:pencil"
-                    :label="`Editar ${row.nome_completo}`"
-                    @click="abrirEdicao(row)"
-                  />
-                  <AdminRowAction
-                    icon="lucide:trash-2"
-                    :label="`Excluir ${row.nome_completo}`"
-                    tone="danger"
-                    @click="abrirExclusao(row)"
-                  />
-                </span>
+                <AdminRowAction
+                  icon="lucide:trash-2"
+                  :label="`Excluir ${row.nome_completo}`"
+                  tone="danger"
+                  @click="abrirExclusao(row)"
+                />
               </template>
 
               <!-- Linha do celular: nome dominante e o essencial em duas

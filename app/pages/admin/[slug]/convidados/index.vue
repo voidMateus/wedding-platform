@@ -414,20 +414,17 @@ async function confirmDelete() {
               <span v-else class="text-text-muted">—</span>
             </template>
 
+            <!-- Só a lixeira, pela mesma razão do Modo Lista: o nome já é o
+                 `<button>` que abre a edição, e as duas telas mostram o mesmo
+                 cadastro — a linha não pode oferecer ações diferentes em cada
+                 uma. -->
             <template #cell-acoes="{ row }">
-              <span class="inline-flex justify-end gap-1">
-                <AdminRowAction
-                  icon="lucide:pencil"
-                  :label="`Editar ${row.nome_completo}`"
-                  @click="openEditGuest(row)"
-                />
-                <AdminRowAction
-                  icon="lucide:trash-2"
-                  tone="danger"
-                  :label="`Excluir ${row.nome_completo}`"
-                  @click="openDeleteModal(row)"
-                />
-              </span>
+              <AdminRowAction
+                icon="lucide:trash-2"
+                tone="danger"
+                :label="`Excluir ${row.nome_completo}`"
+                @click="openDeleteModal(row)"
+              />
             </template>
 
             <template #detail="{ row }">
