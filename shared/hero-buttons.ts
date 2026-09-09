@@ -13,6 +13,8 @@ import { HOME_SECTION_CATALOG, findHomeSection, type HomeSectionDefinition } fro
 export interface HeroButtonDefinition {
   id: string
   label: string
+  /** Rótulo curto para a barra de navegação — ver HomeSectionDefinition.navLabel. */
+  navLabel: string
   icon: string
   href: string
 }
@@ -21,6 +23,7 @@ function toHeroButton(section: HomeSectionDefinition): HeroButtonDefinition {
   return {
     id: section.id,
     label: section.shortcutLabel,
+    navLabel: section.navLabel ?? section.shortcutLabel,
     icon: section.shortcutIcon,
     href: section.shortcutHref,
   }

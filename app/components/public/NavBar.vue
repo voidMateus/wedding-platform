@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onKeyStroke } from '@vueuse/core'
+import { DEFAULT_HERO_FEATURED_BUTTON, resolveHeroButtons } from '#shared/hero-buttons'
 import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
 
 // Navegação por âncora (Fase Editorial) — curada deliberadamente (não um
@@ -99,10 +100,41 @@ const brandName = computed(
 
 const homeLink = computed(() => `/${slug}`)
 
-// Preserva ?code= na navegação real para /presentes — diferente de uma
-// âncora na mesma página, trocar de rota sem isso perderia a autorização de
-// reservar/contribuir.
-const giftsLink = computed(() => `/${slug}/presentes${code ? `?code=${code}` : ''}`)
+/**
+ * O botão preenchido da barra é o atalho que o casal marcou como destaque
+ * (config_tema.heroFeaturedButton) — o mesmo que aparece preenchido no Hero.
+ *
+ * Antes ele era fixo em "Presentear", o que contradizia a própria
+ * configuração: um casal que escolhesse "Confirmar presença" como destaque via
+ * o Hero obedecer e a barra insistir em presentes. Com dois destaques
+ * competindo na mesma tela — o botão sólido aqui e o link realçado ao lado —,
+ * a configuração não decidia o que ela promete decidir.
+ *
+ * Cai no padrão do catálogo quando não há escolha salva, e some junto se a
+ * seção correspondente estiver desligada (resolveHeroButtons já filtra por
+ * `hiddenSections`).
+ */
+const featuredShortcut = computed(() => {
+  const [primeiro] = resolveHeroButtons(
+    [featuredButtonId ?? DEFAULT_HERO_FEATURED_BUTTON],
+    featuredButtonId ?? DEFAULT_HERO_FEATURED_BUTTON,
+    hiddenSections,
+  )
+  if (!primeiro) return null
+  // 'presentes' é o único destino que troca de rota de verdade e por isso
+  // precisa preservar ?code= — sem ele o convidado perde a autorização de
+  // reservar/contribuir ao clicar (mesma regra do Hero).
+  const suffix = primeiro.id === 'presentes' && code ? `?code=${code}` : ''
+  return { ...primeiro, href: `/${slug}${primeiro.href}${suffix}` }
+})
+
+/**
+ * Os links de texto, já sem o destaque — ele virou o botão ao lado, e repetir
+ * o mesmo destino nas duas formas na mesma barra é ruído.
+ */
+const textLinks = computed(() =>
+  NAV_LINKS.value.filter((link) => link.id !== featuredShortcut.value?.id),
+)
 
 const isMobileMenuOpen = ref(false)
 // Liga o botão ao painel que ele controla (aria-controls). Gerado, não fixo:
@@ -142,10 +174,17 @@ function isCurrent(to: string): boolean {
 </script>
 
 <template>
+  <!--
+    Barra deliberadamente rasa: a primeira tela já traz os cinco destinos daqui
+    mais os atalhos do Hero, e uma faixa alta em cima disso empurrava o nome do
+    casal para baixo da dobra sem acrescentar nada. A altura é a área de toque
+    do maior filho (44px) mais o respiro mínimo — abaixo disso o alvo de toque
+    do menu ficaria menor que o mínimo acessível.
+  -->
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
     <nav
       aria-label="Navegação principal"
-      class="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-6 py-3"
+      class="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-6 py-2"
     >
       <!--
         Monograma + nome, na mesma linha: a marca do convite passa a assinar
@@ -163,7 +202,7 @@ function isCurrent(to: string): boolean {
       -->
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 min-w-0 items-center gap-2.5 font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 min-w-0 items-center gap-2.5 font-display text-base font-semibold text-heading sm:text-lg"
         @click="closeMobileMenu"
       >
         <PublicMonogram
@@ -197,22 +236,23 @@ function isCurrent(to: string): boolean {
       -->
       <div class="hidden shrink-0 items-center gap-1 text-xs tracking-[0.12em] uppercase xl:flex">
         <NuxtLink
-          v-for="link in NAV_LINKS"
+          v-for="link in textLinks"
           :key="link.to"
           :to="link.to"
           :aria-current="isCurrent(link.to) ? 'page' : undefined"
-          class="shrink-0 rounded-full px-2.5 py-2 whitespace-nowrap transition-all duration-200 hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          :class="
-            link.id === featuredButtonId
-              ? 'bg-secondary/10 font-semibold text-primary'
-              : 'text-text-muted'
-          "
+          class="shrink-0 rounded-full px-2.5 py-2 whitespace-nowrap text-text-muted transition-all duration-200 hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {{ link.label }}
         </NuxtLink>
-        <UiButton :to="giftsLink" rounded="full" size="sm" class="ml-2 shrink-0">
-          <Icon name="lucide:gift" class="h-3.5 w-3.5" />
-          Presentear
+        <UiButton
+          v-if="featuredShortcut"
+          :to="featuredShortcut.href"
+          rounded="full"
+          size="sm"
+          class="ml-2 shrink-0"
+        >
+          <Icon :name="featuredShortcut.icon" class="h-3.5 w-3.5" />
+          {{ featuredShortcut.navLabel }}
         </UiButton>
       </div>
 
@@ -278,22 +318,22 @@ function isCurrent(to: string): boolean {
              menu no celular, onde a área de toque mínima de 44px vale de
              fato. -->
         <UiButton
-          :to="giftsLink"
+          v-if="featuredShortcut"
+          :to="featuredShortcut.href"
           rounded="full"
           size="lg"
           class="mb-2 w-full"
           @click="closeMobileMenu"
         >
-          <Icon name="lucide:gift" class="h-4 w-4" />
-          Presentear
+          <Icon :name="featuredShortcut.icon" class="h-4 w-4" />
+          {{ featuredShortcut.navLabel }}
         </UiButton>
         <NuxtLink
-          v-for="link in NAV_LINKS"
+          v-for="link in textLinks"
           :key="link.to"
           :to="link.to"
           :aria-current="isCurrent(link.to) ? 'page' : undefined"
-          class="flex min-h-11 items-center rounded-md px-3 hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text'"
+          class="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           @click="closeMobileMenu"
         >
           {{ link.label }}

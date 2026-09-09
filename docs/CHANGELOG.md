@@ -608,3 +608,11 @@ E a guarda de layout passou a varrer **as quatro páginas públicas**, não só 
 A causa é estrutural, não de proporção: o lado da busca tem **uma linha de conteúdo** — um campo, e a lista de resultados só depois de alguém digitar. Não existe divisão de colunas que equilibre um lado com um campo contra um lado com nome, data, título e parágrafo; ajustar as frações só moveria o vazio de lugar.
 
 Passou a empilhar em toda largura, com o mesmo `PublicPageHeader` das demais páginas: quem é o casal, o que se pede, e então o campo. É a leitura que o celular já tinha — e que estava certa desde o começo.
+
+**Rodada 3.8 — o botão em destaque da barra ignorava a configuração que existe para isso.** O CTA preenchido do menu era fixo em "Presentear", enquanto `config_tema.heroFeaturedButton` já dizia qual atalho o casal quer em destaque. Um casal que escolhesse "Confirmar presença" via o Hero obedecer e a barra insistir em presentes — e, pior, dois destaques competindo na mesma faixa: o botão sólido e o link realçado ao lado dele.
+
+O botão passou a ser o atalho em destaque, e esse destino sai da lista de links de texto (repetir o mesmo endereço nas duas formas na mesma barra é ruído).
+
+Isso trouxe um problema de espaço: o rótulo do catálogo é escrito para o Hero, e "Ver lista de presentes" empurrava o nome do casal para as reticências. Daí o `navLabel` — o mesmo atalho tem nomes diferentes conforme o espaço: no Hero é um convite ("Ver lista de presentes"), na barra é um rótulo ("Presentear"). Vale também para "Manual dos padrinhos"→"Padrinhos" e "Perguntas frequentes"→"Dúvidas".
+
+**A barra também encolheu** (69 → 61px), a pedido: a primeira tela já traz os cinco destinos do menu mais os atalhos do Hero, e a faixa alta empurrava o nome do casal para baixo sem acrescentar nada. O piso é a área de toque do maior filho (44px) mais o respiro — abaixo disso o alvo do menu ficaria menor que o mínimo acessível.

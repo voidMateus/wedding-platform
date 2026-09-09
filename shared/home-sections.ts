@@ -38,6 +38,15 @@ export interface HomeSectionDefinition {
   toneMode: HomeSectionToneMode
   /** Rótulo do atalho no Hero — mais curto e mais direto que o `label` da lista de ordenação. */
   shortcutLabel: string
+  /**
+   * Rótulo do mesmo atalho na BARRA de navegação, onde o espaço é disputado
+   * por cinco destinos e a marca do casal. Ausente, usa o `shortcutLabel`.
+   *
+   * Existe porque os dois contextos pedem coisas diferentes: no Hero, "Ver
+   * lista de presentes" é um convite; na barra, ele empurra o nome do casal
+   * para as reticências e "Presentear" diz o mesmo em um terço da largura.
+   */
+  navLabel?: string
   /** Ícone lucide do atalho no Hero. */
   shortcutIcon: string
   /**
@@ -119,6 +128,7 @@ export const HOME_SECTION_CATALOG: HomeSectionDefinition[] = [
     hint: 'Traje dos padrinhos e paleta de cores.',
     toneMode: 'alternating',
     shortcutLabel: 'Manual dos padrinhos',
+    navLabel: 'Padrinhos',
     shortcutIcon: 'lucide:users',
     shortcutHref: '/#manual-padrinhos',
   },
@@ -128,6 +138,7 @@ export const HOME_SECTION_CATALOG: HomeSectionDefinition[] = [
     hint: 'Chamada para a página de presentes.',
     toneMode: 'alternating',
     shortcutLabel: 'Ver lista de presentes',
+    navLabel: 'Presentear',
     shortcutIcon: 'lucide:gift',
     // Página dedicada, como o RSVP.
     shortcutHref: '/presentes',
@@ -147,6 +158,7 @@ export const HOME_SECTION_CATALOG: HomeSectionDefinition[] = [
     hint: 'Dúvidas comuns dos convidados.',
     toneMode: 'alternating',
     shortcutLabel: 'Perguntas frequentes',
+    navLabel: 'Dúvidas',
     shortcutIcon: 'lucide:help-circle',
     shortcutHref: '/#faq',
   },
