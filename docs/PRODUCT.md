@@ -83,11 +83,11 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 
 **Rascunho da lista (`em_consideracao`).** Uma lista de casamento não nasce pronta: "será que convidamos o Marcelo?" é o estado mais comum durante o planejamento, e obrigar o casal a decidir na hora do cadastro é o que empurra a lista para o Excel. Uma pessoa marcada como *em consideração* existe no planejamento sem ser convidada — **não conta** em nenhum indicador de convidados, não pode receber convite e portanto nunca entra em RSVP nem aparece na busca pública por nome. Virar convidado de verdade é ação explícita do casal, nunca efeito colateral de preencher outro campo. Detalhe da garantia: [`DATABASE.md`](DATABASE.md), seção 3.2.
 
-### 3.1.1 Duas formas de trabalhar: Visão organizada e Modo lista
+### 3.1.1 Duas formas de trabalhar: Visão Geral e Modo lista
 
 A gestão de uma lista de casamento tem duas fases com necessidades opostas, e uma tela só atende mal as duas. No começo o casal não está *cadastrando convidados* — está **montando uma lista**, e faz isso no Excel porque a planilha deixa despejar dezenas de nomes, reorganizar e refinar aos poucos. Depois, com a lista formada, o trabalho passa a ser gerenciar pessoa por pessoa (convite, RSVP, acompanhantes).
 
-- **Visão organizada** (`/convidados`) é a experiência tradicional: listagem paginada, uma linha por convidado, recorte feito pelo servidor. É onde se administra o convidado individual.
+- **Visão Geral** (`/convidados`) é a experiência tradicional: listagem paginada, uma linha por convidado, recorte feito pelo servidor. É onde se administra o convidado individual.
 - **Modo lista** (`/convidados/lista`) é a planilha inteligente: carrega a lista **inteira**, agrupa em blocos recolhíveis por grupo e subdivisão, e filtra sem ida ao servidor. É onde se monta e se organiza o conjunto.
 
 Não existem "convidados do Modo Lista" e "convidados normais" — é **um cadastro só**, apresentado de duas formas. O que muda é a pergunta que cada tela responde: "quem é esta pessoa?" contra "como está a minha lista?".
@@ -109,7 +109,7 @@ Consequências de desenho que decorrem disso:
 - Gerador de modelo de planilha — o casal escolhe as colunas e o sistema monta o CSV compatível com o importador (ver seção 3.5).
 - Exportação em CSV do **recorte que está na tela** (mesmos filtros de nome, grupo e faixa etária da listagem), com as colunas exportáveis do catálogo (ver seção 3.5).
 - Contato (e-mail/telefone) editável no cadastro do convidado, para o principal e para cada acompanhante — cada pessoa tem o próprio, nunca herdado de quem responde pelo convite.
-- Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
+- Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com **quais faixas** e limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
 - Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP, grupo e faixa etária.
 - Na lista do admin, cada recorte é o filtro da própria coluna (nome, status de RSVP, faixa etária, grupo), e status/faixa/grupo aceitam **mais de um valor ao mesmo tempo** — "quem ainda não respondeu ou está em espera" é uma pergunta só do casal, não duas. O status de cada convidado aparece na própria linha, e "pendente" inclui quem nunca respondeu (não é valor gravado; ver `convidados_com_status` em [`DATABASE.md`](DATABASE.md)).
@@ -134,7 +134,13 @@ Três conceitos distintos, nessa ordem:
 
 **Por que não é uma propriedade fixa do convidado:** a definição de "criança" não é universal e varia por evento — um casamento considera criança até 7 anos, outro até 11. Gravar "João é criança" impediria que o mesmo João fosse adolescente num evento com limites diferentes.
 
-**Configuração (Configurações → Geral → Classificação etária).** Quatro faixas — Criança, Adolescente, Adulto, Idoso — com limites editáveis pelo casal. O padrão de um evento novo é 0–11 / 12–17 / 18–59 / 60+, apenas um ponto de partida. A configuração é validada como conjunto: contínua, sem sobreposição e sem buraco, com a última faixa sempre aberta no topo — exatamente uma faixa se aplica a cada idade. Há ação de "Restaurar classificação padrão".
+**Configuração (Configurações → Geral → Classificação etária).** O casal escolhe **quais** faixas o casamento usa, do catálogo de quatro — Criança, Adolescente, Adulto, Idoso — e até que idade cada uma vai. O padrão de um evento novo é 0–11 / 12–17 / 18–59 / 60+, apenas um ponto de partida. Há ação de "Restaurar classificação padrão".
+
+**Nem toda festa separa em quatro** (pedido do usuário em 2026-09-09): muitas querem só "criança" e "adulto". Desmarcar uma faixa a remove do evento, e a configuração é o próprio conjunto de faixas ativas — faixa desligada é faixa ausente do array, sem um campo "ativa" a mais.
+
+**Desligar não é só remover: a vizinha mais nova herda o território.** Desligar Adolescente estende Criança até 17; desligar Idoso deixa Adulto aberto no topo. É o que preserva o invariante do modelo — as faixas ativas cobrem de 0 a ∞, contínuas, sem sobreposição e sem buraco, com a última sempre aberta —, validado no schema independentemente de quantas faixas sobraram. Sem a herança, um convidado de 14 anos deixaria de casar com faixa alguma e viraria "não informada" em silêncio, na lista inteira. Duas consequências da regra: a primeira faixa ativa não desliga (alguém tem de cobrir a idade 0) e o mínimo é duas (com uma só, todo convidado recebe o mesmo rótulo e a classificação deixa de classificar). Ligar uma faixa de volta devolve o corte padrão dela.
+
+**A marcação manual de uma faixa desligada não é reescrita.** Desligar é configuração do evento, não edição do cadastro das pessoas: `convidados.faixa_etaria_manual` fica intacto e a *leitura* se adapta — um "adolescente" num evento sem adolescentes é lido como a faixa que herdou o território dele (`faixaAtivaEquivalente`). Religar a faixa devolve a marcação original, sem ninguém ter que reclassificar a lista.
 
 **Regra de prioridade.** Com `data_nascimento` preenchida, a faixa é *calculada* (idade na data do evento × faixas do evento). Sem ela, vale a faixa informada à mão (`faixa_etaria_manual`). Sem nenhuma das duas, a faixa é "não informada" — a plataforma nunca infere idade por nome, parentesco ou qualquer outro dado. A faixa manual **nunca compete** com uma data de nascimento válida: preencher a data depois faz a classificação passar automaticamente a calculada. A interface sempre indica se o valor foi calculado ou informado manualmente.
 

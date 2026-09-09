@@ -59,9 +59,35 @@ Encontrado ao validar o cadastro de convidado no navegador: `/admin/{slug}/convi
 
 **Regra que fica**: um componente de `components/ui/` que embrulha um primitive de terceiro precisa absorver as restrições dele, não repassá-las ao chamador — o contrato público do `UiSelect` é "uma lista de `{value, label}`", e o chamador não tem como saber que um valor é proibido.
 
+### Reversão de escopo: cadastro de convidado deixou de ser wizard (2026-09-08)
+
+Pedido do usuário na fase Modo Lista, com o site casamentos.com como referência: "por mim não precisa ser em etapas igual é hoje".
+
+O wizard (`GuestPartyWizard`: Dados → Acompanhantes → Convite → Revisão) existia por simetria com a importação, mas as duas coisas não são parecidas — importar é um processo com etapas de verdade (arquivo, de-para, revisão), e cadastrar uma pessoa é preencher um formulário. Em passos, o caso comum ("Maria, adulta, família da noiva") custava três avanços, **um deles só para dizer "nenhum acompanhante"**, e o passo de Revisão só existia porque os campos ficavam escondidos uns dos outros. Substituído por uma tela só com três blocos (pessoa, acompanhantes, convite) e rodapé fixo, dentro do mesmo `UiModal`.
+
+Três decisões deliberadas onde a implementação **não** copiou a referência:
+
+- **Sem "Eliminar convidado" no rodapé.** As duas telas de convidados já excluem pela ação da linha, com confirmação; no rodapé seria um terceiro caminho, e a confirmação abriria um diálogo dentro deste diálogo.
+- **Acompanhante entra por rascunho embutido, não por um segundo modal.** A referência abre dialog sobre dialog — aninhar diálogo prende o foco em duas camadas e, no celular, cobre a lista que se está montando.
+- **Categoria como pílulas, mas do evento.** A referência usa Adulto/Criança/Bebê fixos; aqui as pílulas saem de `config_faixas_etarias` (`UiRadioGroup layout="inline"`, novo no Design System), porque faixa etária é sempre derivada da configuração do evento (CLAUDE.md §12).
+
+**Detalhe visual que só apareceu na captura:** "Não informada" como pílula ficava marcada por padrão — o elemento de maior peso visual da tela, preenchido na cor primária, anunciando que não se sabe nada. Virou ausência de seleção, com um "Limpar categoria" que aparece só depois de haver o que limpar.
+
+---
+
 ### Achado: E2E de convidados desatualizado em relação ao redesign do painel
 
-O mesmo esforço de validação expôs `tests/e2e/guests-invites-rsvp.spec.ts` desatualizado: `getByRole('button', { name: /Família X/ })` passou a casar com três elementos desde que cada linha da tabela de convites ganhou os botões de ação "Abrir convite <nome>"/"Excluir convite <nome>" (redesign do painel). Corrigido para nome exato. O teste ainda não passa até o fim — o modal de detalhe do convite não abre pelo caminho que ele espera —, o que é trabalho da fase que redesenhou aquela tela, não desta. Fica registrado aqui para não ser reencontrado do zero.
+O mesmo esforço de validação expôs `tests/e2e/guests-invites-rsvp.spec.ts` desatualizado: `getByRole('button', { name: /Família X/ })` passou a casar com três elementos desde que cada linha da tabela de convites ganhou os botões de ação "Abrir convite <nome>"/"Excluir convite <nome>" (redesign do painel). Corrigido para nome exato. O teste ainda não passava até o fim — o modal de detalhe do convite não abria pelo caminho que ele espera.
+
+**Causa encontrada na fase Modo Lista (2026-09-08), com o teste passando ponta a ponta.** Eram três coisas somadas, e nenhuma delas no cadastro de convidado:
+
+1. **Corrida real, não só do teste.** Desde que os filtros passaram a viver na URL (#95), o campo "Filtrar por nome..." de Convites é debounced (`useDebouncedText` → `filters.setText`). Clicar numa linha dentro da janela do debounce faz a gravação atrasada reescrever a query a partir de um retrato anterior e **apagar o `?editar=<id>`** que o clique acabou de pôr — o modal não abre. O teste agora espera o recorte chegar na URL antes de clicar, mas o mesmo acontece com uma pessoa que digita e clica rápido: fica registrado como comportamento a corrigir em `useTableFilters`, não como manha de teste.
+2. **`fill` perdido antes da hidratação.** O painel admin ainda é renderizado no servidor (não existe `ssr: false` no `nuxt.config.ts`, apesar de CLAUDE.md §4.3), então o `fill` que chega antes de o Vue assumir o input é descartado em silêncio — o filtro simplesmente não saía do lugar. Resolvido com `toPass`, o mesmo padrão já usado no spec do Modo Lista.
+3. **Mais um nome duplicado.** Dentro do modal do convite, o nome da pessoa casa também com os rótulos de leitor de tela das ações dela ("Editar <nome>", "Remover <nome> do convite") — três elementos outra vez, agora um nível abaixo. Resolvido com `exact`.
+
+E uma quarta, desta branch: a busca por nome do RSVP público trocou de placeholder no rebrand ("Digite seu nome" → "Seu nome completo").
+
+**A lição que o repetido ensina:** este spec fica dormente por padrão (`test.skip` sem `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD`, que não existem no `.env` nem no CI), então ele não acusa nada quando quebra — acumulou quebras de três fases diferentes antes de alguém rodá-lo. Enquanto as credenciais não estiverem no CI, vale rodá-lo à mão ao mexer em Convidados, Convites ou RSVP.
 
 ---
 
