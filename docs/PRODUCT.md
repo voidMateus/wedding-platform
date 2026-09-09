@@ -83,9 +83,26 @@ Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real 
 
 **Rascunho da lista (`em_consideracao`).** Uma lista de casamento não nasce pronta: "será que convidamos o Marcelo?" é o estado mais comum durante o planejamento, e obrigar o casal a decidir na hora do cadastro é o que empurra a lista para o Excel. Uma pessoa marcada como *em consideração* existe no planejamento sem ser convidada — **não conta** em nenhum indicador de convidados, não pode receber convite e portanto nunca entra em RSVP nem aparece na busca pública por nome. Virar convidado de verdade é ação explícita do casal, nunca efeito colateral de preencher outro campo. Detalhe da garantia: [`DATABASE.md`](DATABASE.md), seção 3.2.
 
+### 3.1.1 Duas formas de trabalhar: Visão organizada e Modo lista
+
+A gestão de uma lista de casamento tem duas fases com necessidades opostas, e uma tela só atende mal as duas. No começo o casal não está *cadastrando convidados* — está **montando uma lista**, e faz isso no Excel porque a planilha deixa despejar dezenas de nomes, reorganizar e refinar aos poucos. Depois, com a lista formada, o trabalho passa a ser gerenciar pessoa por pessoa (convite, RSVP, acompanhantes).
+
+- **Visão organizada** (`/convidados`) é a experiência tradicional: listagem paginada, uma linha por convidado, recorte feito pelo servidor. É onde se administra o convidado individual.
+- **Modo lista** (`/convidados/lista`) é a planilha inteligente: carrega a lista **inteira**, agrupa em blocos recolhíveis por grupo e subdivisão, e filtra sem ida ao servidor. É onde se monta e se organiza o conjunto.
+
+Não existem "convidados do Modo Lista" e "convidados normais" — é **um cadastro só**, apresentado de duas formas. O que muda é a pergunta que cada tela responde: "quem é esta pessoa?" contra "como está a minha lista?".
+
+Consequências de desenho que decorrem disso:
+
+- **A contagem do bloco de um grupo soma as subdivisões.** O convidado aponta sempre para a folha (`convidados.grupo_id`), então sem a soma "Família do Mateus" anunciaria uma pessoa com trinta e duas abaixo. Recolher o grupo recolhe a árvore, e o cabeçalho continua exibindo a contagem cheia — é por ele que se reabre.
+- **Grupo vazio continua aparecendo** quando não há filtro: ele existe, e é onde o casal vai querer adicionar gente. Com filtro ativo, bloco sem ninguém sai da lista, senão o recorte viraria uma parede de grupos vazios escondendo os poucos que casaram.
+- **O núcleo de Acompanhantes é identificado por um rótulo derivado** ("João e Maria"), os dois primeiros nomes por ordem no núcleo com o excedente resumido. `nucleos_acompanhantes` não tem nome gravado, e não deveria ter: o núcleo é o agrupamento das pessoas, então batizá-lo à mão criaria um dado que envelhece sozinho quando alguém sai.
+- **Os números do cabeçalho descrevem a lista inteira**, nunca o recorte — "quantos convidados eu tenho" não muda porque um filtro está aplicado. O que o filtro descreve é o "N exibidas" do painel.
+
 ### 3.2 Funcionalidades previstas
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
+- **Modo lista**: a lista inteira agrupada em blocos recolhíveis por grupo e subdivisão, com busca, filtro por núcleo/categoria/RSVP e contagem por categoria — ver seção 3.1.1.
 - Entrada rápida (`POST /api/guests`): cria um convidado com **só o nome**, para montar a lista digitando em sequência sem abrir formulário. Caminho deliberadamente separado do wizard — não orquestra acompanhante, convite nem limite algum, e é o que mantém o "digitar e apertar Enter" instantâneo. O resto do cadastro é preenchido depois.
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) em três passos — arquivo, conferência das colunas, revisão — sem escrever nada antes do último (ver seção 3.5).

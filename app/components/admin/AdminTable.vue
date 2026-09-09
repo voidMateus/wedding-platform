@@ -280,10 +280,11 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                   >
                     {{ block.section.label }}
                   </span>
-                  <span
-                    v-if="block.section.meta"
-                    class="num ml-auto shrink-0 text-xs text-text-muted"
-                  >
+                  <!-- Ao lado do rótulo, não empurrado para a direita: numa
+                       tabela larga o `ml-auto` jogaria a contagem para a borda
+                       da largura ROLÁVEL, fora da área visível — o cabeçalho
+                       do bloco atravessa todas as colunas. -->
+                  <span v-if="block.section.meta" class="num shrink-0 text-xs text-text-muted">
                     {{ block.section.meta }}
                   </span>
                 </button>
