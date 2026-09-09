@@ -584,3 +584,13 @@ O ganho maior da rodada, porém, foi o teste. Uma guarda de layout em Playwright
 Com o cenário no pior caso (nome longo + Cinzel), a verificação foi feita nos dois sentidos: o teste **falha** com as correções revertidas e **passa** com elas. E revelou de passagem que o `h1` sozinho não era o problema — o estouro vinha da combinação da contagem com o container sem `min-w-0`.
 
 Vale como método: um teste de regressão que nunca se viu falhar é uma suposição, não uma garantia.
+
+**Rodada 3.5 — a rolagem lateral que o teste não via.** O usuário reportou, no aparelho, exatamente o que a rodada anterior tinha declarado resolvido: arrasto horizontal no celular e elementos encostando na borda. A guarda de layout passava, o que tornou o próprio teste o primeiro suspeito.
+
+Era ele mesmo. `html { overflow-x: hidden }` — que o projeto usa desde a Fase Editorial — zera a diferença entre `scrollWidth` e `clientWidth` mesmo havendo conteúdo fora da tela, então a checagem principal do teste media uma máscara. E o filtro que dispensava "sangramento intencional" tratava esse mesmo `overflow-x: hidden` do `html` como recorte válido para **qualquer** elemento — inclusive `position: fixed`, que se ancora no viewport e escapa dele. Duas camadas concordando em esconder o mesmo defeito.
+
+O defeito era o **menu em gaveta fechado**: `fixed` e deslocado para fora da tela (`translate-x-full`), ele volta a contar como área rolável no navegador de celular. Corrigido com uma moldura `fixed inset-0 overflow-hidden` em volta, que ocupa a viewport e recorta o painel deslocado — mantendo a transição de deslize, que `v-if` ou `display: none` matariam.
+
+O teste passou a medir a **geometria de cada elemento**, `fixed` incluído, e a não aceitar `html`/`body` como recorte para elementos fixos. Verificado nos dois sentidos: falha com a moldura removida, passa com ela.
+
+De quebra, a margem lateral: o cabeçalho estava com 16px enquanto as seções usavam 24px — o topo era o ponto mais apertado da página. Tudo em 24px agora.

@@ -17,6 +17,14 @@ import { createTestWedding, deleteTestWedding } from '../factories/wedding'
  * este teste passava com a regressão reintroduzida, justamente porque o
  * casamento de teste nascia com a fonte padrão — um cenário confortável demais
  * para reproduzir o defeito que ele deveria pegar.
+ *
+ * `scrollWidth` sozinho TAMBÉM não basta, e essa foi a segunda lição: o
+ * projeto tem `html { overflow-x: hidden }`, que zera a diferença entre
+ * `scrollWidth` e `clientWidth` mesmo havendo conteúdo fora da tela. Pior, um
+ * elemento `position: fixed` escapa desse corte em navegador de celular e
+ * volta a gerar arrasto lateral — foi assim que o menu em gaveta fechado
+ * passou despercebido aqui e apareceu no aparelho do usuário. Por isso o teste
+ * mede também a GEOMETRIA de cada elemento, `fixed` incluído.
  */
 test.skip(
   !process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -64,6 +72,51 @@ test('site público não estoura nem encosta nas bordas, de 320px a 1440px', asy
         const doc = document.documentElement
         const encostados: string[] = []
 
+        // Qualquer elemento posicionado fora da viewport, com ou sem texto: é
+        // isto que produz o arrasto lateral no celular, e o `scrollWidth` não
+        // acusa por causa do `overflow-x: hidden` do `html`.
+        const foraDaTela: string[] = []
+        for (const el of document.querySelectorAll('body *')) {
+          const cs0 = getComputedStyle(el)
+          const r0 = el.getBoundingClientRect()
+          if (r0.width === 0 || r0.height === 0) continue
+          if (cs0.visibility === 'hidden' || cs0.display === 'none') continue
+          // Sangramento decorativo é intencional, mas só vale quando um
+          // ancestral de fato recorta o excesso.
+          //
+          // A sutileza que fez este teste passar por cima do defeito real: um
+          // elemento `fixed` (ou dentro de um) NÃO é recortado pelo
+          // `overflow-x: hidden` do `html` — ele se ancora no viewport, não no
+          // documento. Contar o `html` como recorte aqui é justamente o engano
+          // que deixou o menu em gaveta fechado escapar. Para esses, só um
+          // ancestral com overflow que seja ele próprio o containing block
+          // (isto é, um `fixed`/`absolute` com overflow) conta.
+          const ehFixo = (() => {
+            let p: Element | null = el
+            while (p && p !== document.body) {
+              if (getComputedStyle(p).position === 'fixed') return true
+              p = p.parentElement
+            }
+            return false
+          })()
+
+          const recortado = (() => {
+            let p: Element | null = el.parentElement
+            while (p) {
+              if (ehFixo && (p === document.body || p === document.documentElement)) return false
+              const o = getComputedStyle(p).overflowX
+              if (o === 'hidden' || o === 'clip' || o === 'auto' || o === 'scroll') return true
+              p = p.parentElement
+            }
+            return false
+          })()
+          if (recortado) continue
+          if (r0.right > doc.clientWidth + 1 || r0.left < -1) {
+            const cls = (el.className || '').toString().split(' ').slice(0, 2).join('.')
+            foraDaTela.push(`${el.tagName.toLowerCase()}.${cls} (${cs0.position})`)
+          }
+        }
+
         for (const el of document.querySelectorAll('body *')) {
           // Só elementos com texto PRÓPRIO: um container full-width vai de
           // borda a borda por definição, e o respiro dele é o padding interno.
@@ -94,6 +147,7 @@ test('site público não estoura nem encosta nas bordas, de 320px a 1440px', asy
           scrollWidth: doc.scrollWidth,
           clientWidth: doc.clientWidth,
           encostados: [...new Set(encostados)],
+          foraDaTela: [...new Set(foraDaTela)],
         }
       }, MARGEM_MINIMA_PX)
 
@@ -105,6 +159,11 @@ test('site público não estoura nem encosta nas bordas, de 320px a 1440px', asy
       expect(
         medida.encostados,
         `texto a menos de ${MARGEM_MINIMA_PX}px da borda em ${largura}px`,
+      ).toEqual([])
+
+      expect(
+        medida.foraDaTela,
+        `elemento posicionado fora da viewport em ${largura}px (arrasto lateral no celular)`,
       ).toEqual([])
     }
   } finally {

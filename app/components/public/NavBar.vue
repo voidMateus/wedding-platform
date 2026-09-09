@@ -145,7 +145,7 @@ function isCurrent(to: string): boolean {
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
     <nav
       aria-label="Navegação principal"
-      class="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-4 py-3 sm:px-6"
+      class="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-6 py-3"
     >
       <!--
         Monograma + nome, na mesma linha: a marca do convite passa a assinar
@@ -245,41 +245,60 @@ function isCurrent(to: string): boolean {
       @click="closeMobileMenu"
     />
     <!--
-      `inert` fechado: o painel continua no DOM (é o que permite a transição de
-      deslize), e sem isso seus links seguem focáveis fora da tela — tabular na
-      home levava o foco para um menu invisível. `aria-hidden` sozinho esconde
-      do leitor de tela mas não tira da ordem de foco.
+      A moldura de recorte é o que impede a ROLAGEM HORIZONTAL no celular.
+      Fechado, o painel fica deslocado para fora da tela (`translate-x-full`), e
+      um elemento `fixed` escapa do `overflow-x: hidden` de qualquer ancestral
+      que não seja o próprio viewport — inclusive o do `html`. No Chrome
+      desktop isso não aparece, mas no navegador de celular a área deslocada
+      volta a contar como conteúdo rolável, e a página inteira ganha um
+      arrasto lateral para o vazio (relatado pelo usuário).
+
+      Esta div ocupa exatamente a viewport e corta o que sai dela, então o
+      painel deslocado deixa de existir para o cálculo de rolagem. Mantém a
+      transição de deslize, que um `v-if` ou `display: none` matariam.
+
+      `pointer-events-none` na moldura e `auto` no painel: sem isso a camada
+      invisível cobriria a página inteira e engoliria todo clique.
     -->
-    <div
-      :id="mobileMenuId"
-      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 xl:hidden"
-      :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
-      :aria-hidden="!isMobileMenuOpen"
-      :inert="!isMobileMenuOpen || undefined"
-    >
-      <!-- `size="lg"` (48px) e não o padrão de 40px: é o CTA principal do menu
-           no celular, onde a área de toque mínima de 44px vale de fato. -->
-      <UiButton
-        :to="giftsLink"
-        rounded="full"
-        size="lg"
-        class="mb-2 w-full"
-        @click="closeMobileMenu"
+    <div class="pointer-events-none fixed inset-0 z-50 overflow-hidden xl:hidden">
+      <!--
+        `inert` fechado: o painel continua no DOM (é o que permite a transição
+        de deslize), e sem isso seus links seguem focáveis fora da tela —
+        tabular na home levava o foco para um menu invisível. `aria-hidden`
+        sozinho esconde do leitor de tela mas não tira da ordem de foco.
+      -->
+      <div
+        :id="mobileMenuId"
+        class="pointer-events-auto absolute inset-y-0 right-0 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200"
+        :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
+        :aria-hidden="!isMobileMenuOpen"
+        :inert="!isMobileMenuOpen || undefined"
       >
-        <Icon name="lucide:gift" class="h-4 w-4" />
-        Presentear
-      </UiButton>
-      <NuxtLink
-        v-for="link in NAV_LINKS"
-        :key="link.to"
-        :to="link.to"
-        :aria-current="isCurrent(link.to) ? 'page' : undefined"
-        class="flex min-h-11 items-center rounded-md px-3 hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text'"
-        @click="closeMobileMenu"
-      >
-        {{ link.label }}
-      </NuxtLink>
+        <!-- `size="lg"` (48px) e não o padrão de 40px: é o CTA principal do
+             menu no celular, onde a área de toque mínima de 44px vale de
+             fato. -->
+        <UiButton
+          :to="giftsLink"
+          rounded="full"
+          size="lg"
+          class="mb-2 w-full"
+          @click="closeMobileMenu"
+        >
+          <Icon name="lucide:gift" class="h-4 w-4" />
+          Presentear
+        </UiButton>
+        <NuxtLink
+          v-for="link in NAV_LINKS"
+          :key="link.to"
+          :to="link.to"
+          :aria-current="isCurrent(link.to) ? 'page' : undefined"
+          class="flex min-h-11 items-center rounded-md px-3 hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text'"
+          @click="closeMobileMenu"
+        >
+          {{ link.label }}
+        </NuxtLink>
+      </div>
     </div>
   </Teleport>
 </template>
