@@ -45,7 +45,7 @@ const attireCards = computed(() =>
     title="Manual dos Padrinhos"
     :tone="tone"
   >
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-10">
+    <div class="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <p v-if="manual.intro" class="text-center leading-relaxed text-body">{{ manual.intro }}</p>
 
       <div
@@ -63,7 +63,7 @@ const attireCards = computed(() =>
           >
             <Icon :name="card.icon" class="h-5 w-5" />
           </span>
-          <h3 class="font-display text-2xl text-heading">{{ card.title }}</h3>
+          <h3 class="font-display text-xl text-heading">{{ card.title }}</h3>
           <p class="leading-relaxed text-body">{{ card.text }}</p>
         </article>
       </div>

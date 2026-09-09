@@ -27,7 +27,7 @@ const hasContent = computed(() => hasVerseContent(verse.value))
 </script>
 
 <template>
-  <section v-if="hasContent" id="versiculo" class="bg-primary px-6 py-20 text-center">
+  <section v-if="hasContent" id="versiculo" class="bg-primary px-6 py-16 text-center">
     <blockquote
       v-motion
       :initial="{ opacity: 0, y: 24 }"

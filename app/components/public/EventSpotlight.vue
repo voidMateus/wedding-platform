@@ -92,7 +92,7 @@ const externalMapsUrl = computed(() => montarUrlMapa(primary.value))
         >
           <Icon :name="iconFor(segment)" class="h-5 w-5" />
         </span>
-        <h3 class="font-display text-3xl text-heading">{{ segment.titulo }}</h3>
+        <h3 class="font-display text-2xl text-heading">{{ segment.titulo }}</h3>
         <p v-if="timeRangeFor(segment)" class="flex items-center gap-2 text-sm text-text-muted">
           <Icon name="lucide:clock" class="h-4 w-4 shrink-0 text-ornament" aria-hidden="true" />
           {{ timeRangeFor(segment) }}

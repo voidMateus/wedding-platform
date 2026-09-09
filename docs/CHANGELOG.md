@@ -570,3 +570,9 @@ Também não dava para confiar no diagnóstico óbvio: `document.fonts.check('40
 A correção é um bloco de regras em `main.css`, uma por família, que existe só para o scanner enxergar. Uma regra por família e não uma lista única: o módulo processa apenas a **primeira** família de cada declaração `font-family` — a primeira tentativa juntou as doze numa linha e serviu exatamente uma.
 
 Custo: +35kB de CSS (~5kB gzip) e mais arquivos de fonte no build — mas o navegador continua baixando só a família que a página usa. É o preço de ter sete pares configuráveis, e agora eles de fato funcionam.
+
+**Rodada 3.3 — a escala.** O usuário relatou que o site parecia grande demais ("com zoom de 90% fica mais perto do que eu gosto") e que sobrava espaço entre o cabeçalho e o começo do conteúdo. A medição no navegador confirmou e apontou os culpados: o `<h1>` do Hero em **96px**, o Hero com **940px de altura numa viewport de 768** (ocupava 1,2 telas antes de qualquer rolagem) e um `padding-top` de **96px** logo abaixo de um cabeçalho fixo de 69px — o "espaço sobrando" era exatamente esse padding.
+
+A redução foi um degrau consistente em toda a escala de display e no ritmo vertical, não ajustes soltos: `h1` 96→72px, títulos de seção 36→30px, padding das seções 80→64px, topo do Hero 96→48px. O corpo de texto **ficou em 16px** de propósito — o zoom de 90% encolhe tudo, inclusive o que já está no limite confortável de leitura, e reduzir o corpo junto seria trocar uma queixa de estética por um problema de legibilidade.
+
+Resultado: a página inteira encolheu ~10% (7074 → 6379px), que é o mesmo efeito do zoom pedido, e o Hero passou a caber numa dobra — nome, data, contagem e botões visíveis sem rolar.

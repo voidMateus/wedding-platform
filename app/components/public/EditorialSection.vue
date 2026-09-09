@@ -62,21 +62,21 @@ const headingId = useId()
 <template>
   <section
     :id="id"
-    class="relative px-6 py-20"
-    :class="[TONE_CLASSES[tone], hasOrnamentFrame ? 'ornament-frame sm:px-12 sm:py-24' : '']"
+    class="relative px-6 py-16"
+    :class="[TONE_CLASSES[tone], hasOrnamentFrame ? 'ornament-frame sm:px-12 sm:py-20' : '']"
     :aria-labelledby="title ? headingId : undefined"
   >
     <div
       v-motion
       :initial="{ opacity: 0, y: 24 }"
       :visible-once="{ opacity: 1, y: 0, transition: { duration: 500 } }"
-      class="mx-auto flex max-w-5xl flex-col gap-10"
+      class="mx-auto flex max-w-5xl flex-col gap-8"
     >
       <div v-if="title" class="flex flex-col items-center gap-3 text-center">
         <p v-if="eyebrow" class="text-[10px] tracking-[0.4em] text-text-muted uppercase">
           {{ eyebrow }}
         </p>
-        <h2 :id="headingId" class="font-display text-4xl font-semibold text-heading sm:text-5xl">
+        <h2 :id="headingId" class="font-display text-3xl font-semibold text-heading sm:text-4xl">
           {{ title }}
         </h2>
         <UiSectionDivider v-if="divider" />

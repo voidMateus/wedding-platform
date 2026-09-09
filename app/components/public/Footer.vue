@@ -39,7 +39,7 @@ const formattedDate = computed(() =>
   <!-- Fundo liso e a mesma troca seca de fundo das seções: no protótipo do
        convite o rodapé é uma última página em branco com a assinatura no
        meio, sem gradiente nem onda de transição. -->
-  <footer class="bg-surface px-6 py-14 text-center">
+  <footer class="bg-surface px-6 py-12 text-center">
     <div class="mx-auto flex max-w-md flex-col items-center gap-3">
       <!--
         O monograma assina o rodapé como assina o pé de cada página do convite
@@ -49,7 +49,7 @@ const formattedDate = computed(() =>
         segue com o resto.
       -->
       <PublicMonogram :couple-names="coupleNames" :image-url="monogramImageUrl" size="lg" />
-      <p v-if="footerName" class="font-display text-3xl text-balance text-heading">
+      <p v-if="footerName" class="font-display text-2xl text-balance text-heading">
         {{ footerName }}
       </p>
       <p v-if="formattedDate" class="text-xs tracking-[0.3em] text-text-muted uppercase">

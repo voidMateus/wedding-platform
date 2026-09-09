@@ -58,7 +58,7 @@ const ITEM_CLASSES: Record<NonNullable<Props['variant']>, string> = {
 const TRIGGER_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   card: 'p-5 font-medium text-heading',
   plain: 'px-4 py-3',
-  rule: 'px-1 py-5 font-display text-xl text-heading',
+  rule: 'px-1 py-4 font-display text-lg text-heading',
 }
 
 const FALLBACK_CONTENT_CLASSES: Record<NonNullable<Props['variant']>, string> = {

@@ -89,7 +89,7 @@ const accessibleLabel = computed(() => {
         aria-hidden="true"
       />
       <div class="flex flex-col items-center gap-1" aria-hidden="true">
-        <span class="font-display text-3xl leading-none text-heading tabular-nums sm:text-4xl">
+        <span class="font-display text-2xl leading-none text-heading tabular-nums sm:text-3xl">
           {{ String(unit.value).padStart(2, '0') }}
         </span>
         <span class="mt-1 text-[10px] uppercase tracking-[0.3em] text-text-muted">

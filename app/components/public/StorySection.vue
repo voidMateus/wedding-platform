@@ -57,7 +57,7 @@ const storyFocalPosition = computed(() => {
         <span class="text-[10px] uppercase tracking-[0.3em] text-ornament">
           {{ milestone.label }}
         </span>
-        <h3 class="mt-2 font-display text-2xl text-heading">{{ milestone.title }}</h3>
+        <h3 class="mt-2 font-display text-xl text-heading">{{ milestone.title }}</h3>
         <p class="mt-3 text-sm leading-relaxed text-text-muted">{{ milestone.text }}</p>
       </article>
     </div>

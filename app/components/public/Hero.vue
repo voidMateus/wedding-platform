@@ -52,7 +52,7 @@ const monogramImageUrl = computed(() => theme.value.monogramImageUrl ?? null)
 // alta (main.css), que não tem como saber o corpo de cada título.
 const headingStyle = computed(() => theme.value.headingStyle ?? 'classic')
 const coupleNameSizeClasses = computed(() =>
-  headingStyle.value === 'engraved' ? 'text-4xl sm:text-7xl' : 'text-6xl sm:text-8xl',
+  headingStyle.value === 'engraved' ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-7xl',
 )
 
 // Textura de papel de algodão (ruído SVG inline, sem request externo) —
@@ -114,7 +114,7 @@ const heroButtons = computed(() =>
 
 <template>
   <section
-    class="relative flex min-h-[88vh] flex-col items-center justify-center overflow-hidden bg-surface-muted px-4 pb-28 pt-20 text-center sm:pb-36 sm:pt-24"
+    class="relative flex min-h-[78vh] flex-col items-center justify-center overflow-hidden bg-surface-muted px-4 pt-10 pb-20 text-center sm:pt-12 sm:pb-24"
   >
     <!--
       ATENÇÃO: a prop `sizes` do NuxtImg NÃO aceita o valor cru do atributo

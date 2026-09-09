@@ -46,20 +46,20 @@ const signature = computed(() => {
 </script>
 
 <template>
-  <section id="boas-vindas" class="px-6 py-20 text-center" :class="TONE_CLASSES[tone]">
+  <section id="boas-vindas" class="px-6 py-16 text-center" :class="TONE_CLASSES[tone]">
     <div
       v-motion
       :initial="{ opacity: 0, y: 24 }"
       :visible-once="{ opacity: 1, y: 0, transition: { duration: 500 } }"
       class="mx-auto max-w-2xl"
     >
-      <h2 class="font-display text-3xl text-heading sm:text-4xl">{{ content.welcomeTitle }}</h2>
+      <h2 class="font-display text-2xl text-heading sm:text-3xl">{{ content.welcomeTitle }}</h2>
 
       <div class="mt-6 space-y-4">
         <p
           v-for="(paragraph, index) in content.welcomeParagraphs"
           :key="index"
-          class="font-serif text-xl italic leading-relaxed text-text-muted sm:text-2xl"
+          class="font-serif text-lg italic leading-relaxed text-text-muted sm:text-xl"
         >
           {{ paragraph }}
         </p>

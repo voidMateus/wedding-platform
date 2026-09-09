@@ -24,7 +24,7 @@ defineProps<Props>()
       >
         <Icon :name="topic.icon" class="h-5 w-5" />
       </span>
-      <p class="font-display text-xl text-heading">{{ topic.title }}</p>
+      <p class="font-display text-lg text-heading">{{ topic.title }}</p>
       <p class="text-sm leading-relaxed text-text-muted">{{ topic.description }}</p>
     </div>
   </div>
