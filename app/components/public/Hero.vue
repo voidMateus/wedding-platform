@@ -52,7 +52,7 @@ const monogramImageUrl = computed(() => theme.value.monogramImageUrl ?? null)
 // alta (main.css), que não tem como saber o corpo de cada título.
 const headingStyle = computed(() => theme.value.headingStyle ?? 'classic')
 const coupleNameSizeClasses = computed(() =>
-  headingStyle.value === 'engraved' ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-7xl',
+  headingStyle.value === 'engraved' ? 'text-3xl sm:text-6xl' : 'text-4xl sm:text-7xl',
 )
 
 // Textura de papel de algodão (ruído SVG inline, sem request externo) —
@@ -188,14 +188,14 @@ const heroButtons = computed(() =>
       v-motion
       :initial="{ opacity: 0, y: 24 }"
       :enter="{ opacity: 1, y: 0, transition: { duration: 600 } }"
-      class="relative flex flex-col items-center gap-5"
+      class="relative flex w-full max-w-full min-w-0 flex-col items-center gap-5"
     >
       <!-- Filetes, ramo e o "&" são ornamento, não acento de interface: desde
            a Fase Rebrand do Convite saem de --color-ornament, que por default
            ainda é a secundária (main.css) — quem não escolheu um dourado
            continua vendo exatamente o Hero de antes. -->
       <p
-        class="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-text-muted sm:text-sm"
+        class="flex items-center gap-2 text-xs tracking-[0.2em] text-text-muted uppercase sm:gap-3 sm:text-sm sm:tracking-[0.35em]"
       >
         <span class="h-px w-6 bg-ornament/60" aria-hidden="true" />
         Vamos nos casar
@@ -217,7 +217,7 @@ const heroButtons = computed(() =>
         {{ wedding.nomes_noivos }}
       </h1>
       <span class="h-px w-14 bg-ornament/80" aria-hidden="true" />
-      <p class="text-xs uppercase tracking-[0.3em] text-text-muted sm:text-sm">
+      <p class="text-xs tracking-[0.2em] text-text-muted uppercase sm:text-sm sm:tracking-[0.3em]">
         {{ formattedDate }}<template v-if="primaryVenueName"> • {{ primaryVenueName }}</template>
       </p>
 

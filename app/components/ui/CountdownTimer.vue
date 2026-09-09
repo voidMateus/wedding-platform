@@ -73,7 +73,7 @@ const accessibleLabel = computed(() => {
     :initial="{ opacity: 0, y: 16 }"
     :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
     aria-live="off"
-    class="flex items-stretch gap-5 sm:gap-8"
+    class="flex items-stretch gap-3 sm:gap-8"
   >
     <p class="sr-only">{{ accessibleLabel }}</p>
     <!--
@@ -92,7 +92,9 @@ const accessibleLabel = computed(() => {
         <span class="font-display text-2xl leading-none text-heading tabular-nums sm:text-3xl">
           {{ String(unit.value).padStart(2, '0') }}
         </span>
-        <span class="mt-1 text-[10px] uppercase tracking-[0.3em] text-text-muted">
+        <span
+          class="mt-1 text-[9px] tracking-[0.15em] text-text-muted uppercase sm:text-[10px] sm:tracking-[0.3em]"
+        >
           {{ unit.label }}
         </span>
       </div>

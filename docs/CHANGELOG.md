@@ -576,3 +576,11 @@ Custo: +35kB de CSS (~5kB gzip) e mais arquivos de fonte no build — mas o nave
 A redução foi um degrau consistente em toda a escala de display e no ritmo vertical, não ajustes soltos: `h1` 96→72px, títulos de seção 36→30px, padding das seções 80→64px, topo do Hero 96→48px. O corpo de texto **ficou em 16px** de propósito — o zoom de 90% encolhe tudo, inclusive o que já está no limite confortável de leitura, e reduzir o corpo junto seria trocar uma queixa de estética por um problema de legibilidade.
 
 Resultado: a página inteira encolheu ~10% (7074 → 6379px), que é o mesmo efeito do zoom pedido, e o Hero passou a caber numa dobra — nome, data, contagem e botões visíveis sem rolar.
+
+**Rodada 3.4 — o celular, e um teste que quase não protegia nada.** O usuário apontou elementos encostados na borda no celular. A varredura confirmou e mostrou que era pior que "encostado": em 320px e 360px o conteúdo do Hero era **mais largo que a tela** (o bloco começava em `left: -20px`). Os culpados eram a contagem regressiva — quatro rótulos em caixa alta com `tracking` de 0.3em somavam mais que a largura de um celular pequeno — e a falta de `min-w-0` no container, sem o qual um filho que não cabe estica o pai em vez de se ajustar.
+
+O ganho maior da rodada, porém, foi o teste. Uma guarda de layout em Playwright (`tests/e2e/site-publico-layout.spec.ts`) varre de 320px a 1440px checando rolagem horizontal e respiro mínimo de todo texto. **Na primeira versão ela passava com a regressão reintroduzida** — o casamento de teste nascia com a fonte padrão (Playfair), e o defeito só aparece com a Cinzel, cujas capitulares são bem mais largas. Um cenário confortável demais para pegar o defeito que o teste existia para pegar.
+
+Com o cenário no pior caso (nome longo + Cinzel), a verificação foi feita nos dois sentidos: o teste **falha** com as correções revertidas e **passa** com elas. E revelou de passagem que o `h1` sozinho não era o problema — o estouro vinha da combinação da contagem com o container sem `min-w-0`.
+
+Vale como método: um teste de regressão que nunca se viu falhar é uma suposição, não uma garantia.

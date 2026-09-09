@@ -25,7 +25,7 @@ const rsvpLink = computed(() => `/${slug}/rsvp`)
 <template>
   <template v-if="isVisible">
     <div
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/95 p-3 backdrop-blur md:hidden"
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
     >
       <NuxtLink
         :to="rsvpLink"
