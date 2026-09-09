@@ -36,24 +36,36 @@ test('entrada rápida cadastra pelo rodapé do bloco, sem abrir o cadastro', asy
   const abrir = page.getByRole('button', { name: /^Adicionar convidado em / }).first()
   await expect(async () => {
     await abrir.click()
-    await expect(page.getByPlaceholder('Nome e Enter para adicionar').first()).toBeVisible({
+    await expect(page.getByPlaceholder(/^Nome e Enter/).first()).toBeVisible({
       timeout: 2_000,
     })
   }).toPass({ timeout: 20_000 })
 
-  const campo = page.getByPlaceholder('Nome e Enter para adicionar').first()
-  await campo.fill(`Zrapida${sufixo} Um`)
-  await campo.press('Enter')
-  await expect(page.getByText(/1 adicionado —/)).toBeVisible({ timeout: 15_000 })
+  const campo = page.getByPlaceholder(/^Nome e Enter/).first()
 
-  // O MESMO campo recebe o próximo nome: é isso que faz a entrada ser rápida —
-  // sem reabrir nada, sem modal entre uma pessoa e a seguinte.
-  await campo.fill(`Zrapida${sufixo} Dois`)
-  await campo.press('Enter')
-  await expect(page.getByText(/2 adicionados —/)).toBeVisible({ timeout: 15_000 })
+  // RAJADA, sem esperar nada entre um nome e o outro: é a asserção que importa
+  // aqui. A primeira versão dava `await` na criação e desabilitava o campo
+  // durante a ida e volta, então o Enter seguinte era engolido e só chegariam
+  // dois dos quatro nomes — "rápida como a rede, não como a digitação".
+  const nomes = [1, 2, 3, 4].map((n) => `Zrapida${sufixo} ${n}`)
+  for (const nomeCompleto of nomes) {
+    await campo.fill(nomeCompleto)
+    await campo.press('Enter')
+    // O campo volta vazio no mesmo quadro, sem round-trip.
+    await expect(campo).toHaveValue('')
+  }
+
+  await expect(page.getByText(/^4 adicionados/)).toBeVisible({ timeout: 20_000 })
 
   // A tabela chega no fim da rajada (a recarga é adiada de propósito).
-  await expect(page.getByText(`Zrapida${sufixo} Dois`).first()).toBeVisible({ timeout: 25_000 })
+  // `filter({ visible: true })`: cada convidado tem DOIS nós com o nome — a
+  // linha de desktop e a do celular (`md:hidden`) —, e a do celular vem antes
+  // no DOM, então `.first()` cairia na invisível.
+  for (const nomeCompleto of nomes) {
+    await expect(page.getByText(nomeCompleto).filter({ visible: true }).first()).toBeVisible({
+      timeout: 25_000,
+    })
+  }
 })
 
 test('colar da planilha entra pelo mesmo de-para da importação por arquivo', async ({ page }) => {
@@ -85,7 +97,9 @@ test('colar da planilha entra pelo mesmo de-para da importação por arquivo', a
   await expect(dialogo.getByText(`Zcolar${sufixo} Um`)).toBeVisible()
 
   await dialogo.getByRole('button', { name: /^Importar/ }).click()
-  await expect(page.getByText(`Zcolar${sufixo} Dois`).first()).toBeVisible({ timeout: 30_000 })
+  await expect(
+    page.getByText(`Zcolar${sufixo} Dois`).filter({ visible: true }).first(),
+  ).toBeVisible({ timeout: 30_000 })
 })
 
 test('uma linha só não avança — cabeçalho sem ninguém embaixo', async ({ page }) => {

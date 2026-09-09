@@ -296,11 +296,16 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                     class="h-2 w-2 shrink-0 rounded-full"
                     :style="{ backgroundColor: block.section.cor }"
                   />
+                  <!-- 16px no bloco-raiz (a tabela herda 14px): o nome do
+                       grupo é o título de um trecho da lista, não uma célula, e
+                       no tamanho do corpo ele não se distinguia das linhas que
+                       encabeça. A subdivisão fica em 14px de propósito — os dois
+                       níveis precisam ser diferentes entre si. -->
                   <span
                     class="min-w-0 truncate"
                     :class="
                       block.section.level === 0
-                        ? 'font-medium text-text'
+                        ? 'text-base font-medium text-text'
                         : 'text-sm text-text-muted'
                     "
                   >

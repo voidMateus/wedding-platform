@@ -455,7 +455,13 @@ async function confirmarExclusao() {
                    esperado — quem precisa ser visto de longe é quem ainda NÃO
                    tem convite. -->
               <template #cell-convite="{ row }">
-                <UiBadge v-if="!row.convite_id" tone="warning">Sem convite</UiBadge>
+                <!-- `whitespace-nowrap` pelo mesmo motivo do badge de RSVP:
+                     "Sem convite" quebrava em duas linhas e engordava a linha
+                     inteira. A coluna rola junto com a tabela se faltar
+                     largura. -->
+                <UiBadge v-if="!row.convite_id" tone="warning" class="whitespace-nowrap">
+                  Sem convite
+                </UiBadge>
                 <span v-else class="text-xs text-text-muted">Vinculado</span>
               </template>
 

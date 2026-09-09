@@ -13,6 +13,13 @@
   Só nome. Categoria, contato e o resto são refinamento depois, pela linha ou
   pelo cadastro completo; pedir qualquer campo a mais aqui reintroduz o
   formulário que esta tela existe para evitar.
+
+  O TECLADO NÃO ESPERA A REDE. O Enter enfileira e devolve o campo vazio no
+  mesmo quadro; quem conversa com o servidor é um trabalhador em segundo plano.
+  A primeira versão fazia o contrário — `await` no Enter, campo desabilitado
+  durante a ida e volta — e ficava rápida como a rede, não como a digitação
+  (achado do usuário). Falha não bloqueia a fila: o nome fica visível com o
+  motivo e um "tentar de novo", e os seguintes continuam entrando.
 -->
 <script setup lang="ts">
 interface Props {
@@ -25,7 +32,7 @@ interface Props {
 const { grupoId, grupoLabel } = defineProps<Props>()
 
 const emit = defineEmits<{
-  /** Uma pessoa entrou. O pai decide quando recarregar a lista. */
+  /** Uma pessoa entrou de verdade. O pai decide quando recarregar a lista. */
   adicionado: []
   /** Pedido de cadastro completo, com este grupo já escolhido. */
   'abrir-cadastro': []
@@ -33,48 +40,82 @@ const emit = defineEmits<{
 
 const { createGuest } = useGuests()
 
+interface NaFila {
+  chave: number
+  nome: string
+  estado: 'enviando' | 'erro'
+  motivo?: string
+}
+
 const aberto = ref(false)
 const nome = ref('')
-const salvando = ref(false)
-const erro = ref<string | null>(null)
-/** Nomes desta sessão de digitação — some ao fechar o campo. */
-const adicionados = ref<string[]>([])
+const fila = ref<NaFila[]>([])
+const enviados = ref(0)
+
+let proximaChave = 0
+/** Uma requisição por vez: preserva a ordem de digitação e não enxameia o servidor. */
+let drenando = false
 
 function abrir() {
-  erro.value = null
-  adicionados.value = []
+  fila.value = []
+  enviados.value = 0
   aberto.value = true
 }
 
 function fechar() {
   aberto.value = false
   nome.value = ''
-  erro.value = null
+  fila.value = []
 }
 
-async function adicionar() {
+/** Enfileira e devolve o campo IMEDIATAMENTE — nada de `await` neste caminho. */
+function enfileirar() {
   const nomeCompleto = nome.value.trim()
-  if (!nomeCompleto || salvando.value) return
+  if (!nomeCompleto) return
+  nome.value = ''
+  fila.value.push({ chave: (proximaChave += 1), nome: nomeCompleto, estado: 'enviando' })
+  void drenar()
+}
 
-  salvando.value = true
-  erro.value = null
+async function drenar() {
+  if (drenando) return
+  drenando = true
   try {
-    await createGuest({ nomeCompleto, grupoId, emConsideracao: false })
-    // Limpa e devolve o cursor imediatamente: quem está despejando nomes não
-    // pode esperar a lista recarregar entre um e outro. A linha aparece na
-    // tabela quando o recarregamento do pai chega.
-    nome.value = ''
-    adicionados.value.push(nomeCompleto)
-    emit('adicionado')
-  } catch (err) {
-    // O texto digitado FICA no campo: perder o nome junto com o erro obrigaria
-    // a redigitar para tentar de novo.
-    const apiError = err as { data?: { message?: string } }
-    erro.value = apiError.data?.message ?? 'Não foi possível adicionar. Tente de novo.'
+    // Item em erro fica na fila mas sai da varredura, então o laço termina
+    // quando não há mais nada para enviar.
+    for (;;) {
+      const item = fila.value.find((candidato) => candidato.estado === 'enviando')
+      if (!item) break
+      try {
+        await createGuest({ nomeCompleto: item.nome, grupoId, emConsideracao: false })
+        fila.value = fila.value.filter((candidato) => candidato.chave !== item.chave)
+        enviados.value += 1
+        emit('adicionado')
+      } catch (err) {
+        const apiError = err as { data?: { message?: string } }
+        item.estado = 'erro'
+        item.motivo = apiError.data?.message ?? 'Não foi possível adicionar.'
+      }
+    }
   } finally {
-    salvando.value = false
+    drenando = false
   }
 }
+
+function tentarDeNovo(chave: number) {
+  const item = fila.value.find((candidato) => candidato.chave === chave)
+  if (!item) return
+  item.estado = 'enviando'
+  item.motivo = undefined
+  void drenar()
+}
+
+function descartar(chave: number) {
+  fila.value = fila.value.filter((candidato) => candidato.chave !== chave)
+}
+
+const emErro = computed(() => fila.value.filter((item) => item.estado === 'erro'))
+const enviando = computed(() => fila.value.filter((item) => item.estado === 'enviando'))
 </script>
 
 <template>
@@ -92,50 +133,69 @@ async function adicionar() {
 
     <div v-else class="flex flex-col gap-1.5">
       <div class="flex items-center gap-2">
+        <!-- Sem `:disabled`: o campo nunca fica travado esperando o servidor.
+             Enter atrás de Enter continua entrando. -->
         <UiInput
           v-model="nome"
           autofocus
-          :disabled="salvando"
           :aria-label="`Nome do convidado em ${grupoLabel}`"
-          placeholder="Nome e Enter para adicionar"
-          class="max-w-xs flex-1"
-          @keyup.enter="adicionar"
+          placeholder="Nome e Enter — pode digitar o seguinte na hora"
+          class="max-w-sm flex-1"
+          @keyup.enter="enfileirar"
           @keyup.esc="fechar"
         />
-        <UiButton size="sm" :disabled="!nome.trim() || salvando" @click="adicionar">
-          {{ salvando ? 'Adicionando...' : 'Adicionar' }}
-        </UiButton>
+        <UiButton size="sm" :disabled="!nome.trim()" @click="enfileirar">Adicionar</UiButton>
         <AdminRowAction icon="lucide:x" label="Fechar entrada rápida" @click="fechar" />
       </div>
 
-      <p v-if="erro" class="text-xs text-danger" role="alert">{{ erro }}</p>
+      <!-- `aria-live`: a linha entra na tabela só quando a recarga chega, então
+           sem este retorno o Enter pareceria não ter feito nada. -->
+      <p class="text-xs text-text-muted" role="status" aria-live="polite">
+        <template v-if="enviados || enviando.length">
+          <span class="num font-medium text-text">{{ enviados }}</span>
+          {{ enviados === 1 ? 'adicionado' : 'adicionados' }}
+          <span v-if="enviando.length">
+            · enviando <span class="num">{{ enviando.length }}</span>
+          </span>
+        </template>
+        <template v-else>Só o nome — categoria e contato ficam para depois.</template>
 
-      <!-- `aria-live`: a linha nova entra na tabela só quando o recarregamento
-           chega, então sem este retorno o Enter parece não ter feito nada. -->
-      <p v-else class="text-xs text-text-muted" role="status" aria-live="polite">
-        <template v-if="adicionados.length">
-          <span class="num">{{ adicionados.length }}</span>
-          {{ adicionados.length === 1 ? 'adicionado' : 'adicionados' }} —
-          <span class="text-text">{{ adicionados[adicionados.length - 1] }}</span>
-          <button
-            type="button"
-            class="ml-2 text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            @click="emit('abrir-cadastro')"
-          >
-            abrir cadastro completo
-          </button>
-        </template>
-        <template v-else>
-          Só o nome — categoria e contato ficam para depois.
-          <button
-            type="button"
-            class="ml-1 text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            @click="emit('abrir-cadastro')"
-          >
-            cadastro completo
-          </button>
-        </template>
+        <button
+          type="button"
+          class="ml-2 text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          @click="emit('abrir-cadastro')"
+        >
+          cadastro completo
+        </button>
       </p>
+
+      <!-- Falha não some e não bloqueia a fila: o nome digitado continua à vista
+           com o motivo, para não ser preciso lembrar dele para tentar de novo. -->
+      <ul v-if="emErro.length" class="flex flex-col gap-1">
+        <li
+          v-for="item in emErro"
+          :key="item.chave"
+          class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+        >
+          <Icon name="lucide:alert-triangle" class="h-3.5 w-3.5 shrink-0 text-danger" />
+          <span class="font-medium text-text">{{ item.nome }}</span>
+          <span class="text-danger">{{ item.motivo }}</span>
+          <button
+            type="button"
+            class="text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            @click="tentarDeNovo(item.chave)"
+          >
+            tentar de novo
+          </button>
+          <button
+            type="button"
+            class="text-text-muted hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            @click="descartar(item.chave)"
+          >
+            descartar
+          </button>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
