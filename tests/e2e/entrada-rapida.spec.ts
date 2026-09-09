@@ -119,3 +119,51 @@ test('uma linha só não avança — cabeçalho sem ninguém embaixo', async ({ 
   // revisão vazia, sem explicar por quê.
   await expect(page.getByLabel('Cole aqui')).toBeVisible()
 })
+
+test('ações em massa: controles na barra no desktop, num modal no celular', async ({ page }) => {
+  test.setTimeout(90_000)
+  const slug = await abrirModoLista(page)
+
+  const marcar = page.getByRole('checkbox', { name: /^Selecionar / }).first()
+  await expect(async () => {
+    await marcar.check()
+    await expect(page.getByText(/1 selecionado/)).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+
+  // Desktop: os quatro controles cabem na barra, então não há porta para abrir.
+  await expect(page.getByLabel('Mover selecionados para grupo')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ações' })).toBeHidden()
+
+  // Celular: uma linha só, e as ações atrás de "Ações". Em fileira, os quatro
+  // controles embrulhavam um por linha e os seletores truncavam o rótulo.
+  await page.setViewportSize({ width: 390, height: 780 })
+  await page.goto(`/admin/${slug}/convidados/lista`)
+  await page.waitForLoadState('networkidle')
+  await expect(async () => {
+    await page
+      .getByRole('checkbox', { name: /^Selecionar / })
+      .first()
+      .check()
+    await expect(page.getByRole('button', { name: 'Ações' })).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+
+  await expect(page.getByLabel('Mover selecionados para grupo')).toBeHidden()
+
+  // A barra não pode colar ATRÁS da barra de abas do celular (`fixed bottom-0`).
+  await page.evaluate(() => document.querySelector('main')?.scrollTo(0, 999999))
+  const folga = await page.evaluate(() => {
+    const abas = document.querySelector('nav.fixed')
+    const barra = [...document.querySelectorAll('div')].find(
+      (d) => d.className.includes('sticky') && d.textContent?.includes('selecionado'),
+    )
+    if (!abas || !barra) return null
+    return Math.round(abas.getBoundingClientRect().top - barra.getBoundingClientRect().bottom)
+  })
+  expect(folga).not.toBeNull()
+  expect(folga!).toBeGreaterThan(0)
+
+  await page.getByRole('button', { name: 'Ações' }).click()
+  const dialogo = page.getByRole('dialog')
+  await expect(dialogo.getByLabel('Mover selecionados para grupo')).toBeVisible()
+  await expect(dialogo.getByRole('button', { name: 'Excluir' })).toBeVisible()
+})

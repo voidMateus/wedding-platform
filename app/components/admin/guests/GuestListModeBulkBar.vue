@@ -1,22 +1,30 @@
 <!--
   A barra de ações em massa, no mesmo molde da barra de salvar de Configurações
   (`AdminSettingsSaveBar`): só aparece quando há algo a fazer, acompanha a
-  rolagem (`sticky bottom-4`) e é o último filho do contêiner — a posição
-  estática já é o fim da lista, e o sticky só a puxa para cima enquanto o fim
-  ainda está abaixo do viewport.
+  rolagem e é o último filho do contêiner — a posição estática já é o fim da
+  lista, e o sticky só a puxa para cima enquanto o fim ainda está abaixo do
+  viewport.
 
   Só com seleção, e não permanente: uma barra com quatro ações desabilitadas
   ocupa a base da tela sem oferecer nada, e no celular rouba duas fileiras de
   lista. O "selecionar todos" mora dentro dela — depois da primeira marcação,
   que é quando ele passa a ter sentido.
 
+  NO CELULAR a barra é uma linha só: contagem e um botão que abre as ações num
+  modal. Em fileira, os quatro controles embrulhavam um por linha, os seletores
+  truncavam o próprio rótulo ("Mover para gru...") e o bloco inteiro cobria a
+  lista que se está selecionando. É a mesma saída que `AdminTableFilterBar` já
+  usa para os filtros abaixo de `md`: controle que não cabe na largura vira um
+  modal com o mesmo conteúdo, nunca um segundo conjunto de controles.
+
+  `bottom-24` abaixo de `lg`, e não `bottom-4`: ali existe a barra de abas
+  (`AdminBottomTabs`, `fixed bottom-0 z-30`), e com 4 de folga a barra colava
+  ATRÁS dela. 24 é a mesma folga que o `<main>` já reserva em `pb-24` para
+  liberar as abas.
+
   Depende de nenhum ancestral ser contêiner de rolagem entre ela e o `<main>`:
   ver a nota sobre `overflow-x` em `app/assets/css/main.css`, e o
   `overflow-clip` (nunca `hidden`) de `AdminPanel`.
-
-  Ação que ainda não existe fica desabilitada com o motivo no `title`, nunca
-  escondida: o casal precisa saber que a capacidade está prevista, e um
-  controle que desaparece sem explicação parece defeito.
 -->
 <script setup lang="ts">
 interface OpcaoDeDestino {
@@ -50,19 +58,26 @@ const emit = defineEmits<{
   'alternar-todos': []
 }>()
 
-const grupoEscolhido = ref('')
-const categoriaEscolhida = ref('')
+const acoesAbertas = ref(false)
 
-function moverParaGrupo(valor: string) {
-  if (!valor) return
-  emit('mover-para-grupo', valor)
-  grupoEscolhido.value = ''
+const rotuloDaContagem = computed(
+  () => `${selecionados} ${selecionados === 1 ? 'selecionado' : 'selecionados'}`,
+)
+
+/** Fecha o modal ao disparar: a ação foi escolhida, o painel não tem mais o que oferecer. */
+function moverParaGrupo(grupoId: string) {
+  acoesAbertas.value = false
+  emit('mover-para-grupo', grupoId)
 }
 
-function alterarCategoria(valor: string) {
-  if (!valor) return
-  emit('alterar-categoria', valor)
-  categoriaEscolhida.value = ''
+function alterarCategoria(faixa: string) {
+  acoesAbertas.value = false
+  emit('alterar-categoria', faixa)
+}
+
+function excluir() {
+  acoesAbertas.value = false
+  emit('excluir')
 }
 </script>
 
@@ -77,9 +92,9 @@ function alterarCategoria(valor: string) {
   >
     <div
       v-if="selecionados > 0"
-      class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-surface-elevated/95 px-3 py-3 shadow-lg backdrop-blur sm:px-4"
+      class="sticky bottom-24 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-surface-elevated/95 px-3 py-3 shadow-lg backdrop-blur sm:px-4 lg:bottom-4"
     >
-      <div class="flex min-w-0 items-center gap-2 text-sm">
+      <div class="flex min-w-0 flex-1 items-center gap-2 text-sm lg:flex-none">
         <UiCheckbox
           :model-value="todosSelecionados"
           aria-label="Selecionar todos os exibidos"
@@ -100,45 +115,34 @@ function alterarCategoria(valor: string) {
         </button>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
-        <UiSelect
-          v-model="grupoEscolhido"
-          :disabled="aplicando"
-          aria-label="Mover selecionados para grupo"
-          placeholder="Mover para grupo"
-          :options="gruposDisponiveis"
-          class="w-40"
-          @update:model-value="moverParaGrupo"
-        />
+      <!-- Celular: uma porta só para as quatro ações. -->
+      <UiButton size="sm" class="shrink-0 lg:hidden" @click="acoesAbertas = true">
+        Ações
+        <Icon name="lucide:chevron-up" class="h-4 w-4" />
+      </UiButton>
 
-        <!-- Núcleo exige orquestrar convite e ordem dentro do núcleo numa
-             transação (`sincronizar_nucleo_convidado`); não é um update em lote
-             como os outros dois. -->
-        <UiButton
-          variant="ghost"
-          size="sm"
-          disabled
-          title="Em breve — acompanhantes são definidos no cadastro do convidado."
-        >
-          <Icon name="lucide:user-round-plus" class="h-4 w-4" />
-          Adicionar ao núcleo
-        </UiButton>
-
-        <UiSelect
-          v-model="categoriaEscolhida"
-          :disabled="aplicando"
-          aria-label="Alterar categoria dos selecionados"
-          placeholder="Alterar categoria"
-          :options="categoriasDisponiveis"
-          class="w-44"
-          @update:model-value="alterarCategoria"
-        />
-
-        <UiButton variant="destructive" size="sm" :disabled="aplicando" @click="emit('excluir')">
-          <Icon name="lucide:trash-2" class="h-4 w-4" />
-          Excluir
-        </UiButton>
-      </div>
+      <!-- Desktop: os controles direto na barra. -->
+      <AdminGuestsGuestListModeBulkActions
+        class="hidden lg:ml-auto lg:flex"
+        :grupos-disponiveis="gruposDisponiveis"
+        :categorias-disponiveis="categoriasDisponiveis"
+        :aplicando="aplicando"
+        @mover-para-grupo="moverParaGrupo"
+        @alterar-categoria="alterarCategoria"
+        @excluir="excluir"
+      />
     </div>
   </Transition>
+
+  <UiModal v-model="acoesAbertas" :title="`Ações para ${rotuloDaContagem}`">
+    <AdminGuestsGuestListModeBulkActions
+      layout="coluna"
+      :grupos-disponiveis="gruposDisponiveis"
+      :categorias-disponiveis="categoriasDisponiveis"
+      :aplicando="aplicando"
+      @mover-para-grupo="moverParaGrupo"
+      @alterar-categoria="alterarCategoria"
+      @excluir="excluir"
+    />
+  </UiModal>
 </template>
