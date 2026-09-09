@@ -25,6 +25,8 @@ const emit = defineEmits<{
   'update:busca': [valor: string]
   adicionar: []
   exportar: []
+  /** Abre o importador já na área de colar. */
+  colar: []
 }>()
 
 const route = useRoute()
@@ -96,14 +98,7 @@ const emModoLista = computed(() => route.path.endsWith('/convidados/lista'))
       </UiButton>
 
       <div class="flex gap-2 sm:ml-auto">
-        <!-- Chega na fase da entrada rápida; desabilitado com o motivo, nunca
-             escondido — o casal precisa saber que a capacidade está prevista. -->
-        <UiButton
-          variant="ghost"
-          class="flex-1 sm:flex-none"
-          disabled
-          title="Em breve — colar várias linhas do Excel de uma vez."
-        >
+        <UiButton variant="ghost" class="flex-1 sm:flex-none" @click="emit('colar')">
           <Icon name="lucide:clipboard-paste" class="h-4 w-4" />
           Colar do Excel
         </UiButton>

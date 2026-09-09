@@ -12,15 +12,22 @@
 -->
 <script setup lang="ts">
 import { camposImportaveis } from '#shared/utils/campos-convidado'
+import { parsearCsv } from '#shared/utils/csv'
 import type { GuestImportResult } from '#shared/schemas/guest-import'
 import { qualificarSubgrupo } from '#shared/utils/grupos'
 import type { MapeamentoColuna, ResultadoPreparacao } from '#shared/utils/importacao-convidados'
 
 interface Props {
   modelValue: boolean
+  /**
+   * Qual entrada do passo 1 abre expandida. `'colar'` é o que o botão "Colar
+   * do Excel" da barra da lista promete — abrir no seletor de arquivo depois
+   * de clicar em "colar" seria entregar outra coisa.
+   */
+  modo?: 'arquivo' | 'colar'
 }
 
-defineProps<Props>()
+const { modelValue, modo = 'arquivo' } = defineProps<Props>()
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   /** A listagem precisa recarregar — a importação mudou a lista inteira. */
@@ -39,7 +46,14 @@ const { data: convitesData } = listInvites({ pageSize: 100 })
 
 type Passo = 'arquivo' | 'mapeamento' | 'revisao' | 'concluido'
 
+/**
+ * Por onde as linhas entram. As duas origens desembocam no MESMO `linhasCsv`,
+ * então o de-para e a revisão valem para as duas sem uma linha de código a
+ * mais — a diferença entre arquivo e colagem acaba no passo 1.
+ */
 const passo = ref<Passo>('arquivo')
+const origem = ref<'arquivo' | 'colar'>(modo)
+const textoColado = ref('')
 const nomeDoArquivo = ref('')
 const linhasCsv = ref<string[][]>([])
 const mapeamento = ref<MapeamentoColuna[]>([])
@@ -64,6 +78,8 @@ const podeAvancar = computed(() => temNome.value || temId.value)
 
 function reiniciar() {
   passo.value = 'arquivo'
+  origem.value = modo
+  textoColado.value = ''
   nomeDoArquivo.value = ''
   linhasCsv.value = []
   mapeamento.value = []
@@ -79,6 +95,41 @@ function fechar() {
   // Reinicia depois do fecho para o conteúdo não piscar durante a transição.
   setTimeout(reiniciar, 200)
 }
+
+/**
+ * Excel e Google Sheets colam a seleção como TSV. `parsearCsv` já autodetecta
+ * entre `;`, `,` e tab, então colar não precisa de parser próprio — e a mesma
+ * máquina de estados continua respondendo por campo entre aspas com separador
+ * dentro.
+ */
+function usarTextoColado() {
+  erroDeLeitura.value = null
+  const linhas = parsearCsv(textoColado.value)
+
+  // Uma linha só é o cabeçalho sem ninguém embaixo: seguir daria um de-para
+  // sobre zero convidados, e o passo de revisão viria vazio sem explicar por
+  // quê.
+  if (linhas.length < 2) {
+    erroDeLeitura.value = 'Cole o cabeçalho e ao menos uma linha de convidado, direto da planilha.'
+    return
+  }
+
+  linhasCsv.value = linhas
+  nomeDoArquivo.value = 'colado da planilha'
+  mapeamento.value = mapearCabecalho(linhas)
+  passo.value = 'mapeamento'
+}
+
+// A entrada expandida é decidida na ABERTURA, não na montagem: o componente
+// fica montado o tempo todo (quem abre e fecha é o `UiModal`), então definir
+// `origem` só no setup deixaria o botão "Colar do Excel" abrindo no seletor de
+// arquivo — o `modo` chega depois de o componente já existir.
+watch(
+  () => modelValue,
+  (aberto) => {
+    if (aberto) origem.value = modo
+  },
+)
 
 async function selecionarArquivo(evento: Event) {
   const arquivo = (evento.target as HTMLInputElement).files?.[0]
@@ -169,7 +220,7 @@ async function confirmarImportacao() {
 const tituloDoPasso = computed(
   () =>
     ({
-      arquivo: 'Importar convidados',
+      arquivo: 'Trazer convidados de uma planilha',
       mapeamento: 'Conferir as colunas',
       revisao: 'Revisar antes de importar',
       concluido: 'Importação concluída',
@@ -189,11 +240,37 @@ const tituloDoPasso = computed(
       <!-- ---------------------------------------------------------- 1. Arquivo -->
       <div v-if="passo === 'arquivo'" class="flex flex-col gap-4">
         <p class="text-sm leading-relaxed text-text-muted">
-          Envie uma planilha em CSV. O sistema reconhece as colunas sozinho e mostra tudo o que vai
-          acontecer antes de gravar qualquer coisa.
+          Traga a planilha que você já tem — por arquivo ou colando as células. O sistema reconhece
+          as colunas sozinho e mostra tudo o que vai acontecer antes de gravar qualquer coisa.
         </p>
 
+        <!-- Duas origens, um funil: as duas produzem as mesmas linhas e seguem
+             para o mesmo de-para. -->
+        <UiRadioGroup
+          v-model="origem"
+          layout="inline"
+          :options="[
+            { value: 'colar', label: 'Colar da planilha' },
+            { value: 'arquivo', label: 'Enviar arquivo CSV' },
+          ]"
+          aria-label="De onde vêm os convidados"
+        />
+
+        <div v-if="origem === 'colar'" class="flex flex-col gap-2">
+          <UiTextarea
+            v-model="textoColado"
+            label="Cole aqui"
+            :rows="8"
+            placeholder="Selecione as células no Excel (com a linha de títulos), copie e cole aqui."
+            hint="Funciona com Excel, Google Sheets e Numbers — separador por tabulação, ponto e vírgula ou vírgula."
+          />
+          <UiButton class="self-start" :disabled="!textoColado.trim()" @click="usarTextoColado">
+            Reconhecer colunas
+          </UiButton>
+        </div>
+
         <label
+          v-else
           class="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border px-6 py-8 text-center transition-brand hover:border-primary/50 hover:bg-surface-muted/40"
         >
           <Icon name="lucide:upload" class="h-6 w-6 text-text-muted" />

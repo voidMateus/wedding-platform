@@ -62,30 +62,53 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 - **Fase Filtros por Coluna**: recorte de lista deixou de ser fileira de chips e virou filtro/ordenação da própria coluna, com o estado na URL, cabeçalho fixo, grade rolável e múltipla escolha onde faz sentido (dois status, duas faixas). Cobre as quatro telas com tabela — Convidados, Convites, Presentes e Plataforma (esta migrada para `AdminTable`, o que aposentou a `UiTable`). Grupos não entra: é lista com barra de andamento, não tabela. Duas views nasceram aqui (`convidados_com_status`, `convites_com_resumo`), pelo mesmo motivo: estado consolidado que precisa existir antes de paginar.
 - **Reorganização de documentação (2026-08)**: CLAUDE.md reduzido a índice operacional; conteúdo de produto/banco/design system/roadmap movido para `docs/PRODUCT.md`, `docs/DATABASE.md`, `docs/DESIGN-SYSTEM.md` e este arquivo. `docs/ARCHITECTURE.md` e `docs/CHANGELOG.md` mantidos como já estavam (já tinham o escopo certo).
 
-## 3. Dívidas conhecidas (fora de fase — pequenas e independentes)
+## 3. Modo Lista de convidados — o que falta
+
+O grosso saiu no PR #99; a entrada rápida e o colar da planilha saíram na
+sequência. O que resta:
+
+- [ ] **Tela do rascunho "Em consideração".** `GuestListDraftPanel.vue` está no
+      repositório com zero usuários. A coluna, o CHECK, o filtro na API e o
+      contador estão prontos — mas não há como marcar alguém como em
+      consideração, ver quem está, nem promover um rascunho para a lista. O
+      número aparece e não leva a lugar nenhum.
+
+Inertes por decisão, com o motivo no `title` de cada um:
+
+- [ ] **"Adicionar ao núcleo" em massa** — diferente de mover para grupo e
+      alterar categoria, não é update em lote: exige orquestrar convite e ordem
+      dentro do núcleo numa transação (`sincronizar_nucleo_convidado`).
+- [ ] **Tela de Núcleos** — hoje só se editam dentro do cadastro do convidado.
+- [ ] **Formulários e Integrações** — dois itens de menu sem nada por trás.
+
+E uma lacuna de acabamento: **edição inline só existe na coluna Categoria**.
+Nome, grupo, núcleo e observação ainda exigem abrir a modal, o que é o buraco
+mais visível numa tela que se propõe "planilha inteligente".
+
+## 4. Dívidas conhecidas (fora de fase — pequenas e independentes)
 
 - [ ] **`prefers-reduced-motion` não é respeitado em lugar nenhum da plataforma** (levantado em 2026-09-09). Quem liga "Reduzir movimento" no sistema normalmente tem distúrbio vestibular — enjoo ou tontura de verdade com movimento que acontece sozinho. O inventário real é pequeno: o `animate-bounce` da seta "role para descobrir" no Hero do site público (loop infinito, na primeira tela que todo convidado vê) e o `animate-pulse` do `UiSkeleton` são os dois casos que rodam **sem ninguém pedir**; o resto (`.transition-brand`, o `scale` do `UiModal`, o `translateX` da linha de tabela) responde a clique ou hover, o que é aceitável. O conserto é um bloco `@media (prefers-reduced-motion: reduce)` no `main.css` zerando `animation-duration`/`iteration-count` e o `--transition-duration` — a vantagem de o movimento sair de um token só. Duas ressalvas para não dar falsa sensação de resolvido: o `duration-200` do `UiModal` está escrito na classe e não no token (precisa migrar ou ganhar regra própria), e `scrollIntoView({ behavior: 'smooth' })` em JS **ignora** o CSS — só respeita se o código consultar `matchMedia` antes, o que são 2 lugares hoje.
 - [ ] **Corrida entre o filtro debounced e o clique na linha** (`useTableFilters`, encontrada em 2026-09-09). Digitar no filtro e clicar numa linha dentro da janela do debounce faz a gravação atrasada reescrever a query a partir de um retrato anterior e apagar o `?editar=<id>` que o clique acabou de pôr — o modal não abre. Vale para pessoa real, não só para teste; ver o achado detalhado em `CHANGELOG.md`.
 
-## 4. Fase 4 — Preparação para Escala
+## 5. Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados).
 - [ ] Observabilidade completa (Sentry + métricas de uso).
 - [ ] Testes de carga nos endpoints públicos (RSVP, reserva de presentes).
 - [ ] Revisão de segurança/RLS por terceiros antes da abertura multi-tenant.
 
-## 5. Fase 5 — Transição para SaaS Multi-Tenant
+## 6. Fase 5 — Transição para SaaS Multi-Tenant
 - [ ] Onboarding self-service (qualquer casal cria sua própria conta/evento).
 - [ ] Planos e cobrança (ver seção 6).
 - [ ] Painel de administração da plataforma (visão do time interno sobre todos os tenants). Fundação mínima entregue em 2026-08-25 (`docs/PLANO-SAAS.md`, Passo 8): `/plataforma` mostra casamentos/status/convidados/donos entre tenants, só leitura. Ainda faltam métricas de uso agregadas de verdade (storage), suporte e billing — item permanece aberto até esses três chegarem.
 - [ ] Papel de "planejador de casamentos" gerenciando múltiplos eventos de clientes distintos.
 
-## 6. Premissa arquitetural (por que a transição é evolutiva, não uma reescrita)
+## 7. Premissa arquitetural (por que a transição é evolutiva, não uma reescrita)
 
 - Toda entidade relevante já carrega `casamento_id`.
 - RLS já opera filtrando por `casamento_id` acessível ao usuário autenticado, mesmo que hoje só exista um `casamento_id` "vivo" por deploy.
 - Autenticação já é multiusuário (`wedding_members`), permitindo múltiplos papéis por evento desde o início.
 
-### 6.1 O que muda na transição
+### 7.1 O que muda na transição
 
 | Aspecto | Hoje (single-tenant) | Futuro (SaaS multi-tenant) |
 |---|---|---|
@@ -96,21 +119,21 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 | Painel interno | `/plataforma` — visão mínima só leitura (casamentos/status/convidados/donos, desde 2026-08-25) | Painel de operação da plataforma completo: métricas agregadas de uso (storage), suporte, billing |
 | Isolamento de dados | Garantido por RLS + único tenant real | Garantido por RLS com múltiplos tenants simultâneos — auditoria de policy se torna crítica |
 
-## 7. Modelo de monetização proposto
+## 8. Modelo de monetização proposto
 
 - **Plano Gratuito**: 1 evento, até N convidados (ex: 50), marca d'água discreta da plataforma.
 - **Plano Casal**: evento único, convidados ilimitados, remoção de marca d'água, temas premium do Design System.
 - **Plano Planejador**: múltiplos eventos simultâneos sob uma conta (para profissionais de organização de casamentos), com painel consolidado entre eventos de clientes.
 - Cobrança recorrente (mensal até o casamento, ou taxa única "vitalícia" por evento) — modelo exato a validar com pesquisa de mercado antes da Fase 5.
 
-## 8. Riscos técnicos a mitigar antes da abertura multi-tenant
+## 9. Riscos técnicos a mitigar antes da abertura multi-tenant
 
 1. **Vazamento de dados entre tenants**: exige suíte de testes automatizados específica validando que toda query respeita RLS, incluindo endpoints novos adicionados ao longo do tempo — e, separadamente, testes do caminho do convidado (não coberto por RLS, ver [`CLAUDE.md`](../CLAUDE.md), Modelo de Confiança).
 2. **Ruído de performance de um tenant afetando outro**: a denormalização de `casamento_id` em tabelas filhas (ver [`DATABASE.md`](DATABASE.md)) já prepara o particionamento declarativo por `casamento_id` em `convidados`, `respostas_rsvp` e `reservas_presentes`. Gatilho de decisão sugerido: avaliar particionamento quando qualquer uma dessas tabelas ultrapassar ~5 milhões de linhas agregadas, ou quando queries de dashboard de um único tenant começarem a competir visivelmente por I/O com outros tenants.
 3. **Suporte ao cliente em escala**: painel interno de operação precisa existir antes de abrir cadastro self-service, para permitir suporte, reembolsos e resolução de disputas sem acesso direto ao banco de produção.
 4. **Escalabilidade de e-mail transacional**: volume de convites/lembretes cresce proporcionalmente ao número de tenants — revisar limites e reputação de envio do provedor (Resend) antes da Fase 5.
 
-## 9. Tabelas de preparação para SaaS (criadas desde a v1, mesmo sem cobrança ativa)
+## 10. Tabelas de preparação para SaaS (criadas desde a v1, mesmo sem cobrança ativa)
 
 Para evitar retrofitar limites de plano em cima de dados de produção já existentes, as seguintes tabelas são criadas (ainda que com uso mínimo) já na Fase 0/1:
 
@@ -123,7 +146,7 @@ Para evitar retrofitar limites de plano em cima de dados de produção já exist
 
 Essas tabelas não têm UI de gestão na v1 — existem apenas para que o modelo de dados não precise de uma migration estrutural disruptiva no momento da transição da Fase 5.
 
-## 10. Não-decisões (a validar antes de implementar)
+## 11. Não-decisões (a validar antes de implementar)
 
 - Ainda não decidido se o modelo multi-tenant será por **schema separado por tenant** ou **RLS em schema compartilhado** — a abordagem atual (RLS + schema compartilhado) é a assumida como padrão pela comunidade Supabase e a mais provável de seguir, mas deve ser revisitada com dados reais de volume antes da Fase 5.
 - Estratégia de billing (Stripe Billing vs. solução própria) não definida — item de pesquisa antes da Fase 5.

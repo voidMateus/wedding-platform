@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDebounceFn } from '@vueuse/core'
 import { FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_ROTULOS } from '#shared/utils/faixa-etaria'
 import type { GuestListItem } from '~/types/guest'
 import { applyTableFilters } from '~/utils/table-rows'
@@ -231,7 +232,38 @@ async function recarregarTudo() {
   await Promise.all([refresh(), refreshGrupos(), refreshOverview()])
 }
 
+/**
+ * Recarga adiada da entrada rápida: quem está despejando nomes dispara um
+ * cadastro por Enter, e recarregar a lista inteira a cada um deles seria uma
+ * varredura de todas as páginas por nome digitado. O campo já dá o retorno
+ * imediato ("N adicionados"), então a tabela pode chegar junto no fim da
+ * rajada.
+ */
+const agendarRecarga = useDebounceFn(() => recarregarTudo(), 800)
+
+/**
+ * O bloco "Sem grupo" não é um grupo: o id dele é um marcador (`__sem-grupo__`),
+ * não um uuid de `grupos`. Passá-lo adiante como grupo de destino mandaria um
+ * valor que não existe no banco.
+ */
+function grupoDoBloco(sectionId: string): string | null {
+  return sectionId === SECAO_SEM_GRUPO ? null : sectionId
+}
+
 const isImportModalOpen = ref(false)
+
+/**
+ * Qual entrada do importador abre expandida. "Colar do Excel" e "Importar" são
+ * a MESMA operação com origens diferentes, então levam ao mesmo modal — o que
+ * muda é onde o cursor cai. Abrir no seletor de arquivo depois de clicar em
+ * "colar" seria entregar outra coisa.
+ */
+const modoDeImportacao = ref<'arquivo' | 'colar'>('arquivo')
+
+function abrirColagem() {
+  modoDeImportacao.value = 'colar'
+  isImportModalOpen.value = true
+}
 const isTemplateModalOpen = ref(false)
 const isExporting = ref(false)
 
@@ -286,6 +318,7 @@ async function confirmarExclusao() {
         @update:busca="searchDraft = $event"
         @adicionar="abrirNovoConvidado()"
         @exportar="exportar"
+        @colar="abrirColagem"
       />
 
       <UiSkeleton v-if="isFirstLoad" class="h-96 w-full" />
@@ -310,7 +343,15 @@ async function confirmarExclusao() {
             <Icon name="lucide:plus" class="h-4 w-4" />
             Adicionar convidado
           </UiButton>
-          <UiButton variant="ghost" @click="isImportModalOpen = true">
+          <UiButton
+            variant="ghost"
+            @click="
+              () => {
+                modoDeImportacao = 'arquivo'
+                isImportModalOpen = true
+              }
+            "
+          >
             <Icon name="lucide:upload" class="h-4 w-4" />
             Importar planilha
           </UiButton>
@@ -348,7 +389,9 @@ async function confirmarExclusao() {
               :collapsed-ids="recolhidos"
               :filters="filters"
               empty-label="Nenhuma pessoa com esses filtros."
+              row-clickable
               @toggle-section="alternarBloco"
+              @row-click="abrirEdicao"
             >
               <template #cell-selecao="{ row }">
                 <UiCheckbox
@@ -489,17 +532,16 @@ async function confirmarExclusao() {
                 </div>
               </template>
 
+              <!-- Em TODO bloco, não só nas subdivisões e nos vazios como
+                   antes: a entrada rápida é o caminho principal desta tela, e
+                   um grupo-raiz com gente própria também recebe nomes. -->
               <template #section-footer="{ section }">
-                <button
-                  v-if="section.level === 1 || !section.rows.length"
-                  type="button"
-                  :aria-label="`Adicionar convidado em ${section.label}`"
-                  class="flex w-full items-center gap-1.5 px-4 py-2.5 text-left text-xs text-text-muted transition-brand hover:bg-surface-muted hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary md:pl-12"
-                  @click="abrirNovoConvidado(section.id)"
-                >
-                  <Icon name="lucide:plus" class="h-3.5 w-3.5 shrink-0" />
-                  Adicionar convidado
-                </button>
+                <AdminGuestsGuestQuickAdd
+                  :grupo-id="grupoDoBloco(section.id)"
+                  :grupo-label="section.label"
+                  @adicionado="agendarRecarga"
+                  @abrir-cadastro="abrirNovoConvidado(grupoDoBloco(section.id) ?? undefined)"
+                />
               </template>
             </AdminTable>
           </div>
@@ -530,6 +572,7 @@ async function confirmarExclusao() {
 
     <AdminGuestsGuestImportModal
       v-model="isImportModalOpen"
+      :modo="modoDeImportacao"
       @imported="recarregarTudo"
       @request-template="isTemplateModalOpen = true"
     />
