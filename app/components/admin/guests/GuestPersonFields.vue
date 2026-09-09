@@ -1,3 +1,19 @@
+<!--
+  Os campos de UMA pessoa — o convidado responsável e cada acompanhante usam
+  este mesmo formulário, porque acompanhante é uma linha de `convidados` como
+  qualquer outra e nunca herda nada do responsável.
+
+  Em dois blocos, e essa divisão é a ideia central do cadastro: em cima o que a
+  lista precisa para a pessoa existir (nome, categoria, grupo), e atrás de
+  "Mais detalhes" o que só importa quando importa (apelido, contato, sexo,
+  papel, observações). Antes eram doze campos abertos de uma vez, e cadastrar
+  alguém de quem só se sabe o nome pedia a mesma atenção de um padrinho com
+  e-mail e telefone.
+
+  O bloco recolhido abre sozinho quando QUALQUER campo dele já tem valor: em
+  edição, esconder um e-mail cadastrado atrás de um clique faria a tela mentir
+  sobre o que está no banco.
+-->
 <script setup lang="ts">
 import type { GuestPersonInput } from '#shared/schemas/guests'
 import type { Group } from '~/types/group'
@@ -45,25 +61,51 @@ const classificacao = computed(() =>
   }),
 )
 
-/** Com data de nascimento, a faixa é calculada e o seletor manual não compete com ela. */
+/** Com data de nascimento, a faixa é calculada e as pílulas não competem com ela. */
 const isCalculada = computed(() => classificacao.value.origem === 'calculada')
 
 /**
- * Travado, o campo mostra a faixa CALCULADA — não o valor manual guardado.
- * Exibir "Não informada" ao lado de uma data de nascimento válida diria o
- * oposto do que o sistema faz. O valor manual continua gravado intacto, e
- * volta a valer se a data for apagada.
+ * Só as faixas do vocabulário — "não informada" NÃO é uma pílula.
+ *
+ * Ela é a ausência das outras, e como pílula ficava marcada por padrão: o
+ * elemento de maior peso visual da tela, preenchido na cor primária, anunciando
+ * que não se sabe nada. Sem pílula nenhuma marcada, a tela começa quieta, e
+ * desmarcar é o "limpar" que aparece só depois de haver o que limpar.
+ *
+ * Derivado de `manualOptions` (que já vem de `FAIXA_ETARIA_CHAVES`) para que
+ * uma faixa nova apareça aqui sozinha.
  */
-const faixaExibida = computed(() =>
-  isCalculada.value
-    ? (classificacao.value.chave ?? '')
-    : (props.modelValue.faixaEtariaManual ?? ''),
-)
+const opcoesDeCategoria = computed(() => manualOptions.value.filter((opcao) => opcao.value !== ''))
+
+/**
+ * Travada, a pílula mostra a faixa CALCULADA — não o valor manual guardado.
+ * Marcar "Adulto" ao lado da data de nascimento de uma criança diria o oposto
+ * do que o sistema faz. O valor manual continua gravado intacto, e volta a
+ * valer se a data for apagada.
+ */
+const categoriaSelecionada = computed(() => {
+  if (isCalculada.value) return classificacao.value.chave ?? ''
+  return props.modelValue.faixaEtariaManual || ''
+})
+
+const nascimentoId = useId()
 
 // Contato é recomendação, nunca bloqueio: parte da lista chega só por convite
 // físico e precisa poder ser cadastrada sem e-mail nem telefone
 // (docs/PRODUCT.md, seção 3.3). Por isso vira `hint`, não `error`.
 const semContato = computed(() => !props.modelValue.email && !props.modelValue.telefone)
+
+const detalhesAbertos = ref(
+  Boolean(
+    props.modelValue.apelido ||
+    props.modelValue.email ||
+    props.modelValue.telefone ||
+    props.modelValue.sexo ||
+    props.modelValue.papelCasamento ||
+    props.modelValue.observacoes,
+  ),
+)
+const detalhesId = useId()
 
 // Criar um grupo sem sair do cadastro do convidado (CLAUDE.md, seção 12.1) —
 // evita o casal precisar ir em Grupos cadastrar tudo antes de começar.
@@ -94,114 +136,78 @@ async function handleCreateGroup() {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="grid gap-4 sm:grid-cols-2">
-      <UiInput
-        :model-value="modelValue.nomeCompleto"
-        label="Nome completo"
-        :error="fullNameError ?? undefined"
-        @update:model-value="update('nomeCompleto', $event)"
-      />
-      <UiInput
-        :model-value="modelValue.apelido"
-        label="Apelido (opcional)"
-        @update:model-value="update('apelido', $event)"
-      />
-    </div>
+    <UiInput
+      :model-value="modelValue.nomeCompleto"
+      label="Nome completo"
+      placeholder="Como o nome sai no convite"
+      :error="fullNameError ?? undefined"
+      @update:model-value="update('nomeCompleto', $event)"
+    />
 
     <!--
-      Data de nascimento ANTES da faixa etária, e as duas lado a lado: é a
-      ordem da regra de precedência (a data válida sempre vence a faixa
-      manual), então ler de cima para baixo descreve o que o sistema faz.
-      Pareadas, também fica claro que as duas respondem à mesma pergunta — a
-      faixa é o caminho de quem não sabe a data.
+      Data de nascimento ANTES da categoria, e SEMPRE visível: é a ordem da
+      regra de precedência (uma data válida sempre vence a pílula escolhida à
+      mão), então ler de cima para baixo descreve o que o sistema faz. Atrás de
+      um atalho, como esteve, a tela escondia justamente o campo que manda na
+      classificação.
+
+      Opcional dito no rótulo, não subentendido: o casal quase nunca sabe a data
+      de nascimento de todos os convidados, e a pílula existe exatamente para
+      quem só sabe "é adulto" (CLAUDE.md, seção 12).
     -->
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium text-text" :for="`nascimento-${modelValue.id ?? 'novo'}`">
-          Data de nascimento (opcional)
-        </label>
-        <input
-          :id="`nascimento-${modelValue.id ?? 'novo'}`"
-          type="date"
-          :value="modelValue.dataNascimento"
-          class="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text"
-          @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
-        />
+    <div class="flex flex-col gap-1.5">
+      <label class="text-sm font-medium text-text" :for="nascimentoId">
+        Data de nascimento
+        <span class="font-normal text-text-muted">(opcional)</span>
+      </label>
+      <input
+        :id="nascimentoId"
+        type="date"
+        :value="modelValue.dataNascimento"
+        class="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-48"
+        @change="update('dataNascimento', ($event.target as HTMLInputElement).value)"
+      />
+      <!-- Idade e classificação são sempre derivadas (idade na data do evento x
+           faixas do evento) — exibidas, nunca gravadas. -->
+      <p
+        v-if="classificacao.idadeNoEvento !== null"
+        class="text-xs leading-relaxed text-text-muted"
+      >
+        <span class="num font-medium text-text">{{ classificacao.idadeNoEvento }}</span>
+        {{ classificacao.idadeNoEvento === 1 ? 'ano' : 'anos' }} na data do casamento
+      </p>
+      <p v-else class="text-xs leading-relaxed text-text-muted">
+        Com a data, a categoria passa a ser calculada.
+      </p>
+    </div>
 
-        <!-- Idade e classificação são sempre derivadas (idade na data do
-             evento x faixas do evento) — exibidas, nunca gravadas. -->
-        <p
-          v-if="classificacao.idadeNoEvento !== null"
-          class="text-xs leading-relaxed text-text-muted"
-        >
-          <span class="num font-medium text-text">{{ classificacao.idadeNoEvento }}</span>
-          {{ classificacao.idadeNoEvento === 1 ? 'ano' : 'anos' }} na data do casamento
-        </p>
-        <p v-else class="text-xs leading-relaxed text-text-muted">
-          Preenchendo a data, a faixa etária passa a ser calculada.
-        </p>
-      </div>
-
-      <UiSelect
-        :model-value="faixaExibida"
-        label="Faixa etária"
-        :options="manualOptions"
+    <div class="flex flex-col gap-2">
+      <UiRadioGroup
+        :model-value="categoriaSelecionada"
+        label="Categoria"
+        layout="inline"
+        :options="opcoesDeCategoria"
         :disabled="isCalculada"
-        :hint="
-          isCalculada
-            ? 'Calculada pela data de nascimento.'
-            : 'Use quando não souber a data de nascimento.'
-        "
+        :hint="isCalculada ? 'Calculada pela data de nascimento.' : undefined"
         @update:model-value="
           update('faixaEtariaManual', $event as GuestPersonInput['faixaEtariaManual'])
         "
       />
-    </div>
 
-    <!--
-      Contato depois da faixa etária, não antes: o par nome → nascimento →
-      faixa é uma sequência só (quem é a pessoa e como ela conta na lista), e
-      quebrá-la no meio com e-mail/telefone separaria a data da faixa que ela
-      determina.
-    -->
-    <div class="grid gap-4 sm:grid-cols-2">
-      <UiInput
-        :model-value="modelValue.email"
-        label="E-mail (opcional)"
-        type="email"
-        placeholder="convidado@email.com"
-        :hint="semContato ? 'Ao menos um canal facilita enviar o convite.' : undefined"
-        @update:model-value="update('email', $event)"
-      />
-      <UiInput
-        :model-value="modelValue.telefone"
-        label="Telefone (opcional)"
-        type="tel"
-        placeholder="(11) 91234-5678"
-        @update:model-value="update('telefone', $event)"
-      />
-    </div>
-
-    <div class="grid gap-4 sm:grid-cols-2">
-      <UiSelect
-        :model-value="modelValue.sexo"
-        label="Sexo (opcional)"
-        placeholder="Não informar"
-        :options="sexOptions"
-        @update:model-value="update('sexo', $event as GuestPersonInput['sexo'])"
-      />
-      <UiSelect
-        :model-value="modelValue.papelCasamento"
-        label="Padrinho/Madrinha"
-        :options="weddingRoleOptions"
-        @update:model-value="update('papelCasamento', $event as GuestPersonInput['papelCasamento'])"
-      />
+      <button
+        v-if="modelValue.faixaEtariaManual && !isCalculada"
+        type="button"
+        class="self-start text-xs text-text-muted hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        @click="update('faixaEtariaManual', undefined)"
+      >
+        Limpar categoria
+      </button>
     </div>
 
     <div class="flex flex-col gap-1">
       <UiSelect
         :model-value="modelValue.grupoId"
-        label="Grupo (opcional)"
+        label="Grupo"
         placeholder="Sem grupo"
         :options="groupOptions"
         @update:model-value="update('grupoId', $event)"
@@ -209,7 +215,7 @@ async function handleCreateGroup() {
       <button
         v-if="!isCreatingGroup"
         type="button"
-        class="self-start text-xs text-primary hover:underline"
+        class="self-start text-xs text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         @click="openCreateGroup"
       >
         + Criar novo grupo
@@ -230,11 +236,76 @@ async function handleCreateGroup() {
       </div>
     </div>
 
-    <UiTextarea
-      :model-value="modelValue.observacoes"
-      label="Observações internas (opcional)"
-      placeholder="Nunca exibidas ao convidado"
-      @update:model-value="update('observacoes', $event)"
-    />
+    <div class="border-t border-border pt-3">
+      <button
+        type="button"
+        class="flex items-center gap-1.5 text-sm text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :aria-expanded="detalhesAbertos"
+        :aria-controls="detalhesId"
+        @click="detalhesAbertos = !detalhesAbertos"
+      >
+        <Icon
+          name="lucide:chevron-right"
+          class="h-4 w-4 transition-transform"
+          :class="detalhesAbertos ? 'rotate-90' : ''"
+          aria-hidden="true"
+        />
+        Mais detalhes
+        <span class="hidden text-xs sm:inline">
+          apelido, contato, padrinho/madrinha, observações
+        </span>
+      </button>
+
+      <div v-show="detalhesAbertos" :id="detalhesId" class="mt-4 flex flex-col gap-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UiInput
+            :model-value="modelValue.apelido"
+            label="Apelido"
+            @update:model-value="update('apelido', $event)"
+          />
+          <UiSelect
+            :model-value="modelValue.papelCasamento"
+            label="Padrinho/Madrinha"
+            :options="weddingRoleOptions"
+            @update:model-value="
+              update('papelCasamento', $event as GuestPersonInput['papelCasamento'])
+            "
+          />
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UiInput
+            :model-value="modelValue.email"
+            label="E-mail"
+            type="email"
+            placeholder="convidado@email.com"
+            :hint="semContato ? 'Ao menos um canal facilita enviar o convite.' : undefined"
+            @update:model-value="update('email', $event)"
+          />
+          <UiInput
+            :model-value="modelValue.telefone"
+            label="Telefone"
+            type="tel"
+            placeholder="(11) 91234-5678"
+            @update:model-value="update('telefone', $event)"
+          />
+        </div>
+
+        <UiSelect
+          :model-value="modelValue.sexo"
+          label="Sexo"
+          placeholder="Não informar"
+          :options="sexOptions"
+          @update:model-value="update('sexo', $event as GuestPersonInput['sexo'])"
+        />
+
+        <UiTextarea
+          :model-value="modelValue.observacoes"
+          label="Observações internas"
+          placeholder="Nunca exibidas ao convidado"
+          @update:model-value="update('observacoes', $event)"
+        />
+      </div>
+    </div>
   </div>
 </template>

@@ -1,3 +1,4 @@
+import type { RsvpStatus } from '#shared/utils/rsvp-status'
 import type { AdminTableSection } from '~/types/table'
 
 /**
@@ -13,11 +14,15 @@ interface GrupoDaArvore {
   id: string
   nome: string
   grupo_pai_id: string | null
+  /** Cor da etiqueta, desenhada como ponto no cabeçalho do bloco. */
+  cor?: string | null
 }
 
 interface ConvidadoAgrupavel {
   id: string
   grupo_id: string | null
+  /** Obrigatório: é o cabeçalho do bloco que anuncia quantos já confirmaram. */
+  status_rsvp: RsvpStatus
 }
 
 /**
@@ -39,8 +44,26 @@ export interface OpcoesSecoes {
   recolhidos?: readonly string[]
 }
 
-function rotuloDePessoas(total: number): string {
-  return `${total} ${total === 1 ? 'pessoa' : 'pessoas'}`
+/**
+ * "5/12 confirmados" — a MESMA forma da tela de Grupos, de propósito.
+ *
+ * A fração diz total e confirmados de uma vez, então não precisa de "12
+ * pessoas" ao lado. E o vocabulário é o que a plataforma já usa: inventar uma
+ * segunda maneira de dizer a mesma coisa ("12 pessoas · 5 confirmaram") faria
+ * duas telas sobre o mesmo dado falarem línguas diferentes.
+ *
+ * Zero em zero aparece igual em Grupos: "0/0 confirmados" é o grupo vazio, e
+ * "0/12 confirmados" é exatamente o grupo a cobrar. Por isso `status_rsvp` é
+ * obrigatório em `ConvidadoAgrupavel` em vez de opcional: um bloco vazio não
+ * tem linha nenhuma para inspecionar, então "quem chamou tem status?" não é
+ * uma pergunta que se responda contando linhas — tem que estar no tipo.
+ */
+function rotuloDoBloco(total: number, confirmados: number): string {
+  return `${confirmados}/${total} confirmados`
+}
+
+function contarConfirmados<T extends ConvidadoAgrupavel>(linhas: readonly T[]): number {
+  return linhas.filter((linha) => linha.status_rsvp === 'confirmado').length
 }
 
 export function montarSecoesDeConvidados<T extends ConvidadoAgrupavel>(
@@ -75,9 +98,14 @@ export function montarSecoesDeConvidados<T extends ConvidadoAgrupavel>(
     // ninguém "por herança": a contagem do cabeçalho é a soma dele com as
     // subdivisões. Sem isso "Família do Mateus" anunciaria 0 pessoas com 32
     // logo abaixo.
-    const totalDaRaiz =
-      linhasDaRaiz.length +
-      subdivisoes.reduce((soma, sub) => soma + (porGrupo.get(sub.id)?.length ?? 0), 0)
+    // A árvore inteira, e não só a contagem: a confirmação do cabeçalho da
+    // raiz precisa do MESMO rollup do total, senão "Família do Mateus" diria
+    // "0 confirmaram" com dezoito confirmados nas subdivisões logo abaixo.
+    const linhasDaArvore = [
+      ...linhasDaRaiz,
+      ...subdivisoes.flatMap((sub) => porGrupo.get(sub.id) ?? []),
+    ]
+    const totalDaRaiz = linhasDaArvore.length
 
     if (esconderVazios && totalDaRaiz === 0) continue
 
@@ -85,8 +113,9 @@ export function montarSecoesDeConvidados<T extends ConvidadoAgrupavel>(
       id: raiz.id,
       label: raiz.nome,
       level: 0,
-      meta: rotuloDePessoas(totalDaRaiz),
+      meta: rotuloDoBloco(totalDaRaiz, contarConfirmados(linhasDaArvore)),
       icon: 'lucide:users-round',
+      cor: raiz.cor ?? null,
       rows: linhasDaRaiz,
     })
 
@@ -104,7 +133,8 @@ export function montarSecoesDeConvidados<T extends ConvidadoAgrupavel>(
         id: sub.id,
         label: sub.nome,
         level: 1,
-        meta: rotuloDePessoas(linhas.length),
+        meta: rotuloDoBloco(linhas.length, contarConfirmados(linhas)),
+        cor: sub.cor ?? null,
         rows: linhas,
       })
     }
@@ -117,7 +147,7 @@ export function montarSecoesDeConvidados<T extends ConvidadoAgrupavel>(
       id: SECAO_SEM_GRUPO,
       label: 'Sem grupo',
       level: 0,
-      meta: rotuloDePessoas(semGrupo.length),
+      meta: rotuloDoBloco(semGrupo.length, contarConfirmados(semGrupo)),
       icon: 'lucide:user',
       rows: semGrupo,
     })

@@ -26,6 +26,16 @@ interface Props {
   icon?: string
   /** 'muted' assenta o campo sobre a superfície de faixa/chip, para o campo não competir com o conteúdo (busca do header do admin). */
   tone?: 'default' | 'muted'
+  /**
+   * Põe o cursor no campo assim que ele monta — para o campo que É o motivo de
+   * a área ter aberto (a busca do rascunho de acompanhante, que abre já
+   * esperando um nome).
+   *
+   * Foco no `onMounted`, e não o atributo `autofocus` do HTML: o atributo só
+   * vale para elemento presente no documento no carregamento da página, e
+   * aqui o campo aparece depois, num bloco que o Vue insere.
+   */
+  autofocus?: boolean
 }
 
 const {
@@ -40,7 +50,13 @@ const {
   disabled = false,
   icon,
   tone = 'default',
+  autofocus = false,
 } = defineProps<Props>()
+
+const campo = ref<HTMLInputElement | null>(null)
+onMounted(() => {
+  if (autofocus) campo.value?.focus()
+})
 
 const toneClasses: Record<NonNullable<Props['tone']>, string> = {
   default: 'bg-surface',
@@ -73,6 +89,7 @@ const describedBy = computed(() => {
       />
       <input
         :id="inputId"
+        ref="campo"
         :type="type"
         :step="step"
         :placeholder="placeholder"

@@ -1,23 +1,38 @@
 import { RSVP_STATUS_VALUES } from '#shared/utils/rsvp-status'
+import type { Group } from '~/types/group'
 import type { GuestListItem } from '~/types/guest'
 import type { AdminTableColumn } from '~/types/table'
 import { compareText, type ClientColumn } from '~/utils/table-rows'
 
 /**
- * Colunas do Modo Lista, com os acessores que o recorte no client usa e os
- * mapas de rótulo que as células leem.
+ * Colunas do Modo Lista, com os acessores do recorte no client e os mapas de
+ * rótulo que as células leem.
  *
  * Fora da página porque é isto que faz o script dela caber: montar coluna,
  * opção de filtro, classificação etária e rótulo de núcleo é uma
- * responsabilidade só — "o que esta tabela sabe fazer" — e nenhuma parte dela
- * é orquestração de tela (CLAUDE.md, seção 6: `<script setup>` passando de
- * ~200 linhas é sinal de extrair pra composable).
+ * responsabilidade só (CLAUDE.md, seção 6 — `<script setup>` passando de ~200
+ * linhas é sinal de extrair pra composable).
+ *
+ * O recorte vive no **menu do próprio cabeçalho** de cada coluna, não numa
+ * régua de filtros acima da tabela: uma régua duplicaria o que o cabeçalho já
+ * oferece, e filtro em dois lugares é filtro que pode divergir. Por isso cada
+ * coluna filtrável declara `filter` aqui — é essa declaração que faz a
+ * `AdminTable` abrir o menu e que diz a `applyTableFilters` como comparar
+ * (texto por "contém", lista fechada por igualdade).
+ *
+ * Grupo, núcleo, categoria e status são de **múltipla escolha**: "quem ainda
+ * não respondeu ou está em espera" é uma pergunta só do casal, não duas.
  */
-export function useGuestListModeColumns(convidados: MaybeRefOrGetter<readonly GuestListItem[]>) {
+export function useGuestListModeColumns(
+  convidados: MaybeRefOrGetter<readonly GuestListItem[]>,
+  grupos: MaybeRefOrGetter<readonly Group[]>,
+) {
   const { classify, label: rotuloDeFaixa, originLabel, filterChips } = useAgeGroups()
 
   const listaDeConvidados = computed(() => toValue(convidados))
+  const listaDeGrupos = computed(() => toValue(grupos))
 
+  const opcoesDeGrupo = computed(() => montarOpcoesDeGrupo(listaDeGrupos.value))
   const rotulosDeNucleo = computed(() => montarRotulosDeNucleo(listaDeConvidados.value))
 
   const opcoesDeNucleo = computed(() =>
@@ -26,14 +41,15 @@ export function useGuestListModeColumns(convidados: MaybeRefOrGetter<readonly Gu
       .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
   )
 
+  /** Estados de RSVP que o mapa único da plataforma conhece. */
   const opcoesDeStatus = RSVP_STATUS_VALUES.map((status) => ({
     value: status,
     label: rsvpStatusPresentation(status).label,
   }))
 
-  // Classificado uma vez por linha, não a cada interpolação do template: a
-  // célula lê rótulo e procedência do mesmo resultado.
-  const faixaPorConvidado = computed(() => {
+  // Classificado uma vez por pessoa, não a cada interpolação: a célula lê
+  // rótulo e procedência do mesmo resultado.
+  const categorias = computed(() => {
     const celulas = new Map<string, { chave: string; label: string; title: string }>()
     for (const convidado of listaDeConvidados.value) {
       const classificacao = classify(convidado)
@@ -47,34 +63,36 @@ export function useGuestListModeColumns(convidados: MaybeRefOrGetter<readonly Gu
   })
 
   const colunas = computed<AdminTableColumn<GuestListItem>[]>(() => [
+    { key: 'selecao', label: 'Selecionar', labelHidden: true },
     {
       key: 'nome',
       label: 'Nome',
       filter: { type: 'text', placeholder: 'Buscar nome' },
       sort: 'alpha',
     },
-    // Sem coluna "Grupo": o cabeçalho do bloco já diz de qual grupo a linha é,
-    // e repetir isso em cada linha custava uma coluna inteira — que, estreita,
-    // quebrava "Amigos do Trabalho" em três linhas e engordava toda a tabela.
-    // O recorte por grupo também não se perde: recolher tudo e abrir um bloco
-    // é o mesmo resultado, com menos cliques.
+    {
+      key: 'grupo',
+      label: 'Grupo',
+      sort: 'alpha',
+      filter: { type: 'select', multiple: true, options: opcoesDeGrupo.value },
+    },
     {
       key: 'nucleo',
       label: 'Núcleo',
+      sort: 'alpha',
       filter: { type: 'select', multiple: true, options: opcoesDeNucleo.value },
     },
     {
       key: 'faixa',
       label: 'Categoria',
+      sort: 'alpha',
       filter: { type: 'select', multiple: true, options: filterChips.value },
     },
-    // Sem filtro declarado: a coluna diz só se a pessoa está em algum convite,
-    // e uma lista fechada de duas opções não vale um menu. Coluna sem
-    // `filter`/`sort` não abre menu nenhum, que é a regra da AdminTable.
-    { key: 'convite', label: 'Convite' },
+    { key: 'convite', label: 'Convite', sort: 'alpha' },
     {
       key: 'rsvp',
       label: 'RSVP',
+      sort: 'alpha',
       filter: { type: 'select', multiple: true, options: opcoesDeStatus },
     },
     { key: 'observacao', label: 'Observação' },
@@ -82,21 +100,56 @@ export function useGuestListModeColumns(convidados: MaybeRefOrGetter<readonly Gu
   ])
 
   const acessores = computed<Record<string, ClientColumn<GuestListItem>>>(() => {
+    const paiPorGrupo = new Map(listaDeGrupos.value.map((grupo) => [grupo.id, grupo.grupo_pai_id]))
+    const nomePorGrupo = new Map(opcoesDeGrupo.value.map((opcao) => [opcao.value, opcao.label]))
+
     return {
       nome: {
         value: (row) => row.nome_completo,
         compare: compareText((row) => row.nome_completo),
       },
-      nucleo: { value: (row) => row.nucleo_id },
-      faixa: { value: (row) => faixaPorConvidado.value.get(row.id)?.chave },
-      rsvp: { value: (row) => row.status_rsvp },
+      // Devolve a folha E o grupo-pai: escolher "Família do Mateus" no filtro
+      // tem que alcançar quem está em "Tios paternos", como `/api/guests` já
+      // faz na Visão organizada (`expandirGruposComSubdivisoes`). Sem isso o
+      // mesmo recorte daria resultados diferentes nas duas telas.
+      grupo: {
+        value: (row) => {
+          if (!row.grupo_id) return []
+          const pai = paiPorGrupo.get(row.grupo_id)
+          return pai ? [row.grupo_id, pai] : [row.grupo_id]
+        },
+        compare: compareText((row) => (row.grupo_id ? nomePorGrupo.get(row.grupo_id) : '')),
+      },
+      nucleo: {
+        value: (row) => row.nucleo_id,
+        compare: compareText((row) =>
+          row.nucleo_id ? rotulosDeNucleo.value.get(row.nucleo_id) : '',
+        ),
+      },
+      faixa: {
+        value: (row) => categorias.value.get(row.id)?.chave,
+        compare: compareText((row) => categorias.value.get(row.id)?.label),
+      },
+      convite: {
+        value: (row) => (row.convite_id ? 'vinculado' : 'sem-convite'),
+        compare: compareText((row) => (row.convite_id ? 'A' : 'B')),
+      },
+      rsvp: {
+        value: (row) => row.status_rsvp,
+        compare: compareText((row) => rsvpStatusPresentation(row.status_rsvp).label),
+      },
     }
   })
+
+  function nomeDoGrupo(convidado: GuestListItem): string {
+    if (!convidado.grupo_id) return '—'
+    return opcoesDeGrupo.value.find((opcao) => opcao.value === convidado.grupo_id)?.label ?? '—'
+  }
 
   function rotuloDeNucleo(convidado: GuestListItem): string {
     if (!convidado.nucleo_id) return '—'
     return rotulosDeNucleo.value.get(convidado.nucleo_id) ?? '—'
   }
 
-  return { colunas, acessores, faixaPorConvidado, rotuloDeNucleo }
+  return { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo }
 }

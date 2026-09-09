@@ -37,6 +37,15 @@ interface Props {
   options: SelectOption[]
   placeholder?: string
   error?: string
+  /**
+   * 'campo' (default) é o campo de formulário com moldura. 'quiet' tira a
+   * borda e o fundo até o hover/foco, para o seletor que se repete linha a
+   * linha numa tabela: com moldura, vinte e nove caixas vazias viravam o
+   * elemento mais pesado da tela e competiam com os nomes das pessoas — que
+   * são o conteúdo. Continua sendo o mesmo controle, com o mesmo alvo de
+   * clique; só para de se anunciar quando não está em uso.
+   */
+  variant?: 'campo' | 'quiet'
   /** Linha de apoio abaixo do campo — mesmo contrato do UiInput. */
   hint?: string
   disabled?: boolean
@@ -59,11 +68,28 @@ const {
   hint,
   disabled = false,
   ariaLabel,
+  variant = 'campo',
 } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const VARIANT_CLASSES: Record<NonNullable<Props['variant']>, string> = {
+  campo: 'h-10 justify-between border border-border bg-surface hover:border-primary/40',
+  // Borda transparente (e não ausente): sem ela o campo mudaria de largura
+  // no hover e a coluna inteira daria um pulo de 2px.
+  // `justify-start`, não `justify-between`: sem moldura o `between` empurrava o
+  // chevron para a outra ponta da largura da coluna, e valor e seta ficavam
+  // dois elementos soltos a noventa pixels um do outro. A largura da célula
+  // continua fixa (a coluna não pode pular), só o conteúdo se agrupa.
+  // `h-8`: dentro de uma linha de tabela o campo de 40px era o elemento mais
+  // alto da linha e ditava a altura dela sozinho. A variante existe só para
+  // tabela de desktop (no celular a linha vira o slot `#stacked`, que não
+  // desenha este seletor), então não há alvo de toque em jogo aqui.
+  quiet:
+    'h-8 justify-start gap-1.5 border border-transparent bg-transparent hover:border-border hover:bg-surface data-[state=open]:border-border data-[state=open]:bg-surface',
+}
 
 const selectId = useId()
 
@@ -109,7 +135,8 @@ const selected = computed({
     <SelectRoot v-model="selected" :disabled="disabled">
       <SelectTrigger
         :id="selectId"
-        class="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 text-left text-sm text-text transition-brand hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-text-muted"
+        class="flex w-full items-center gap-2 rounded-md px-3 text-left text-sm text-text transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-text-muted"
+        :class="VARIANT_CLASSES[variant]"
         :aria-invalid="Boolean(error)"
         :aria-describedby="describedBy"
         :aria-label="label ? undefined : ariaLabel"

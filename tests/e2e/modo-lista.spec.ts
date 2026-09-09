@@ -118,20 +118,52 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     })
 
     // O grupo-pai anuncia a SOMA das subdivisões: o convidado aponta sempre
-    // para a folha, então sem a soma o cabeçalho diria "1 pessoa" com 4 abaixo.
-    const blocoRaiz = page.getByRole('button', { name: /Familia do Mateus/ })
-    await expect(blocoRaiz).toContainText('4 pessoas')
+    // para a folha, então sem a soma o cabeçalho diria "0/1" com 4 abaixo.
+    // O rótulo é a fração da tela de Grupos ("confirmados/total confirmados"),
+    // e ninguém aqui respondeu ao RSVP — daí o zero no numerador.
+    const blocoRaiz = page.getByRole('button', { name: /^Familia do Mateus/ })
+    await expect(blocoRaiz).toContainText('0/4 confirmados')
 
-    const blocoSubdivisao = page.getByRole('button', { name: /Tios paternos/ })
-    await expect(blocoSubdivisao).toContainText('3 pessoas')
+    const blocoSubdivisao = page.getByRole('button', { name: /^Tios paternos/ })
+    await expect(blocoSubdivisao).toContainText('0/3 confirmados')
 
     // Núcleo não tem coluna de nome: o rótulo é derivado dos membros, na ordem
     // de `ordem_nucleo`, com o excedente resumido.
     await expect(page.getByText('Joao e Maria +1').first()).toBeVisible()
 
-    // Rascunho fica fora da lista e fora das contagens — aparece no painel.
-    await expect(page.getByText('Marcelo da Academia')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Rascunho da lista' })).toBeVisible()
+    // Rascunho fica fora da lista e fora do total: o cabeçalho anuncia os 4
+    // convidados e o rascunho separado, nunca somados.
+    // Os contadores vivem na linha do painel, ao lado do "N exibidas": um
+    // descreve a lista inteira, o outro o recorte.
+    await expect(page.getByText('4 convidados')).toBeVisible()
+    await expect(page.getByText('1 em consideração')).toBeVisible()
+    await expect(page.getByText('Marcelo da Academia')).toBeHidden()
+
+    // A entrada rápida mora dentro do bloco e leva o grupo consigo.
+    await expect(
+      page.getByRole('button', { name: 'Adicionar convidado em Tios paternos' }),
+    ).toBeVisible()
+
+    // A barra de ações em massa só existe com seleção — no mesmo molde da barra
+    // de salvar de Configurações. Sem nada marcado, ela não ocupa a base da
+    // tela.
+    await expect(page.getByText('selecionado', { exact: false })).toBeHidden()
+
+    // `toPass` na PRIMEIRA interação da tela: a página é renderizada no
+    // servidor, então a marcação existe antes de o Vue hidratar, e um clique
+    // nesse intervalo não encontra listener e se perde em silêncio.
+    const caixaDoJoao = page.getByRole('checkbox', { name: 'Selecionar Joao da Silva' })
+    await expect(async () => {
+      await caixaDoJoao.check()
+      await expect(page.getByText('1 selecionado')).toBeVisible({ timeout: 1_000 })
+    }).toPass({ timeout: 15_000 })
+
+    await page.getByRole('button', { name: 'Limpar seleção' }).click()
+    await expect(page.getByText('1 selecionado')).toBeHidden()
+
+    // Categoria é editável só para quem NÃO tem data de nascimento — a faixa é
+    // sempre derivada, e a manual perde para uma data válida.
+    await expect(page.getByRole('combobox', { name: 'Categoria de Joao da Silva' })).toBeVisible()
 
     // --- recolher o pai recolhe a árvore ---
     //
@@ -146,7 +178,7 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     }).toPass({ timeout: 15_000 })
 
     // O cabeçalho do pai continua, com a contagem cheia: é por ele que se reabre.
-    await expect(blocoRaiz).toContainText('4 pessoas')
+    await expect(blocoRaiz).toContainText('0/4 confirmados')
 
     await blocoRaiz.click()
     await expect(blocoSubdivisao).toBeVisible()
@@ -155,14 +187,20 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     //
     // As duas telas mostram o mesmo cadastro: sem o menu nas duas, trocar de
     // visão seria um caminho de mão única.
-    await page.getByRole('link', { name: 'Visão organizada' }).click()
+    const menuDaSecao = page.getByRole('navigation', { name: 'Seção atual' })
+    await menuDaSecao.getByRole('link', { name: 'Visão Geral' }).click()
     await expect(page).toHaveURL(new RegExp(`/convidados$`), { timeout: 10_000 })
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Convidados', exact: true }),
-    ).toBeVisible()
+    // O `h1` é o mesmo nas duas visões — elas compartilham o cabeçalho de
+    // propósito, então quem diz onde se está é o item aceso do menu e o
+    // segmentado, não o título.
+    await expect(page.getByRole('heading', { level: 1, name: 'Lista de convidados' })).toBeVisible()
+    await expect(menuDaSecao.getByRole('link', { name: 'Visão Geral' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     await expect(page.getByText('Carlos Direto').first()).toBeVisible()
 
-    await page.getByRole('link', { name: 'Modo lista' }).click()
+    await menuDaSecao.getByRole('link', { name: 'Modo lista' }).click()
     await expect(page).toHaveURL(new RegExp(`/convidados/lista$`), { timeout: 10_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Lista de convidados' })).toBeVisible()
   } finally {

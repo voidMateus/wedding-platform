@@ -80,10 +80,17 @@ describe('AdminTable — cabeçalho fixo', () => {
     expect(wrapper.find('thead').classes()).toContain('sticky')
   })
 
+  // O invariante é a OPACIDADE, não qual token pinta: parado sobre as linhas,
+  // um meio-tom (`bg-algo/50`) deixa o conteúdo passar por baixo do cabeçalho.
+  // Por isso a asserção é "tem um fundo, e nenhum fundo com modificador de
+  // opacidade" — o token em si é escolha de desenho e já mudou uma vez
+  // (`surface-muted` → `surface-elevated`, quando o cabeçalho passou a recuar
+  // para o branco do cartão e a faixa de grupo virou quem carrega o tom).
   it('o cabeçalho tem fundo opaco — parado sobre as linhas, meio-tom deixaria o conteúdo passar', () => {
     const classes = mountTable().find('thead th').classes()
-    expect(classes).toContain('bg-surface-muted')
-    expect(classes.some((name) => name.startsWith('bg-surface-muted/'))).toBe(false)
+    const fundos = classes.filter((name) => name.startsWith('bg-'))
+    expect(fundos).not.toHaveLength(0)
+    expect(fundos.some((name) => name.includes('/'))).toBe(false)
     // Borda na célula, não no <thead>: é a célula que gruda.
     expect(classes).toContain('border-b')
   })

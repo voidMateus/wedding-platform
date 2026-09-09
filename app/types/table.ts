@@ -78,6 +78,13 @@ export interface AdminTableSection<T> {
   meta?: string
   /** Ícone lucide à esquerda do rótulo. */
   icon?: string
+  /**
+   * Cor do bloco (ex.: `grupos.cor`), desenhada como ponto ao lado do rótulo —
+   * mesmo tratamento da tela de Grupos. Ponto, e não fundo da linha: cor
+   * arbitrária vinda do banco atrás de texto não tem contraste garantido, e o
+   * bloco já se distingue pela tipografia.
+   */
+  cor?: string | null
   rows: readonly T[]
 }
 

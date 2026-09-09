@@ -9,7 +9,15 @@ function grupo(id: string, nome: string, grupo_pai_id: string | null = null) {
 }
 
 function convidado(id: string, grupo_id: string | null = null) {
-  return { id, grupo_id }
+  return { id, grupo_id, status_rsvp: 'pendente' as const }
+}
+
+function convidadoComStatus(
+  id: string,
+  grupo_id: string | null,
+  status_rsvp: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido',
+) {
+  return { id, grupo_id, status_rsvp }
 }
 
 const MATEUS = grupo('r1', 'Família do Mateus')
@@ -38,14 +46,9 @@ describe('montarSecoesDeConvidados', () => {
       [MATEUS, TIOS],
     )
 
-    expect(secoes[0]?.meta).toBe('3 pessoas')
-    expect(secoes[1]?.meta).toBe('2 pessoas')
-  })
-
-  it('singulariza a contagem de uma pessoa só', () => {
-    const secoes = montarSecoesDeConvidados([convidado('g1', 'r1')], [MATEUS])
-
-    expect(secoes[0]?.meta).toBe('1 pessoa')
+    // O denominador é o total da árvore; o numerador vem do mesmo rollup.
+    expect(secoes[0]?.meta).toBe('0/3 confirmados')
+    expect(secoes[1]?.meta).toBe('0/2 confirmados')
   })
 
   // Recolher o pai tem que recolher a árvore: a AdminTable só esconde as linhas
@@ -60,7 +63,7 @@ describe('montarSecoesDeConvidados', () => {
     expect(secoes.map((s) => s.label)).toEqual(['Família do Mateus'])
     // O cabeçalho do pai continua, com a contagem cheia — é por ele que se
     // reabre o bloco.
-    expect(secoes[0]?.meta).toBe('2 pessoas')
+    expect(secoes[0]?.meta).toBe('0/2 confirmados')
   })
 
   it('mantém grupo vazio quando não há filtro — é onde o casal vai adicionar gente', () => {
@@ -109,5 +112,58 @@ describe('montarSecoesDeConvidados', () => {
     )
 
     expect(secoes.map((s) => s.label)).toEqual(['Amigos', 'Ávila', 'Zelda'])
+  })
+
+  describe('contagem de confirmados no cabeçalho', () => {
+    it('anuncia quantos confirmaram, somando as subdivisões na raiz', () => {
+      const secoes = montarSecoesDeConvidados(
+        [
+          convidadoComStatus('g1', 'r1', 'pendente'),
+          convidadoComStatus('g2', 's1', 'confirmado'),
+          convidadoComStatus('g3', 's1', 'confirmado'),
+          convidadoComStatus('g4', 's1', 'recusado'),
+        ],
+        [MATEUS, TIOS],
+      )
+
+      // A raiz não tem confirmado NENHUM próprio: os dois estão na subdivisão.
+      // Sem o rollup ela diria "0 confirmaram" com dois logo abaixo.
+      // Mesma forma da tela de Grupos: "confirmados/total confirmados".
+      expect(secoes.map((s) => [s.label, s.meta])).toEqual([
+        ['Família do Mateus', '2/4 confirmados'],
+        ['Tios paternos', '2/3 confirmados'],
+      ])
+    })
+
+    it('mostra o zero no numerador quando o grupo tem gente e ninguém confirmou', () => {
+      const secoes = montarSecoesDeConvidados(
+        [convidadoComStatus('g1', 'r1', 'pendente'), convidadoComStatus('g2', 'r1', 'pendente')],
+        [MATEUS],
+      )
+
+      expect(secoes[0]?.meta).toBe('0/2 confirmados')
+    })
+
+    // Grupo vazio mostra "0/0", igual em Grupos — sem caso especial.
+    it('mostra 0/0 no grupo vazio', () => {
+      const secoes = montarSecoesDeConvidados([], [MATEUS])
+
+      expect(secoes[0]?.meta).toBe('0/0 confirmados')
+    })
+
+    // Chamador sem status (a Visão Geral monta blocos sem o campo) não pode
+    // passar a anunciar "0 confirmaram" — isso seria afirmar o que não sabe.
+    it('conta só quem está em "confirmado", ignorando os outros estados', () => {
+      const secoes = montarSecoesDeConvidados(
+        [
+          convidadoComStatus('g1', 'r1', 'lista_espera'),
+          convidadoComStatus('g2', 'r1', 'recusado'),
+          convidadoComStatus('g3', 'r1', 'confirmado'),
+        ],
+        [MATEUS],
+      )
+
+      expect(secoes[0]?.meta).toBe('1/3 confirmados')
+    })
   })
 })

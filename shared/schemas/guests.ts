@@ -76,6 +76,32 @@ export const guestQuickCreateSchema = z.object({
 
 export type GuestQuickCreateInput = z.infer<typeof guestQuickCreateSchema>
 
+/**
+ * Ação em massa da lista: aplica o MESMO valor a vários convidados.
+ *
+ * Só os campos que a tela oferece em lote, e nenhum a mais. Grupo e faixa
+ * manual são update simples; convite e núcleo ficam de fora de propósito —
+ * os dois exigem orquestração transacional (`sincronizar_nucleo_convidado`),
+ * e um "update em lote" que atravessasse isso quebraria a garantia de que
+ * ninguém entra em dois convites.
+ *
+ * `undefined` significa "não mexer"; `null` em `grupoId` desvincula do grupo.
+ * A distinção existe porque tirar todo mundo de um grupo é uma ação real, e
+ * sem `null` explícito ela não teria representação.
+ */
+export const guestBulkUpdateSchema = z
+  .object({
+    ids: z.array(z.string().uuid()).min(1, 'Selecione ao menos um convidado.').max(500),
+    grupoId: z.string().uuid().nullish(),
+    faixaEtariaManual: z.enum(FAIXA_ETARIA_CHAVES).nullish(),
+  })
+  .refine(
+    (input) => input.grupoId !== undefined || input.faixaEtariaManual !== undefined,
+    'Informe o que alterar.',
+  )
+
+export type GuestBulkUpdateInput = z.infer<typeof guestBulkUpdateSchema>
+
 export const guestPartyReorderSchema = z.object({
   partyId: z.string().uuid(),
   orderedGuestIds: z.array(z.string().uuid()).min(1),

@@ -1,5 +1,6 @@
 import { nomeDoArquivoDaExportacao } from '#shared/utils/exportacao-convidados'
 import type {
+  GuestBulkUpdateInput,
   GuestPartyReorderInput,
   GuestPartySyncInput,
   GuestQuickCreateInput,
@@ -45,6 +46,16 @@ interface GuestListParams {
   dir?: 'asc' | 'desc'
 }
 
+/**
+ * Os números da lista inteira, para o cabeçalho de Convidados. Descrevem o
+ * casamento, nunca o recorte da tela — ver `GET /api/guests/overview`.
+ */
+export interface GuestOverview {
+  total: number
+  emConsideracao: number
+  faixas: { chave: string; total: number }[]
+}
+
 export interface GuestDetail extends Guest {
   partyMembers: Guest[]
   invite: { id: string; nome: string } | null
@@ -63,6 +74,14 @@ interface GuestPartySyncResult {
 export function useGuests() {
   function listGuests(params?: MaybeRefOrGetter<GuestListParams | undefined>) {
     return useFetch<GuestListResponse>('/api/guests', { query: params, key: 'guests' })
+  }
+
+  /**
+   * Chave fixa: as duas visões de Convidados compartilham a mesma resposta, e
+   * ela não muda com filtro — por isso nenhum recorte entra no `key`.
+   */
+  function getGuestOverview() {
+    return useFetch<GuestOverview>('/api/guests/overview', { key: 'guest-overview' })
   }
 
   function getGuest(id: MaybeRefOrGetter<string>) {
@@ -95,6 +114,14 @@ export function useGuests() {
    */
   async function createGuest(input: GuestQuickCreateInput): Promise<Guest> {
     return $fetch<Guest>('/api/guests', { method: 'POST', body: input })
+  }
+
+  /**
+   * Aplica o mesmo valor a vários convidados (grupo ou faixa manual). Campo
+   * ausente é "não mexer" — ver `guestBulkUpdateSchema`.
+   */
+  async function bulkUpdateGuests(input: GuestBulkUpdateInput): Promise<{ atualizados: number }> {
+    return $fetch<{ atualizados: number }>('/api/guests/bulk', { method: 'PATCH', body: input })
   }
 
   async function deleteGuest(id: string): Promise<{ id: string }> {
@@ -137,10 +164,12 @@ export function useGuests() {
 
   return {
     listGuests,
+    getGuestOverview,
     getGuest,
     fetchGuests,
     fetchGuestDetail,
     createGuest,
+    bulkUpdateGuests,
     syncGuestParty,
     reorderGuestParty,
     deleteGuest,

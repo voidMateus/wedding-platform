@@ -10,7 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const slug = useActiveWeddingSlug()
 
-const { listGuests, deleteGuest, exportGuests } = useGuests()
+const { listGuests, deleteGuest, exportGuests, getGuestOverview } = useGuests()
 const { listGroups } = useGroups()
 const { classify, label: ageGroupLabel, originLabel, filterChips } = useAgeGroups()
 
@@ -101,6 +101,17 @@ const listParams = computed(() => ({
 }))
 
 const { data, status, error, refresh } = listGuests(listParams)
+// Mesmo cabeçalho do Modo lista, mesmos números: a visão geral descreve o
+// casamento, não o recorte desta tela (que é paginada).
+const { data: overview, refresh: refreshOverview } = getGuestOverview()
+
+/**
+ * A listagem e os números do cabeçalho vêm de requisições diferentes —
+ * recarregar só uma deixaria o total mentindo depois de cadastrar ou excluir.
+ */
+async function recarregarTudo() {
+  await Promise.all([refresh(), refreshOverview()])
+}
 
 // Esqueleto só na primeira carga. Trocar a tabela por esqueleto a cada recorte
 // desmontaria o cabeçalho — e com ele o menu de filtro aberto, que é onde o
@@ -126,14 +137,6 @@ const peopleLabel = computed(() => {
   const total = data.value?.meta.total ?? 0
   return `${total} ${total === 1 ? 'pessoa' : 'pessoas'}`
 })
-
-// Descreve o recorte inteiro (filtro de nome/grupo incluído), não a página —
-// é por isso que o confirmado vem agregado de /api/guests e não de `data`.
-const totalLabel = computed(() => {
-  const confirmed = data.value?.summary.confirmed ?? 0
-  return `${peopleLabel.value} · ${confirmed} confirmado${confirmed === 1 ? '' : 's'}`
-})
-
 // 👥 acompanhantes — contagem por nucleo_id na página atual (sem round-trip
 // extra: a listagem já traz nucleo_id, só precisa agrupar).
 const companionCountByParty = computed(() => {
@@ -234,7 +237,7 @@ watch(isImportModalOpen, (aberto) => {
 })
 
 async function handleImported() {
-  await refresh()
+  await recarregarTudo()
 }
 
 // Exporta o MESMO recorte que a tabela está mostrando (`listParams`), não a
@@ -263,7 +266,7 @@ function closeGuestModal() {
 }
 
 async function handleGuestSaved() {
-  await refresh()
+  await recarregarTudo()
   closeGuestModal()
 }
 
@@ -285,7 +288,7 @@ async function confirmDelete() {
     await deleteGuest(deleteTarget.value.id)
     isDeleteModalOpen.value = false
     deleteTarget.value = null
-    await refresh()
+    await recarregarTudo()
   } finally {
     isDeleting.value = false
   }
@@ -293,202 +296,192 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-    <AdminGuestsGuestSectionNav :slug="slug" />
+  <div class="flex flex-col gap-6">
+    <!-- O MESMO cabeçalho do Modo lista: as duas visões mostram o mesmo
+         cadastro, e um cabeçalho diferente em cada uma sugeriria áreas
+         diferentes do sistema. Ver AdminGuestsGuestListHeader. -->
+    <AdminGuestsGuestListHeader
+      :slug="slug"
+      :busca="searchDraft"
+      :exportando="isExporting"
+      @update:busca="searchDraft = $event"
+      @adicionar="openCreateGuest"
+      @exportar="handleExport"
+    />
 
-    <div class="min-w-0 flex-1">
-      <AdminSection title="Convidados" :meta="totalLabel">
-        <template #actions>
-          <UiInput
-            v-model="searchDraft"
-            icon="lucide:search"
-            tone="muted"
-            aria-label="Filtrar convidados por nome"
-            placeholder="Filtrar por nome..."
-            class="w-full sm:w-64"
-          />
-          <UiButton variant="ghost" :disabled="isExporting" @click="handleExport">
-            <Icon name="lucide:download" class="h-4 w-4" />
-            {{ isExporting ? 'Exportando...' : 'Exportar' }}
-          </UiButton>
-          <UiButton variant="ghost" @click="isImportModalOpen = true">
-            <Icon name="lucide:upload" class="h-4 w-4" />
-            Importar
-          </UiButton>
-          <UiButton @click="openCreateGuest">
-            <Icon name="lucide:plus" class="h-4 w-4" />
-            Adicionar convidado
-          </UiButton>
-        </template>
+    <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
+      <template #headerActions>
+        <AdminGuestsGuestListCounters
+          :total="overview?.total ?? 0"
+          :em-consideracao="overview?.emConsideracao ?? 0"
+          :faixas="overview?.faixas ?? []"
+          class="mr-auto"
+        />
 
-        <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
-          <template #headerActions>
-            <AdminTableFilterBar
-              :columns="columns"
-              :filters="filters"
-              group-label="Filtros da lista de convidados"
-            />
-          </template>
+        <AdminTableFilterBar
+          :columns="columns"
+          :filters="filters"
+          group-label="Filtros da lista de convidados"
+        />
+      </template>
 
-          <div v-if="isFirstLoad" class="flex flex-col gap-2 p-4 sm:p-5">
-            <UiSkeleton v-for="n in 3" :key="n" class="h-12 w-full" />
-          </div>
+      <div v-if="isFirstLoad" class="flex flex-col gap-2 p-4 sm:p-5">
+        <UiSkeleton v-for="n in 3" :key="n" class="h-12 w-full" />
+      </div>
 
-          <div v-else-if="error" class="p-4 sm:p-5">
-            <UiEmptyState
-              icon="lucide:alert-triangle"
-              title="Não foi possível carregar os convidados"
-              description="Verifique sua conexão e tente novamente."
-            >
-              <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
-            </UiEmptyState>
-          </div>
+      <div v-else-if="error" class="p-4 sm:p-5">
+        <UiEmptyState
+          icon="lucide:alert-triangle"
+          title="Não foi possível carregar os convidados"
+          description="Verifique sua conexão e tente novamente."
+        >
+          <UiButton variant="ghost" @click="refresh()">Tentar novamente</UiButton>
+        </UiEmptyState>
+      </div>
 
-          <template v-else>
-            <div :class="isRefreshing && 'opacity-60'" class="transition-brand">
-              <AdminTable
-                :columns="columns"
-                :rows="data?.data ?? []"
-                :filters="filters"
-                :is-expanded="isPartyExpanded"
-                row-clickable
-                empty-label="Nenhum convidado com esses filtros."
-                @row-click="openEditGuest"
+      <template v-else>
+        <div :class="isRefreshing && 'opacity-60'" class="transition-brand">
+          <AdminTable
+            :columns="columns"
+            :rows="data?.data ?? []"
+            :filters="filters"
+            :is-expanded="isPartyExpanded"
+            row-clickable
+            empty-label="Nenhum convidado com esses filtros."
+            @row-click="openEditGuest"
+          >
+            <template #cell-nome="{ row }">
+              <button
+                type="button"
+                class="font-medium text-text transition-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                @click="openEditGuest(row)"
               >
-                <template #cell-nome="{ row }">
-                  <button
-                    type="button"
-                    class="font-medium text-text transition-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    @click="openEditGuest(row)"
-                  >
-                    {{ row.nome_completo }}
-                  </button>
-                  <!-- primary: papel no casamento é identidade, não estado. -->
-                  <UiBadge v-if="row.papel_casamento" tone="primary" class="ml-2">
-                    {{ row.papel_casamento === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
-                  </UiBadge>
-                </template>
+                {{ row.nome_completo }}
+              </button>
+              <!-- primary: papel no casamento é identidade, não estado. -->
+              <UiBadge v-if="row.papel_casamento" tone="primary" class="ml-2">
+                {{ row.papel_casamento === 'padrinho' ? 'Padrinho' : 'Madrinha' }}
+              </UiBadge>
+            </template>
 
-                <!-- Sempre a classificação válida PARA ESTE evento: derivada da
+            <!-- Sempre a classificação válida PARA ESTE evento: derivada da
                idade na data do casamento contra as faixas configuradas, com a
                procedência no title (calculada x informada à mão). -->
-                <template #cell-status="{ row }">
-                  <UiBadge :tone="rsvpStatusPresentation(row.status_rsvp).tone">
-                    {{ rsvpStatusPresentation(row.status_rsvp).label }}
-                  </UiBadge>
-                </template>
+            <template #cell-status="{ row }">
+              <UiBadge :tone="rsvpStatusPresentation(row.status_rsvp).tone">
+                {{ rsvpStatusPresentation(row.status_rsvp).label }}
+              </UiBadge>
+            </template>
 
-                <template #cell-faixa="{ row }">
-                  <span class="text-text-muted" :title="ageGroupByGuest.get(row.id)?.title">
-                    {{ ageGroupByGuest.get(row.id)?.label ?? '—' }}
-                  </span>
-                </template>
+            <template #cell-faixa="{ row }">
+              <span class="text-text-muted" :title="ageGroupByGuest.get(row.id)?.title">
+                {{ ageGroupByGuest.get(row.id)?.label ?? '—' }}
+              </span>
+            </template>
 
-                <template #cell-grupo="{ row }">
-                  <span class="text-text-muted">{{ groupNameOf(row) }}</span>
-                </template>
+            <template #cell-grupo="{ row }">
+              <span class="text-text-muted">{{ groupNameOf(row) }}</span>
+            </template>
 
-                <template #cell-acompanhantes="{ row }">
-                  <button
-                    v-if="companionCount(row) > 0"
-                    type="button"
-                    class="inline-flex items-center gap-1 text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    :aria-expanded="isPartyExpanded(row)"
-                    @click="togglePartyExpand(row)"
-                  >
-                    <Icon
-                      :name="isPartyExpanded(row) ? 'lucide:chevron-up' : 'lucide:chevron-down'"
-                      class="h-3.5 w-3.5"
-                    />
-                    <span class="num">{{ companionCount(row) }}</span>
-                  </button>
-                  <span v-else class="text-text-muted">—</span>
-                </template>
+            <template #cell-acompanhantes="{ row }">
+              <button
+                v-if="companionCount(row) > 0"
+                type="button"
+                class="inline-flex items-center gap-1 text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :aria-expanded="isPartyExpanded(row)"
+                @click="togglePartyExpand(row)"
+              >
+                <Icon
+                  :name="isPartyExpanded(row) ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+                  class="h-3.5 w-3.5"
+                />
+                <span class="num">{{ companionCount(row) }}</span>
+              </button>
+              <span v-else class="text-text-muted">—</span>
+            </template>
 
-                <template #cell-acoes="{ row }">
-                  <span class="inline-flex justify-end gap-1">
-                    <AdminRowAction
-                      icon="lucide:pencil"
-                      :label="`Editar ${row.nome_completo}`"
-                      @click="openEditGuest(row)"
-                    />
-                    <AdminRowAction
-                      icon="lucide:trash-2"
-                      tone="danger"
-                      :label="`Excluir ${row.nome_completo}`"
-                      @click="openDeleteModal(row)"
-                    />
-                  </span>
-                </template>
+            <template #cell-acoes="{ row }">
+              <span class="inline-flex justify-end gap-1">
+                <AdminRowAction
+                  icon="lucide:pencil"
+                  :label="`Editar ${row.nome_completo}`"
+                  @click="openEditGuest(row)"
+                />
+                <AdminRowAction
+                  icon="lucide:trash-2"
+                  tone="danger"
+                  :label="`Excluir ${row.nome_completo}`"
+                  @click="openDeleteModal(row)"
+                />
+              </span>
+            </template>
 
-                <template #detail="{ row }">
-                  <p class="mb-1 text-xs uppercase tracking-wide text-text-muted">Acompanhantes</p>
-                  <ul class="flex flex-col gap-1 text-sm text-text-muted">
-                    <li v-for="companion in companionsOf(row)" :key="companion.id">
-                      {{ companion.nome_completo }}
-                    </li>
-                  </ul>
-                </template>
-              </AdminTable>
-            </div>
+            <template #detail="{ row }">
+              <p class="mb-1 text-xs uppercase tracking-wide text-text-muted">Acompanhantes</p>
+              <ul class="flex flex-col gap-1 text-sm text-text-muted">
+                <li v-for="companion in companionsOf(row)" :key="companion.id">
+                  {{ companion.nome_completo }}
+                </li>
+              </ul>
+            </template>
+          </AdminTable>
+        </div>
 
-            <div
-              class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-text-muted sm:px-5"
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-text-muted sm:px-5"
+        >
+          <span>{{ peopleLabel }}</span>
+          <div class="flex items-center gap-2">
+            <UiButton
+              size="sm"
+              variant="ghost"
+              :disabled="page <= 1"
+              @click="page = Math.max(1, page - 1)"
             >
-              <span>{{ peopleLabel }}</span>
-              <div class="flex items-center gap-2">
-                <UiButton
-                  size="sm"
-                  variant="ghost"
-                  :disabled="page <= 1"
-                  @click="page = Math.max(1, page - 1)"
-                >
-                  Anterior
-                </UiButton>
-                <span>Página {{ page }} de {{ totalPages }}</span>
-                <UiButton
-                  size="sm"
-                  variant="ghost"
-                  :disabled="page >= totalPages"
-                  @click="page = Math.min(totalPages, page + 1)"
-                >
-                  Próxima
-                </UiButton>
-              </div>
-            </div>
-          </template>
-        </AdminPanel>
-
-        <AdminGuestsGuestPartyModal
-          :model-value="isGuestModalOpen"
-          :guest-id="editingGuestId"
-          @update:model-value="(isOpen) => !isOpen && closeGuestModal()"
-          @saved="handleGuestSaved"
-        />
-
-        <AdminGuestsGuestImportModal
-          v-model="isImportModalOpen"
-          @imported="handleImported"
-          @request-template="isTemplateModalOpen = true"
-        />
-
-        <AdminGuestsGuestImportTemplateModal v-model="isTemplateModalOpen" />
-
-        <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
-          <p class="text-sm text-text">
-            Tem certeza que deseja excluir <strong>{{ deleteTarget?.nome_completo }}</strong
-            >? O histórico de RSVP/presentes associados é preservado.
-          </p>
-          <template #footer>
-            <UiButton variant="ghost" :disabled="isDeleting" @click="isDeleteModalOpen = false">
-              Cancelar
+              Anterior
             </UiButton>
-            <UiButton variant="destructive" :disabled="isDeleting" @click="confirmDelete">
-              Excluir
+            <span>Página {{ page }} de {{ totalPages }}</span>
+            <UiButton
+              size="sm"
+              variant="ghost"
+              :disabled="page >= totalPages"
+              @click="page = Math.min(totalPages, page + 1)"
+            >
+              Próxima
             </UiButton>
-          </template>
-        </UiModal>
-      </AdminSection>
-    </div>
+          </div>
+        </div>
+      </template>
+    </AdminPanel>
+
+    <AdminGuestsGuestPartyModal
+      :model-value="isGuestModalOpen"
+      :guest-id="editingGuestId"
+      @update:model-value="(isOpen) => !isOpen && closeGuestModal()"
+      @saved="handleGuestSaved"
+    />
+
+    <AdminGuestsGuestImportModal
+      v-model="isImportModalOpen"
+      @imported="handleImported"
+      @request-template="isTemplateModalOpen = true"
+    />
+
+    <AdminGuestsGuestImportTemplateModal v-model="isTemplateModalOpen" />
+
+    <UiModal v-model="isDeleteModalOpen" title="Excluir convidado">
+      <p class="text-sm text-text">
+        Tem certeza que deseja excluir <strong>{{ deleteTarget?.nome_completo }}</strong
+        >? O histórico de RSVP/presentes associados é preservado.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" :disabled="isDeleting" @click="isDeleteModalOpen = false">
+          Cancelar
+        </UiButton>
+        <UiButton variant="destructive" :disabled="isDeleting" @click="confirmDelete">
+          Excluir
+        </UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

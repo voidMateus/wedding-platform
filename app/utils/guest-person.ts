@@ -4,9 +4,9 @@ import type { GuestDetail } from '~/composables/useGuests'
 /**
  * Tradução entre a linha de `convidados` e o objeto que o formulário edita.
  *
- * Vive aqui, e não dentro de cada passo do wizard, porque o convidado
- * principal (`GuestPartyWizard`) e cada acompanhante
- * (`GuestPartyCompanionsStep`) editam exatamente o mesmo shape — os dois
+ * Vive aqui, e não dentro de cada componente do cadastro, porque o convidado
+ * principal (`GuestPartyModal`) e cada acompanhante
+ * (`GuestPartyCompanions`) editam exatamente o mesmo shape — os dois
  * tinham cópias idênticas destas funções, e um campo novo que entrasse só numa
  * delas sumiria silenciosamente na outra (foi o que quase aconteceu ao ligar
  * e-mail/telefone). Acompanhante é uma linha de `convidados` como qualquer
