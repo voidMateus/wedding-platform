@@ -21,12 +21,14 @@ Preencha o `.env` com as credenciais do seu projeto Supabase e os demais serviç
 
 ## Banco de dados
 
-Migrations versionadas em `supabase/migrations/`. Para aplicar num projeto Supabase:
+Migrations versionadas em `supabase/migrations/`. Para aplicar num projeto Supabase de desenvolvimento:
 
 ```bash
 npx supabase link --project-ref <seu-project-ref>
 npx supabase db push
 ```
+
+Em **produção não se faz isso à mão**: o job `migrate-prod` do CI aplica as migrations pendentes a cada merge em `main` (docs/ARCHITECTURE.md seção 4.2).
 
 ## Desenvolvimento
 

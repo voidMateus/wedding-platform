@@ -1,6 +1,6 @@
 name: CI
 
-# Gate obrigatório antes de merge (CLAUDE.md, seção 29): lint, type-check,
+# Gate obrigatório antes de merge (CLAUDE.md, seção 14): lint, type-check,
 # testes unitários, testes de integração (contra Supabase local via Docker
 # — docs/ARCHITECTURE.md seção 9.6) e build.
 #
@@ -12,6 +12,12 @@ name: CI
 # POST /api/guest-access-tokens responde 500, achado real deste workflow),
 # CRON_SECRET — configurados como GitHub Secrets deste repositório (mesmos
 # valores do projeto `dev`, reaproveitados; nunca os de `prod`).
+#
+# Em `push` na main (merge de PR) roda também o job `migrate-prod`, que aplica
+# as migrations pendentes no projeto Supabase de produção — antes disso essa
+# promoção era um passo manual rodado da máquina do dev. Ele precisa do secret
+# SUPABASE_PROD_DB_URL: a connection string completa do `prod`, e o ÚNICO
+# secret deste repositório que aponta para produção.
 
 on:
   pull_request:
@@ -75,3 +81,60 @@ jobs:
       - name: Encerra Supabase local
         if: always()
         run: supabase stop
+
+  # Promoção automática das migrations para `prod` (docs/ARCHITECTURE.md 4.2).
+  # Substitui o passo manual (`supabase link` + `db push` da máquina do dev),
+  # que dependia de alguém lembrar de rodá-lo depois do merge.
+  #
+  # Deliberadamente NÃO declara `needs: ci`: o deploy de produção da Vercel
+  # começa no mesmo instante deste push e leva ~2-3min (build do Nuxt), enquanto
+  # o job `ci` acima leva bem mais (Docker + Supabase local + integração).
+  # Gatear a migration no `ci` colocaria o schema no ar DEPOIS do código que
+  # depende dele — exatamente o buraco que derrubou o login inteiro em produção
+  # quando a `20260824090001_operadores_plataforma` atrasou. O gate real das
+  # migrations é a execução de `pull_request` deste mesmo workflow, que aplica
+  # todas elas contra o Postgres local antes do merge; `main` é branch protegida
+  # (CLAUDE.md seção 14), então nenhum push chega aqui sem esse gate ter passado.
+  migrate-prod:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Dois merges em sequência não podem empurrar migrations concorrentemente
+    # contra o mesmo banco — a segunda execução espera a primeira terminar.
+    concurrency:
+      group: migrate-prod
+      cancel-in-progress: false
+    env:
+      PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Confere que o secret de prod existe
+        # Sem esta guarda, um secret ausente/renomeado faria o `db push` falhar
+        # com "failed to connect" — erro que parece instabilidade de rede e não
+        # aponta para a causa real.
+        run: |
+          if [ -z "$PROD_DB_URL" ]; then
+            echo "::error::Secret SUPABASE_PROD_DB_URL não configurado — migrations NÃO foram aplicadas em prod."
+            exit 1
+          fi
+
+      - name: Estado do prod antes do push
+        run: supabase migration list --db-url "$PROD_DB_URL"
+
+      - name: Aplica as migrations pendentes em prod
+        # `--include-all`: uma branch pode carregar migration com timestamp
+        # ANTERIOR à última já aplicada em prod — acontece sempre que duas
+        # branches vivem em paralelo e mergeiam fora de ordem (caso real da
+        # `20260904170001_contato_do_convidado`). Sem a flag, o push ignora
+        # essas em silêncio.
+        run: supabase db push --include-all --yes --db-url "$PROD_DB_URL"
+
+      - name: Confirma estado final (local == remote)
+        # O `db push` com `--include-all` imprime `upToDate: true` descrevendo o
+        # estado DEPOIS de aplicar, não "não fiz nada" — a prova do que
+        # aconteceu é este `migration list`, nunca a mensagem do push.
+        run: supabase migration list --db-url "$PROD_DB_URL"
