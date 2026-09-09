@@ -5,6 +5,7 @@ import {
   classificarFaixaEtaria,
   descreverLimitesFaixaEtaria,
   limitesNascimentoFaixaEtaria,
+  faixaAtivaEquivalente,
   resolverFaixasEtarias,
   type FaixaEtaria,
 } from '#shared/utils/faixa-etaria'
@@ -29,6 +30,12 @@ const FAIXAS_CRIANCA_ATE_7: FaixaEtaria[] = [
 function convidado(dataNascimento: string | null, faixaManual: string | null = null) {
   return { data_nascimento: dataNascimento, faixa_etaria_manual: faixaManual }
 }
+
+/** Evento que separa só em criança e adulto — Adolescente e Idoso desligados. */
+const FAIXAS_SO_DUAS: FaixaEtaria[] = [
+  { chave: 'crianca', idadeMinima: 0, idadeMaxima: 17 },
+  { chave: 'adulto', idadeMinima: 18, idadeMaxima: null },
+]
 
 describe('calcularIdadeNaData', () => {
   it('aniversário antes do evento: já fez, conta o ano', () => {
@@ -243,5 +250,75 @@ describe('descreverLimitesFaixaEtaria', () => {
   it('descreve faixa fechada e faixa aberta', () => {
     expect(descreverLimitesFaixaEtaria(FAIXAS_ETARIAS_PADRAO[0]!)).toBe('0 a 11 anos')
     expect(descreverLimitesFaixaEtaria(FAIXAS_ETARIAS_PADRAO[3]!)).toBe('60 anos ou mais')
+  })
+})
+
+describe('faixa desligada pelo evento', () => {
+  // Desligar uma faixa é configuração do EVENTO, não edição do cadastro das
+  // pessoas: a linha em `convidados.faixa_etaria_manual` fica intacta, e quem
+  // se adapta é a leitura. Religar a faixa devolve a marcação original.
+  it('lê um "adolescente" como a faixa que herdou o território dele', () => {
+    const resultado = classificarFaixaEtaria(
+      convidado(null, 'adolescente'),
+      FAIXAS_SO_DUAS,
+      DATA_EVENTO,
+    )
+
+    expect(resultado).toEqual({ chave: 'crianca', origem: 'manual', idadeNoEvento: null })
+  })
+
+  it('lê um "idoso" como adulto quando Idoso está desligado', () => {
+    const resultado = classificarFaixaEtaria(convidado(null, 'idoso'), FAIXAS_SO_DUAS, DATA_EVENTO)
+
+    expect(resultado.chave).toBe('adulto')
+    expect(resultado.origem).toBe('manual')
+  })
+
+  // A herança é para BAIXO (a vizinha mais nova estica), então uma idade que
+  // caía na faixa desligada tem que continuar caindo em alguma faixa.
+  it('classifica por idade sem deixar vão onde a faixa foi desligada', () => {
+    const quatorzeAnos = classificarFaixaEtaria(
+      convidado('2013-01-10'),
+      FAIXAS_SO_DUAS,
+      DATA_EVENTO,
+    )
+
+    expect(quatorzeAnos.idadeNoEvento).toBe(14)
+    expect(quatorzeAnos).toMatchObject({ chave: 'crianca', origem: 'calculada' })
+  })
+
+  it('devolve a marcação original quando a faixa volta a ser usada', () => {
+    const resultado = classificarFaixaEtaria(
+      convidado(null, 'adolescente'),
+      FAIXAS_ETARIAS_PADRAO,
+      DATA_EVENTO,
+    )
+
+    expect(resultado.chave).toBe('adolescente')
+  })
+})
+
+describe('faixaAtivaEquivalente', () => {
+  it('devolve a própria faixa quando ela está ativa', () => {
+    expect(faixaAtivaEquivalente('adulto', FAIXAS_SO_DUAS)).toBe('adulto')
+  })
+
+  it('procura para baixo — é o lado que herda o território', () => {
+    expect(faixaAtivaEquivalente('adolescente', FAIXAS_SO_DUAS)).toBe('crianca')
+  })
+
+  // Configuração sem as faixas de baixo (montada à mão; o schema aceita, já
+  // que ela cobre do 0) faz o território subir em vez de descer.
+  it('procura para cima quando não há faixa ativa abaixo', () => {
+    const semCrianca: FaixaEtaria[] = [
+      { chave: 'adulto', idadeMinima: 0, idadeMaxima: 59 },
+      { chave: 'idoso', idadeMinima: 60, idadeMaxima: null },
+    ]
+
+    expect(faixaAtivaEquivalente('crianca', semCrianca)).toBe('adulto')
+  })
+
+  it('devolve null quando não há faixa nenhuma', () => {
+    expect(faixaAtivaEquivalente('crianca', [])).toBeNull()
   })
 })

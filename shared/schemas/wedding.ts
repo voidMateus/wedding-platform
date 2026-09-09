@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   FAIXA_ETARIA_CHAVES,
+  MIN_FAIXAS_ETARIAS_ATIVAS,
   FAIXA_ETARIA_ROTULOS,
   IDADE_MAXIMA_SUPORTADA,
 } from '#shared/utils/faixa-etaria'
@@ -34,32 +35,49 @@ export const faixaEtariaSchema = z.object({
  * seria aceito e a classificação passaria a depender da ordem do array — e
  * "Criança 0–7 / Adolescente 10–17" deixaria as idades 8 e 9 sem faixa.
  *
- * O conjunto de faixas é fixo nesta versão (o catálogo de
- * `FAIXA_ETARIA_CHAVES`, que espelha o CHECK de
- * `convidados.faixa_etaria_manual`); só os limites são configuráveis. As
- * idades mínimas chegam no payload mesmo sendo deriváveis da faixa anterior:
+ * O evento **escolhe quais** faixas do catálogo usa (`FAIXA_ETARIA_CHAVES`,
+ * que espelha o CHECK de `convidados.faixa_etaria_manual`) e os limites de
+ * cada uma. Nem toda festa separa em quatro: muitas querem só duas, "criança"
+ * e "adulto". O array é a própria lista de faixas ativas — faixa desligada é
+ * faixa ausente, sem campo `ativa` a mais.
+ *
+ * O que NÃO é negociável é a cobertura: as faixas presentes têm que cobrir de
+ * 0 a ∞ sem vão e sem sobreposição. É por isso que "desligar" não pode ser só
+ * remover do array — alguém tem que herdar o território, senão um convidado de
+ * 14 anos deixa de casar com qualquer faixa e vira "não informada" em silêncio,
+ * na lista inteira. As validações de continuidade abaixo são o que garante isso
+ * independentemente de quantas faixas sobraram.
+ *
+ * As idades mínimas chegam no payload mesmo sendo deriváveis da faixa anterior:
  * é o que mantém `classificarFaixaEtaria` uma função pura do array, sem
  * pressupor continuidade — necessário para as classificações por finalidade
  * (alimentação, mesas) previstas no futuro.
  */
 export const faixasEtariasSchema = z.array(faixaEtariaSchema).superRefine((faixas, ctx) => {
-  if (faixas.length !== FAIXA_ETARIA_CHAVES.length) {
+  if (faixas.length < MIN_FAIXAS_ETARIAS_ATIVAS) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Informe as ${FAIXA_ETARIA_CHAVES.length} faixas da classificação etária.`,
+      message: `A classificação precisa de pelo menos ${MIN_FAIXAS_ETARIAS_ATIVAS} faixas.`,
     })
     return
   }
 
-  for (const [index, chaveEsperada] of FAIXA_ETARIA_CHAVES.entries()) {
-    if (faixas[index]?.chave !== chaveEsperada) {
+  // Subsequência da ordem do catálogo: as faixas que sobraram podem ser
+  // quaisquer, mas nunca repetidas nem fora de ordem — a continuidade abaixo é
+  // verificada de vizinha em vizinha, e fora de ordem ela validaria um array
+  // que classifica pela posição, não pela idade.
+  let posicaoAnterior = -1
+  for (const [index, faixa] of faixas.entries()) {
+    const posicao = FAIXA_ETARIA_CHAVES.indexOf(faixa.chave)
+    if (posicao <= posicaoAnterior) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: [index, 'chave'],
-        message: `A faixa nesta posição precisa ser "${FAIXA_ETARIA_ROTULOS[chaveEsperada]}".`,
+        message: `A faixa "${FAIXA_ETARIA_ROTULOS[faixa.chave]}" está repetida ou fora da ordem de idade.`,
       })
       return
     }
+    posicaoAnterior = posicao
   }
 
   faixas.forEach((faixa, index) => {
