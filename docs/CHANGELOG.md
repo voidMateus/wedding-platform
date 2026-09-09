@@ -602,3 +602,9 @@ O que se repetia em três páginas virou componente: `PublicPageHeader` (eyebrow
 O resto foi alinhamento: margem lateral de 24px em todas as páginas, cartões sem elevação (`UiCard` ganhou `elevation="none"`, para que o cartão de presente continuasse usando o componente em vez de reconstruir a moldura), ícones nos discos de ornamento, e o painel de contexto do RSVP trocando o gradiente na cor primária pela faixa bege das seções.
 
 E a guarda de layout passou a varrer **as quatro páginas públicas**, não só a home: elas herdam os mesmos componentes de cabeçalho, cartão e barra fixa, então um defeito de largura numa é um defeito em todas. `/rsvp/[code]` fica de fora por exigir um token de convite que o teste não provisiona — o fluxo dela é o mesmo de `/rsvp`.
+
+**Rodada 3.7 — o RSVP em duas colunas não sobrevivia ao desktop.** A busca de convite tinha um cartão dividido: contexto do casal à esquerda, campo à direita. No celular empilhava e funcionava bem; no desktop era um painel quase vazio flutuando ao lado de um painel cheio, e o desequilíbrio crescia com a largura da tela.
+
+A causa é estrutural, não de proporção: o lado da busca tem **uma linha de conteúdo** — um campo, e a lista de resultados só depois de alguém digitar. Não existe divisão de colunas que equilibre um lado com um campo contra um lado com nome, data, título e parágrafo; ajustar as frações só moveria o vazio de lugar.
+
+Passou a empilhar em toda largura, com o mesmo `PublicPageHeader` das demais páginas: quem é o casal, o que se pede, e então o campo. É a leitura que o celular já tinha — e que estava certa desde o começo.

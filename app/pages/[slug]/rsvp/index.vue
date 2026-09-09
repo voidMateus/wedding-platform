@@ -102,10 +102,7 @@ async function handleConfirmIdentity() {
 </script>
 
 <template>
-  <div
-    class="mx-auto flex min-h-[70vh] flex-col justify-center px-6 py-16"
-    :class="step === 'search' ? 'max-w-3xl' : 'max-w-xl'"
-  >
+  <div class="mx-auto flex min-h-[70vh] w-full max-w-xl flex-col justify-center px-6 py-16">
     <!--
       Só a etapa 'search' não tem uma "etapa anterior" real dentro do
       próprio fluxo de RSVP — por isso é a única que volta direto pro site.
@@ -123,41 +120,34 @@ async function handleConfirmIdentity() {
 
     <template v-if="step === 'search'">
       <!--
-        Cartão em duas colunas (referência de estilo: mimodocasal.com.br) —
-        painel esquerdo dá contexto emocional (casal/data), painel direito é
-        a busca de verdade. Em telas estreitas empilha (painel de contexto
-        vira um cabeçalho compacto acima do formulário).
+        Contexto em cima, busca embaixo — em TODA largura.
+        Havia aqui um cartão de duas colunas no desktop, com o contexto à
+        esquerda e o campo à direita. Não funcionava: o lado da busca tem uma
+        linha de conteúdo (um campo, e a lista de resultados só depois de
+        digitar), então ficava um painel quase vazio flutuando ao lado de um
+        painel cheio — desequilíbrio que só piorava quanto mais larga a tela.
+        Empilhado, a leitura é a mesma do celular, que já estava certa: quem é
+        o casal, o que se pede, e então o campo.
       -->
       <div
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="grid overflow-hidden rounded-xl border border-border/70 bg-surface-elevated lg:grid-cols-[0.85fr_1.15fr]"
+        class="flex flex-col gap-8"
       >
-        <div class="flex flex-col justify-center gap-4 bg-surface-muted p-8 sm:p-10">
-          <span
-            class="flex h-11 w-11 items-center justify-center rounded-full bg-ornament/15 text-ornament"
-          >
-            <Icon name="lucide:mail-check" class="h-5 w-5" />
-          </span>
-          <div v-if="wedding">
-            <p class="font-display text-xl font-semibold text-heading">
-              {{ wedding.nomes_noivos }}
-            </p>
-            <p class="text-sm text-text-muted">{{ formattedDate }}</p>
-          </div>
-          <div>
-            <h1 class="font-display text-2xl font-semibold text-heading sm:text-3xl">
-              Confirmação de Presença
-            </h1>
-            <p class="mt-1 text-sm leading-relaxed text-text-muted">
-              Digite seu nome para localizar seu convite e confirmar sua presença e a dos seus
-              acompanhantes.
-            </p>
-          </div>
-        </div>
+        <PublicPageHeader
+          :eyebrow="wedding?.nomes_noivos"
+          title="Confirme sua Presença"
+          description="Digite seu nome para localizar seu convite e confirmar sua presença e a dos seus acompanhantes."
+        >
+          <p v-if="formattedDate" class="text-xs tracking-[0.2em] text-text-muted uppercase">
+            {{ formattedDate }}
+          </p>
+        </PublicPageHeader>
 
-        <div class="flex flex-col gap-4 p-8 sm:p-10">
+        <div
+          class="flex flex-col gap-4 rounded-xl border border-border/70 bg-surface-elevated p-6 sm:p-8"
+        >
           <UiInput v-model="query" placeholder="Seu nome completo" autofocus />
 
           <p v-if="searchError" class="text-sm text-danger" role="alert">{{ searchError }}</p>
@@ -166,7 +156,7 @@ async function handleConfirmIdentity() {
             <li v-for="result in results" :key="result.guestId">
               <button
                 type="button"
-                class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-colors hover:border-primary/40 hover:bg-primary/5"
+                class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-brand hover:border-primary/40 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 @click="handleSelectResult(result)"
               >
                 {{ result.fullName }}
