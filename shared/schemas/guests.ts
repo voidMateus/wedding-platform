@@ -49,6 +49,59 @@ export const guestPartySyncSchema = z.object({
 
 export type GuestPartySyncInput = z.infer<typeof guestPartySyncSchema>
 
+/**
+ * Entrada rápida do Modo Lista: o casal digita um nome e aperta Enter.
+ *
+ * Deliberadamente separado de `guestPartySyncSchema`: aquele descreve o wizard
+ * inteiro (principal + acompanhantes + convite) e exige um objeto grande para
+ * criar uma pessoa. Aqui o ponto é justamente não ter formulário — nome é o
+ * único campo obrigatório, e todo o resto do cadastro é preenchido depois, na
+ * própria lista ou no wizard.
+ *
+ * `grupoId` aponta para a folha onde a pessoa entra, que pode ser um grupo ou
+ * uma subdivisão (`grupos.grupo_pai_id`) — o convidado nunca guarda as duas
+ * coisas. Que o grupo pertença a este casamento é garantido por trigger no
+ * Postgres (migration 20260821090003), não por checagem aqui.
+ */
+export const guestQuickCreateSchema = z.object({
+  nomeCompleto: z.string().trim().min(1, 'Informe o nome.').max(200),
+  grupoId: z.string().uuid().nullish(),
+  /**
+   * Nasce no rascunho da lista ("Em consideração") em vez de na lista de
+   * convidados. Rascunho nunca tem convite — a constraint
+   * `convidados_em_consideracao_sem_convite` garante isso no banco.
+   */
+  emConsideracao: z.boolean().default(false),
+})
+
+export type GuestQuickCreateInput = z.infer<typeof guestQuickCreateSchema>
+
+/**
+ * Ação em massa da lista: aplica o MESMO valor a vários convidados.
+ *
+ * Só os campos que a tela oferece em lote, e nenhum a mais. Grupo e faixa
+ * manual são update simples; convite e núcleo ficam de fora de propósito —
+ * os dois exigem orquestração transacional (`sincronizar_nucleo_convidado`),
+ * e um "update em lote" que atravessasse isso quebraria a garantia de que
+ * ninguém entra em dois convites.
+ *
+ * `undefined` significa "não mexer"; `null` em `grupoId` desvincula do grupo.
+ * A distinção existe porque tirar todo mundo de um grupo é uma ação real, e
+ * sem `null` explícito ela não teria representação.
+ */
+export const guestBulkUpdateSchema = z
+  .object({
+    ids: z.array(z.string().uuid()).min(1, 'Selecione ao menos um convidado.').max(500),
+    grupoId: z.string().uuid().nullish(),
+    faixaEtariaManual: z.enum(FAIXA_ETARIA_CHAVES).nullish(),
+  })
+  .refine(
+    (input) => input.grupoId !== undefined || input.faixaEtariaManual !== undefined,
+    'Informe o que alterar.',
+  )
+
+export type GuestBulkUpdateInput = z.infer<typeof guestBulkUpdateSchema>
+
 export const guestPartyReorderSchema = z.object({
   partyId: z.string().uuid(),
   orderedGuestIds: z.array(z.string().uuid()).min(1),

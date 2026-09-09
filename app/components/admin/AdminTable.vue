@@ -28,7 +28,7 @@
 <script setup lang="ts" generic="Row extends { id: string }">
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import type { TableFiltersApi } from '~/composables/useTableFilters'
-import type { AdminTableColumn, TableSortDirection } from '~/types/table'
+import type { AdminTableColumn, AdminTableSection, TableSortDirection } from '~/types/table'
 
 interface Props {
   /**
@@ -68,6 +68,15 @@ interface Props {
    * `AdminTableFilterBar`, com o mesmo painel dentro de um modal.
    */
   filters?: TableFiltersApi
+  /**
+   * Divide as linhas em blocos recolhíveis, cada um com um cabeçalho que
+   * atravessa as colunas. Com `sections`, é ele que manda no corpo da tabela e
+   * `rows` só responde pelo estado vazio — as duas listas descrevem o mesmo
+   * conjunto, e a página monta as duas da mesma fonte.
+   */
+  sections?: readonly AdminTableSection<Row>[]
+  /** Ids dos blocos recolhidos. O estado é da página, nunca da tabela. */
+  collapsedIds?: readonly string[]
 }
 
 const {
@@ -78,15 +87,56 @@ const {
   rowClickable = false,
   scrollable = true,
   filters,
+  sections,
+  collapsedIds,
 } = defineProps<Props>()
 
 const emit = defineEmits<{
   'row-click': [row: Row]
+  'toggle-section': [id: string]
 }>()
+
+function isCollapsed(section: AdminTableSection<Row>): boolean {
+  return (collapsedIds ?? []).includes(section.id)
+}
+
+// Um bloco recolhido continua contando: o cabeçalho anuncia quantas pessoas
+// estão ali, e some só a lista.
+function visibleRowsOf(section: AdminTableSection<Row>): readonly Row[] {
+  return isCollapsed(section) ? [] : section.rows
+}
+
+/**
+ * Os dois modos (plano e em blocos) passam pelo mesmo laço, com a tabela sem
+ * seção virando um bloco único e sem cabeçalho. É o que impede a marcação da
+ * linha — célula, rótulo empilhado do celular, slot por coluna — de existir
+ * duas vezes no template e as duas versões divergirem na primeira correção.
+ */
+const blocks = computed(() => {
+  if (!sections) return [{ id: '__plano__', section: null, rows }]
+  return sections.map((section) => ({
+    id: section.id,
+    section,
+    rows: visibleRowsOf(section),
+  }))
+})
 
 // Uma célula por coluna declarada (`cell-<key>`) — nome dinâmico, então o
 // tipo é declarado aqui para a página receber `row` já tipado no template.
-defineSlots<Record<string, (props: { row: Row }) => unknown>>()
+//
+// `stacked` é a linha do celular quando a página quer desenhá-la: o formato
+// rótulo/valor automático serve tabela de três ou quatro colunas, mas com oito
+// cada pessoa vira um bloco alto e uma lista de 15 passa de 2000px de rolagem.
+// Com o slot, cada largura ganha o desenho certo a partir da MESMA linha de
+// dados — nunca duas listas que podem divergir.
+const slots = defineSlots<
+  Record<string, (props: { row: Row }) => unknown> & {
+    /** Linha final de um bloco — ex.: "Adicionar convidado" dentro do grupo. */
+    'section-footer'?: (props: { section: AdminTableSection<Row> }) => unknown
+  }
+>()
+
+const temLinhaDeCelular = computed(() => Boolean(slots.stacked))
 
 function hasDetail(row: Row): boolean {
   return isExpanded ? isExpanded(row) : false
@@ -153,14 +203,21 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
         <!-- Fundo opaco (e não `bg-surface-muted/50`): parado sobre as linhas, o
              meio-tom deixaria o conteúdo passar por baixo. Borda e fundo ficam
              na <th>, não no <thead> — é a célula que gruda, e no <thead> a borda
-             some assim que a rolagem começa. -->
+             some assim que a rolagem começa.
+
+             Branco, e não `surface-muted`: o cabeçalho é chrome (diz como ler a
+             tabela), a faixa de grupo é conteúdo (diz de quem é este trecho da
+             lista). Os dois no mesmo tom faziam cabeçalho e primeiro grupo
+             virarem uma massa cinza só, sem dizer onde um acabava. Agora o
+             cabeçalho recua para o branco do cartão e quem carrega o tom é a
+             faixa. -->
         <thead class="sticky top-0 z-10 hidden md:table-header-group">
           <tr>
             <th
               v-for="column in columns"
               :key="column.key"
               scope="col"
-              class="border-b border-border bg-surface-muted px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+              class="border-b border-border bg-surface-elevated px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-text-muted"
               :class="headClass(column)"
               :aria-sort="ariaSort(column)"
             >
@@ -206,41 +263,127 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
-          <template v-for="row in rows" :key="row.id">
-            <tr
-              class="ledger-row block px-4 py-3 md:table-row md:px-0 md:py-0"
-              :class="rowClickable && 'cursor-pointer'"
-              @click="handleRowClick(row, $event)"
-            >
+          <template v-for="block in blocks" :key="block.id">
+            <!-- Cabeçalho do bloco: atravessa as colunas e é o próprio
+                 controle de recolher. Botão de verdade (não a <tr>), porque
+                 linha de tabela não é focável nem anunciada como controle. -->
+            <tr v-if="block.section" class="block md:table-row">
               <td
-                v-for="column in columns"
-                :key="column.key"
-                class="flex items-baseline justify-between gap-4 py-1 text-text md:table-cell md:px-4 md:py-3.5 md:align-middle"
-                :class="column.align === 'right' && 'md:text-right'"
+                :colspan="columns.length"
+                class="block border-t border-border p-0 first:border-t-0 md:table-cell"
+                :class="block.section.level === 0 ? 'bg-surface-muted' : 'bg-surface'"
               >
-                <span
-                  v-if="!column.labelHidden"
-                  class="shrink-0 text-xs uppercase tracking-wide text-text-muted md:hidden"
+                <button
+                  type="button"
+                  :aria-expanded="!(collapsedIds ?? []).includes(block.section.id)"
+                  class="flex w-full items-center gap-2 py-2.5 text-left transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  :class="block.section.level === 0 ? 'px-4' : 'px-4 md:pl-10'"
+                  @click="emit('toggle-section', block.section.id)"
                 >
-                  {{ column.label }}
-                </span>
-                <!-- ml-auto quando não há rótulo (coluna de ações): a célula é
+                  <Icon
+                    name="lucide:chevron-down"
+                    class="h-4 w-4 shrink-0 text-text-muted transition-brand"
+                    :class="(collapsedIds ?? []).includes(block.section.id) && '-rotate-90'"
+                  />
+                  <Icon
+                    v-if="block.section.icon"
+                    :name="block.section.icon"
+                    class="h-4 w-4 shrink-0 text-text-muted"
+                  />
+                  <span
+                    v-if="block.section.cor"
+                    aria-hidden="true"
+                    class="h-2 w-2 shrink-0 rounded-full"
+                    :style="{ backgroundColor: block.section.cor }"
+                  />
+                  <span
+                    class="min-w-0 truncate"
+                    :class="
+                      block.section.level === 0
+                        ? 'font-medium text-text'
+                        : 'text-sm text-text-muted'
+                    "
+                  >
+                    {{ block.section.label }}
+                  </span>
+                  <!-- Ao lado do rótulo, não empurrado para a direita: numa
+                       tabela larga o `ml-auto` jogaria a contagem para a borda
+                       da largura ROLÁVEL, fora da área visível — o cabeçalho
+                       do bloco atravessa todas as colunas. -->
+                  <span v-if="block.section.meta" class="num shrink-0 text-xs text-text-muted">
+                    {{ block.section.meta }}
+                  </span>
+                </button>
+              </td>
+            </tr>
+            <template v-for="row in block.rows" :key="row.id">
+              <!-- Linha do celular desenhada pela página. Só existe abaixo de
+                   `md`; do `md` pra cima quem manda é a grade de colunas. -->
+              <tr
+                v-if="temLinhaDeCelular"
+                class="ledger-row block md:hidden"
+                :class="rowClickable && 'cursor-pointer'"
+                @click="handleRowClick(row, $event)"
+              >
+                <td class="block p-0">
+                  <slot name="stacked" :row="row" />
+                </td>
+              </tr>
+              <tr
+                class="ledger-row block px-4 py-3 md:table-row md:px-0 md:py-0"
+                :class="[
+                  rowClickable && 'cursor-pointer',
+                  temLinhaDeCelular && 'hidden md:table-row',
+                ]"
+                @click="handleRowClick(row, $event)"
+              >
+                <td
+                  v-for="column in columns"
+                  :key="column.key"
+                  class="flex items-baseline justify-between gap-4 py-1 text-text md:table-cell md:px-4 md:py-2.5 md:align-middle"
+                  :class="column.align === 'right' && 'md:text-right'"
+                >
+                  <span
+                    v-if="!column.labelHidden"
+                    class="shrink-0 text-xs uppercase tracking-wide text-text-muted md:hidden"
+                  >
+                    {{ column.label }}
+                  </span>
+                  <!-- ml-auto quando não há rótulo (coluna de ações): a célula é
                      flex no empilhado e, com um único filho, ele encostaria à
                      esquerda. Inline no desktop, onde margem auto não se
                      aplica — não afeta a tabela. -->
-                <span
-                  class="min-w-0"
-                  :class="[STACKED_VALUE_CLASS, column.labelHidden && 'ml-auto']"
-                >
-                  <slot :name="`cell-${column.key}`" :row="row">
-                    {{ column.value ? column.value(row) : '—' }}
-                  </slot>
-                </span>
-              </td>
-            </tr>
-            <tr v-if="hasDetail(row)" class="block bg-surface-muted/40 md:table-row">
-              <td :colspan="columns.length" class="block px-4 py-3 md:table-cell">
-                <slot name="detail" :row="row" />
+                  <span
+                    class="min-w-0"
+                    :class="[STACKED_VALUE_CLASS, column.labelHidden && 'ml-auto']"
+                  >
+                    <slot :name="`cell-${column.key}`" :row="row">
+                      {{ column.value ? column.value(row) : '—' }}
+                    </slot>
+                  </span>
+                </td>
+              </tr>
+              <tr v-if="hasDetail(row)" class="block bg-surface-muted/40 md:table-row">
+                <td :colspan="columns.length" class="block px-4 py-3 md:table-cell">
+                  <slot name="detail" :row="row" />
+                </td>
+              </tr>
+            </template>
+
+            <!-- Rodapé do bloco: a linha que continua a lista de dentro dele
+                 (ex.: "Adicionar convidado"). Some com o bloco recolhido —
+                 uma ação de acrescentar a um grupo fechado não tem alvo
+                 visível. -->
+            <tr
+              v-if="
+                block.section &&
+                !(collapsedIds ?? []).includes(block.section.id) &&
+                slots['section-footer']
+              "
+              class="block md:table-row"
+            >
+              <td :colspan="columns.length" class="block p-0 md:table-cell">
+                <slot name="section-footer" :section="block.section" />
               </td>
             </tr>
           </template>

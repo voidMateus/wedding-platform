@@ -1,5 +1,10 @@
 import { nomeDoArquivoDaExportacao } from '#shared/utils/exportacao-convidados'
-import type { GuestPartyReorderInput, GuestPartySyncInput } from '#shared/schemas/guests'
+import type {
+  GuestBulkUpdateInput,
+  GuestPartyReorderInput,
+  GuestPartySyncInput,
+  GuestQuickCreateInput,
+} from '#shared/schemas/guests'
 import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
 import type { RsvpStatus } from '#shared/utils/rsvp-status'
 import type { Guest, GuestListItem } from '~/types/guest'
@@ -7,8 +12,16 @@ import type { Guest, GuestListItem } from '~/types/guest'
 export interface GuestListResponse {
   data: GuestListItem[]
   meta: { page: number; pageSize: number; total: number }
-  /** Agregado do recorte inteiro, não só da página — ver /api/guests. */
-  summary: { confirmed: number }
+  /** Agregados do recorte inteiro, não só da página — ver /api/guests. */
+  summary: {
+    confirmed: number
+    /**
+     * Rascunho da lista no mesmo recorte. Vem sempre, independente de
+     * `emConsideracao`, porque o cabeçalho mostra os dois números de uma vez
+     * ("142 convidados + 18 em consideração").
+     */
+    emConsideracao: number
+  }
 }
 
 interface GuestListParams {
@@ -23,9 +36,24 @@ interface GuestListParams {
   ageGroup?: FaixaEtariaFiltro | FaixaEtariaFiltro[]
   /** Status de RSVP, com "pendente" incluindo quem nunca respondeu (view convidados_com_status). */
   statusRsvp?: RsvpStatus | RsvpStatus[]
+  /**
+   * Ausente lista só convidados de verdade; `true` lista só o rascunho da
+   * lista. Os dois conjuntos nunca vêm misturados — ver /api/guests.
+   */
+  emConsideracao?: boolean
   /** Ordenação pedida pela coluna da tabela — só `nome` tem tradução em SQL (ver /api/guests). */
   sort?: 'nome'
   dir?: 'asc' | 'desc'
+}
+
+/**
+ * Os números da lista inteira, para o cabeçalho de Convidados. Descrevem o
+ * casamento, nunca o recorte da tela — ver `GET /api/guests/overview`.
+ */
+export interface GuestOverview {
+  total: number
+  emConsideracao: number
+  faixas: { chave: string; total: number }[]
 }
 
 export interface GuestDetail extends Guest {
@@ -46,6 +74,14 @@ interface GuestPartySyncResult {
 export function useGuests() {
   function listGuests(params?: MaybeRefOrGetter<GuestListParams | undefined>) {
     return useFetch<GuestListResponse>('/api/guests', { query: params, key: 'guests' })
+  }
+
+  /**
+   * Chave fixa: as duas visões de Convidados compartilham a mesma resposta, e
+   * ela não muda com filtro — por isso nenhum recorte entra no `key`.
+   */
+  function getGuestOverview() {
+    return useFetch<GuestOverview>('/api/guests/overview', { key: 'guest-overview' })
   }
 
   function getGuest(id: MaybeRefOrGetter<string>) {
@@ -72,6 +108,22 @@ export function useGuests() {
     return $fetch('/api/guests/party/reorder', { method: 'PATCH', body: input })
   }
 
+  /**
+   * Entrada rápida do Modo Lista — só o nome é obrigatório. Não substitui
+   * `syncGuestParty`, que é o wizard completo (acompanhantes + convite).
+   */
+  async function createGuest(input: GuestQuickCreateInput): Promise<Guest> {
+    return $fetch<Guest>('/api/guests', { method: 'POST', body: input })
+  }
+
+  /**
+   * Aplica o mesmo valor a vários convidados (grupo ou faixa manual). Campo
+   * ausente é "não mexer" — ver `guestBulkUpdateSchema`.
+   */
+  async function bulkUpdateGuests(input: GuestBulkUpdateInput): Promise<{ atualizados: number }> {
+    return $fetch<{ atualizados: number }>('/api/guests/bulk', { method: 'PATCH', body: input })
+  }
+
   async function deleteGuest(id: string): Promise<{ id: string }> {
     return $fetch<{ id: string }>(`/api/guests/${id}`, { method: 'DELETE' })
   }
@@ -94,6 +146,10 @@ export function useGuests() {
       groupId: params.groupId || undefined,
       ageGroup: params.ageGroup || undefined,
       statusRsvp: params.statusRsvp || undefined,
+      // Vai junto porque o rascunho é um recorte como qualquer outro: exportar
+      // o painel "Em consideração" tem que baixar o rascunho, não a lista de
+      // convidados (a promessa do botão é "o que está na tela").
+      emConsideracao: params.emConsideracao || undefined,
     }
 
     const blob = await $fetch<Blob>('/api/guests/export', { query, responseType: 'blob' })
@@ -108,9 +164,12 @@ export function useGuests() {
 
   return {
     listGuests,
+    getGuestOverview,
     getGuest,
     fetchGuests,
     fetchGuestDetail,
+    createGuest,
+    bulkUpdateGuests,
     syncGuestParty,
     reorderGuestParty,
     deleteGuest,

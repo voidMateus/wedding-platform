@@ -7,6 +7,8 @@ import {
 } from '#shared/utils/importacao-convidados'
 import { gerarModeloImportacao, presetsModelo } from '#shared/utils/modelo-importacao'
 import { parsearCsv } from '#shared/utils/csv'
+import { camposGravaveis } from '#shared/utils/campos-convidado'
+import { guestImportRowSchema } from '#shared/schemas/guest-import'
 
 function preparar(csv: string[][], opcoes = {}) {
   return prepararImportacao(csv, detectarMapeamento(csv[0]!), opcoes)
@@ -282,4 +284,71 @@ describe('modelo gerado volta pelo importador', () => {
       expect(resultado.linhas).toHaveLength(1)
     })
   }
+})
+
+describe('compatibilidade catálogo ↔ schema de importação', () => {
+  // Este teste existe por causa de um modo de falha real: o parser monta as
+  // células percorrendo o catálogo, mas o resultado passa por
+  // `guestImportRowSchema`, e um objeto Zod DESCARTA chave desconhecida em
+  // silêncio. Ou seja, um campo novo marcado como gravável no catálogo era
+  // lido da planilha, jogado fora antes de chegar ao banco, e nada — nem
+  // typecheck, nem os outros testes — acusava. É a mesma classe de bug que a
+  // lista escrita à mão de `theme.patch.ts` já causou duas vezes
+  // (CLAUDE.md, seção 13).
+  it('tem uma chave no schema para todo campo gravável do catálogo', () => {
+    const chavesDoSchema = Object.keys(guestImportRowSchema.innerType().shape)
+    const semRepresentacao = camposGravaveis()
+      .map((campo) => campo.chave)
+      .filter((chave) => !chavesDoSchema.includes(chave))
+
+    expect(semRepresentacao).toEqual([])
+  })
+
+  it('não aceita chave no schema que o catálogo não conheça como importável', () => {
+    const chavesImportaveis = ['id', ...camposGravaveis().map((campo) => campo.chave)]
+    const orfas = Object.keys(guestImportRowSchema.innerType().shape).filter(
+      (chave) => !chavesImportaveis.includes(chave),
+    )
+
+    expect(orfas).toEqual([])
+  })
+})
+
+describe('subdivisão de grupo na importação', () => {
+  it('recusa subdivisão sem grupo na mesma linha', () => {
+    const resultado = guestImportRowSchema.safeParse({
+      nome_completo: 'João da Silva',
+      subgrupo: 'Tios paternos',
+    })
+
+    expect(resultado.success).toBe(false)
+    if (!resultado.success) {
+      expect(resultado.error.issues[0]?.path).toEqual(['subgrupo'])
+    }
+  })
+
+  it('aceita a dupla grupo + subdivisão', () => {
+    const resultado = guestImportRowSchema.safeParse({
+      nome_completo: 'João da Silva',
+      grupo: 'Família do Mateus',
+      subgrupo: 'Tios paternos',
+    })
+
+    expect(resultado.success).toBe(true)
+  })
+
+  it('aceita grupo sozinho — subdivisão é sempre opcional', () => {
+    const resultado = guestImportRowSchema.safeParse({
+      nome_completo: 'João da Silva',
+      grupo: 'Família do Mateus',
+    })
+
+    expect(resultado.success).toBe(true)
+  })
+
+  it('reconhece a coluna de subdivisão escrita por gente', () => {
+    const mapa = detectarMapeamento(['Nome completo', 'Grupo', 'Subdivisão'])
+
+    expect(mapa.map((coluna) => coluna.chave)).toEqual(['nome_completo', 'grupo', 'subgrupo'])
+  })
 })

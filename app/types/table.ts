@@ -56,6 +56,39 @@ export interface AdminTableColumn<T> {
 }
 
 /**
+ * Um bloco recolhível da tabela: um cabeçalho que atravessa todas as colunas,
+ * seguido só das linhas dele.
+ *
+ * Existe porque uma lista de convidados grande só fica legível em blocos — o
+ * Modo Lista mostra "Família do Mateus — 32 pessoas" e as subdivisões dentro.
+ * É capacidade da `AdminTable`, não de uma tabela paralela: a governança do
+ * Design System não admite `<table>` escrito à mão (perderia cabeçalho fixo,
+ * filtro por coluna e o formato empilhado do celular de uma vez).
+ *
+ * Quem controla o que está recolhido é a página (`collapsedIds` +
+ * `toggle-section`), nunca a tabela: o estado precisa sobreviver a refetch e
+ * poder ir para a URL.
+ */
+export interface AdminTableSection<T> {
+  id: string
+  label: string
+  /** 0 = bloco de primeiro nível; 1 = subdivisão dentro dele. Só dois níveis. */
+  level: 0 | 1
+  /** Texto à direita do rótulo — normalmente a contagem ("32 pessoas"). */
+  meta?: string
+  /** Ícone lucide à esquerda do rótulo. */
+  icon?: string
+  /**
+   * Cor do bloco (ex.: `grupos.cor`), desenhada como ponto ao lado do rótulo —
+   * mesmo tratamento da tela de Grupos. Ponto, e não fundo da linha: cor
+   * arbitrária vinda do banco atrás de texto não tem contraste garantido, e o
+   * bloco já se distingue pela tipografia.
+   */
+  cor?: string | null
+  rows: readonly T[]
+}
+
+/**
  * Um valor marcado num filtro de coluna — um chip da barra de filtros ativos.
  * É por valor, não por coluna: com duas faixas marcadas são dois chips, e tirar
  * uma não derruba a outra.

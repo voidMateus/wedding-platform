@@ -43,7 +43,11 @@ export default defineEventHandler(async (event) => {
         .from('convidados')
         .select('id, convite_id, data_nascimento, faixa_etaria_manual, papel_casamento')
         .eq('casamento_id', weddingId)
-        .is('excluido_em', null),
+        .is('excluido_em', null)
+        // Rascunho da lista está no planejamento, não na lista: contá-lo aqui
+        // inflaria todo indicador do painel (total, faixas, pendentes) com
+        // gente que o casal ainda nem decidiu convidar.
+        .eq('em_consideracao', false),
       client
         .from('respostas_rsvp')
         .select('convidado_id, convite_id, status_rsvp, respondido_em')

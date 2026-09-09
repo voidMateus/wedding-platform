@@ -7,6 +7,7 @@ import {
 } from './campos-convidado'
 import { ehLinhaDeExemplo } from './modelo-importacao'
 import { guestImportRowSchema, type GuestImportRow } from '#shared/schemas/guest-import'
+import { qualificarSubgrupo } from '#shared/utils/grupos'
 
 /**
  * Preparo da planilha: das células cruas até as linhas que o servidor aceita.
@@ -46,6 +47,8 @@ export interface ResumoImportacao {
   atualizar: number
   /** Nomes distintos citados na planilha, na ordem em que aparecem. */
   grupos: string[]
+  /** Qualificadas pelo grupo (`qualificarSubgrupo`) — o nome sozinho é ambíguo. */
+  subgrupos: string[]
   convites: string[]
 }
 
@@ -157,6 +160,8 @@ export interface OpcoesPreparacao {
    * servidor, dentro da transação.
    */
   gruposExistentes?: readonly string[]
+  /** Qualificadas por `qualificarSubgrupo`, no mesmo formato do resumo. */
+  subgruposExistentes?: readonly string[]
   convitesExistentes?: readonly string[]
 }
 
@@ -181,6 +186,7 @@ export function prepararImportacao(
   let exemplosIgnorados = 0
 
   const gruposCitados: string[] = []
+  const subgruposCitados: string[] = []
   const convitesCitados: string[] = []
 
   const mapeadas = mapeamento.filter((coluna) => coluna.chave !== null)
@@ -274,6 +280,16 @@ export function prepararImportacao(
     ) {
       gruposCitados.push(linha.grupo)
     }
+    if (linha.grupo && linha.subgrupo) {
+      const qualificado = qualificarSubgrupo(linha.grupo, linha.subgrupo)
+      if (
+        !subgruposCitados.some(
+          (nome) => normalizarCabecalho(nome) === normalizarCabecalho(qualificado),
+        )
+      ) {
+        subgruposCitados.push(qualificado)
+      }
+    }
     if (
       linha.convite &&
       !convitesCitados.some(
@@ -295,6 +311,7 @@ export function prepararImportacao(
       criar: linhas.filter((item) => item.acao === 'criar').length,
       atualizar: linhas.filter((item) => item.acao === 'atualizar').length,
       grupos: nomesNovos(gruposCitados, opcoes.gruposExistentes ?? []),
+      subgrupos: nomesNovos(subgruposCitados, opcoes.subgruposExistentes ?? []),
       convites: nomesNovos(convitesCitados, opcoes.convitesExistentes ?? []),
     },
   }

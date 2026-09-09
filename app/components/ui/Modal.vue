@@ -51,13 +51,18 @@ const BODY_CLASSES: Record<NonNullable<Props['scroll']>, string> = {
         class="fixed inset-0 z-40 bg-black/40 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100"
       />
       <DialogContent
-        class="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-full -translate-x-1/2 -translate-y-1/2 scale-95 flex-col rounded-lg border border-border bg-surface p-6 opacity-0 shadow-lg transition-all duration-200 focus:outline-none data-[state=open]:scale-100 data-[state=open]:opacity-100"
+        class="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-full -translate-x-1/2 -translate-y-1/2 scale-95 flex-col rounded-lg border border-border bg-surface-elevated p-6 opacity-0 shadow-lg transition-all duration-200 focus:outline-none data-[state=open]:scale-100 data-[state=open]:opacity-100"
         :class="SIZE_CLASSES[size]"
       >
         <div class="mb-4 flex shrink-0 items-start justify-between gap-4">
           <div>
-            <DialogTitle class="text-base font-semibold text-text">{{ title }}</DialogTitle>
-            <DialogDescription v-if="description" class="mt-1 text-sm text-text-muted">
+            <DialogTitle class="font-display text-lg font-semibold tracking-tight text-text">
+              {{ title }}
+            </DialogTitle>
+            <DialogDescription
+              v-if="description"
+              class="mt-1 max-w-prose text-sm leading-relaxed text-text-muted"
+            >
               {{ description }}
             </DialogDescription>
           </div>

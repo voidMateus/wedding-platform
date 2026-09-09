@@ -19,9 +19,16 @@ interface Props {
   tone?: 'default' | 'danger'
   /** Quando definido, renderiza como link (ex.: abrir a tela de edição). */
   to?: string
+  /**
+   * Desabilitado em vez de escondido: numa fileira de ações repetidas (as
+   * setas que reordenam um acompanhante), sumir na ponta faz as outras
+   * deslizarem para debaixo do cursor entre um clique e o seguinte.
+   * Ignorado quando `to` está definido — link não tem estado desabilitado.
+   */
+  disabled?: boolean
 }
 
-const { icon, label, tone = 'default', to } = defineProps<Props>()
+const { icon, label, tone = 'default', to, disabled = false } = defineProps<Props>()
 
 // `click` declarado como emit de propósito: sem isso o @click do pai chegaria
 // aqui como listener nativo no <button> E pelo $emit — o handler rodaria duas
@@ -35,10 +42,10 @@ const toneClasses: Record<NonNullable<Props['tone']>, string> = {
   danger: 'text-text-muted hover:bg-surface-muted hover:text-danger',
 }
 
-const classes = [
+const classes = computed(() => [
   'inline-flex items-center justify-center rounded-md p-1.5 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-  toneClasses[tone],
-]
+  disabled ? 'cursor-not-allowed text-text-muted opacity-40' : toneClasses[tone],
+])
 </script>
 
 <template>
@@ -46,7 +53,14 @@ const classes = [
     <Icon :name="icon" class="h-4 w-4" />
     <span class="sr-only">{{ label }}</span>
   </NuxtLink>
-  <button v-else type="button" :class="classes" :title="label" @click="emit('click')">
+  <button
+    v-else
+    type="button"
+    :class="classes"
+    :title="label"
+    :disabled="disabled"
+    @click="emit('click')"
+  >
     <Icon :name="icon" class="h-4 w-4" />
     <span class="sr-only">{{ label }}</span>
   </button>

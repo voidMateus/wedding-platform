@@ -81,15 +81,35 @@ Pontos que geram confusão se não forem lidos com atenção:
 
 Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real de RSVP) para poder responder — o vínculo pode ficar pendente ("Fazer Depois" no wizard) até ser resolvido. Independentemente disso, um convidado pode opcionalmente ter uma etiqueta livre (`grupo`, ex. "Família da Noiva") e pertencer a um agrupamento de Acompanhantes (`nucleos_acompanhantes`) — os três vínculos (`convite_id`, `grupo_id`, `nucleo_id`) são independentes entre si (ver [`DATABASE.md`](DATABASE.md)).
 
+**Rascunho da lista (`em_consideracao`).** Uma lista de casamento não nasce pronta: "será que convidamos o Marcelo?" é o estado mais comum durante o planejamento, e obrigar o casal a decidir na hora do cadastro é o que empurra a lista para o Excel. Uma pessoa marcada como *em consideração* existe no planejamento sem ser convidada — **não conta** em nenhum indicador de convidados, não pode receber convite e portanto nunca entra em RSVP nem aparece na busca pública por nome. Virar convidado de verdade é ação explícita do casal, nunca efeito colateral de preencher outro campo. Detalhe da garantia: [`DATABASE.md`](DATABASE.md), seção 3.2.
+
+### 3.1.1 Duas formas de trabalhar: Visão Geral e Modo lista
+
+A gestão de uma lista de casamento tem duas fases com necessidades opostas, e uma tela só atende mal as duas. No começo o casal não está *cadastrando convidados* — está **montando uma lista**, e faz isso no Excel porque a planilha deixa despejar dezenas de nomes, reorganizar e refinar aos poucos. Depois, com a lista formada, o trabalho passa a ser gerenciar pessoa por pessoa (convite, RSVP, acompanhantes).
+
+- **Visão Geral** (`/convidados`) é a experiência tradicional: listagem paginada, uma linha por convidado, recorte feito pelo servidor. É onde se administra o convidado individual.
+- **Modo lista** (`/convidados/lista`) é a planilha inteligente: carrega a lista **inteira**, agrupa em blocos recolhíveis por grupo e subdivisão, e filtra sem ida ao servidor. É onde se monta e se organiza o conjunto.
+
+Não existem "convidados do Modo Lista" e "convidados normais" — é **um cadastro só**, apresentado de duas formas. O que muda é a pergunta que cada tela responde: "quem é esta pessoa?" contra "como está a minha lista?".
+
+Consequências de desenho que decorrem disso:
+
+- **A contagem do bloco de um grupo soma as subdivisões.** O convidado aponta sempre para a folha (`convidados.grupo_id`), então sem a soma "Família do Mateus" anunciaria uma pessoa com trinta e duas abaixo. Recolher o grupo recolhe a árvore, e o cabeçalho continua exibindo a contagem cheia — é por ele que se reabre.
+- **Grupo vazio continua aparecendo** quando não há filtro: ele existe, e é onde o casal vai querer adicionar gente. Com filtro ativo, bloco sem ninguém sai da lista, senão o recorte viraria uma parede de grupos vazios escondendo os poucos que casaram.
+- **O núcleo de Acompanhantes é identificado por um rótulo derivado** ("João e Maria"), os dois primeiros nomes por ordem no núcleo com o excedente resumido. `nucleos_acompanhantes` não tem nome gravado, e não deveria ter: o núcleo é o agrupamento das pessoas, então batizá-lo à mão criaria um dado que envelhece sozinho quando alguém sai.
+- **Os números do cabeçalho descrevem a lista inteira**, nunca o recorte — "quantos convidados eu tenho" não muda porque um filtro está aplicado. O que o filtro descreve é o "N exibidas" do painel.
+
 ### 3.2 Funcionalidades previstas
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
+- **Modo lista**: a lista inteira agrupada em blocos recolhíveis por grupo e subdivisão, com busca, filtro por núcleo/categoria/RSVP e contagem por categoria — ver seção 3.1.1.
+- Entrada rápida (`POST /api/guests`): cria um convidado com **só o nome**, para montar a lista digitando em sequência sem abrir formulário. Caminho deliberadamente separado do wizard — não orquestra acompanhante, convite nem limite algum, e é o que mantém o "digitar e apertar Enter" instantâneo. O resto do cadastro é preenchido depois.
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) em três passos — arquivo, conferência das colunas, revisão — sem escrever nada antes do último (ver seção 3.5).
 - Gerador de modelo de planilha — o casal escolhe as colunas e o sistema monta o CSV compatível com o importador (ver seção 3.5).
 - Exportação em CSV do **recorte que está na tela** (mesmos filtros de nome, grupo e faixa etária da listagem), com as colunas exportáveis do catálogo (ver seção 3.5).
 - Contato (e-mail/telefone) editável no cadastro do convidado, para o principal e para cada acompanhante — cada pessoa tem o próprio, nunca herdado de quem responde pelo convite.
-- Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com limites configuráveis por evento; ver seção 3.4.
+- Classificação etária do convidado (Criança/Adolescente/Adulto/Idoso) para contagem de "lugares" e organização da lista — derivada, com **quais faixas** e limites configuráveis por evento; ver seção 3.4.
 - Soft delete de convidados (remoção lógica, preservando histórico de RSVP/presentes associados).
 - Busca e filtro por nome (tolerante a acentuação/ordem/apelido — `convidado_nome_corresponde`), convite, status de RSVP, grupo e faixa etária.
 - Na lista do admin, cada recorte é o filtro da própria coluna (nome, status de RSVP, faixa etária, grupo), e status/faixa/grupo aceitam **mais de um valor ao mesmo tempo** — "quem ainda não respondeu ou está em espera" é uma pergunta só do casal, não duas. O status de cada convidado aparece na própria linha, e "pendente" inclui quem nunca respondeu (não é valor gravado; ver `convidados_com_status` em [`DATABASE.md`](DATABASE.md)).
@@ -114,7 +134,13 @@ Três conceitos distintos, nessa ordem:
 
 **Por que não é uma propriedade fixa do convidado:** a definição de "criança" não é universal e varia por evento — um casamento considera criança até 7 anos, outro até 11. Gravar "João é criança" impediria que o mesmo João fosse adolescente num evento com limites diferentes.
 
-**Configuração (Configurações → Geral → Classificação etária).** Quatro faixas — Criança, Adolescente, Adulto, Idoso — com limites editáveis pelo casal. O padrão de um evento novo é 0–11 / 12–17 / 18–59 / 60+, apenas um ponto de partida. A configuração é validada como conjunto: contínua, sem sobreposição e sem buraco, com a última faixa sempre aberta no topo — exatamente uma faixa se aplica a cada idade. Há ação de "Restaurar classificação padrão".
+**Configuração (Configurações → Geral → Classificação etária).** O casal escolhe **quais** faixas o casamento usa, do catálogo de quatro — Criança, Adolescente, Adulto, Idoso — e até que idade cada uma vai. O padrão de um evento novo é 0–11 / 12–17 / 18–59 / 60+, apenas um ponto de partida. Há ação de "Restaurar classificação padrão".
+
+**Nem toda festa separa em quatro** (pedido do usuário em 2026-09-09): muitas querem só "criança" e "adulto". Desmarcar uma faixa a remove do evento, e a configuração é o próprio conjunto de faixas ativas — faixa desligada é faixa ausente do array, sem um campo "ativa" a mais.
+
+**Desligar não é só remover: a vizinha mais nova herda o território.** Desligar Adolescente estende Criança até 17; desligar Idoso deixa Adulto aberto no topo. É o que preserva o invariante do modelo — as faixas ativas cobrem de 0 a ∞, contínuas, sem sobreposição e sem buraco, com a última sempre aberta —, validado no schema independentemente de quantas faixas sobraram. Sem a herança, um convidado de 14 anos deixaria de casar com faixa alguma e viraria "não informada" em silêncio, na lista inteira. Duas consequências da regra: a primeira faixa ativa não desliga (alguém tem de cobrir a idade 0) e o mínimo é duas (com uma só, todo convidado recebe o mesmo rótulo e a classificação deixa de classificar). Ligar uma faixa de volta devolve o corte padrão dela.
+
+**A marcação manual de uma faixa desligada não é reescrita.** Desligar é configuração do evento, não edição do cadastro das pessoas: `convidados.faixa_etaria_manual` fica intacto e a *leitura* se adapta — um "adolescente" num evento sem adolescentes é lido como a faixa que herdou o território dele (`faixaAtivaEquivalente`). Religar a faixa devolve a marcação original, sem ninguém ter que reclassificar a lista.
 
 **Regra de prioridade.** Com `data_nascimento` preenchida, a faixa é *calculada* (idade na data do evento × faixas do evento). Sem ela, vale a faixa informada à mão (`faixa_etaria_manual`). Sem nenhuma das duas, a faixa é "não informada" — a plataforma nunca infere idade por nome, parentesco ou qualquer outro dado. A faixa manual **nunca compete** com uma data de nascimento válida: preencher a data depois faz a classificação passar automaticamente a calculada. A interface sempre indica se o valor foi calculado ou informado manualmente.
 
@@ -176,6 +202,8 @@ Cada campo declara o que se pode fazer com ele:
 
 **Erro de uma linha não derruba as outras.** A revisão mostra, por número de linha (contando o cabeçalho como 1, igual ao Excel), o que está errado e o que será ignorado; o casal importa o resto. Já **dentro** de um lote a transação é tudo ou nada: metade de uma planilha aplicada, sem saber onde parou, é pior que nada. Acima de 500 linhas o arquivo é enviado em lotes sequenciais — nunca em paralelo, senão dois lotes citando o mesmo convite novo poderiam criá-lo duas vezes.
 
+**Grupo e subdivisão são duas colunas.** "Grupo" resolve entre grupos de primeiro nível e "Subdivisão" sempre **dentro** do grupo da mesma linha — "Primos" da Família do Mateus e "Primos" da Família da Raquel são duas subdivisões distintas, e casar só pelo nome jogaria as duas famílias na mesma lista. Subdivisão sem grupo na linha é recusada: promovê-la a grupo de primeiro nível criaria uma etiqueta solta que ninguém pediu. A exportação escreve as duas colunas separadas pelo mesmo motivo — exportar só a folha faria a reimportação do próprio CSV desfazer a hierarquia em silêncio.
+
 **Fora do escopo desta versão:** acompanhantes (`nucleos_acompanhantes`). O conceito é simétrico e não cabe numa coluna de planilha sem inventar sintaxe; pessoas sob o mesmo `convite` já cobrem a intenção real, que é o que habilita o RSVP.
 
 ## 4. Sistema de RSVP
@@ -210,7 +238,7 @@ RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou
 Dois conceitos independentes, fáceis de confundir pelo nome:
 
 - **Convite (`convites`)** é a unidade real de RSVP e comunicação — "quem recebeu o mesmo convite físico/digital". Todo link/QR de acesso, lembrete e mensagem ao casal opera nesse nível. Um convite pode ter um Convidado Responsável (`convidado_responsavel_id`), usado pra personalizar mensagens.
-- **Grupo (`grupos`)** é só uma etiqueta organizacional livre (ex.: "Família da Noiva", "Trabalho") — sem nenhuma semântica de RSVP, comunicação ou limite de acompanhante. Serve pra filtrar/organizar a lista de convidados no admin.
+- **Grupo (`grupos`)** é só uma etiqueta organizacional livre (ex.: "Família da Noiva", "Trabalho") — sem nenhuma semântica de RSVP, comunicação ou limite de acompanhante. Serve pra filtrar/organizar a lista de convidados no admin. Aceita **subdivisão de um nível** (`grupo_pai_id`): "Tios paternos", "Primos" e "Amigos da infância" dentro de "Família do Mateus", o que mantém uma lista grande legível em blocos recolhíveis. Subdivisão é do mesmo tipo que grupo — etiqueta organizacional, nada de RSVP —, e o convidado guarda **uma só** referência de grupo, sempre a da folha onde está; o grupo-pai é derivado. O limite de dois níveis é decisão de produto: é mais fácil liberar um terceiro nível depois do que retirar dados de uma hierarquia que já cresceu.
 - **Acompanhantes (`nucleos_acompanhantes`)** é um terceiro conceito, tratado à parte na seção 3 — agrupamento simétrico de convidados comumente convidados juntos.
 
 ### 5.2 Funcionalidades previstas
@@ -225,6 +253,8 @@ Dois conceitos independentes, fáceis de confundir pelo nome:
 - **Status consolidado do convite** (`pendente`/`parcial`/`respondido`), resolvido no banco (`convites_com_resumo`): pendente enquanto ninguém respondeu, respondido quando **todos os membros** responderam, parcial no meio do caminho. O denominador é o número de membros do convite — um convite de 3 pessoas em que só 1 respondeu é **parcial**, nunca respondido, porque ainda falta cobrar alguém.
 
 **Grupos (etiqueta livre):**
+- Criar subdivisão dentro de um grupo, renomear, e promover subdivisão a grupo de primeiro nível. Arquivar um grupo arquiva as subdivisões junto; desarquivar traz de volta só o que a cascata levou (ver [`DATABASE.md`](DATABASE.md), seção 3.2).
+- Filtrar a lista por um grupo traz também quem está nas subdivisões dele — o convidado aponta para a folha, então o filtro do grupo-pai sozinho devolveria um número plausível e errado.
 - Criar/renomear/excluir grupos, definir cor.
 - Atribuir/remover a etiqueta de um convidado (não move o convidado de convite nem de Acompanhantes).
 

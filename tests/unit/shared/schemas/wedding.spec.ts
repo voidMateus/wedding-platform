@@ -175,10 +175,49 @@ describe('weddingSettingsSchema — faixasEtarias', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejeita conjunto incompleto de faixas', () => {
+  // Nem toda festa separa em quatro: o evento escolhe quais faixas usa, e o
+  // array é a própria lista de ativas. O que continua obrigatório é a cobertura
+  // de 0 a ∞ sem vão — as duas faixas abaixo cobrem.
+  it('aceita subconjunto de faixas que cobre todas as idades', () => {
     const result = comFaixas([
       { chave: 'crianca', idadeMinima: 0, idadeMaxima: 17 },
       { chave: 'adulto', idadeMinima: 18, idadeMaxima: null },
+    ])
+
+    expect(result.success).toBe(true)
+  })
+
+  it('aceita subconjunto que não começa no catálogo, desde que cubra do 0', () => {
+    const result = comFaixas([
+      { chave: 'adulto', idadeMinima: 0, idadeMaxima: 59 },
+      { chave: 'idoso', idadeMinima: 60, idadeMaxima: null },
+    ])
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejeita uma faixa só — com uma, a classificação deixa de classificar', () => {
+    const result = comFaixas([{ chave: 'adulto', idadeMinima: 0, idadeMaxima: null }])
+
+    expect(result.success).toBe(false)
+  })
+
+  // O vão é o risco real de deixar faixa de fora: sem esta rejeição, um
+  // convidado de 14 anos não casaria com faixa alguma e viraria "não
+  // informada" em silêncio.
+  it('rejeita subconjunto que deixa um vão de idade', () => {
+    const result = comFaixas([
+      { chave: 'crianca', idadeMinima: 0, idadeMaxima: 11 },
+      { chave: 'adulto', idadeMinima: 18, idadeMaxima: null },
+    ])
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita faixa repetida', () => {
+    const result = comFaixas([
+      { chave: 'crianca', idadeMinima: 0, idadeMaxima: 11 },
+      { chave: 'crianca', idadeMinima: 12, idadeMaxima: null },
     ])
 
     expect(result.success).toBe(false)

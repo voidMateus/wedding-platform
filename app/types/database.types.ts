@@ -464,6 +464,7 @@ export type Database = {
           convite_id: string | null
           created_at: string
           data_nascimento: string | null
+          em_consideracao: boolean
           email: string | null
           excluido_em: string | null
           faixa_etaria_manual: string | null
@@ -486,6 +487,7 @@ export type Database = {
           convite_id?: string | null
           created_at?: string
           data_nascimento?: string | null
+          em_consideracao?: boolean
           email?: string | null
           excluido_em?: string | null
           faixa_etaria_manual?: string | null
@@ -508,6 +510,7 @@ export type Database = {
           convite_id?: string | null
           created_at?: string
           data_nascimento?: string | null
+          em_consideracao?: boolean
           email?: string | null
           excluido_em?: string | null
           faixa_etaria_manual?: string | null
@@ -913,6 +916,7 @@ export type Database = {
           cor: string | null
           created_at: string
           excluido_em: string | null
+          grupo_pai_id: string | null
           id: string
           nome: string
           updated_at: string
@@ -922,6 +926,7 @@ export type Database = {
           cor?: string | null
           created_at?: string
           excluido_em?: string | null
+          grupo_pai_id?: string | null
           id?: string
           nome: string
           updated_at?: string
@@ -931,6 +936,7 @@ export type Database = {
           cor?: string | null
           created_at?: string
           excluido_em?: string | null
+          grupo_pai_id?: string | null
           id?: string
           nome?: string
           updated_at?: string
@@ -941,6 +947,13 @@ export type Database = {
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grupos_grupo_pai_id_fkey"
+            columns: ["grupo_pai_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
             referencedColumns: ["id"]
           },
         ]
@@ -1552,6 +1565,7 @@ export type Database = {
           convite_id: string | null
           created_at: string | null
           data_nascimento: string | null
+          em_consideracao: boolean | null
           email: string | null
           excluido_em: string | null
           faixa_etaria_manual: string | null

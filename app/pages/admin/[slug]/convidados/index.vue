@@ -8,8 +8,9 @@ definePageMeta({ layout: 'admin' })
 
 const route = useRoute()
 const router = useRouter()
+const slug = useActiveWeddingSlug()
 
-const { listGuests, deleteGuest, exportGuests } = useGuests()
+const { listGuests, deleteGuest, exportGuests, getGuestOverview } = useGuests()
 const { listGroups } = useGroups()
 const { classify, label: ageGroupLabel, originLabel, filterChips } = useAgeGroups()
 
@@ -17,9 +18,7 @@ const page = ref(1)
 const PAGE_SIZE = 25
 
 const { data: groupsData } = listGroups({ pageSize: 100 })
-const groupOptions = computed(
-  () => groupsData.value?.data.map((g) => ({ value: g.id, label: g.nome })) ?? [],
-)
+const groupOptions = computed(() => montarOpcoesDeGrupo(groupsData.value?.data ?? []))
 
 // Rótulo e cor saem do mapa único de estados da plataforma — a mesma fonte do
 // badge do modal de convite, para status nenhum significar duas coisas.
@@ -102,6 +101,17 @@ const listParams = computed(() => ({
 }))
 
 const { data, status, error, refresh } = listGuests(listParams)
+// Mesmo cabeçalho do Modo lista, mesmos números: a visão geral descreve o
+// casamento, não o recorte desta tela (que é paginada).
+const { data: overview, refresh: refreshOverview } = getGuestOverview()
+
+/**
+ * A listagem e os números do cabeçalho vêm de requisições diferentes —
+ * recarregar só uma deixaria o total mentindo depois de cadastrar ou excluir.
+ */
+async function recarregarTudo() {
+  await Promise.all([refresh(), refreshOverview()])
+}
 
 // Esqueleto só na primeira carga. Trocar a tabela por esqueleto a cada recorte
 // desmontaria o cabeçalho — e com ele o menu de filtro aberto, que é onde o
@@ -127,14 +137,6 @@ const peopleLabel = computed(() => {
   const total = data.value?.meta.total ?? 0
   return `${total} ${total === 1 ? 'pessoa' : 'pessoas'}`
 })
-
-// Descreve o recorte inteiro (filtro de nome/grupo incluído), não a página —
-// é por isso que o confirmado vem agregado de /api/guests e não de `data`.
-const totalLabel = computed(() => {
-  const confirmed = data.value?.summary.confirmed ?? 0
-  return `${peopleLabel.value} · ${confirmed} confirmado${confirmed === 1 ? '' : 's'}`
-})
-
 // 👥 acompanhantes — contagem por nucleo_id na página atual (sem round-trip
 // extra: a listagem já traz nucleo_id, só precisa agrupar).
 const companionCountByParty = computed(() => {
@@ -213,10 +215,29 @@ const isTemplateModalOpen = ref(false)
 // convidado". Quem precisa dele chega pelo link do primeiro passo do
 // importador — que fecha antes de abrir este, porque modal dentro de modal é
 // proibido (DESIGN-SYSTEM.md, seção 2).
-const isImportModalOpen = ref(false)
+// Governado por `?importar=1` ALÉM do botão da barra: o item "Importar /
+// Exportar" do menu da seção precisa de um alvo de verdade, e importar não é
+// uma tela própria. Continua sendo um ref (o modal também abre pelo botão) —
+// a query é uma segunda porta de entrada, não a fonte única.
+const isImportModalOpen = ref(route.query.importar === '1')
+
+watch(
+  () => route.query.importar,
+  (valor) => {
+    if (valor === '1') isImportModalOpen.value = true
+  },
+)
+
+// Fechar limpa a query, senão o item do menu ficaria aceso com o importador
+// fechado. `replace` para não empilhar um passo no histórico.
+watch(isImportModalOpen, (aberto) => {
+  if (!aberto && route.query.importar === '1') {
+    router.replace({ query: { ...route.query, importar: undefined } })
+  }
+})
 
 async function handleImported() {
-  await refresh()
+  await recarregarTudo()
 }
 
 // Exporta o MESMO recorte que a tabela está mostrando (`listParams`), não a
@@ -245,7 +266,7 @@ function closeGuestModal() {
 }
 
 async function handleGuestSaved() {
-  await refresh()
+  await recarregarTudo()
   closeGuestModal()
 }
 
@@ -267,7 +288,7 @@ async function confirmDelete() {
     await deleteGuest(deleteTarget.value.id)
     isDeleteModalOpen.value = false
     deleteTarget.value = null
-    await refresh()
+    await recarregarTudo()
   } finally {
     isDeleting.value = false
   }
@@ -275,32 +296,28 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <AdminSection title="Convidados" :meta="totalLabel">
-    <template #actions>
-      <UiInput
-        v-model="searchDraft"
-        icon="lucide:search"
-        tone="muted"
-        aria-label="Filtrar convidados por nome"
-        placeholder="Filtrar por nome..."
-        class="w-full sm:w-64"
-      />
-      <UiButton variant="ghost" :disabled="isExporting" @click="handleExport">
-        <Icon name="lucide:download" class="h-4 w-4" />
-        {{ isExporting ? 'Exportando...' : 'Exportar' }}
-      </UiButton>
-      <UiButton variant="ghost" @click="isImportModalOpen = true">
-        <Icon name="lucide:upload" class="h-4 w-4" />
-        Importar
-      </UiButton>
-      <UiButton @click="openCreateGuest">
-        <Icon name="lucide:plus" class="h-4 w-4" />
-        Adicionar convidado
-      </UiButton>
-    </template>
+  <div class="flex flex-col gap-6">
+    <!-- O MESMO cabeçalho do Modo lista: as duas visões mostram o mesmo
+         cadastro, e um cabeçalho diferente em cada uma sugeriria áreas
+         diferentes do sistema. Ver AdminGuestsGuestListHeader. -->
+    <AdminGuestsGuestListHeader
+      :slug="slug"
+      :busca="searchDraft"
+      :exportando="isExporting"
+      @update:busca="searchDraft = $event"
+      @adicionar="openCreateGuest"
+      @exportar="handleExport"
+    />
 
     <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
       <template #headerActions>
+        <AdminGuestsGuestListCounters
+          :total="overview?.total ?? 0"
+          :em-consideracao="overview?.emConsideracao ?? 0"
+          :faixas="overview?.faixas ?? []"
+          class="mr-auto"
+        />
+
         <AdminTableFilterBar
           :columns="columns"
           :filters="filters"
@@ -466,5 +483,5 @@ async function confirmDelete() {
         </UiButton>
       </template>
     </UiModal>
-  </AdminSection>
+  </div>
 </template>

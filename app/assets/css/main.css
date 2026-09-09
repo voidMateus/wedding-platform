@@ -424,4 +424,39 @@ body {
   --font-sans: var(--font-admin-sans);
   --font-button: var(--font-admin-sans);
   font-family: var(--font-sans);
+
+  /* Neutros do painel — cinza, não creme (decisão do usuário em 2026-09-09:
+     "esse amarelo que não enxergo bem").
+
+     Escopado aqui, e NÃO no @theme, porque os mesmos cinco tokens pintam o
+     site público, onde o creme é identidade: é a linguagem do convite, e
+     esfriar o :root apagaria o rebrand junto. O admin é a outra ponta — uma
+     ferramenta de dados, que pede papel neutro para a cor do casal ser a
+     única cor da tela. Mesmo raciocínio da fonte logo acima: o par
+     tipográfico do admin também divergiu do público por ser tela de dados.
+
+     O que causava o incômodo era croma, não luminosidade: `#f2ece2` e
+     `#e8ddd0` têm cast amarelo forte, e estavam no `thead`, na faixa de
+     grupo, nos chips e no item ativo do menu ao mesmo tempo — a tela inteira
+     de fundo mostarda, com o borgonha embarrando em cima.
+
+     `--color-primary` NÃO entra aqui: continua vindo de `config_tema`, e o
+     painel segue reconhecível como o daquele casamento. */
+  --color-surface: #f4f4f6;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #ededf0;
+  --color-border: #e3e3e8;
+  --color-text: #1c1c20;
+  --color-text-muted: #61616b;
+
+  /* O degrau entre `surface` (fundo de página) e `surface-elevated` (cartão)
+     era de 2% — o painel não flutuava, ficava colado no fundo. Aqui são ~4%,
+     o suficiente para o cartão branco ler como cartão sem precisar de sombra
+     mais forte. */
+
+  /* Sombras neutras: as do @theme saem de `rgb(43 38 34)`, um marrom quente
+     que sobre cinza lê como sujeira em volta do cartão. */
+  --shadow-sm: 0 1px 2px 0 rgb(28 28 32 / 0.05);
+  --shadow-md: 0 4px 10px -2px rgb(28 28 32 / 0.07), 0 2px 4px -2px rgb(28 28 32 / 0.05);
+  --shadow-lg: 0 12px 24px -4px rgb(28 28 32 / 0.1), 0 4px 8px -4px rgb(28 28 32 / 0.06);
 }

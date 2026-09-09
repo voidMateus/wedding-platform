@@ -41,6 +41,16 @@ export const FAIXA_ETARIA_ROTULOS_PLURAL: Record<FaixaEtariaChave, string> = {
 }
 
 /** Valor de filtro/agrupamento de quem não tem nascimento nem faixa manual. */
+/**
+ * Quantas faixas o evento precisa ter no mínimo.
+ *
+ * Duas, não uma: com uma só faixa cobrindo 0..∞, todo convidado recebe o mesmo
+ * rótulo e a classificação deixa de classificar. O casal que não quer separar
+ * por idade simplesmente não usa a informação — desligar até sobrar uma seria
+ * um estado sem sentido, não uma configuração.
+ */
+export const MIN_FAIXAS_ETARIAS_ATIVAS = 2
+
 export const FAIXA_ETARIA_NAO_INFORMADA = 'nao_informada'
 
 export const FAIXA_ETARIA_ROTULO_NAO_INFORMADA = 'Não informada'
@@ -220,6 +230,41 @@ export interface ClassificacaoFaixaEtaria {
 }
 
 /**
+ * Traduz uma faixa gravada à mão para a faixa ATIVA que hoje cobre o território
+ * dela — o evento pode ter desligado a faixa depois de alguém já estar marcado
+ * assim.
+ *
+ * A linha gravada em `convidados.faixa_etaria_manual` **nunca** é reescrita:
+ * desligar uma faixa é configuração do evento, não uma edição do cadastro das
+ * pessoas, e religá-la tem que devolver a marcação original. Quem se adapta é
+ * a leitura.
+ *
+ * Procura para BAIXO primeiro porque é assim que o painel absorve: ao desligar
+ * uma faixa, a vizinha mais nova estica o limite dela para cobrir o vão, então
+ * um "adolescente" de um evento sem adolescentes é uma criança. A busca para
+ * cima é o resto: uma configuração sem as faixas de baixo (montada à mão, que o
+ * schema aceita) faz o território subir em vez de descer.
+ */
+export function faixaAtivaEquivalente(
+  chave: FaixaEtariaChave,
+  faixas: readonly FaixaEtaria[],
+): FaixaEtariaChave | null {
+  const ativas = new Set(faixas.map((faixa) => faixa.chave))
+  if (ativas.has(chave)) return chave
+
+  const posicao = FAIXA_ETARIA_CHAVES.indexOf(chave)
+  for (let i = posicao - 1; i >= 0; i -= 1) {
+    const candidata = FAIXA_ETARIA_CHAVES[i]!
+    if (ativas.has(candidata)) return candidata
+  }
+  for (let i = posicao + 1; i < FAIXA_ETARIA_CHAVES.length; i += 1) {
+    const candidata = FAIXA_ETARIA_CHAVES[i]!
+    if (ativas.has(candidata)) return candidata
+  }
+  return null
+}
+
+/**
  * Regra de prioridade (a ordem importa): data de nascimento válida vence
  * sempre — a faixa manual existe só para quem não tem nascimento cadastrado,
  * e nunca compete com uma data real.
@@ -243,7 +288,10 @@ export function classificarFaixaEtaria(
   }
 
   if (isFaixaEtariaChave(convidado.faixa_etaria_manual)) {
-    return { chave: convidado.faixa_etaria_manual, origem: 'manual', idadeNoEvento: null }
+    const ativa = faixaAtivaEquivalente(convidado.faixa_etaria_manual, faixas)
+    return ativa
+      ? { chave: ativa, origem: 'manual', idadeNoEvento: null }
+      : { chave: null, origem: 'nao_informada', idadeNoEvento: null }
   }
 
   return { chave: null, origem: 'nao_informada', idadeNoEvento: null }
