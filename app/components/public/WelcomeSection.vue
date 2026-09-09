@@ -8,6 +8,7 @@
 // (--font-serif, Cormorant), e é o que diferencia voz de informação: o resto
 // da página informa, aqui o casal fala. Vem do protótipo do convite, onde o
 // mesmo bloco tem esse tratamento.
+import { dividirNomesCasal } from '#shared/utils/nomes-casal'
 import { resolveWeddingContent } from '#shared/wedding-content'
 import type { Wedding } from '~/types/wedding'
 
@@ -36,11 +37,11 @@ const TONE_CLASSES: Record<NonNullable<Props['tone']>, string> = {
  * assinatura errada é pior que nenhuma.
  */
 const signature = computed(() => {
-  const parts = wedding.nomes_noivos.split(/\s*&\s*/)
-  if (parts.length !== 2) return null
-  const first = parts[0]?.trim().split(/\s+/)[0]
-  const second = parts[1]?.trim().split(/\s+/)[0]
-  return first && second ? `${first} e ${second}` : null
+  const nomes = dividirNomesCasal(wedding.nomes_noivos)
+  if (!nomes) return null
+  const primeiro = nomes.primeiro.split(/\s+/)[0]
+  const segundo = nomes.segundo.split(/\s+/)[0]
+  return primeiro && segundo ? `${primeiro} e ${segundo}` : null
 })
 </script>
 

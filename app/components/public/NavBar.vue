@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onKeyStroke } from '@vueuse/core'
+import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
 
 // Navegação por âncora (Fase Editorial) — curada deliberadamente (não um
 // link por seção; 13 seções num menu seriam ruído visual, contrário ao
@@ -85,6 +86,17 @@ const NAV_LINKS = computed(() =>
   ].filter((link) => !hiddenSections.includes(link.id)),
 )
 
+/**
+ * Marca da barra: só os primeiros nomes ("Mateus & Raquel"), não o nome
+ * completo. Com cinco destinos e o botão de presentear ao lado, o nome inteiro
+ * não cabe em tela nenhuma — e truncá-lo ("Mateus Augu…") é pior que abreviar
+ * com intenção. O nome completo continua no Hero, no rodapé e no título da
+ * aba. Fora do padrão "Nome1 & Nome2", usa o que estiver escrito.
+ */
+const brandName = computed(
+  () => primeirosNomesCasal(coupleNames) ?? coupleNames ?? 'MeuSiteCasamento',
+)
+
 const homeLink = computed(() => `/${slug}`)
 
 // Preserva ?code= na navegação real para /presentes — diferente de uma
@@ -133,18 +145,25 @@ function isCurrent(to: string): boolean {
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
     <nav
       aria-label="Navegação principal"
-      class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3"
+      class="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-4 py-3 sm:px-6"
     >
       <!--
         Monograma + nome, na mesma linha: a marca do convite passa a assinar
         também a navegação (Fase Rebrand do Convite). O monograma é
         aria-hidden e o nome continua sendo o texto acessível do link — quem
         usa leitor de tela ouve o nome do casal, não duas iniciais soltas.
-        Some abaixo do sm para não disputar largura com o botão do menu.
+
+        `min-w-0` + `truncate`, e NUNCA `shrink-0`: com um nome longo
+        ("Mateus Augusto & Raquel Júlia"), uma marca que não encolhe empurrava
+        os links e o botão para fora da tela — a nav pedia 1284px dentro de um
+        container de 1152px, e a página inteira ganhava rolagem horizontal.
+        Truncar o nome é a perda certa a aceitar aqui: o monograma ao lado
+        continua identificando o casal, e os destinos da navegação não podem
+        sumir da tela.
       -->
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 shrink-0 items-center gap-2.5 whitespace-nowrap font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 min-w-0 items-center gap-2.5 font-display text-lg font-semibold text-heading"
         @click="closeMobileMenu"
       >
         <PublicMonogram
@@ -152,18 +171,37 @@ function isCurrent(to: string): boolean {
           :couple-names="coupleNames"
           :image-url="monogramImageUrl"
           size="sm"
-          class="hidden sm:inline-flex"
+          class="hidden shrink-0 sm:inline-flex"
         />
-        {{ coupleNames || 'MeuSiteCasamento' }}
+        <span class="truncate">{{ brandName }}</span>
       </NuxtLink>
 
-      <div class="hidden items-center gap-1 text-sm lg:flex">
+      <!--
+        Links em caixa alta miúda, como no protótipo do convite. Não é só
+        estilo: `text-sm` em caixa mista custava cerca de 200px a mais na
+        linha, e era parte do que estourava a barra.
+
+        Aparecem só a partir de `xl` (1280px), não `lg`. Em 1024px a linha
+        inteira — nome do casal, cinco destinos e o botão — pedia 1057px e
+        estourava por pouco; e "por pouco" aqui é uma armadilha, porque a
+        largura depende do comprimento dos rótulos, que mudam. Abaixo disso o
+        menu em gaveta dá conta, e a barra deixa de depender de quanto o casal
+        escreveu.
+
+        A conta que sustenta as folgas desta linha, medida no navegador: os
+        cinco destinos mais o botão ocupam ~990px, e a marca (monograma + os
+        dois primeiros nomes) pede ~210px. Com `gap-4`, `px-2.5` nos links e o
+        container em 90rem, sobra folga em 1280px — que é o menor tamanho em
+        que esta faixa aparece. Mexer em qualquer um desses números sem refazer
+        a medição é como o nome do casal voltou a truncar duas vezes.
+      -->
+      <div class="hidden shrink-0 items-center gap-1 text-xs tracking-[0.12em] uppercase xl:flex">
         <NuxtLink
           v-for="link in NAV_LINKS"
           :key="link.to"
           :to="link.to"
           :aria-current="isCurrent(link.to) ? 'page' : undefined"
-          class="shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 transition-all duration-200 hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="shrink-0 rounded-full px-2.5 py-2 whitespace-nowrap transition-all duration-200 hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           :class="
             link.id === featuredButtonId
               ? 'bg-secondary/10 font-semibold text-primary'
@@ -172,7 +210,7 @@ function isCurrent(to: string): boolean {
         >
           {{ link.label }}
         </NuxtLink>
-        <UiButton :to="giftsLink" rounded="full" size="sm" class="ml-2">
+        <UiButton :to="giftsLink" rounded="full" size="sm" class="ml-2 shrink-0">
           <Icon name="lucide:gift" class="h-3.5 w-3.5" />
           Presentear
         </UiButton>
@@ -180,7 +218,7 @@ function isCurrent(to: string): boolean {
 
       <button
         type="button"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary xl:hidden"
         :aria-label="isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
         :aria-expanded="isMobileMenuOpen"
         :aria-controls="mobileMenuId"
@@ -202,7 +240,7 @@ function isCurrent(to: string): boolean {
   <Teleport to="body">
     <div
       v-if="isMobileMenuOpen"
-      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
+      class="fixed inset-0 z-40 bg-black/40 xl:hidden"
       aria-hidden="true"
       @click="closeMobileMenu"
     />
@@ -214,7 +252,7 @@ function isCurrent(to: string): boolean {
     -->
     <div
       :id="mobileMenuId"
-      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 lg:hidden"
+      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 xl:hidden"
       :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
       :aria-hidden="!isMobileMenuOpen"
       :inert="!isMobileMenuOpen || undefined"

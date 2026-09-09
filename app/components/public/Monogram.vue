@@ -11,6 +11,8 @@
 // Nomes fora do padrão "Nome1 & Nome2" (um nome só, três nomes) não rendem
 // iniciais confiáveis; nesse caso o componente não renderiza nada em vez de
 // inventar uma letra errada e carimbá-la no site inteiro.
+import { iniciaisCasal } from '#shared/utils/nomes-casal'
+
 interface Props {
   coupleNames?: string | null
   /** Arte própria do casal — quando presente, substitui as iniciais por completo. */
@@ -20,13 +22,7 @@ interface Props {
 
 const { coupleNames, imageUrl, size = 'md' } = defineProps<Props>()
 
-const initials = computed(() => {
-  const parts = (coupleNames ?? '').split(/\s*&\s*/)
-  if (parts.length !== 2) return null
-  const a = parts[0]?.trim().charAt(0).toUpperCase()
-  const b = parts[1]?.trim().charAt(0).toUpperCase()
-  return a && b ? { a, b } : null
-})
+const initials = computed(() => iniciaisCasal(coupleNames))
 
 const SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
   sm: 'text-lg gap-1',
@@ -71,7 +67,7 @@ const IMAGE_SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
     class="inline-flex select-none items-center font-display leading-none text-heading"
     :class="SIZE_CLASSES[size]"
   >
-    {{ initials.a }}
+    {{ initials.primeiro }}
     <svg
       viewBox="0 0 24 24"
       fill="currentColor"
@@ -83,6 +79,6 @@ const IMAGE_SIZE_CLASSES: Record<NonNullable<Props['size']>, string> = {
         d="M12 21s-8-4.9-8-10.4A4.6 4.6 0 0 1 12 7.4 4.6 4.6 0 0 1 20 10.6C20 16.1 12 21 12 21Z"
       />
     </svg>
-    {{ initials.b }}
+    {{ initials.segundo }}
   </span>
 </template>

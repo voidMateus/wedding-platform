@@ -3,6 +3,8 @@
 // central, tipografia serifada) — antes era só uma linha de texto solta,
 // destoando do resto do site (pedido do usuário: "nosso rodapé também
 // precisa ser bonito de igual forma", referência de estilo mimodocasal.com.br).
+import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
+
 interface Props {
   coupleNames?: string | null
   eventDate?: string | null
@@ -11,6 +13,16 @@ interface Props {
 }
 
 const { coupleNames, eventDate, monogramImageUrl } = defineProps<Props>()
+
+/**
+ * Só os primeiros nomes, como na barra de navegação.
+ *
+ * O nome completo em corpo de display não cabe na coluna estreita do rodapé:
+ * "Mateus Augusto & Raquel Júlia" quebrava deixando "Júlia" sozinha na segunda
+ * linha, o que é pior que abreviar de propósito. O nome inteiro continua no
+ * Hero, onde a linha tem a largura da página.
+ */
+const footerName = computed(() => primeirosNomesCasal(coupleNames) ?? coupleNames)
 
 const formattedDate = computed(() =>
   eventDate
@@ -37,7 +49,9 @@ const formattedDate = computed(() =>
         segue com o resto.
       -->
       <PublicMonogram :couple-names="coupleNames" :image-url="monogramImageUrl" size="lg" />
-      <p v-if="coupleNames" class="font-display text-3xl text-heading">{{ coupleNames }}</p>
+      <p v-if="footerName" class="font-display text-3xl text-balance text-heading">
+        {{ footerName }}
+      </p>
       <p v-if="formattedDate" class="text-xs tracking-[0.3em] text-text-muted uppercase">
         {{ formattedDate }}
       </p>

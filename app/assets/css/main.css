@@ -153,6 +153,68 @@
   --transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/*
+ * Catálogo tipográfico — estas regras existem para o @nuxt/fonts VER as
+ * famílias dos pares (shared/theme-presets.ts#FONT_PAIRS).
+ *
+ * O módulo descobre o que servir varrendo o CSS ESTATICAMENTE, e o par de cada
+ * casamento chega por CSS variable injetada em RUNTIME (useWeddingTheme → tag
+ * <style> no head). O scanner nunca enxergava nenhuma família do catálogo: em
+ * produção, seis dos sete pares caíam em silêncio no fallback — quem escolhia
+ * Cinzel via o site em Georgia — e só o par padrão (Playfair, escrito
+ * literalmente nos tokens acima) funcionava. Em desenvolvimento o problema não
+ * aparecia, porque ali o módulo resolve a família sob demanda: quebrado em
+ * produção e certo em dev, a pior combinação possível para descobrir.
+ *
+ * UMA REGRA POR FAMÍLIA, e não uma lista única: o módulo processa apenas a
+ * PRIMEIRA família de cada declaração `font-family` (que é o comportamento
+ * correto — as seguintes são fallback). A primeira tentativa juntou as doze
+ * numa linha só e serviu exatamente uma.
+ *
+ * O seletor não casa com nada: nenhum elemento do site tem `data-font-catalog`.
+ * As regras existem só para as famílias aparecerem no CSS de build, que é o que
+ * faz o módulo baixá-las e gerar `@font-face` e fallbacks métricos. O navegador
+ * continua baixando apenas o arquivo da família que a página de fato usa.
+ *
+ * Família nova em FONT_PAIRS precisa entrar aqui.
+ */
+[data-font-catalog='0'] {
+  font-family: 'Playfair Display';
+}
+[data-font-catalog='1'] {
+  font-family: 'Inter';
+}
+[data-font-catalog='2'] {
+  font-family: 'Cormorant Garamond';
+}
+[data-font-catalog='3'] {
+  font-family: 'Nunito Sans';
+}
+[data-font-catalog='4'] {
+  font-family: 'DM Serif Display';
+}
+[data-font-catalog='5'] {
+  font-family: 'DM Sans';
+}
+[data-font-catalog='6'] {
+  font-family: 'Abril Fatface';
+}
+[data-font-catalog='7'] {
+  font-family: 'Work Sans';
+}
+[data-font-catalog='8'] {
+  font-family: 'Libre Baskerville';
+}
+[data-font-catalog='9'] {
+  font-family: 'Karla';
+}
+[data-font-catalog='10'] {
+  font-family: 'Cinzel';
+}
+[data-font-catalog='11'] {
+  font-family: 'Montserrat';
+}
+
 @layer utilities {
   .transition-brand {
     transition-duration: var(--transition-duration);

@@ -550,3 +550,23 @@ A descoberta que mais muda a página: no protótipo `--heading` é um **vermelho
 Ganhou a segunda, e uma conferência no protótipo confirmou a escolha: **a seção de traje do modelo não tem ilustração nenhuma** — só título, descrição e as sugestões. A arte era a única imagem do site que não vinha do casal, aparecia idêntica em todo casamento e destoava de uma página feita de tipografia e filete.
 
 Entrou `config_tema.dressCodeImageUrl`, com o mesmo par de endpoints das outras imagens do tema (fora do `themeConfigSchema`, que é o que as preserva no merge de Aparência). Sem imagem enviada, a seção fica com o texto e os cartões — o estado padrão, não um vazio a preencher. O Manual dos Padrinhos perdeu a ilustração junto e não ganhou upload próprio: ali os cartões de traje e a paleta de cores já são o peso visual da seção.
+
+**Rodada 3.2 — a barra estourando, e o bug de fonte que ela revelou.**
+
+A barra superior jogava os botões para fora da tela com um nome longo. A medição explicou: a marca tinha `shrink-0` + `whitespace-nowrap`, então nunca cedia — a nav pedia 1284px dentro de um container de 1152px, e a página inteira ganhava rolagem horizontal. Três correções, todas medidas no navegador: a marca passou a poder encolher (`min-w-0`), os links foram para caixa alta miúda (o `text-sm` em caixa mista custava ~200px na linha), e a faixa completa só aparece a partir de `xl` — em 1024px ela estourava "por pouco", e "por pouco" ali é armadilha, porque a largura depende do comprimento dos rótulos.
+
+Mesmo assim o nome truncava. A conta final: os cinco destinos e o botão ocupam ~990px, e o nome completo pedia ~270px num espaço de 199px. A saída foi a marca mostrar só os **primeiros nomes** ("Mateus & Raquel"): o nome inteiro continua no Hero, onde a linha tem a largura da página. O rodapé ganhou o mesmo tratamento pelo mesmo motivo — ali "Mateus Augusto & Raquel Júlia" quebrava deixando "Júlia" sozinha na segunda linha.
+
+A divisão de "Nome1 & Nome2" estava copiada em quatro componentes, sempre com a mesma expressão regular. Virou `shared/utils/nomes-casal.ts`.
+
+**O achado sério veio da auditoria de fontes que o usuário pediu junto: seis dos sete pares tipográficos não funcionavam em produção.**
+
+O `@nuxt/fonts` descobre o que servir varrendo o CSS **estaticamente**, e o par de cada casamento chega por CSS variable injetada em **runtime** (`useWeddingTheme` → `<style>` no head). O scanner nunca via nenhuma família do catálogo: só o par padrão (Playfair, escrito literalmente nos tokens) tinha `@font-face` no build. Quem escolhia Cinzel via o site em Georgia.
+
+O que escondeu o bug por tanto tempo: **em desenvolvimento funciona**, porque ali o módulo resolve a família sob demanda. Quebrado em produção e certo em dev é a pior combinação possível para alguém descobrir — e explica por que ninguém tinha notado desde a Fase Visual.
+
+Também não dava para confiar no diagnóstico óbvio: `document.fonts.check('40px Cinzel')` retorna `true` mesmo sem `@font-face` nenhum (sem uma face declarada, o navegador assume fonte de sistema). O sinal confiável foi outro — o `font-family` computado do `<h1>` vinha como `"Cinzel, Georgia, serif"`, **sem os fallbacks métricos** que o módulo injeta em toda família que processa. A Cormorant tinha; a Cinzel, não.
+
+A correção é um bloco de regras em `main.css`, uma por família, que existe só para o scanner enxergar. Uma regra por família e não uma lista única: o módulo processa apenas a **primeira** família de cada declaração `font-family` — a primeira tentativa juntou as doze numa linha e serviu exatamente uma.
+
+Custo: +35kB de CSS (~5kB gzip) e mais arquivos de fonte no build — mas o navegador continua baixando só a família que a página usa. É o preço de ter sete pares configuráveis, e agora eles de fato funcionam.

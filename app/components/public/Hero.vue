@@ -2,6 +2,7 @@
 import type { ThemeConfig } from '#shared/schemas/theme'
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import { resolveHeroButtons } from '#shared/hero-buttons'
+import { dividirNomesCasal, iniciaisCasal } from '#shared/utils/nomes-casal'
 import type { EventSegment } from '~/types/event-segment'
 import type { Wedding } from '~/types/wedding'
 
@@ -32,21 +33,12 @@ const formattedDate = computed(() =>
 // "Nome1 & Nome2" (convenção usada em todo o projeto) vira 3 linhas
 // ("Nome1" / "&" / "Nome2") para o tratamento tipográfico grande do Hero —
 // nomes fora desse padrão caem no fallback de uma linha só, sem quebrar.
-const coupleNameParts = computed(() => {
-  const parts = wedding.nomes_noivos.split(/\s*&\s*/)
-  return parts.length === 2 ? parts : null
-})
+const coupleNameParts = computed(() => dividirNomesCasal(wedding.nomes_noivos))
 
 // Monograma d'água ao fundo (iniciais do casal em cascata diagonal, ex.:
 // M / & / R) — "sensação de convite" pedida pelo usuário, opacidade de
 // textura (2–4%, brief da Rodada 6).
-const monogramInitials = computed(() => {
-  if (!coupleNameParts.value) return null
-  const [first, second] = coupleNameParts.value
-  const a = first?.trim().charAt(0)
-  const b = second?.trim().charAt(0)
-  return a && b ? { a, b } : null
-})
+const monogramInitials = computed(() => iniciaisCasal(wedding.nomes_noivos))
 
 // Arte própria do monograma (Fase Rebrand do Convite). Quando existe, ela
 // substitui a cascata de iniciais como marca d'água — na mesma opacidade de
@@ -135,10 +127,16 @@ const heroButtons = computed(() =>
       "sm:X md:X lg:X xl:X 2xl:X" (repetindo o valor quando for constante em
       todos os breakpoints) — nunca um valor solto com "vw".
     -->
+    <!--
+      Decorativa, não ilustrativa: a foto entra a 20% de opacidade com blur,
+      como fundo-ambiente sob o texto. Descrevê-la anunciaria a um leitor de
+      tela uma imagem que ninguém consegue ver — `alt=""` é a marcação correta.
+    -->
     <NuxtImg
       v-if="coverImageUrl"
       :src="coverImageUrl"
-      :alt="`Foto de capa de ${wedding.nomes_noivos}`"
+      alt=""
+      aria-hidden="true"
       class="absolute inset-0 h-full w-full scale-105 object-cover opacity-20 blur-[2px]"
       :style="{ objectPosition: coverFocalPosition }"
       sizes="sm:100vw md:100vw lg:100vw xl:100vw 2xl:100vw"
@@ -177,12 +175,12 @@ const heroButtons = computed(() =>
       aria-hidden="true"
       class="pointer-events-none absolute inset-y-0 right-0 flex translate-x-[12%] select-none items-center font-display font-medium leading-none text-heading/[0.04]"
     >
-      <span class="text-[13rem] sm:text-[22rem]">{{ monogramInitials.a }}</span>
+      <span class="text-[13rem] sm:text-[22rem]">{{ monogramInitials.primeiro }}</span>
       <span class="translate-y-[4.5rem] text-[10rem] italic sm:translate-y-[8rem] sm:text-[17rem]"
         >&amp;</span
       >
       <span class="translate-y-[9rem] text-[13rem] sm:translate-y-[16rem] sm:text-[22rem]">{{
-        monogramInitials.b
+        monogramInitials.segundo
       }}</span>
     </div>
 
@@ -209,11 +207,11 @@ const heroButtons = computed(() =>
         class="font-display font-semibold leading-[1.05] text-heading"
         :class="coupleNameSizeClasses"
       >
-        <span class="block">{{ coupleNameParts[0] }}</span>
+        <span class="block">{{ coupleNameParts.primeiro }}</span>
         <span class="block py-1 text-[0.45em] font-normal italic leading-none text-ornament"
           >&amp;</span
         >
-        <span class="block">{{ coupleNameParts[1] }}</span>
+        <span class="block">{{ coupleNameParts.segundo }}</span>
       </h1>
       <h1 v-else class="font-display font-semibold text-heading" :class="coupleNameSizeClasses">
         {{ wedding.nomes_noivos }}
