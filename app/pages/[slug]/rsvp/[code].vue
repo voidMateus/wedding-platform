@@ -27,12 +27,16 @@ useSeoMeta({
 
 function formatDeadline(value: string | null): string {
   if (!value) return 'o dia do evento'
-  return new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  return new Date(value).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-lg flex-col gap-6 px-4 py-16">
+  <div class="mx-auto flex max-w-lg flex-col gap-8 px-6 py-16">
     <div v-if="status === 'pending'" class="flex flex-col gap-3">
       <UiSkeleton class="h-8 w-48" />
       <UiSkeleton class="h-40 w-full" />
@@ -45,19 +49,17 @@ function formatDeadline(value: string | null): string {
     />
 
     <template v-else>
-      <div>
-        <p class="text-sm uppercase tracking-widest text-text-muted">{{ data.wedding.coupleNames }}</p>
-        <h1 class="mt-1 text-xl font-semibold text-text">Confirmação de Presença</h1>
-        <p class="mt-2 text-sm text-text-muted">
-          Confirme sua presença até {{ formatDeadline(data.wedding.rsvpDeadline) }}.
-        </p>
-      </div>
+      <PublicPageHeader
+        :eyebrow="data.wedding.coupleNames"
+        title="Confirme sua Presença"
+        :description="`Confirme sua presença até ${formatDeadline(data.wedding.rsvpDeadline)}.`"
+      />
 
       <RsvpInviteFlow :payload="data" />
 
       <NuxtLink
         :to="`/${slug}/#presentes`"
-        class="text-center text-sm text-primary underline-offset-2 hover:underline"
+        class="text-center text-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         Ver lista de presentes
       </NuxtLink>

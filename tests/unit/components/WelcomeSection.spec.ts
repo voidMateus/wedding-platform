@@ -47,10 +47,25 @@ describe('PublicWelcomeSection', () => {
     expect(wrapper.find('.rounded-xl').exists()).toBe(false)
   })
 
-  it('renderiza o ornamento e o coração decorativos', () => {
+  it('escreve a mensagem em serifada itálica — é fala do casal, não informação', () => {
+    // O único bloco do site nesse tratamento (--font-serif em itálico grande),
+    // e é o que separa a voz do casal do resto da página, que informa.
     const wrapper = mountSection()
-    expect(wrapper.find('[data-test="flourish"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('♥')
+    const paragrafo = wrapper.findAll('p').find((p) => p.classes().includes('font-serif'))
+    expect(paragrafo).toBeDefined()
+    expect(paragrafo!.classes()).toContain('italic')
+  })
+
+  it('assina com os primeiros nomes do casal', () => {
+    const wrapper = mountSection(makeWedding({ nomes_noivos: 'Ana Maria & João Pedro' }))
+    expect(wrapper.text()).toContain('Com carinho, Ana e João')
+  })
+
+  it('não assina quando o nome do casal foge do padrão "Nome1 & Nome2"', () => {
+    // Sem os dois lados não há como separar os primeiros nomes, e uma
+    // assinatura errada é pior que nenhuma.
+    const wrapper = mountSection(makeWedding({ nomes_noivos: 'Casal de Teste' }))
+    expect(wrapper.text()).not.toContain('Com carinho')
   })
 
   it('usa o título/mensagem customizados pelo casal quando presentes em config_conteudo', () => {

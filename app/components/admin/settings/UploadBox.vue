@@ -30,9 +30,22 @@ interface Props {
   isUploading: boolean
   isRemoving: boolean
   errorMessage: string | null
+  /**
+   * Como a prévia preenche a moldura. `cover` (default) é o certo para foto,
+   * que é sempre recortada em uso; `contain` é o certo para uma marca com
+   * fundo transparente, que precisa ser vista inteira — recortar um monograma
+   * mostraria uma prévia que não corresponde ao que o site desenha.
+   */
+  previewFit?: 'cover' | 'contain'
+  /**
+   * Mostra a ação de corte/rotação (default true). Desligado para imagens que
+   * não têm enquadramento a escolher, onde o botão só levaria a um editor sem
+   * decisão nenhuma para tomar.
+   */
+  editable?: boolean
 }
 
-defineProps<Props>()
+const { previewFit = 'cover', editable = true } = defineProps<Props>()
 
 const emit = defineEmits<{
   /** Abrir o seletor de arquivos do sistema. */
@@ -58,18 +71,26 @@ const emit = defineEmits<{
         class="overflow-hidden rounded-md border border-border bg-surface-elevated"
         :class="previewAspectClass"
       >
-        <img :src="modelValue" :alt="previewAlt" class="h-full w-full object-cover" />
+        <img
+          :src="modelValue"
+          :alt="previewAlt"
+          class="h-full w-full"
+          :class="previewFit === 'contain' ? 'object-contain' : 'object-cover'"
+        />
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <UiButton type="button" size="sm" @click="emit('edit')">
+        <UiButton v-if="editable" type="button" size="sm" @click="emit('edit')">
           <Icon name="lucide:crop" class="h-4 w-4" />
           Editar imagem
         </UiButton>
+        <!-- Sem a ação de corte, "Trocar" passa a ser a ação principal da
+             caixa — como ghost ao lado de um "Remover" vermelho, ela leria
+             como a opção secundária de um par que não tem primária. -->
         <UiButton
           type="button"
           size="sm"
-          variant="ghost"
+          :variant="editable ? 'ghost' : 'primary'"
           :disabled="isUploading"
           @click="emit('pick')"
         >

@@ -7,6 +7,7 @@ export interface WeddingThemeStyle {
   '--color-secondary': string
   '--color-heading'?: string
   '--color-body'?: string
+  '--color-ornament'?: string
   '--font-display'?: string
   '--font-button'?: string
 }
@@ -37,6 +38,13 @@ export function useWeddingTheme(
   }
   if (theme.bodyColor) {
     style['--color-body'] = theme.bodyColor
+  }
+  // Mesma regra das duas cores acima: só entra quando o casal de fato
+  // escolheu um ornamento. Ausente, --color-ornament continua herdando
+  // --color-secondary pelo default declarado em main.css — forçar um valor
+  // aqui apagaria essa herança.
+  if (theme.ornamentColor) {
+    style['--color-ornament'] = theme.ornamentColor
   }
 
   if (options.includeFont) {

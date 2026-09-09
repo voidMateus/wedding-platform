@@ -48,12 +48,14 @@ export const GUEST_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
     {
       icon: 'lucide:bed',
       title: 'Hospedagem',
-      description: 'Há hotéis e pousadas a poucos minutos do local — teremos uma lista de sugestões em breve.',
+      description:
+        'Há hotéis e pousadas a poucos minutos do local — teremos uma lista de sugestões em breve.',
     },
     {
       icon: 'lucide:car',
       title: 'Transporte e estacionamento',
-      description: 'O local conta com estacionamento próprio; se preferir, aplicativos de transporte chegam até a entrada.',
+      description:
+        'O local conta com estacionamento próprio; se preferir, aplicativos de transporte chegam até a entrada.',
     },
     {
       icon: 'lucide:shirt',
@@ -63,7 +65,8 @@ export const GUEST_MANUAL_CONTENT: { intro: string; topics: ManualTopic[] } = {
     {
       icon: 'lucide:clock',
       title: 'Horários',
-      description: 'Chegue com 30 minutos de antecedência para se acomodar antes do início da cerimônia.',
+      description:
+        'Chegue com 30 minutos de antecedência para se acomodar antes do início da cerimônia.',
     },
   ],
 }
@@ -109,16 +112,50 @@ export const FAQ_CONTENT: FaqItem[] = [
   },
 ]
 
+export interface StoryMilestone {
+  label: string
+  title: string
+  text: string
+}
+
+export interface PaletteSwatch {
+  name: string
+  hex: string
+}
+
+export interface ResolvedVerse {
+  text: string
+  reference: string
+}
+
+export interface ResolvedGroomsmenManual {
+  intro: string
+  attireGroomsmen: string
+  attireBridesmaids: string
+  palette: PaletteSwatch[]
+}
+
 export interface ResolvedWeddingContent {
   welcomeTitle: string
   welcomeParagraphs: string[]
   storyParagraphs: string[]
+  /** Marcos da história. Vazio = a seção desenha `storyParagraphs` como texto corrido. */
+  storyMilestones: StoryMilestone[]
   dressCodeDescription: string
   dressCodeSuggestions: string[]
   guestManualIntro: string
   guestManualTopics: ManualTopic[]
   giftsIntroMessage: string
   faqItems: FaqItem[]
+  /**
+   * Sem default de plataforma — string vazia quando o casal não preencheu, e
+   * é a string vazia que faz a seção sumir. Ver o comentário em
+   * weddingContentConfigSchema: um versículo padrão inventado apareceria no
+   * site de todo mundo falando em nome da fé de um casal que nunca escolheu
+   * aquilo.
+   */
+  verse: ResolvedVerse
+  groomsmenManual: ResolvedGroomsmenManual
 }
 
 /**
@@ -135,13 +172,46 @@ export function resolveWeddingContent(contentConfig: unknown): ResolvedWeddingCo
   const c = (contentConfig ?? {}) as Partial<WeddingContentConfig>
   return {
     welcomeTitle: c.welcomeTitle ?? WELCOME_CONTENT.title,
-    welcomeParagraphs: c.welcomeMessage ? splitParagraphs(c.welcomeMessage) : WELCOME_CONTENT.paragraphs,
+    welcomeParagraphs: c.welcomeMessage
+      ? splitParagraphs(c.welcomeMessage)
+      : WELCOME_CONTENT.paragraphs,
     storyParagraphs: c.storyMessage ? splitParagraphs(c.storyMessage) : STORY_CONTENT.paragraphs,
+    storyMilestones: c.storyMilestones ?? [],
     dressCodeDescription: c.dressCodeDescription ?? DRESS_CODE_CONTENT.description,
     dressCodeSuggestions: c.dressCodeSuggestions ?? DRESS_CODE_CONTENT.suggestions,
     guestManualIntro: c.guestManualIntro ?? GUEST_MANUAL_CONTENT.intro,
     guestManualTopics: c.guestManualTopics ?? GUEST_MANUAL_CONTENT.topics,
     giftsIntroMessage: c.giftsIntroMessage ?? GIFTS_INTRO_CONTENT.message,
     faqItems: c.faqItems ?? FAQ_CONTENT,
+    verse: {
+      text: c.verse?.text ?? '',
+      reference: c.verse?.reference ?? '',
+    },
+    groomsmenManual: {
+      intro: c.groomsmenManual?.intro ?? '',
+      attireGroomsmen: c.groomsmenManual?.attireGroomsmen ?? '',
+      attireBridesmaids: c.groomsmenManual?.attireBridesmaids ?? '',
+      palette: c.groomsmenManual?.palette ?? [],
+    },
   }
+}
+
+/**
+ * Uma seção opcional é renderizada quando tem conteúdo — nunca "quando o
+ * casal ligou um interruptor". Sem essas duas funções, cada componente
+ * repetiria a mesma condição composta no `v-if`, e bastaria um deles
+ * discordar (esquecer a paleta, por exemplo) para a seção aparecer vazia no
+ * site enquanto o admin jura que está desligada.
+ */
+export function hasVerseContent(verse: ResolvedVerse): boolean {
+  return verse.text.trim().length > 0
+}
+
+export function hasGroomsmenManualContent(manual: ResolvedGroomsmenManual): boolean {
+  return Boolean(
+    manual.intro.trim() ||
+    manual.attireGroomsmen.trim() ||
+    manual.attireBridesmaids.trim() ||
+    manual.palette.length,
+  )
 }

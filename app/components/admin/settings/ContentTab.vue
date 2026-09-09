@@ -19,11 +19,30 @@ const { updateWeddingContent } = useWedding()
 // `hint` diz onde no site o texto aparece — a dúvida real do casal ao abrir
 // esta lista é "qual destes é aquele parágrafo que eu vi na página?", não o
 // que a palavra "Manual" significa.
+// A ordem desta lista acompanha a ordem PADRÃO das seções na home
+// (shared/home-sections.ts) — não a ordem que o casal arrastou na aba
+// Aparência. Reordenar aqui junto seria seguir o site, mas transformaria uma
+// lista de edição estável numa que muda de lugar sozinha: quem já sabe que o
+// Dress Code é o quinto item passaria a procurá-lo a cada mudança de layout.
 const conteudoItems = [
   { id: 'boas-vindas', trigger: 'Boas-vindas', hint: 'Primeiro texto que o convidado lê no site.' },
-  { id: 'historia', trigger: 'Nossa História', hint: 'Como vocês se conheceram.' },
+  {
+    id: 'versiculo',
+    trigger: 'Versículo',
+    hint: 'Faixa colorida entre as seções claras. Vazio = não aparece.',
+  },
+  {
+    id: 'historia',
+    trigger: 'Nossa História',
+    hint: 'Como vocês se conheceram — em texto corrido ou em marcos.',
+  },
   { id: 'dress-code', trigger: 'Dress Code', hint: 'Orientação de traje.' },
   { id: 'manual', trigger: 'Manual dos Convidados', hint: 'Regras e recomendações práticas.' },
+  {
+    id: 'manual-padrinhos',
+    trigger: 'Manual dos Padrinhos',
+    hint: 'Traje e paleta de cores. Vazio = não aparece.',
+  },
   { id: 'presentes', trigger: 'Lista de Presentes', hint: 'Texto acima da lista.' },
   { id: 'faq', trigger: 'Perguntas Frequentes', hint: 'Dúvidas comuns dos convidados.' },
 ]
@@ -35,12 +54,26 @@ const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = use
 const [welcomeTitle] = defineField('welcomeTitle')
 const [welcomeMessage] = defineField('welcomeMessage')
 const [storyMessage] = defineField('storyMessage')
+const [storyMilestones] = defineField('storyMilestones')
 const [dressCodeDescription] = defineField('dressCodeDescription')
 const [dressCodeSuggestions] = defineField('dressCodeSuggestions')
 const [guestManualIntro] = defineField('guestManualIntro')
 const [guestManualTopics] = defineField('guestManualTopics')
 const [giftsIntroMessage] = defineField('giftsIntroMessage')
 const [faqItems] = defineField('faqItems')
+const [verse] = defineField('verse')
+const [groomsmenManual] = defineField('groomsmenManual')
+
+// Os dois objetos aninhados são editados campo a campo — `defineField` de uma
+// subchave ('verse.text') existiria, mas ficaria um `defineField` por campo e
+// a lista de campos cresceria toda vez que um dos objetos ganhasse um.
+function updateVerse(patch: Partial<NonNullable<typeof verse.value>>) {
+  verse.value = { ...(verse.value ?? {}), ...patch }
+}
+
+function updateGroomsmenManual(patch: Partial<NonNullable<typeof groomsmenManual.value>>) {
+  groomsmenManual.value = { ...(groomsmenManual.value ?? { palette: [] }), ...patch }
+}
 
 function addDressCodeSuggestion() {
   dressCodeSuggestions.value = [...(dressCodeSuggestions.value ?? []), '']
@@ -65,12 +98,20 @@ function applyWeddingToForm() {
       welcomeTitle: resolved.welcomeTitle,
       welcomeMessage: resolved.welcomeParagraphs.join('\n\n'),
       storyMessage: resolved.storyParagraphs.join('\n\n'),
+      storyMilestones: resolved.storyMilestones,
       dressCodeDescription: resolved.dressCodeDescription,
       dressCodeSuggestions: resolved.dressCodeSuggestions,
       guestManualIntro: resolved.guestManualIntro,
       guestManualTopics: resolved.guestManualTopics,
       giftsIntroMessage: resolved.giftsIntroMessage,
       faqItems: resolved.faqItems,
+      verse: { text: resolved.verse.text, reference: resolved.verse.reference },
+      groomsmenManual: {
+        intro: resolved.groomsmenManual.intro,
+        attireGroomsmen: resolved.groomsmenManual.attireGroomsmen,
+        attireBridesmaids: resolved.groomsmenManual.attireBridesmaids,
+        palette: resolved.groomsmenManual.palette,
+      },
     },
   })
 }
@@ -116,6 +157,53 @@ const onSubmit = handleSubmit(
               />
             </template>
 
+            <template v-if="item.id === 'versiculo'">
+              <UiTextarea
+                :model-value="verse?.text ?? ''"
+                label="Versículo ou citação"
+                :rows="3"
+                hint="Aparece numa faixa na cor primária do site, com o texto em dourado. Deixe em branco para não exibir a seção."
+                :error="errors['verse.text']"
+                @update:model-value="(value) => updateVerse({ text: value })"
+              />
+              <UiInput
+                :model-value="verse?.reference ?? ''"
+                label="Referência"
+                placeholder="Ex.: Salmos 118:24"
+                :error="errors['verse.reference']"
+                @update:model-value="(value) => updateVerse({ reference: value })"
+              />
+            </template>
+
+            <template v-if="item.id === 'manual-padrinhos'">
+              <UiTextarea
+                :model-value="groomsmenManual?.intro ?? ''"
+                label="Introdução"
+                :rows="2"
+                hint="Um recado para quem vai subir ao altar com vocês."
+                :error="errors['groomsmenManual.intro']"
+                @update:model-value="(value) => updateGroomsmenManual({ intro: value })"
+              />
+              <UiTextarea
+                :model-value="groomsmenManual?.attireGroomsmen ?? ''"
+                label="Traje — para eles"
+                :rows="3"
+                :error="errors['groomsmenManual.attireGroomsmen']"
+                @update:model-value="(value) => updateGroomsmenManual({ attireGroomsmen: value })"
+              />
+              <UiTextarea
+                :model-value="groomsmenManual?.attireBridesmaids ?? ''"
+                label="Traje — para elas"
+                :rows="3"
+                :error="errors['groomsmenManual.attireBridesmaids']"
+                @update:model-value="(value) => updateGroomsmenManual({ attireBridesmaids: value })"
+              />
+              <AdminPaletteEditor
+                :model-value="groomsmenManual?.palette ?? []"
+                @update:model-value="(value) => updateGroomsmenManual({ palette: value })"
+              />
+            </template>
+
             <template v-if="item.id === 'historia'">
               <UiTextarea
                 v-model="storyMessage"
@@ -123,6 +211,10 @@ const onSubmit = handleSubmit(
                 :rows="6"
                 hint="Separe parágrafos deixando uma linha em branco entre eles."
                 :error="errors.storyMessage"
+              />
+              <AdminStoryMilestonesEditor
+                :model-value="storyMilestones ?? []"
+                @update:model-value="(value) => (storyMilestones = value)"
               />
             </template>
 

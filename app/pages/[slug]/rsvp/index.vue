@@ -5,6 +5,9 @@ import type { RsvpInvitePayload, RsvpSearchResult } from '~/types/rsvp'
 
 definePageMeta({ layout: 'default' })
 
+// noindex: a busca por nome é um fluxo pessoal do convidado, não conteúdo
+// para buscador — mas o título ainda identifica o casamento para quem tem a
+// aba aberta entre várias.
 useSeoMeta({
   title: 'Confirmação de Presença',
   robots: 'noindex, nofollow',
@@ -19,7 +22,14 @@ const backToSiteLink = computed(() => `/${slug}`)
 // busca (nome do casal/data). Nada sensível: a mesma informação já é
 // visível pra qualquer pessoa com o link do site.
 const { getPublicWedding } = usePublicWedding()
-const { data: wedding } = getPublicWedding()
+const { data: wedding } = await getPublicWedding()
+
+// Slug inexistente responde 404 de verdade (mesma regra da home): a página não
+// pode existir sem o casamento por trás dela. `fatal` para o erro subir no SSR
+// e o status HTTP ser realmente 404, não uma tela de erro dentro de um 200.
+if (!wedding.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Casamento não encontrado', fatal: true })
+}
 
 const formattedDate = computed(() =>
   wedding.value
@@ -92,10 +102,7 @@ async function handleConfirmIdentity() {
 </script>
 
 <template>
-  <div
-    class="mx-auto flex min-h-[70vh] flex-col justify-center px-4 py-16"
-    :class="step === 'search' ? 'max-w-3xl' : 'max-w-xl'"
-  >
+  <div class="mx-auto flex min-h-[70vh] w-full max-w-xl flex-col justify-center px-6 py-16">
     <!--
       Só a etapa 'search' não tem uma "etapa anterior" real dentro do
       próprio fluxo de RSVP — por isso é a única que volta direto pro site.
@@ -105,7 +112,7 @@ async function handleConfirmIdentity() {
     <NuxtLink
       v-if="step === 'search'"
       :to="backToSiteLink"
-      class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+      class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <Icon name="lucide:arrow-left" class="h-4 w-4" />
       Voltar ao site
@@ -113,43 +120,34 @@ async function handleConfirmIdentity() {
 
     <template v-if="step === 'search'">
       <!--
-        Cartão em duas colunas (referência de estilo: mimodocasal.com.br) —
-        painel esquerdo dá contexto emocional (casal/data), painel direito é
-        a busca de verdade. Em telas estreitas empilha (painel de contexto
-        vira um cabeçalho compacto acima do formulário).
+        Contexto em cima, busca embaixo — em TODA largura.
+        Havia aqui um cartão de duas colunas no desktop, com o contexto à
+        esquerda e o campo à direita. Não funcionava: o lado da busca tem uma
+        linha de conteúdo (um campo, e a lista de resultados só depois de
+        digitar), então ficava um painel quase vazio flutuando ao lado de um
+        painel cheio — desequilíbrio que só piorava quanto mais larga a tela.
+        Empilhado, a leitura é a mesma do celular, que já estava certa: quem é
+        o casal, o que se pede, e então o campo.
       -->
       <div
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="grid overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl lg:grid-cols-[0.85fr_1.15fr]"
+        class="flex flex-col gap-8"
       >
-        <div
-          class="flex flex-col justify-center gap-4 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-8 sm:p-10"
+        <PublicPageHeader
+          :eyebrow="wedding?.nomes_noivos"
+          title="Confirme sua Presença"
+          description="Digite seu nome para localizar seu convite e confirmar sua presença e a dos seus acompanhantes."
         >
-          <span
-            class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"
-          >
-            <Icon name="lucide:mail-check" class="h-5 w-5" />
-          </span>
-          <div v-if="wedding">
-            <p class="font-display text-xl font-semibold text-heading">
-              {{ wedding.nomes_noivos }}
-            </p>
-            <p class="text-sm text-text-muted">{{ formattedDate }}</p>
-          </div>
-          <div>
-            <h1 class="font-display text-2xl font-semibold text-heading">
-              Confirmação de Presença
-            </h1>
-            <p class="mt-1 text-sm leading-relaxed text-text-muted">
-              Digite seu nome para localizar seu convite e confirmar sua presença e a dos seus
-              acompanhantes.
-            </p>
-          </div>
-        </div>
+          <p v-if="formattedDate" class="text-xs tracking-[0.2em] text-text-muted uppercase">
+            {{ formattedDate }}
+          </p>
+        </PublicPageHeader>
 
-        <div class="flex flex-col gap-4 p-8 sm:p-10">
+        <div
+          class="flex flex-col gap-4 rounded-xl border border-border/70 bg-surface-elevated p-6 sm:p-8"
+        >
           <UiInput v-model="query" placeholder="Seu nome completo" autofocus />
 
           <p v-if="searchError" class="text-sm text-danger" role="alert">{{ searchError }}</p>
@@ -158,7 +156,7 @@ async function handleConfirmIdentity() {
             <li v-for="result in results" :key="result.guestId">
               <button
                 type="button"
-                class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-colors hover:border-primary/40 hover:bg-primary/5"
+                class="flex w-full items-center justify-between rounded-md border border-border px-4 py-3 text-left text-sm text-text transition-brand hover:border-primary/40 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 @click="handleSelectResult(result)"
               >
                 {{ result.fullName }}
@@ -181,7 +179,7 @@ async function handleConfirmIdentity() {
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="flex flex-col items-center gap-4 rounded-xl border border-primary/10 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
+        class="flex flex-col items-center gap-4 rounded-xl border border-border/70 bg-surface-elevated p-8 text-center sm:p-10"
       >
         <span
           class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"

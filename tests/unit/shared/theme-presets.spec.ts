@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  FONT_PAIRS,
-  THEME_PRESETS,
-  findFontPair,
-  findThemePreset,
-} from '#shared/theme-presets'
-import { checkColorContrast, isValidHexColor } from '#shared/utils/contrast'
+import { FONT_PAIRS, THEME_PRESETS, findFontPair, findThemePreset } from '#shared/theme-presets'
+import { checkColorContrast, checkOrnamentOnPrimary, isValidHexColor } from '#shared/utils/contrast'
 
 describe('THEME_PRESETS', () => {
   it('tem pelo menos 5 presets (mix variado de estilos)', () => {
@@ -55,4 +50,29 @@ describe('findThemePreset / findFontPair', () => {
     expect(findThemePreset('classico-elegante')?.label).toBe('Clássico Elegante')
     expect(findFontPair('playfair-inter')?.displayFontFamily).toBe('Playfair Display')
   })
+})
+
+describe('THEME_PRESETS — cor de ornamento', () => {
+  const withOrnament = THEME_PRESETS.filter((preset) => preset.ornamentColor)
+
+  it('existe ao menos um preset com ornamento próprio', () => {
+    expect(withOrnament.length).toBeGreaterThan(0)
+  })
+
+  it.each(withOrnament)('preset "$label": ornamentColor é um hex válido', (preset) => {
+    expect(isValidHexColor(preset.ornamentColor!)).toBe(true)
+  })
+
+  it.each(withOrnament)(
+    'preset "$label": o ornamento é legível sobre a primária (par do Versículo)',
+    (preset) => {
+      // O ornamento é isento de contraste como decoração, mas no Versículo ele
+      // vira texto sobre a cor primária. Um preset da plataforma não pode sair
+      // de fábrica com essa combinação reprovada — a isenção existe para a
+      // cor do casal, não para relaxar os presets.
+      expect(checkOrnamentOnPrimary(preset.ornamentColor!, preset.primaryColor).meetsMinimum).toBe(
+        true,
+      )
+    },
+  )
 })

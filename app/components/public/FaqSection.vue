@@ -4,9 +4,11 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'default' } = defineProps<Props>()
 
 const content = computed(() => resolveWeddingContent(wedding.config_conteudo))
 
@@ -25,10 +27,10 @@ const items = computed(() =>
     id="faq"
     eyebrow="Dúvidas comuns"
     title="Perguntas Frequentes"
-    tone="muted"
+    :tone="tone"
   >
-    <div class="mx-auto w-full max-w-2xl">
-      <UiAccordion :items="items" />
+    <div class="mx-auto w-full max-w-3xl">
+      <UiAccordion :items="items" variant="rule" />
     </div>
   </PublicEditorialSection>
 </template>

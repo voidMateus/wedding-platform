@@ -12,11 +12,45 @@ const slug = useWeddingSlug()
 const { getPublicWedding } = usePublicWedding()
 const { data: wedding } = await getPublicWedding()
 
+// Slug inexistente responde 404 de verdade (mesma regra da home): a página não
+// pode existir sem o casamento por trás dela. `fatal` para o erro subir no SSR
+// e o status HTTP ser realmente 404, não uma tela de erro dentro de um 200.
+if (!wedding.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Casamento não encontrado', fatal: true })
+}
+
 const giftsIntroMessage = computed(
   () => resolveWeddingContent(wedding.value?.config_conteudo).giftsIntroMessage,
 )
 
-useSeoMeta({ title: 'Presentes' })
+// Página pública e indexável — título e descrição próprios, não herdados da
+// home: é ela que aparece quando alguém busca a lista de presentes do casal.
+const canonicalUrl = useAbsoluteUrl(() => `/${slug}/presentes`)
+const giftsTitle = computed(() =>
+  wedding.value ? `Lista de presentes — ${wedding.value.nomes_noivos}` : 'Lista de presentes',
+)
+const giftsDescription = computed(() =>
+  wedding.value
+    ? `Escolha um presente para ${wedding.value.nomes_noivos} e contribua pelo Pix ou cartão.`
+    : undefined,
+)
+
+useSeoMeta({
+  title: () => giftsTitle.value,
+  description: () => giftsDescription.value,
+  ogTitle: () => giftsTitle.value,
+  ogDescription: () => giftsDescription.value,
+  ogType: 'website',
+  ogUrl: () => canonicalUrl.value || undefined,
+  ogLocale: 'pt_BR',
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => giftsTitle.value,
+  twitterDescription: () => giftsDescription.value,
+})
+
+useHead({
+  link: () => (canonicalUrl.value ? [{ rel: 'canonical', href: canonicalUrl.value }] : []),
+})
 
 const backToSiteLink = computed(() => `/${slug}`)
 
@@ -28,39 +62,28 @@ const SECTION_LINKS = [
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-16">
-    <NuxtLink
-      :to="backToSiteLink"
-      class="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+  <div class="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-16">
+    <PublicPageHeader
+      eyebrow="Para essa nova fase"
+      title="Lista de Presentes"
+      :description="giftsIntroMessage"
+      :back-to="backToSiteLink"
     >
-      <Icon name="lucide:arrow-left" class="h-4 w-4" />
-      Voltar ao site
-    </NuxtLink>
-
-    <div class="flex flex-col items-center gap-3 text-center">
-      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Icon name="lucide:gift" class="h-6 w-6" />
-      </span>
-      <div>
-        <h1 class="font-display text-3xl font-semibold text-heading">
-          Presentear{{ wedding?.nomes_noivos ? ` ${wedding.nomes_noivos}` : '' }}
-        </h1>
-        <p class="mt-2 max-w-xl text-sm leading-relaxed text-text-muted">
-          {{ giftsIntroMessage }}
-        </p>
-      </div>
-
-      <nav class="flex flex-wrap justify-center gap-2 pt-2">
+      <!--
+        Âncoras internas no mesmo formato de cápsula dos atalhos do Hero — a
+        página é longa, e são elas que dão acesso direto a cada bloco da lista.
+      -->
+      <nav class="flex flex-wrap justify-center gap-2 pt-2" aria-label="Seções desta página">
         <a
           v-for="link in SECTION_LINKS"
           :key="link.id"
           :href="`#${link.id}`"
-          class="rounded-full border border-border px-3 py-1.5 text-sm text-text-muted transition-brand hover:border-primary/50 hover:text-text"
+          class="rounded-full border border-ornament/50 px-4 py-2 text-xs tracking-[0.12em] text-heading uppercase transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {{ link.label }}
         </a>
       </nav>
-    </div>
+    </PublicPageHeader>
 
     <GiftsShowcase />
   </div>

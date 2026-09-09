@@ -7,6 +7,13 @@
 import { DEFAULT_GALLERY_PREVIEW_COUNT } from '#shared/schemas/gallery'
 import type { ThemeConfig } from '#shared/schemas/theme'
 
+interface Props {
+  /** Fundo da seção — resolvido pela página (resolveHomeSections), nunca fixo aqui. */
+  tone?: 'default' | 'muted'
+}
+
+const { tone = 'default' } = defineProps<Props>()
+
 const { getPublicPhotos } = usePublicPhotos()
 const { getPublicWedding } = usePublicWedding()
 const { data } = getPublicPhotos()
@@ -28,6 +35,7 @@ const hasMore = computed(() => photos.value.length > previewCount.value)
     id="nossos-momentos"
     eyebrow="Registros"
     title="Nossos Momentos"
+    :tone="tone"
   >
     <!-- previewCount = 0 → só o botão, sem prévia -->
     <PublicPhotoGrid v-if="previewPhotos.length" :photos="previewPhotos" variant="preview" />

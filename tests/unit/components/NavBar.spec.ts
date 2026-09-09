@@ -61,7 +61,13 @@ describe('PublicNavBar', () => {
   it('a ordem dos links casa com a ordem das seções na home', () => {
     const wrapper = mountNavBar()
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    const order = [`/${SLUG}/#historia`, `/${SLUG}/#grande-dia`, `/${SLUG}/#manual-convidados`, `/${SLUG}/rsvp`, `/${SLUG}/#nossos-momentos`]
+    const order = [
+      `/${SLUG}/#historia`,
+      `/${SLUG}/#grande-dia`,
+      `/${SLUG}/#manual-convidados`,
+      `/${SLUG}/rsvp`,
+      `/${SLUG}/#nossos-momentos`,
+    ]
     const filtered = order.filter((href) => hrefs.includes(href))
     expect(filtered).toEqual(order)
   })
@@ -74,14 +80,18 @@ describe('PublicNavBar', () => {
 
   it('o CTA de /{slug}/presentes é um botão destacado em pill (cor primária), não um link de texto', () => {
     const wrapper = mountNavBar()
-    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === `/${SLUG}/presentes`)
+    const presentesLink = wrapper
+      .findAll('a')
+      .find((a) => a.attributes('href') === `/${SLUG}/presentes`)
     expect(presentesLink?.classes()).toContain('bg-primary')
     expect(presentesLink?.classes()).toContain('rounded-full')
   })
 
   it('renderiza o CTA "Presentear" duas vezes (desktop + topo do drawer mobile, via Teleport)', () => {
     const wrapper = mountNavBar()
-    const desktopLinks = wrapper.findAll('a').filter((a) => a.attributes('href') === `/${SLUG}/presentes`)
+    const desktopLinks = wrapper
+      .findAll('a')
+      .filter((a) => a.attributes('href') === `/${SLUG}/presentes`)
     const drawerLinks = [...document.body.querySelectorAll('a')].filter(
       (a) => a.getAttribute('href') === `/${SLUG}/presentes`,
     )
@@ -95,16 +105,29 @@ describe('PublicNavBar', () => {
     expect(hrefs).toContain(`/${SLUG}/presentes?code=abc123`)
   })
 
-  it('destaca o link do menu que casa com o atalho em destaque do Hero', () => {
+  it('o botão preenchido da barra é o atalho em destaque, não um destino fixo', () => {
+    // Antes o botão era sempre "Presentear", o que contradizia a própria
+    // configuração: o Hero obedecia ao destaque escolhido e a barra insistia
+    // em presentes.
     const wrapper = mountNavBar({ featuredButtonId: 'confirmar-presenca' })
-    const links = wrapper.findAll('a')
-    const confirmarLink = links.find((a) => a.attributes('href') === `/${SLUG}/rsvp`)
-    const historiaLink = links.find((a) => a.attributes('href') === `/${SLUG}/#historia`)
-    expect(confirmarLink?.classes()).toContain('text-primary')
-    expect(historiaLink?.classes()).not.toContain('text-primary')
+    const botao = wrapper.findAll('a').find((a) => a.classes().includes('bg-primary'))
+    expect(botao?.attributes('href')).toBe(`/${SLUG}/rsvp`)
   })
 
-  it('sem featuredButtonId, nenhum link do menu fica destacado', () => {
+  it('o destino em destaque não aparece duas vezes na mesma barra', () => {
+    // Ele vira o botão; repeti-lo como link de texto ao lado é ruído.
+    const wrapper = mountNavBar({ featuredButtonId: 'confirmar-presenca' })
+    const paraRsvp = wrapper.findAll('a').filter((a) => a.attributes('href') === `/${SLUG}/rsvp`)
+    expect(paraRsvp).toHaveLength(1)
+  })
+
+  it('sem featuredButtonId, o botão cai no destaque padrão do catálogo', () => {
+    const wrapper = mountNavBar()
+    const botao = wrapper.findAll('a').find((a) => a.classes().includes('bg-primary'))
+    expect(botao?.attributes('href')).toBe(`/${SLUG}/presentes`)
+  })
+
+  it('nenhum link de texto do menu fica destacado', () => {
     const wrapper = mountNavBar()
     const navHrefs = [
       `/${SLUG}/#historia`,

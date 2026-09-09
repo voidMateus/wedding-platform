@@ -38,12 +38,20 @@
   --color-primary-foreground: #ffffff;
   --color-secondary: #5f6f52;
   --color-secondary-foreground: #ffffff;
-  --color-surface: #fbf9f5;
-  --color-surface-elevated: #ffffff;
-  --color-surface-muted: #f2ece2;
-  --color-border: #e8ddd0;
-  --color-text: #2b2622;
-  --color-text-muted: #6b6259;
+  /* Neutros alinhados ao protótipo do rebrand (Fase Rebrand do Convite,
+     rodada 3): o marfim ficou um fio mais claro e mais quente, o bege de
+     seção alternada subiu de luminosidade (o contraste entre as duas faixas
+     era forte demais para uma página que deve parecer papel), o cartão deixou
+     de ser branco puro e a borda esfriou um pouco. Continuam FIXOS da
+     plataforma inteira, público e admin — a diferença é pequena o bastante
+     para o painel não mudar de caráter, e grande o bastante para as duas
+     faixas do site conversarem. */
+  --color-surface: #fcfaf4;
+  --color-surface-elevated: #fffdfa;
+  --color-surface-muted: #f7f3e9;
+  --color-border: #e3ddd3;
+  --color-text: #2b221a;
+  --color-text-muted: #7b6f66;
 
   /* Cores de estado — perigo, sucesso e aviso. FIXAS da plataforma, nunca
      por casamento (decisão do usuário em 2026-09-03, ao padronizar as cores
@@ -69,6 +77,23 @@
   --color-heading: var(--color-text);
   --color-body: var(--color-text);
 
+  /* Cor de ORNAMENTO (Fase Rebrand do Convite) — filetes, o "&" do Hero,
+     divisores, moldura das seções, monograma. Existe porque o dourado de um
+     convite impresso não é uma terceira cor de texto: ele reprovaria em
+     contraste como texto (e com razão — como texto é ilegível), mas é
+     exatamente a cor certa para um filete.
+
+     Default = a secundária, e não um dourado fixo. É o mesmo padrão de
+     --color-heading caindo em --color-text: quem nunca escolheu um ornamento
+     continua vendo o site que já via, com os acentos na cor secundária do
+     próprio tema — um dourado imposto por default brigaria com a paleta de
+     um casal que escolheu verde ou azul.
+
+     Onde ele NUNCA entra: texto de corpo, título e rótulo de botão. A única
+     aparição como texto é o Versículo, sobre a faixa na cor primária — par
+     validado por checkOrnamentOnPrimary() e avisado na tela de Aparência. */
+  --color-ornament: var(--color-secondary);
+
   /* Serifada no site público (identidade emocional), sans-serif densa
      no admin (legibilidade de dados) — CLAUDE.md, seção 22.1. O par
      tipográfico do site público varia por preset de tema (Fase Visual,
@@ -80,6 +105,13 @@
      de ser a mesma do site público. */
   --font-display: 'Playfair Display', Georgia, serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Serifada de CITAÇÃO do site público — a voz do casal, não a da página.
+     Usada nos blocos em que o texto é fala e não informação: as boas-vindas e
+     o versículo. Fixa e separada de --font-display de propósito: a de display
+     muda com o par tipográfico do casal e pode ser uma capitular como a
+     Cinzel, que em corpo de texto corrido em itálico seria ilegível. */
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
 
   /* Par tipográfico do painel administrativo (Fase Admin Livro de
      Registro): Sora nos títulos/números e Manrope no corpo. A serifada do
@@ -119,6 +151,68 @@
      componentes. Usados via a utility .transition-brand abaixo. */
   --transition-duration: 200ms;
   --transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/*
+ * Catálogo tipográfico — estas regras existem para o @nuxt/fonts VER as
+ * famílias dos pares (shared/theme-presets.ts#FONT_PAIRS).
+ *
+ * O módulo descobre o que servir varrendo o CSS ESTATICAMENTE, e o par de cada
+ * casamento chega por CSS variable injetada em RUNTIME (useWeddingTheme → tag
+ * <style> no head). O scanner nunca enxergava nenhuma família do catálogo: em
+ * produção, seis dos sete pares caíam em silêncio no fallback — quem escolhia
+ * Cinzel via o site em Georgia — e só o par padrão (Playfair, escrito
+ * literalmente nos tokens acima) funcionava. Em desenvolvimento o problema não
+ * aparecia, porque ali o módulo resolve a família sob demanda: quebrado em
+ * produção e certo em dev, a pior combinação possível para descobrir.
+ *
+ * UMA REGRA POR FAMÍLIA, e não uma lista única: o módulo processa apenas a
+ * PRIMEIRA família de cada declaração `font-family` (que é o comportamento
+ * correto — as seguintes são fallback). A primeira tentativa juntou as doze
+ * numa linha só e serviu exatamente uma.
+ *
+ * O seletor não casa com nada: nenhum elemento do site tem `data-font-catalog`.
+ * As regras existem só para as famílias aparecerem no CSS de build, que é o que
+ * faz o módulo baixá-las e gerar `@font-face` e fallbacks métricos. O navegador
+ * continua baixando apenas o arquivo da família que a página de fato usa.
+ *
+ * Família nova em FONT_PAIRS precisa entrar aqui.
+ */
+[data-font-catalog='0'] {
+  font-family: 'Playfair Display';
+}
+[data-font-catalog='1'] {
+  font-family: 'Inter';
+}
+[data-font-catalog='2'] {
+  font-family: 'Cormorant Garamond';
+}
+[data-font-catalog='3'] {
+  font-family: 'Nunito Sans';
+}
+[data-font-catalog='4'] {
+  font-family: 'DM Serif Display';
+}
+[data-font-catalog='5'] {
+  font-family: 'DM Sans';
+}
+[data-font-catalog='6'] {
+  font-family: 'Abril Fatface';
+}
+[data-font-catalog='7'] {
+  font-family: 'Work Sans';
+}
+[data-font-catalog='8'] {
+  font-family: 'Libre Baskerville';
+}
+[data-font-catalog='9'] {
+  font-family: 'Karla';
+}
+[data-font-catalog='10'] {
+  font-family: 'Cinzel';
+}
+[data-font-catalog='11'] {
+  font-family: 'Montserrat';
 }
 
 @layer utilities {
@@ -170,6 +264,54 @@
   .rise:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+  }
+
+  /* Moldura de filete duplo (Fase Rebrand do Convite) — a borda do convite
+     impresso: um traço mais firme por fora, um fio mais claro logo dentro. Os
+     dois saem de --color-ornament por opacidade, nunca de cores novas.
+
+     Pseudo-elementos, não `border` no próprio elemento: a moldura precisa
+     flutuar POR DENTRO da seção, sem participar do fluxo nem empurrar o
+     conteúdo, e some no mobile — num celular a régua de 24px de cada lado
+     comeria a largura útil de leitura em troca de um enfeite. Quem usa isto
+     precisa ser `relative`.
+
+     O raio é o mesmo `--radius-lg` dos cartões que vivem dentro dela. Com
+     cantos vivos, a moldura passava por fora de cartões arredondados sem
+     nenhuma relação de forma entre as duas bordas — pareciam dois desenhos
+     sobrepostos, não uma peça dentro da outra (achado do usuário na primeira
+     rodada desta fase).
+
+     Quem liga a moldura desliga a costura curva das seções (ver
+     PublicEditorialSection): as duas são metáforas incompatíveis. A costura
+     diz "as seções escorrem uma na outra"; a moldura diz "cada seção é uma
+     página do convite". Juntas, a curva passava por cima da moldura e o
+     retângulo cortava a onda no meio. */
+  .ornament-frame::before,
+  .ornament-frame::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    display: none;
+  }
+
+  @media (width >= 40rem) {
+    .ornament-frame::before,
+    .ornament-frame::after {
+      display: block;
+    }
+
+    .ornament-frame::before {
+      inset: 1.5rem;
+      border: 1px solid color-mix(in srgb, var(--color-ornament) 55%, transparent);
+      border-radius: var(--radius-lg);
+    }
+
+    .ornament-frame::after {
+      inset: 1.75rem;
+      border: 1px solid color-mix(in srgb, var(--color-ornament) 28%, transparent);
+      border-radius: calc(var(--radius-lg) - 0.25rem);
+    }
   }
 
   /* Faixa que rola na horizontal sem desenhar a barra de rolagem — usada em
@@ -243,6 +385,31 @@ body {
   background-color: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-sans);
+}
+
+/* Estilo tipográfico dos títulos do site público (config_tema.headingStyle,
+   Fase Rebrand do Convite). O convite impresso escreve nomes e títulos em
+   serifada capitular com espaçamento largo — 'engraved' traz isso para a
+   página; 'classic' (o default) é o que o site sempre foi.
+
+   Escopado por `data-heading-style` no wrapper do layout público, não em
+   <html>: assim o painel administrativo nunca herda a caixa alta de um tema
+   de casamento, sem precisar de uma segunda regra desfazendo a primeira.
+
+   O tracking do h1 é bem menor que o dos h2/h3 de propósito: o h1 é o nome do
+   casal em text-7xl e ali cada 0.01em de espaçamento vale dezenas de pixels
+   de largura. O degrau de tamanho que compensa a caixa alta é escolhido no
+   próprio Hero, onde as classes de tamanho vivem. */
+[data-heading-style='engraved'] :is(h1, h2, h3) {
+  text-transform: uppercase;
+}
+
+[data-heading-style='engraved'] h1 {
+  letter-spacing: 0.04em;
+}
+
+[data-heading-style='engraved'] :is(h2, h3) {
+  letter-spacing: 0.12em;
 }
 
 /* Escopo tipográfico do admin. Reaponta as MESMAS variáveis que as utilities

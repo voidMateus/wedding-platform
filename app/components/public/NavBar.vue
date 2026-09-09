@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { onKeyStroke } from '@vueuse/core'
+import { DEFAULT_HERO_FEATURED_BUTTON, resolveHeroButtons } from '#shared/hero-buttons'
+import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
+
 // Navegação por âncora (Fase Editorial) — curada deliberadamente (não um
 // link por seção; 13 seções num menu seriam ruído visual, contrário ao
 // "luxo discreto" pedido). Links usam caminho absoluto com hash ("/#id"),
@@ -26,9 +30,34 @@ interface Props {
    * props vindos de useRoute()/dados já carregados).
    */
   featuredButtonId?: string
+  /**
+   * `config_tema.hiddenSections` — seções desligadas pelo casal. O menu filtra
+   * por elas pelo mesmo motivo do Hero: âncora para seção que não existe na
+   * página é um link que não faz nada quando clicado.
+   */
+  hiddenSections?: string[]
+  /**
+   * Caminho da rota atual (`route.path`), resolvido pelo layout. Alimenta o
+   * `aria-current` dos links — ver isCurrent().
+   */
+  currentPath?: string
+  /**
+   * Arte própria do monograma (config_tema.monogramImageUrl), quando existe —
+   * o PublicMonogram cai nas iniciais do casal sem ela. Resolvido pelo
+   * layout, como os demais props vindos de dados já carregados.
+   */
+  monogramImageUrl?: string | null
 }
 
-const { coupleNames, slug, code, featuredButtonId } = defineProps<Props>()
+const {
+  coupleNames,
+  slug,
+  code,
+  featuredButtonId,
+  monogramImageUrl,
+  hiddenSections = [],
+  currentPath,
+} = defineProps<Props>()
 
 // "/{slug}/presentes" fica de fora da lista de texto — vira um CTA
 // destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
@@ -44,65 +73,200 @@ const { coupleNames, slug, code, featuredButtonId } = defineProps<Props>()
 // Convidados → Confirme sua Presença → Presentes → FAQ → Nossos Momentos.
 // Dress Code/Presentes/FAQ ficam fora do menu por curadoria deliberada
 // (ver comentário abaixo), mas os que entram seguem a sequência real.
-const NAV_LINKS = computed(() => [
-  { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
-  { id: 'cronograma', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
-  { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
-  { id: 'confirmar-presenca', to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
-  { id: 'galeria', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
-])
+const NAV_LINKS = computed(() =>
+  [
+    // `id` é sempre o id da seção no catálogo (shared/home-sections.ts) — é o
+    // que faz o filtro de ocultas e o destaque sincronizado com o Hero
+    // encontrarem o link certo. 'cronograma'/'galeria' eram os ids antigos do
+    // catálogo de atalhos, antes de ele ser unificado com o de seções.
+    { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
+    { id: 'grande-dia', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
+    { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
+    { id: 'confirmar-presenca', to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
+    { id: 'nossos-momentos', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
+  ].filter((link) => !hiddenSections.includes(link.id)),
+)
+
+/**
+ * Marca da barra: só os primeiros nomes ("Mateus & Raquel"), não o nome
+ * completo. Com cinco destinos e o botão de presentear ao lado, o nome inteiro
+ * não cabe em tela nenhuma — e truncá-lo ("Mateus Augu…") é pior que abreviar
+ * com intenção. O nome completo continua no Hero, no rodapé e no título da
+ * aba. Fora do padrão "Nome1 & Nome2", usa o que estiver escrito.
+ */
+const brandName = computed(
+  () => primeirosNomesCasal(coupleNames) ?? coupleNames ?? 'MeuSiteCasamento',
+)
 
 const homeLink = computed(() => `/${slug}`)
 
-// Preserva ?code= na navegação real para /presentes — diferente de uma
-// âncora na mesma página, trocar de rota sem isso perderia a autorização de
-// reservar/contribuir.
-const giftsLink = computed(() => `/${slug}/presentes${code ? `?code=${code}` : ''}`)
+/**
+ * O botão preenchido da barra é o atalho que o casal marcou como destaque
+ * (config_tema.heroFeaturedButton) — o mesmo que aparece preenchido no Hero.
+ *
+ * Antes ele era fixo em "Presentear", o que contradizia a própria
+ * configuração: um casal que escolhesse "Confirmar presença" como destaque via
+ * o Hero obedecer e a barra insistir em presentes. Com dois destaques
+ * competindo na mesma tela — o botão sólido aqui e o link realçado ao lado —,
+ * a configuração não decidia o que ela promete decidir.
+ *
+ * Cai no padrão do catálogo quando não há escolha salva, e some junto se a
+ * seção correspondente estiver desligada (resolveHeroButtons já filtra por
+ * `hiddenSections`).
+ */
+const featuredShortcut = computed(() => {
+  const [primeiro] = resolveHeroButtons(
+    [featuredButtonId ?? DEFAULT_HERO_FEATURED_BUTTON],
+    featuredButtonId ?? DEFAULT_HERO_FEATURED_BUTTON,
+    hiddenSections,
+  )
+  if (!primeiro) return null
+  // 'presentes' é o único destino que troca de rota de verdade e por isso
+  // precisa preservar ?code= — sem ele o convidado perde a autorização de
+  // reservar/contribuir ao clicar (mesma regra do Hero).
+  const suffix = primeiro.id === 'presentes' && code ? `?code=${code}` : ''
+  return { ...primeiro, href: `/${slug}${primeiro.href}${suffix}` }
+})
+
+/**
+ * Os links de texto, já sem o destaque — ele virou o botão ao lado, e repetir
+ * o mesmo destino nas duas formas na mesma barra é ruído.
+ */
+const textLinks = computed(() =>
+  NAV_LINKS.value.filter((link) => link.id !== featuredShortcut.value?.id),
+)
 
 const isMobileMenuOpen = ref(false)
+// Liga o botão ao painel que ele controla (aria-controls). Gerado, não fixo:
+// o layout público pode aparecer mais de uma vez numa mesma árvore em teste.
+const mobileMenuId = useId()
 
 function closeMobileMenu() {
   isMobileMenuOpen.value = false
 }
+
+// Esc fecha o menu — é o gesto que qualquer pessoa espera de um painel
+// sobreposto, e sem ele quem navega por teclado fica preso tendo que tabular
+// até o botão de fechar.
+onKeyStroke('Escape', () => {
+  if (isMobileMenuOpen.value) closeMobileMenu()
+})
+
+/**
+ * Marca o link da rota que o convidado está vendo. `aria-current="page"` é o
+ * que um leitor de tela anuncia como "página atual" — o destaque visual
+ * sozinho não diz nada para quem não vê a tela.
+ *
+ * Compara só o caminho, sem o hash: as âncoras da home apontam todas para o
+ * mesmo documento, e acompanhar qual seção está em vista exigiria observar a
+ * rolagem, que é outro problema.
+ *
+ * O caminho vem por prop, não de `useRoute()` aqui dentro, pelo mesmo motivo
+ * dos demais: chamar o composable de rota neste componente exige app Nuxt
+ * completo no mount e derruba as catorze suítes que o montam com
+ * @vue/test-utils puro.
+ */
+function isCurrent(to: string): boolean {
+  if (!currentPath) return false
+  const path = (to.split('#')[0] ?? '').replace(/\/+$/, '')
+  return path !== '' && currentPath.replace(/\/+$/, '') === path
+}
 </script>
 
 <template>
+  <!--
+    Barra deliberadamente rasa: a primeira tela já traz os cinco destinos daqui
+    mais os atalhos do Hero, e uma faixa alta em cima disso empurrava o nome do
+    casal para baixo da dobra sem acrescentar nada. A altura é a área de toque
+    do maior filho (44px) mais o respiro mínimo — abaixo disso o alvo de toque
+    do menu ficaria menor que o mínimo acessível.
+  -->
   <header class="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
-    <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+    <nav
+      aria-label="Navegação principal"
+      class="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-6 py-2"
+    >
+      <!--
+        Monograma + nome, na mesma linha: a marca do convite passa a assinar
+        também a navegação (Fase Rebrand do Convite). O monograma é
+        aria-hidden e o nome continua sendo o texto acessível do link — quem
+        usa leitor de tela ouve o nome do casal, não duas iniciais soltas.
+
+        `min-w-0` + `truncate`, e NUNCA `shrink-0`: com um nome longo
+        ("Mateus Augusto & Raquel Júlia"), uma marca que não encolhe empurrava
+        os links e o botão para fora da tela — a nav pedia 1284px dentro de um
+        container de 1152px, e a página inteira ganhava rolagem horizontal.
+        Truncar o nome é a perda certa a aceitar aqui: o monograma ao lado
+        continua identificando o casal, e os destinos da navegação não podem
+        sumir da tela.
+      -->
       <NuxtLink
         :to="homeLink"
-        class="flex min-h-11 shrink-0 items-center whitespace-nowrap font-display text-lg font-semibold text-heading"
+        class="flex min-h-11 min-w-0 items-center gap-2.5 font-display text-base font-semibold text-heading sm:text-lg"
         @click="closeMobileMenu"
       >
-        {{ coupleNames || 'MeuSiteCasamento' }}
+        <PublicMonogram
+          v-if="coupleNames"
+          :couple-names="coupleNames"
+          :image-url="monogramImageUrl"
+          size="sm"
+          class="hidden shrink-0 sm:inline-flex"
+        />
+        <span class="truncate">{{ brandName }}</span>
       </NuxtLink>
 
-      <div class="hidden items-center gap-1 text-sm lg:flex">
+      <!--
+        Links em caixa alta miúda, como no protótipo do convite. Não é só
+        estilo: `text-sm` em caixa mista custava cerca de 200px a mais na
+        linha, e era parte do que estourava a barra.
+
+        Aparecem só a partir de `xl` (1280px), não `lg`. Em 1024px a linha
+        inteira — nome do casal, cinco destinos e o botão — pedia 1057px e
+        estourava por pouco; e "por pouco" aqui é uma armadilha, porque a
+        largura depende do comprimento dos rótulos, que mudam. Abaixo disso o
+        menu em gaveta dá conta, e a barra deixa de depender de quanto o casal
+        escreveu.
+
+        A conta que sustenta as folgas desta linha, medida no navegador: os
+        cinco destinos mais o botão ocupam ~990px, e a marca (monograma + os
+        dois primeiros nomes) pede ~210px. Com `gap-4`, `px-2.5` nos links e o
+        container em 90rem, sobra folga em 1280px — que é o menor tamanho em
+        que esta faixa aparece. Mexer em qualquer um desses números sem refazer
+        a medição é como o nome do casal voltou a truncar duas vezes.
+      -->
+      <div class="hidden shrink-0 items-center gap-1 text-xs tracking-[0.12em] uppercase xl:flex">
         <NuxtLink
-          v-for="link in NAV_LINKS"
+          v-for="link in textLinks"
           :key="link.to"
           :to="link.to"
-          class="shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 transition-all duration-200 hover:bg-surface-muted hover:text-text"
-          :class="link.id === featuredButtonId ? 'bg-secondary/10 font-semibold text-primary' : 'text-text-muted'"
+          :aria-current="isCurrent(link.to) ? 'page' : undefined"
+          class="shrink-0 rounded-full px-2.5 py-2 whitespace-nowrap text-text-muted transition-all duration-200 hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {{ link.label }}
         </NuxtLink>
-        <UiButton :to="giftsLink" rounded="full" size="sm" class="ml-2">
-          <Icon name="lucide:gift" class="h-3.5 w-3.5" />
-          Presentear
+        <UiButton
+          v-if="featuredShortcut"
+          :to="featuredShortcut.href"
+          rounded="full"
+          size="sm"
+          class="ml-2 shrink-0"
+        >
+          <Icon :name="featuredShortcut.icon" class="h-3.5 w-3.5" />
+          {{ featuredShortcut.navLabel }}
         </UiButton>
       </div>
 
       <button
         type="button"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary xl:hidden"
         :aria-label="isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
+        :aria-expanded="isMobileMenuOpen"
+        :aria-controls="mobileMenuId"
         @click="isMobileMenuOpen = !isMobileMenuOpen"
       >
         <Icon :name="isMobileMenuOpen ? 'lucide:x' : 'lucide:menu'" class="h-5 w-5" />
       </button>
     </nav>
-
   </header>
 
   <!--
@@ -116,28 +280,65 @@ function closeMobileMenu() {
   <Teleport to="body">
     <div
       v-if="isMobileMenuOpen"
-      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
+      class="fixed inset-0 z-40 bg-black/40 xl:hidden"
       aria-hidden="true"
       @click="closeMobileMenu"
     />
-    <div
-      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200 lg:hidden"
-      :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
-    >
-      <UiButton :to="giftsLink" rounded="full" class="mb-2 w-full" @click="closeMobileMenu">
-        <Icon name="lucide:gift" class="h-4 w-4" />
-        Presentear
-      </UiButton>
-      <NuxtLink
-        v-for="link in NAV_LINKS"
-        :key="link.to"
-        :to="link.to"
-        class="flex min-h-11 items-center rounded-md px-3 hover:bg-surface-muted"
-        :class="link.id === featuredButtonId ? 'font-semibold text-primary' : 'text-text'"
-        @click="closeMobileMenu"
+    <!--
+      A moldura de recorte é o que impede a ROLAGEM HORIZONTAL no celular.
+      Fechado, o painel fica deslocado para fora da tela (`translate-x-full`), e
+      um elemento `fixed` escapa do `overflow-x: hidden` de qualquer ancestral
+      que não seja o próprio viewport — inclusive o do `html`. No Chrome
+      desktop isso não aparece, mas no navegador de celular a área deslocada
+      volta a contar como conteúdo rolável, e a página inteira ganha um
+      arrasto lateral para o vazio (relatado pelo usuário).
+
+      Esta div ocupa exatamente a viewport e corta o que sai dela, então o
+      painel deslocado deixa de existir para o cálculo de rolagem. Mantém a
+      transição de deslize, que um `v-if` ou `display: none` matariam.
+
+      `pointer-events-none` na moldura e `auto` no painel: sem isso a camada
+      invisível cobriria a página inteira e engoliria todo clique.
+    -->
+    <div class="pointer-events-none fixed inset-0 z-50 overflow-hidden xl:hidden">
+      <!--
+        `inert` fechado: o painel continua no DOM (é o que permite a transição
+        de deslize), e sem isso seus links seguem focáveis fora da tela —
+        tabular na home levava o foco para um menu invisível. `aria-hidden`
+        sozinho esconde do leitor de tela mas não tira da ordem de foco.
+      -->
+      <div
+        :id="mobileMenuId"
+        class="pointer-events-auto absolute inset-y-0 right-0 flex w-64 flex-col gap-1 overflow-y-auto border-l border-border bg-surface p-4 shadow-lg transition-transform duration-200"
+        :class="isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'"
+        :aria-hidden="!isMobileMenuOpen"
+        :inert="!isMobileMenuOpen || undefined"
       >
-        {{ link.label }}
-      </NuxtLink>
+        <!-- `size="lg"` (48px) e não o padrão de 40px: é o CTA principal do
+             menu no celular, onde a área de toque mínima de 44px vale de
+             fato. -->
+        <UiButton
+          v-if="featuredShortcut"
+          :to="featuredShortcut.href"
+          rounded="full"
+          size="lg"
+          class="mb-2 w-full"
+          @click="closeMobileMenu"
+        >
+          <Icon :name="featuredShortcut.icon" class="h-4 w-4" />
+          {{ featuredShortcut.navLabel }}
+        </UiButton>
+        <NuxtLink
+          v-for="link in textLinks"
+          :key="link.to"
+          :to="link.to"
+          :aria-current="isCurrent(link.to) ? 'page' : undefined"
+          class="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          @click="closeMobileMenu"
+        >
+          {{ link.label }}
+        </NuxtLink>
+      </div>
     </div>
   </Teleport>
 </template>

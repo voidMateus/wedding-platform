@@ -13,9 +13,20 @@ const props = withDefaults(defineProps<Props>(), { variant: 'full' })
 
 const gridClass = computed(() =>
   props.variant === 'preview'
-    ? 'mx-auto grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4'
+    ? 'grid grid-cols-2 gap-3 sm:grid-cols-4'
     : 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
 )
+
+/**
+ * Retrato (3:4) na prévia da home, quadrado na galeria completa.
+ *
+ * O protótipo do convite usa retrato na fileira da home, e a razão é de
+ * composição: quatro retratos lado a lado formam uma faixa alta que segura a
+ * seção, enquanto quatro quadrados achatam a mesma largura numa tira sem
+ * presença. Na galeria completa, com dezenas de fotos em cinco colunas, o
+ * quadrado continua sendo o certo — ali o assunto é a quantidade.
+ */
+const aspectClass = computed(() => (props.variant === 'preview' ? 'aspect-[3/4]' : 'aspect-square'))
 
 const selectedPhoto = ref<PhotoWithUrl | null>(null)
 const isLightboxOpen = ref(false)
@@ -33,13 +44,14 @@ function openLightbox(photo: PhotoWithUrl) {
         v-for="photo in photos"
         :key="photo.id"
         type="button"
-        class="group overflow-hidden rounded-xl shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        class="group overflow-hidden rounded-lg bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         @click="openLightbox(photo)"
       >
         <img
           :src="photo.url"
           :alt="photo.legenda || 'Foto da galeria'"
-          class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          :class="aspectClass"
           :style="{ objectPosition: `${photo.foco_x}% ${photo.foco_y}%` }"
           loading="lazy"
         />

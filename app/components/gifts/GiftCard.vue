@@ -65,13 +65,13 @@ function handlePaymentSubmit(payload: {
 </script>
 
 <template>
-  <UiCard padding="none" radius="xl" elevation="xl" class="flex h-full flex-col overflow-hidden">
+  <UiCard padding="none" radius="xl" elevation="none" class="flex h-full flex-col overflow-hidden">
     <div
       v-if="gift.displayStyle === 'emocional'"
       class="flex flex-col items-center gap-2 p-5 pb-0 text-center"
     >
       <span
-        class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+        class="flex h-11 w-11 items-center justify-center rounded-full bg-ornament/15 text-ornament"
       >
         <Icon :name="`lucide:${gift.emotionalIcon ?? 'heart-handshake'}`" class="h-6 w-6" />
       </span>

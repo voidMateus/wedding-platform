@@ -15,14 +15,38 @@ export interface ThemePreset {
   primaryColor: string
   secondaryColor: string
   fontPairId: string
+  /**
+   * Cor de ornamento (filetes, "&", divisores, monograma) — opcional. Sem
+   * ela, o ornamento herda a secundária, que é como o site sempre se
+   * comportou (ver --color-ornament em main.css). Só existe nos presets em
+   * que o dourado é parte da identidade, não um acessório.
+   */
+  ornamentColor?: string
 }
 
 export interface FontPair {
   id: string
   label: string
+  /** Títulos do site público — vira --font-display. É a única família do par que muda a página. */
   displayFontFamily: string
+  /**
+   * ATENÇÃO: este campo **não chega ao site**. `--font-sans` é fixa da
+   * plataforma por decisão de arquitetura (ver DESIGN-SYSTEM.md 3.1: corpo de
+   * texto e admin nunca variam por casamento), `useWeddingTheme` não o emite e
+   * o FontPairPicker mostra a prévia só em `displayFontFamily`. Hoje ele é
+   * metadado de rótulo — todo par existente declara a fonte que o corpo
+   * *teria* e o corpo continua em Inter.
+   *
+   * Consequência prática para quem for acrescentar um par: um par cujo
+   * atrativo seja o corpo (ex.: "Cinzel + Cormorant") entrega exatamente o
+   * mesmo resultado de um "Cinzel + Inter" e só acrescenta um rótulo que
+   * promete o que não acontece. Foi por isso que a Fase Rebrand do Convite
+   * removeu o par que tinha criado e apontou o preset para o já existente.
+   * Enquanto `--font-sans` for fixa, par novo só se justifica por uma
+   * `displayFontFamily` (ou `buttonFontFamily`) diferente.
+   */
   bodyFontFamily: string
-  /** Fonte de botões/CTAs (--font-button) — opcional; sem ela, botões herdam bodyFontFamily via --font-sans. */
+  /** Fonte de botões/CTAs (--font-button) — opcional; sem ela, botões herdam --font-sans. */
   buttonFontFamily?: string
 }
 
@@ -128,12 +152,25 @@ export const THEME_PRESETS: ThemePreset[] = [
   // mínimo (≈2.3:1, seção 22.4) — usa o mesmo dourado fosco escuro já
   // validado do preset borgonha-editorial; ornamentos decorativos clareiam
   // via opacidade, sem burlar a validação de texto.
+  //
+  // Desde a Fase Rebrand do Convite, o dourado claro do convite tem lugar
+  // próprio: entra como `ornamentColor`, campo decorativo que nunca vira cor
+  // de corpo de texto (ver themeConfigSchema) — é a diferença entre "burlar
+  // a validação" e "ter um token para o que de fato é ornamento".
+  //
+  // #cbaa71, não o #C8A56A exato do convite: o ornamento é isento de
+  // contraste como decoração, mas na seção Versículo ele vira texto sobre a
+  // primária, e ali o dourado original fica em 4.41:1 — a um fio de reprovar
+  // em AA. Dois pontos de luminosidade acima resolvem (4.65:1) sem que a
+  // diferença seja perceptível lado a lado. Todo preset com ornamentColor é
+  // coberto por esse teste de par em tests/unit/shared/theme-presets.spec.ts.
   {
     id: 'convite-luxo',
     label: 'Convite de Luxo',
     primaryColor: '#7a1f24',
     secondaryColor: '#8a6a1f',
-    fontPairId: 'cormorant-inter',
+    ornamentColor: '#cbaa71',
+    fontPairId: 'cinzel-inter-montserrat',
   },
 ]
 

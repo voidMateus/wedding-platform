@@ -8,9 +8,11 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding
+  /** Fundo da seção — resolvido pela página (resolveHomeSections). 'accent' é o tom fixo desta seção no catálogo. */
+  tone?: 'default' | 'muted' | 'accent'
 }
 
-const { wedding } = defineProps<Props>()
+const { wedding, tone = 'accent' } = defineProps<Props>()
 
 const rsvpLink = computed(() => `/${wedding.slug}/rsvp`)
 
@@ -28,25 +30,22 @@ const formattedDate = computed(() =>
     id="confirmar-presenca"
     eyebrow="R.S.V.P"
     title="Confirme sua Presença"
-    tone="accent"
+    :tone="tone"
   >
-    <div
-      class="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-primary/15 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
-    >
-      <span
-        class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary"
-      >
-        <Icon name="lucide:party-popper" class="h-7 w-7" />
-      </span>
-      <div>
-        <p class="font-display text-2xl font-semibold text-heading">{{ wedding.nomes_noivos }}</p>
-        <p class="text-sm text-text-muted">{{ formattedDate }}</p>
-      </div>
+    <!--
+      Texto centrado e um botão, sem cartão em volta: esta seção já é a banda
+      de destaque da página (tone accent), e um cartão elevado dentro dela
+      criava uma segunda moldura em torno de um conteúdo de três linhas. É o
+      tratamento do protótipo — o peso vem da faixa, não de uma caixa.
+    -->
+    <div class="mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
       <p class="leading-relaxed text-body">
-        Digite seu nome para localizar seu convite e confirmar presença e acompanhantes.
+        Digite seu nome para localizar seu convite — ele já traz todas as pessoas do seu grupo, e
+        você confirma cada uma na etapa seguinte.
       </p>
+      <p class="text-xs tracking-[0.2em] text-text-muted uppercase">{{ formattedDate }}</p>
       <UiButton :to="rsvpLink" rounded="full" size="lg">
-        <Icon name="lucide:check" class="h-5 w-5" />
+        <Icon name="lucide:check" class="h-4 w-4" />
         Confirmar presença
       </UiButton>
     </div>

@@ -36,13 +36,15 @@ import { isValidHexColor } from '#shared/utils/contrast'
 interface Props {
   modelValue: string | undefined
   label?: string
+  /** Explicação abaixo do campo — mesmo papel do `hint` de UiInput/UiSelect. */
+  hint?: string
   error?: string
   /** Cores sugeridas na faixa do rodapé (ex.: as cores dos presets de tema). */
   suggestions?: string[]
   disabled?: boolean
 }
 
-const { modelValue, label, error, suggestions = [], disabled = false } = defineProps<Props>()
+const { modelValue, label, hint, error, suggestions = [], disabled = false } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -208,6 +210,7 @@ const areaBackground = computed(() => ({
       </PopoverPortal>
     </PopoverRoot>
 
+    <p v-if="hint && !error" class="text-xs leading-relaxed text-text-muted">{{ hint }}</p>
     <p v-if="error" class="text-sm text-danger" role="alert">{{ error }}</p>
   </div>
 </template>

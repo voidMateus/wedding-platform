@@ -302,7 +302,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente — tudo na própria página `/admin/presentes` |
 | **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
-| **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
+| **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, ordem das seções da home, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
 | **Colaboradores** | Convidar/remover pessoas com acesso administrativo, definir permissões |
 
 ### 7.3 Regras de negócio
@@ -328,6 +328,55 @@ O local de cada etapa é uma **entidade selecionada**, não um texto digitado. O
 **O Maps é o caminho principal, nunca uma dependência.** Sem provedor configurado, ou com o provedor fora do ar, o cadastro manual continua completo por si só e o painel abre direto nele.
 
 **Compatibilidade com o que já existe.** Etapas cadastradas antes desta fase têm só o endereço em texto. Elas continuam sendo exibidas normalmente e nenhuma é convertida automaticamente para um resultado do Maps — substituir o endereço de um casal por um palpite de geocodificação, sem ele confirmar, é o oposto do que esta mudança resolve.
+
+### 7.5 Conteúdo do site — seções opcionais
+
+Duas seções do site público não têm texto padrão de plataforma, ao contrário de todas as outras (boas-vindas, história, dress code, manual do convidado, presentes, FAQ, que já nascem preenchidas com uma redação genérica editável).
+
+**Versículo.** Faixa colorida entre blocos claros, com o texto em dourado — o "respiro" que no convite impresso é a página cheia. Não tem texto padrão **de propósito**: é a única seção do site que fala em nome da fé do casal, e uma redação genérica da plataforma apareceria no site de todo mundo dizendo algo que ninguém escolheu. Sem texto preenchido, a seção não existe. A referência ("Salmos 118:24") é opcional e sozinha não sustenta a seção — sem o versículo em si, não há o que exibir.
+
+**Manual dos Padrinhos.** Público diferente do Manual dos Convidados: aqui é o traje combinado e a paleta que padrinhos e madrinhas precisam comprar; lá é estacionamento, horário e hospedagem. Tem introdução, traje "para eles", traje "para elas" e uma paleta de até 8 cores. Todos os campos são opcionais e cada bloco aparece só se preenchido; sem nada, a seção some. A maioria dos casamentos não tem manual de padrinhos, e essa é a razão de a seção nascer vazia em vez de nascer com um exemplo.
+
+**Toda cor da paleta tem nome obrigatório.** O nome aparece escrito embaixo da amostra e não é legenda decorativa: é a única forma de a informação chegar a quem não distingue aquele tom, e é também o que a madrinha usa para procurar o tecido numa loja. As cores da paleta são o único lugar do produto em que uma cor escolhida no painel não passa por validação de contraste — ali ela não pinta interface nenhuma, ela é o conteúdo (um champanhe ou um rosé são exatamente o tipo de cor que um casal quer mostrar, e a régua de contraste os proibiria).
+
+**Esvaziar o conteúdo esconde a seção.** Vale para estas duas e para Manual, FAQ e Galeria — uma seção sem nada a mostrar não aparece.
+
+### 7.5.1 Nossa História — texto corrido ou marcos
+
+A seção aceita duas formas, e o casal escolhe preenchendo uma ou outra:
+
+- **Texto corrido** (`Mensagem`), opcionalmente com uma foto ao lado — o padrão, e o que aparece enquanto ninguém mexer nos marcos.
+- **Marcos** (`Marcos da história`): até 6 cartões com rótulo curto ("O começo"), título e um parágrafo. Havendo marcos preenchidos, eles substituem o texto corrido na página.
+
+Não é uma configuração com interruptor: quem escreveu três marcos já escolheu contar a história assim. Texto corrido é uma carta; marcos são uma linha do tempo — e qual serve depende do casal, não da plataforma.
+
+### 7.6 Ordem das seções da home
+
+A sequência dos capítulos da página inicial é escolhida pelo casal em Configurações → Aparência → "Ordem das seções", arrastando as linhas ou usando as setas de subir/descer. O catálogo de seções é fixo (a plataforma decide quais existem); só a ordem é editável.
+
+**A capa fica sempre no topo e não entra na lista** — o Hero não é um capítulo da narrativa, é a capa.
+
+**Uma seção lançada depois nunca nasce invisível.** Se o casal salvou a ordem antes de uma seção existir, ela é anexada no fim automaticamente na hora de renderizar. Sem essa garantia, toda seção nova da plataforma deixaria de aparecer para quem já tivesse personalizado a ordem — um bug silencioso que só apareceria como "essa funcionalidade não funciona no meu site".
+
+**A ordem padrão** é: Boas-vindas → Versículo → Nossa História → O Grande Dia → Confirme sua Presença → Dress Code → Manual dos Convidados → Manual dos Padrinhos → Lista de Presentes → Nossos Momentos → Perguntas Frequentes. O RSVP vem logo depois de "O Grande Dia" porque é ali que a pergunta faz mais sentido — o convidado acabou de ler onde e quando.
+
+**Reordenar a lista nunca remove uma seção dela.** A ordem define a sequência, não o conjunto: uma seção que o casal não mencionou continua entrando, no fim. Quem tira do site é o interruptor abaixo.
+
+### 7.7 Ligar e desligar seções
+
+Cada linha da lista de ordem tem um interruptor (ícone de olho) que liga e desliga a seção no site. É diferente de esvaziar o conteúdo, e as duas coisas coexistem porque respondem a perguntas diferentes: *"não tenho o que dizer aqui"* (conteúdo vazio) e *"tenho, e não quero mostrar agora"* (desligada). Sem o interruptor, tirar o dress code da página exigiria apagar um texto que o casal talvez queira de volta na semana seguinte.
+
+**Seção desligada some do site inteiro, não só da página.** Ela sai da home, dos atalhos do Hero e do menu de navegação — um atalho apontando para uma seção desligada seria um link que o convidado clica e nada acontece.
+
+**Mas continua na lista do admin**, na posição dela, esmaecida e marcada como "Não aparece no site". Tirá-la da lista faria o casal perder de vista que a seção existe, e em que ordem ela voltaria ao ser religada.
+
+**Toda seção pode virar atalho do Hero.** O catálogo de atalhos é o próprio catálogo de seções — se a seção existe e está ligada, ela pode ser escolhida como botão da capa. Duas apontam para página dedicada em vez de âncora (Lista de Presentes e Confirmar Presença), porque mandar o convidado para um teaser que só tem um botão custaria um clique a mais.
+
+### 7.8 Fundo alternado das seções
+
+O fundo de cada seção (off-white ou bege) é decidido pela **posição** dela entre as que aparecem, não fixado por seção. É o que garante que duas seções claras nunca fiquem coladas com o mesmo tom — o que passou a ser possível assim que a ordem e a visibilidade viraram configuráveis.
+
+Versículo e "Confirme sua Presença" têm cor própria (a faixa na cor primária e a banda de destaque) e ficam fora do revezamento, sem interrompê-lo: uma faixa escura entre duas seções claras não dispensa que elas sejam diferentes entre si.
 
 
 ---

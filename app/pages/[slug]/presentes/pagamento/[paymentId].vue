@@ -31,7 +31,7 @@ const backLink = computed(() => `/${slug}/presentes`)
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-24 text-center">
+  <div class="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-20 text-center">
     <template v-if="!result && !loadError">
       <UiSkeleton class="h-14 w-14 rounded-full" />
       <p class="text-sm text-text-muted">Confirmando seu pagamento…</p>
@@ -43,7 +43,9 @@ const backLink = computed(() => `/${slug}/presentes`)
       >
         <Icon name="lucide:alert-triangle" class="h-6 w-6" />
       </span>
-      <h1 class="font-display text-2xl font-semibold text-heading">Não conseguimos confirmar</h1>
+      <h1 class="font-display text-2xl font-semibold text-heading sm:text-3xl">
+        Não conseguimos confirmar
+      </h1>
       <p class="text-sm text-text-muted">
         Houve um problema ao consultar o pagamento. Se você já pagou, ele será confirmado em breve.
       </p>
@@ -51,11 +53,11 @@ const backLink = computed(() => `/${slug}/presentes`)
 
     <template v-else-if="result?.status === 'confirmado'">
       <span
-        class="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+        class="flex h-14 w-14 items-center justify-center rounded-full bg-ornament/15 text-ornament"
       >
         <Icon name="lucide:heart" class="h-6 w-6" />
       </span>
-      <h1 class="font-display text-2xl font-semibold text-heading">Obrigado!</h1>
+      <h1 class="font-display text-2xl font-semibold text-heading sm:text-3xl">Obrigado!</h1>
       <p class="text-sm text-text-muted">
         Seu presente ({{ result.giftTitle }}, {{ formatCentsToBRL(result.amountCents) }}) foi
         recebido.
@@ -68,7 +70,9 @@ const backLink = computed(() => `/${slug}/presentes`)
       >
         <Icon name="lucide:alert-triangle" class="h-6 w-6" />
       </span>
-      <h1 class="font-display text-2xl font-semibold text-heading">Pagamento recebido, mas...</h1>
+      <h1 class="font-display text-2xl font-semibold text-heading sm:text-3xl">
+        Pagamento recebido, mas...
+      </h1>
       <p class="text-sm text-text-muted">
         Seu pagamento foi confirmado, mas não conseguimos reservar o presente automaticamente
         (provavelmente esgotou nesse meio-tempo). Fale com o casal para resolver.

@@ -527,3 +527,163 @@ Os quatro chips (Todos/Respondidos/Aguardando/Arquivados) viraram filtro de colu
 **A prévia do dashboard tinha o mesmo vício**: os chips filtravam sobre os 8 convites já carregados, então "Aguardando" mostrava "os que sobraram dos 8 mais recentes de todos", não os 8 mais recentes aguardando. Agora o recorte vai no parâmetro da requisição.
 
 **Fase concluída.** Todas as telas com tabela passaram: Convidados, Convites, Presentes e Plataforma. Grupos não é tabela (lista com barra de andamento, sem colunas) e segue com o chip de escopo.
+
+### Fase Rebrand do Convite (concluída, fora da sequência numerada)
+
+Trazer o site público para a identidade do convite impresso do casal — borgonha profundo, dourado de ornamento, serifada capitular, monograma como assinatura recorrente. O ponto de partida foi um documento de análise do usuário que separava o que já era configurável no `/admin` do que exigiria código, mais um protótipo React do resultado desejado. Escopo escolhido: tudo, incluindo os itens que o próprio documento marcava como "código + decisão de produto".
+
+**A cor de ornamento, e por que ela precisou ser um campo próprio.** O dourado do convite (`#C8A56A`) fica em ≈2,3:1 contra o marfim da página. A validação de contraste do projeto o reprovava — corretamente, porque como cor de texto ele é ilegível. Mas ele não é cor de texto: é a cor de um filete. A saída anterior tinha sido usar o dourado fosco escuro do preset "Borgonha Editorial" e clarear por opacidade nos ornamentos, o que funcionava mas não era o dourado do convite.
+
+`ornamentColor` resolve isso sendo a única cor de `config_tema` isenta de contraste — o WCAG 1.4.11 exclui do requisito justamente o que é puramente decorativo. O que impede a isenção de virar porta dos fundos é o que ela **não** cobre: nenhum componente usa `--color-ornament` em texto de corpo, título ou rótulo de botão, e um teste fixa os dois lados (o mesmo dourado passa como `ornamentColor` e continua reprovado como `bodyColor`).
+
+O default do token é `var(--color-secondary)`, não um dourado fixo: quem nunca escolheu um ornamento vê exatamente o site que já via, e um dourado imposto brigaria com a paleta de um casal que escolheu verde. Foi o que permitiu trocar `bg-secondary/60` por `bg-ornament/60` nos filetes do Hero, no divisor de seção e nos ornamentos das boas-vindas sem mudar o site de ninguém.
+
+**A exceção da exceção: o Versículo.** A seção nova de versículo é uma faixa cheia na cor primária com o texto em dourado — e ali o ornamento *é* texto. A régua muda junto: `checkOrnamentOnPrimary()` mede o par contra a primária, não contra o marfim, porque medir contra o fundo errado reprovaria uma combinação perfeitamente legível na tela. No admin isso vira aviso (não bloqueio, e só quando a seção tem texto); sobre os presets da plataforma é obrigatório, garantido em teste. Foi esse teste que pegou o preset "Convite de Luxo" saindo com o `#c8a56a` do brief a 4,41:1 — um fio abaixo do mínimo. Virou `#cbaa71` (4,65:1), indistinguível lado a lado.
+
+**A lista manual de `theme.patch.ts` foi embora.** O endpoint enumerava à mão as chaves de `config_tema` a gravar, e o próprio comentário do arquivo registrava que campo novo já tinha sido descartado em silêncio duas vezes por causa disso — sem erro de validação, sem erro de tipo, sem teste vermelho. Esta fase acrescentaria quatro campos de uma vez, o que fazia da terceira ocorrência uma questão de tempo. As chaves passaram a ser derivadas de `Object.keys(themeConfigSchema.shape)`, como `content.patch.ts` já fazia por construção. Continua sendo merge sobre o config atual, e é a **ausência** no schema que preserva as chaves geridas por outros endpoints (`coverImageUrl`, `storyImageUrl`, `monogramImageUrl`, pontos de foco, `galleryPreviewCount`).
+
+**Ordem das seções configurável — e a garantia que faltaria.** `config_tema.sectionOrder` sobre um catálogo fixo de onze seções, arrastável no admin. A parte interessante não é o arraste, é `resolveHomeSectionOrder()`: além de descartar id extinto e repetição, ele **anexa no fim as seções ausentes da lista salva**. Sem isso, toda seção lançada depois de o casal salvar a ordem nasceria invisível para quem já tivesse personalizado — um bug que não apareceria como bug, e sim como "essa funcionalidade não funciona no meu site". O Hero ficou fora do catálogo: é a capa, não um capítulo.
+
+A ordem padrão passou a ser a do protótipo (Versículo depois das boas-vindas, RSVP logo após "O Grande Dia", Galeria fechando antes do FAQ). Não há interruptor de "ocultar seção": esvaziar o conteúdo já esconde, e um segundo estado dizendo o mesmo sairia de sincronia.
+
+**A moldura quase virou um acoplamento com o store.** `config_tema.ornamentFrame` precisa chegar a todas as seções editoriais. A primeira tentativa leu o `uiStore` dentro de `PublicEditorialSection` e quebrou 36 testes de uma vez: as ~20 suítes de seção pública montam com `@vue/test-utils` puro, sem Pinia, e é isso que as mantém rápidas e sem cerimônia. A correção foi o padrão que o projeto já tinha para exatamente este caso — `inject` com valor padrão, como `ADMIN_UI_CONTEXT_KEY` no `UiButton`. Diferença: aqui o valor muda depois do primeiro render (o tema chega junto com o casamento carregado), então o que viaja pelo `provide` é um getter, não o booleano já lido. Prop teria sido pior: dez seções repassando a mesma configuração visual, e esquecer uma deixa a página com moldura pela metade.
+
+**Duas seções que nascem vazias, de propósito.** Versículo e Manual dos Padrinhos são as únicas do site sem texto padrão de plataforma. No Versículo é uma decisão de conteúdo: é a única seção que fala em nome da fé do casal, e uma redação genérica apareceria no site de todo mundo dizendo algo que ninguém escolheu. No Manual dos Padrinhos é estatística: a maioria dos casamentos não tem um, e uma seção de exemplo apareceria para todos eles.
+
+**A paleta de cores é conteúdo, não interface.** As amostras do Manual dos Padrinhos (`groomsmenManual.palette`) são o segundo lugar do produto sem validação de contraste, por um motivo diferente do ornamento: ali a cor não pinta nada — ela *é* a informação, a amostra do tom do vestido que a madrinha vai comprar. Exigir 4,5:1 proibiria justamente o champanhe e o rosé que um casal quer mostrar. O nome ao lado de cada bolinha é obrigatório e carrega a informação para quem não distingue o tom.
+
+**Arrastar não podia ser o único jeito de reordenar.** A lista de ordem usa drag nativo do HTML5 (onze itens fixos não pedem biblioteca), mas cada linha tem "subir" e "descer" em `<button>` com `aria-label`. Reordenar é a função inteira daquela tela; se dependesse do mouse, ela não existiria para quem navega por teclado ou leitor de tela.
+
+**Achado no meio do caminho: `FontPair.bodyFontFamily` não chega ao site.** A fase começou criando um par tipográfico "Cinzel + Cormorant Garamond" para levar a página inteira ao registro serifado do convite. O screenshot mostrou o corpo de texto ainda em Inter — e a causa não era um bug: `--font-sans` é fixa da plataforma por decisão de arquitetura (`DESIGN-SYSTEM.md` 3.1), `useWeddingTheme` só emite `--font-display` e `--font-button`, e o `FontPairPicker` mostra a prévia apenas na fonte de display. Ou seja, `bodyFontFamily` é metadado de rótulo em **todos** os pares: `cormorant-nunito` promete Nunito Sans e entrega Inter desde sempre.
+
+O par novo foi removido, e o preset "Convite de Luxo" passou a apontar para o `cinzel-inter-montserrat` que já existia — ele entrega exatamente o mesmo resultado, e manter os dois teria acrescentado só um rótulo prometendo o que não acontece. O campo ganhou um comentário dizendo isso, para o próximo par não repetir o mesmo caminho: enquanto `--font-sans` for fixa, par novo só se justifica por uma fonte de título ou de botão diferente.
+
+**Monograma com fallback como caso normal.** `PublicMonogram` usa a arte enviada pelo casal ou, na falta dela, as iniciais derivadas de "Nome1 & Nome2" com um coração em ornamento — e o fallback é o caminho comum, não um consolo, porque a maioria dos casais não tem monograma desenhado. Nome fora do padrão de dois nomes não rende iniciais confiáveis e o componente não desenha nada: carimbar a letra errada no site inteiro é pior que não ter monograma. SVG ficou fora da allowlist de upload mesmo sendo o formato natural de uma marca — é um documento que pode carregar `<script>`, servido do mesmo domínio do site.
+
+#### Rodada 2 — o que a primeira entrega errou
+
+Feedback do usuário sobre o rebrand em produção-de-teste, todo ele sobre consequências que só aparecem depois de a ordem virar configurável.
+
+**Fundo fixo por seção deixou de funcionar no minuto em que a ordem virou do casal.** Cada componente carregava seu próprio `tone` (`muted` no Grande Dia, no Manual, no FAQ; `default` nos demais), e essa distribuição só fazia sentido para a sequência específica em que eles estavam escritos. Reordenar a página — ou uma seção sumir por falta de conteúdo — colava duas seções claras iguais. O tom passou a sair de `resolveHomeSections()`, pela POSIÇÃO entre as seções que de fato aparecem.
+
+Isso obrigou a página a saber a visibilidade **antes** de renderizar, informação que não existia fora de cada componente (cada um decidia no próprio `v-if`). `app/utils/home-section-content.ts` monta esse mapa com os mesmos predicados que os componentes usam, então não há duas regras para divergir — e os `v-if` continuam onde estavam, para uma seção montada isoladamente num teste seguir se comportando certo.
+
+**A moldura dourada e a costura curva estavam se cortando.** Duas metáforas opostas desenhadas ao mesmo tempo: a curva diz "as seções escorrem uma na outra", a moldura diz "cada seção é uma página do convite". O resultado era a onda passando por cima da borda e o retângulo cortando a onda no meio. Moldura ligada passou a desligar a costura, e ganhou o mesmo raio dos cartões que vivem dentro dela — com cantos vivos, ela passava por fora de cartões arredondados sem nenhuma relação de forma entre as bordas.
+
+**"Não existe interruptor de ocultar seção" era uma decisão errada, e o usuário estava certo.** O argumento original (esvaziar o conteúdo já esconde) confundia duas perguntas diferentes: *"não tenho o que dizer aqui"* e *"tenho, e não quero mostrar agora"*. Sem o interruptor, tirar o dress code da página exigia apagar um texto que o casal talvez queira de volta na semana seguinte. `config_tema.hiddenSections` passou a conviver com o conteúdo vazio; a seção desligada some do site, dos atalhos e do menu, mas continua na lista do admin, esmaecida — tirá-la de lá faria o casal perder de vista que ela existe e em que ordem voltaria.
+
+**Onze seções, oito atalhos.** O catálogo de atalhos do Hero era uma segunda lista escrita à mão, e as três seções criadas nesta fase simplesmente não tinham como ser alcançadas por ele — sem que nada acusasse a falta. `shared/hero-buttons.ts` virou uma derivação de `shared/home-sections.ts`. Dois ids mudaram no caminho (`cronograma`→`grande-dia`, `galeria`→`nossos-momentos`), e como `resolveHeroButtons` descarta id desconhecido em silêncio — comportamento certo para um id extinto, errado para um renomeado —, foi preciso `LEGACY_HERO_BUTTON_IDS` traduzindo os dois, no resolvedor e no schema (um formulário aberto com a seleção antiga reenviaria os ids velhos e seria reprovado por "atalho desconhecido" sem o casal ter mudado nada).
+
+**`useRoute()` dentro do NavBar derrubou catorze suítes de uma vez.** Acrescentado para o `aria-current`, esbarrou na convenção que o próprio componente documenta: quem tem contexto de rota é o layout, e o NavBar recebe por prop, justamente para continuar montável com `@vue/test-utils` puro. Virou a prop `currentPath`.
+
+#### SEO, 404 e acessibilidade
+
+Três blocos pedidos junto com as correções acima.
+
+**SEO** (`app/composables/useWeddingSeo.ts`): meta social completa, canonical e JSON-LD de Evento saem do mesmo composable porque partem dos mesmos dados derivados e precisam concordar — um `og:url` que discorda do canonical é o tipo de divergência que ninguém percebe olhando a página. A URL base vem de `runtimeConfig.public.siteUrl` (derivada do `NUXT_SITE_URL` que o projeto já usava), nunca de um domínio no código: um canonical apontando para o host errado é pior que nenhum. `og:image` só é emitida quando a URL resultante já é absoluta e `https` — Open Graph não resolve caminho relativo, e um cartão com imagem quebrada é pior que um cartão de texto correto.
+
+Duas decisões que valem registro: `startDate` sai **sem** offset de fuso, porque nem `data_evento` nem `horario_evento` guardam timezone e qualquer offset ali seria inventado — ISO 8601 sem offset significa exatamente "a hora local do evento", enquanto `toISOString()` transformaria 16:30 em Cuiabá em 16:30Z (12:30 na cidade do casamento). E toda chave sem dado real é omitida do JSON-LD: um `location` com `name: null` não é menos informação, é um dado inválido que reprova a validação inteira.
+
+**404 real**: slug inexistente passou a lançar `createError({ statusCode: 404, fatal: true })` em todas as páginas sob `[slug]`. O `await` no `getPublicWedding()` é o que faz isso funcionar no SSR — sem ele o setup continua antes de a requisição resolver, o servidor responde 200 e o erro só aparece no cliente, o que significa buscador indexando "Casamento não encontrado" como conteúdo válido.
+
+**Acessibilidade**: skip link como primeiro elemento focável (com `tabindex="-1"` no `<main>`, senão o navegador rola mas o foco fica no link e a próxima tabulação volta ao menu); `aria-labelledby` ligando cada `<section>` ao seu `<h2>`; `aria-current` nos links de navegação; `aria-expanded`/`aria-controls` no menu mobile, com `Esc` para fechar e `inert` quando fechado (`aria-hidden` sozinho esconde do leitor de tela mas mantém os links focáveis fora da tela). A contagem regressiva ganhou um texto `sr-only` com só os dias e teve os dígitos marcados `aria-hidden`: lida célula a célula ela sai sem pontuação, e atualizando a cada segundo seria relida sem parar. A foto de capa do Hero virou `alt=""` — a 20% de opacidade sob o texto, ela é fundo-ambiente, e descrevê-la anunciaria uma imagem que ninguém vê.
+
+#### Rodada 3 — o design do protótipo, peça por peça
+
+Pedido do usuário: implementar exatamente o frontend do protótipo `Wedding Sync & Improve`. O que veio dele, e por quê cada coisa:
+
+**A paleta do protótipo passa inteira nas nossas regras.** Convertidos os `oklch` para hex e medidos: título `#4d2623` a 12,99:1, primária `#72121d` a 11,54:1, secundária `#836612` a 5,42:1, e o par dourado-sobre-borgonha do Versículo a 5,36:1. Nenhuma exceção foi necessária — o que também confirma que a validação de contraste do projeto não estava atrapalhando o design, só as escolhas ruins.
+
+A descoberta que mais muda a página: no protótipo `--heading` é um **vermelho escuro**, não o texto neutro. Isso já era alcançável sem código (`titleColor`, o modo de cor avançada), e é o que dá à página a unidade que o modelo tem.
+
+**Os neutros da plataforma foram calibrados contra o protótipo**: marfim um fio mais claro e mais quente, bege de seção alternada mais perto do marfim, cartão que deixou de ser branco puro. O contraste entre as duas faixas era forte demais para uma página que deve parecer papel.
+
+**A página perdeu a elevação e ganhou traço.** Cartão virou retângulo de borda fina sem sombra, em todo lugar — no protótipo não há um único elemento flutuando. Junto com isso saíram a costura curva entre seções (a única onda do site é a que fecha o Hero) e o cartão que envolvia a chamada de RSVP: aquela seção já é a banda de destaque da página, e um cartão elevado dentro dela criava uma segunda moldura em torno de três linhas de texto.
+
+**Três famílias com papéis distintos.** A novidade é `--font-serif` (Cormorant Garamond, fixa): a serifada de *citação*, usada só onde o texto é fala e não informação — as boas-vindas, em itálico grande. É o que separa a voz do casal do resto da página. Ela não podia ser a `--font-display`, que varia por par tipográfico e pode ser uma capitular como a Cinzel, ilegível em texto corrido itálico. Os pesos e o estilo itálico passaram a ser declarados: sem isso o `@nuxt/fonts` baixa só o romano e o navegador inclina a fonte sozinho, um itálico falso visivelmente torto num corpo grande.
+
+**Ornamento composto virou filete.** O `UiSectionDivider` era linha-ponto-losango-ponto-linha; o protótipo não tem ornamento composto em lugar nenhum, e o losango repetido dez vezes ao descer a home virava um enfeite insistente. Agora é um traço de 3,5rem em `--color-ornament`.
+
+**Dúvidas frequentes deixaram de ser uma pilha de cartões** (`UiAccordion variant="rule"`, novo): só uma régua entre as perguntas. Dez cartões com sombra empilhados formavam uma parede de caixas justamente onde a página deveria ficar mais leve.
+
+**Sugestões de dress code viraram cápsulas.** Cada uma é curta e independente, e lado a lado se leem de relance — que é como alguém confere o traje. A lista com marcadores dava a elas peso de regulamento.
+
+**Cartão de "O Grande Dia" reorganizado**: o nome da etapa passou a ser o título do cartão, num ícone em disco e em corpo de display. Antes era uma cápsula em caixa alta acima do local, e o cartão terminava com dois títulos disputando — "CERIMÔNIA" na cápsula e o nome do buffet logo abaixo, em serifada maior. "Ver no mapa" virou link sublinhado: um segundo botão em cápsula competiria com o CTA de confirmar presença.
+
+**Barra fixa de confirmar presença no celular** (`PublicMobileCtaBar`), com espaçador da mesma altura — sem ele as últimas linhas da página ficam sob a barra sem poderem ser roladas até aparecer. Some quando o casal desliga a seção de RSVP. Diferente do protótipo em um ponto deliberado: ele esconde o cabeçalho inteiro no celular, deixando a barra como única navegação; aqui o menu continua, porque perder a navegação móvel inteira é uma regressão de usabilidade que o desenho não pede.
+
+**"Nossa História" ganhou a forma de marcos.** Era a única peça do protótipo que dependia de uma estrutura de conteúdo inexistente no modelo: três cartões com rótulo, título e texto. Virou `config_conteudo.storyMilestones` (até 6), convivendo com o texto corrido em vez de substituí-lo — texto corrido é uma carta, marcos são uma linha do tempo, e qual serve depende do casal. Havendo marcos, eles ganham: quem escreveu três marcos já escolheu contar assim.
+
+**O que não veio do protótipo, e por quê**: o `headingStyle: 'engraved'` (caixa alta forçada por CSS) continua disponível, mas não é o que o protótipo faz — lá a caixa alta vem da própria Cinzel, que é capitular. O tema fiel ao modelo usa `'classic'`.
+
+**Rodada 3.1 — a ilustração de traje saiu.** O usuário não gostou da arte (o vestido e o terno em line-art do Dress Code, reusada no Manual dos Padrinhos) e ofereceu duas saídas: trocar por uma melhor, ou não desenhar nada e deixar o casal enviar a própria imagem, como na "Nossa História".
+
+Ganhou a segunda, e uma conferência no protótipo confirmou a escolha: **a seção de traje do modelo não tem ilustração nenhuma** — só título, descrição e as sugestões. A arte era a única imagem do site que não vinha do casal, aparecia idêntica em todo casamento e destoava de uma página feita de tipografia e filete.
+
+Entrou `config_tema.dressCodeImageUrl`, com o mesmo par de endpoints das outras imagens do tema (fora do `themeConfigSchema`, que é o que as preserva no merge de Aparência). Sem imagem enviada, a seção fica com o texto e os cartões — o estado padrão, não um vazio a preencher. O Manual dos Padrinhos perdeu a ilustração junto e não ganhou upload próprio: ali os cartões de traje e a paleta de cores já são o peso visual da seção.
+
+**Rodada 3.2 — a barra estourando, e o bug de fonte que ela revelou.**
+
+A barra superior jogava os botões para fora da tela com um nome longo. A medição explicou: a marca tinha `shrink-0` + `whitespace-nowrap`, então nunca cedia — a nav pedia 1284px dentro de um container de 1152px, e a página inteira ganhava rolagem horizontal. Três correções, todas medidas no navegador: a marca passou a poder encolher (`min-w-0`), os links foram para caixa alta miúda (o `text-sm` em caixa mista custava ~200px na linha), e a faixa completa só aparece a partir de `xl` — em 1024px ela estourava "por pouco", e "por pouco" ali é armadilha, porque a largura depende do comprimento dos rótulos.
+
+Mesmo assim o nome truncava. A conta final: os cinco destinos e o botão ocupam ~990px, e o nome completo pedia ~270px num espaço de 199px. A saída foi a marca mostrar só os **primeiros nomes** ("Mateus & Raquel"): o nome inteiro continua no Hero, onde a linha tem a largura da página. O rodapé ganhou o mesmo tratamento pelo mesmo motivo — ali "Mateus Augusto & Raquel Júlia" quebrava deixando "Júlia" sozinha na segunda linha.
+
+A divisão de "Nome1 & Nome2" estava copiada em quatro componentes, sempre com a mesma expressão regular. Virou `shared/utils/nomes-casal.ts`.
+
+**O achado sério veio da auditoria de fontes que o usuário pediu junto: seis dos sete pares tipográficos não funcionavam em produção.**
+
+O `@nuxt/fonts` descobre o que servir varrendo o CSS **estaticamente**, e o par de cada casamento chega por CSS variable injetada em **runtime** (`useWeddingTheme` → `<style>` no head). O scanner nunca via nenhuma família do catálogo: só o par padrão (Playfair, escrito literalmente nos tokens) tinha `@font-face` no build. Quem escolhia Cinzel via o site em Georgia.
+
+O que escondeu o bug por tanto tempo: **em desenvolvimento funciona**, porque ali o módulo resolve a família sob demanda. Quebrado em produção e certo em dev é a pior combinação possível para alguém descobrir — e explica por que ninguém tinha notado desde a Fase Visual.
+
+Também não dava para confiar no diagnóstico óbvio: `document.fonts.check('40px Cinzel')` retorna `true` mesmo sem `@font-face` nenhum (sem uma face declarada, o navegador assume fonte de sistema). O sinal confiável foi outro — o `font-family` computado do `<h1>` vinha como `"Cinzel, Georgia, serif"`, **sem os fallbacks métricos** que o módulo injeta em toda família que processa. A Cormorant tinha; a Cinzel, não.
+
+A correção é um bloco de regras em `main.css`, uma por família, que existe só para o scanner enxergar. Uma regra por família e não uma lista única: o módulo processa apenas a **primeira** família de cada declaração `font-family` — a primeira tentativa juntou as doze numa linha e serviu exatamente uma.
+
+Custo: +35kB de CSS (~5kB gzip) e mais arquivos de fonte no build — mas o navegador continua baixando só a família que a página usa. É o preço de ter sete pares configuráveis, e agora eles de fato funcionam.
+
+**Rodada 3.3 — a escala.** O usuário relatou que o site parecia grande demais ("com zoom de 90% fica mais perto do que eu gosto") e que sobrava espaço entre o cabeçalho e o começo do conteúdo. A medição no navegador confirmou e apontou os culpados: o `<h1>` do Hero em **96px**, o Hero com **940px de altura numa viewport de 768** (ocupava 1,2 telas antes de qualquer rolagem) e um `padding-top` de **96px** logo abaixo de um cabeçalho fixo de 69px — o "espaço sobrando" era exatamente esse padding.
+
+A redução foi um degrau consistente em toda a escala de display e no ritmo vertical, não ajustes soltos: `h1` 96→72px, títulos de seção 36→30px, padding das seções 80→64px, topo do Hero 96→48px. O corpo de texto **ficou em 16px** de propósito — o zoom de 90% encolhe tudo, inclusive o que já está no limite confortável de leitura, e reduzir o corpo junto seria trocar uma queixa de estética por um problema de legibilidade.
+
+Resultado: a página inteira encolheu ~10% (7074 → 6379px), que é o mesmo efeito do zoom pedido, e o Hero passou a caber numa dobra — nome, data, contagem e botões visíveis sem rolar.
+
+**Rodada 3.4 — o celular, e um teste que quase não protegia nada.** O usuário apontou elementos encostados na borda no celular. A varredura confirmou e mostrou que era pior que "encostado": em 320px e 360px o conteúdo do Hero era **mais largo que a tela** (o bloco começava em `left: -20px`). Os culpados eram a contagem regressiva — quatro rótulos em caixa alta com `tracking` de 0.3em somavam mais que a largura de um celular pequeno — e a falta de `min-w-0` no container, sem o qual um filho que não cabe estica o pai em vez de se ajustar.
+
+O ganho maior da rodada, porém, foi o teste. Uma guarda de layout em Playwright (`tests/e2e/site-publico-layout.spec.ts`) varre de 320px a 1440px checando rolagem horizontal e respiro mínimo de todo texto. **Na primeira versão ela passava com a regressão reintroduzida** — o casamento de teste nascia com a fonte padrão (Playfair), e o defeito só aparece com a Cinzel, cujas capitulares são bem mais largas. Um cenário confortável demais para pegar o defeito que o teste existia para pegar.
+
+Com o cenário no pior caso (nome longo + Cinzel), a verificação foi feita nos dois sentidos: o teste **falha** com as correções revertidas e **passa** com elas. E revelou de passagem que o `h1` sozinho não era o problema — o estouro vinha da combinação da contagem com o container sem `min-w-0`.
+
+Vale como método: um teste de regressão que nunca se viu falhar é uma suposição, não uma garantia.
+
+**Rodada 3.5 — a rolagem lateral que o teste não via.** O usuário reportou, no aparelho, exatamente o que a rodada anterior tinha declarado resolvido: arrasto horizontal no celular e elementos encostando na borda. A guarda de layout passava, o que tornou o próprio teste o primeiro suspeito.
+
+Era ele mesmo. `html { overflow-x: hidden }` — que o projeto usa desde a Fase Editorial — zera a diferença entre `scrollWidth` e `clientWidth` mesmo havendo conteúdo fora da tela, então a checagem principal do teste media uma máscara. E o filtro que dispensava "sangramento intencional" tratava esse mesmo `overflow-x: hidden` do `html` como recorte válido para **qualquer** elemento — inclusive `position: fixed`, que se ancora no viewport e escapa dele. Duas camadas concordando em esconder o mesmo defeito.
+
+O defeito era o **menu em gaveta fechado**: `fixed` e deslocado para fora da tela (`translate-x-full`), ele volta a contar como área rolável no navegador de celular. Corrigido com uma moldura `fixed inset-0 overflow-hidden` em volta, que ocupa a viewport e recorta o painel deslocado — mantendo a transição de deslize, que `v-if` ou `display: none` matariam.
+
+O teste passou a medir a **geometria de cada elemento**, `fixed` incluído, e a não aceitar `html`/`body` como recorte para elementos fixos. Verificado nos dois sentidos: falha com a moldura removida, passa com ela.
+
+De quebra, a margem lateral: o cabeçalho estava com 16px enquanto as seções usavam 24px — o topo era o ponto mais apertado da página. Tudo em 24px agora.
+
+**Rodada 3.6 — as decisões visuais chegam às demais páginas públicas.** Até aqui o rebrand tinha ficado na home; presentes, RSVP e galeria seguiam com o vocabulário anterior — cartões com sombra, ícones em disco na cor primária, margem lateral de 16px, cabeçalhos montados à mão em corpo e espaçamento diferentes. Ao lado da home renovada, pareciam de outro site.
+
+O que se repetia em três páginas virou componente: `PublicPageHeader` (eyebrow miúdo, título em display, filete de ornamento, link de voltar). Não reusa `PublicEditorialSection` porque ali o título é um `<h2>` — uma seção dentro da página —, e aqui é o `<h1>`, o assunto da página inteira.
+
+O resto foi alinhamento: margem lateral de 24px em todas as páginas, cartões sem elevação (`UiCard` ganhou `elevation="none"`, para que o cartão de presente continuasse usando o componente em vez de reconstruir a moldura), ícones nos discos de ornamento, e o painel de contexto do RSVP trocando o gradiente na cor primária pela faixa bege das seções.
+
+E a guarda de layout passou a varrer **as quatro páginas públicas**, não só a home: elas herdam os mesmos componentes de cabeçalho, cartão e barra fixa, então um defeito de largura numa é um defeito em todas. `/rsvp/[code]` fica de fora por exigir um token de convite que o teste não provisiona — o fluxo dela é o mesmo de `/rsvp`.
+
+**Rodada 3.7 — o RSVP em duas colunas não sobrevivia ao desktop.** A busca de convite tinha um cartão dividido: contexto do casal à esquerda, campo à direita. No celular empilhava e funcionava bem; no desktop era um painel quase vazio flutuando ao lado de um painel cheio, e o desequilíbrio crescia com a largura da tela.
+
+A causa é estrutural, não de proporção: o lado da busca tem **uma linha de conteúdo** — um campo, e a lista de resultados só depois de alguém digitar. Não existe divisão de colunas que equilibre um lado com um campo contra um lado com nome, data, título e parágrafo; ajustar as frações só moveria o vazio de lugar.
+
+Passou a empilhar em toda largura, com o mesmo `PublicPageHeader` das demais páginas: quem é o casal, o que se pede, e então o campo. É a leitura que o celular já tinha — e que estava certa desde o começo.
+
+**Rodada 3.8 — o botão em destaque da barra ignorava a configuração que existe para isso.** O CTA preenchido do menu era fixo em "Presentear", enquanto `config_tema.heroFeaturedButton` já dizia qual atalho o casal quer em destaque. Um casal que escolhesse "Confirmar presença" via o Hero obedecer e a barra insistir em presentes — e, pior, dois destaques competindo na mesma faixa: o botão sólido e o link realçado ao lado dele.
+
+O botão passou a ser o atalho em destaque, e esse destino sai da lista de links de texto (repetir o mesmo endereço nas duas formas na mesma barra é ruído).
+
+Isso trouxe um problema de espaço: o rótulo do catálogo é escrito para o Hero, e "Ver lista de presentes" empurrava o nome do casal para as reticências. Daí o `navLabel` — o mesmo atalho tem nomes diferentes conforme o espaço: no Hero é um convite ("Ver lista de presentes"), na barra é um rótulo ("Presentear"). Vale também para "Manual dos padrinhos"→"Padrinhos" e "Perguntas frequentes"→"Dúvidas".
+
+**A barra também encolheu** (69 → 61px), a pedido: a primeira tela já traz os cinco destinos do menu mais os atalhos do Hero, e a faixa alta empurrava o nome do casal para baixo sem acrescentar nada. O piso é a área de toque do maior filho (44px) mais o respiro — abaixo disso o alvo do menu ficaria menor que o mínimo acessível.

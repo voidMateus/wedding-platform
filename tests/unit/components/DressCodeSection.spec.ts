@@ -4,6 +4,7 @@ import DressCodeSection from '~/components/public/DressCodeSection.vue'
 import EditorialSection from '~/components/public/EditorialSection.vue'
 import SectionDivider from '~/components/ui/SectionDivider.vue'
 import { DRESS_CODE_CONTENT } from '#shared/wedding-content'
+import { ICON_STUBS } from '../test-utils/icon-stubs'
 import type { Wedding } from '~/types/wedding'
 
 function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
@@ -32,7 +33,10 @@ function mountDressCode(wedding: Wedding) {
     props: { wedding },
     global: {
       components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
-      stubs: { PublicDressCodeIllustration: { template: '<svg data-test="dress-code-illustration" />' } },
+      stubs: {
+        ...ICON_STUBS,
+        NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
+      },
     },
   })
 }
@@ -44,9 +48,24 @@ describe('PublicDressCodeSection', () => {
     expect(wrapper.find('#dress-code').exists()).toBe(true)
   })
 
-  it('renderiza a ilustração decorativa', () => {
+  it('não desenha imagem nenhuma por padrão', () => {
+    // A ilustração da plataforma saiu: era a única arte do site que não vinha
+    // do casal, e aparecia igual em todo casamento. Sem imagem enviada, a
+    // seção é texto e cartões — como no protótipo do convite.
     const wrapper = mountDressCode(makeWedding())
-    expect(wrapper.find('[data-test="dress-code-illustration"]').exists()).toBe(true)
+    expect(wrapper.find('img').exists()).toBe(false)
+  })
+
+  it('mostra a imagem enviada pelo casal quando existe', () => {
+    const wrapper = mountDressCode(
+      makeWedding({ config_tema: { dressCodeImageUrl: 'https://exemplo.test/traje.jpg' } }),
+    )
+    const img = wrapper.find('img')
+    expect(img.exists()).toBe(true)
+    expect(img.attributes('src')).toBe('https://exemplo.test/traje.jpg')
+    // Ilustrativa de verdade (mostra o traje), então tem alt descritivo — ao
+    // contrário da capa do Hero, que é fundo-ambiente sob o texto.
+    expect(img.attributes('alt')).toBeTruthy()
   })
 
   it('renderiza a descrição e todas as dicas', () => {
@@ -65,7 +84,10 @@ describe('PublicDressCodeSection', () => {
   it('usa descrição/sugestões customizadas pelo casal quando presentes em config_conteudo', () => {
     const wrapper = mountDressCode(
       makeWedding({
-        config_conteudo: { dressCodeDescription: 'Traje esporte fino.', dressCodeSuggestions: ['Use tons pastel.'] },
+        config_conteudo: {
+          dressCodeDescription: 'Traje esporte fino.',
+          dressCodeSuggestions: ['Use tons pastel.'],
+        },
       }),
     )
     expect(wrapper.text()).toContain('Traje esporte fino.')
@@ -74,9 +96,7 @@ describe('PublicDressCodeSection', () => {
   })
 
   it('esconde a lista de sugestões quando o casal esvazia config_conteudo.dressCodeSuggestions', () => {
-    const wrapper = mountDressCode(
-      makeWedding({ config_conteudo: { dressCodeSuggestions: [] } }),
-    )
+    const wrapper = mountDressCode(makeWedding({ config_conteudo: { dressCodeSuggestions: [] } }))
     expect(wrapper.find('ul').exists()).toBe(false)
   })
 })
