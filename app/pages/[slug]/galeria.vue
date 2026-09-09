@@ -25,15 +25,21 @@ useSeoMeta({
 
 <template>
   <PublicEditorialSection id="galeria" eyebrow="Registros" title="Nossos Momentos">
-    <div class="mb-8 flex justify-center">
-      <UiButton :to="`/${slug}`" variant="outline" rounded="full">Voltar ao início</UiButton>
+    <div class="-mt-4 mb-4 flex justify-center">
+      <NuxtLink
+        :to="`/${slug}`"
+        class="inline-flex min-h-11 items-center gap-1.5 text-sm text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <Icon name="lucide:arrow-left" class="h-4 w-4" aria-hidden="true" />
+        Voltar ao site
+      </NuxtLink>
     </div>
 
     <div
       v-if="status === 'pending'"
       class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
     >
-      <UiSkeleton v-for="n in 10" :key="n" class="aspect-square w-full rounded-xl" />
+      <UiSkeleton v-for="n in 10" :key="n" class="aspect-square w-full rounded-lg" />
     </div>
 
     <UiEmptyState

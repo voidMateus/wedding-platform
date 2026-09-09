@@ -3,7 +3,8 @@ interface Props {
   padding?: 'none' | 'sm' | 'md'
   /** 'lg' é o degrau reduzido, reservado a cartões densamente empilhados onde o raio/sombra grandes competiriam entre si. Default 'xl' (tratamento premium) cobre o resto da plataforma, público e admin. */
   radius?: 'lg' | 'xl'
-  elevation?: 'sm' | 'xl'
+  /** 'none' é o do site público desde o rebrand: cartão é traço fino sobre papel, sem elevação. */
+  elevation?: 'none' | 'sm' | 'xl'
   /**
    * 'default' preserva o comportamento atual (estático). 'interactive' ganha
    * hover no degrau médio da escala (radius-md/shadow-md) — para cards
@@ -35,6 +36,7 @@ const radiusClasses: Record<NonNullable<Props['radius']>, string> = {
 }
 
 const elevationClasses: Record<NonNullable<Props['elevation']>, string> = {
+  none: '',
   sm: 'shadow-sm',
   xl: 'shadow-xl',
 }

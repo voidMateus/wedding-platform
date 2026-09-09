@@ -98,7 +98,7 @@ useWeddingSeo({ wedding, segments: resolvedSegments })
 
 <template>
   <div>
-    <div v-if="weddingStatus === 'pending'" class="flex flex-col items-center gap-4 px-4 py-20">
+    <div v-if="weddingStatus === 'pending'" class="flex flex-col items-center gap-4 px-6 py-20">
       <UiSkeleton class="h-10 w-64" />
       <UiSkeleton class="h-6 w-40" />
     </div>

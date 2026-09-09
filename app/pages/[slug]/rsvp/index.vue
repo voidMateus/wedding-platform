@@ -103,7 +103,7 @@ async function handleConfirmIdentity() {
 
 <template>
   <div
-    class="mx-auto flex min-h-[70vh] flex-col justify-center px-4 py-16"
+    class="mx-auto flex min-h-[70vh] flex-col justify-center px-6 py-16"
     :class="step === 'search' ? 'max-w-3xl' : 'max-w-xl'"
   >
     <!--
@@ -115,7 +115,7 @@ async function handleConfirmIdentity() {
     <NuxtLink
       v-if="step === 'search'"
       :to="backToSiteLink"
-      class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted hover:text-text"
+      class="mb-6 inline-flex min-h-11 w-fit items-center gap-1.5 text-sm text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <Icon name="lucide:arrow-left" class="h-4 w-4" />
       Voltar ao site
@@ -132,13 +132,11 @@ async function handleConfirmIdentity() {
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="grid overflow-hidden rounded-xl border border-primary/10 bg-surface-elevated shadow-xl lg:grid-cols-[0.85fr_1.15fr]"
+        class="grid overflow-hidden rounded-xl border border-border/70 bg-surface-elevated lg:grid-cols-[0.85fr_1.15fr]"
       >
-        <div
-          class="flex flex-col justify-center gap-4 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-8 sm:p-10"
-        >
+        <div class="flex flex-col justify-center gap-4 bg-surface-muted p-8 sm:p-10">
           <span
-            class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+            class="flex h-11 w-11 items-center justify-center rounded-full bg-ornament/15 text-ornament"
           >
             <Icon name="lucide:mail-check" class="h-5 w-5" />
           </span>
@@ -149,7 +147,7 @@ async function handleConfirmIdentity() {
             <p class="text-sm text-text-muted">{{ formattedDate }}</p>
           </div>
           <div>
-            <h1 class="font-display text-2xl font-semibold text-heading">
+            <h1 class="font-display text-2xl font-semibold text-heading sm:text-3xl">
               Confirmação de Presença
             </h1>
             <p class="mt-1 text-sm leading-relaxed text-text-muted">
@@ -191,7 +189,7 @@ async function handleConfirmIdentity() {
         v-motion
         :initial="{ opacity: 0, y: 16 }"
         :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
-        class="flex flex-col items-center gap-4 rounded-xl border border-primary/10 bg-surface-elevated p-8 text-center shadow-xl sm:p-10"
+        class="flex flex-col items-center gap-4 rounded-xl border border-border/70 bg-surface-elevated p-8 text-center sm:p-10"
       >
         <span
           class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"

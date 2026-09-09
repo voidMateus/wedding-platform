@@ -594,3 +594,11 @@ O defeito era o **menu em gaveta fechado**: `fixed` e deslocado para fora da tel
 O teste passou a medir a **geometria de cada elemento**, `fixed` incluído, e a não aceitar `html`/`body` como recorte para elementos fixos. Verificado nos dois sentidos: falha com a moldura removida, passa com ela.
 
 De quebra, a margem lateral: o cabeçalho estava com 16px enquanto as seções usavam 24px — o topo era o ponto mais apertado da página. Tudo em 24px agora.
+
+**Rodada 3.6 — as decisões visuais chegam às demais páginas públicas.** Até aqui o rebrand tinha ficado na home; presentes, RSVP e galeria seguiam com o vocabulário anterior — cartões com sombra, ícones em disco na cor primária, margem lateral de 16px, cabeçalhos montados à mão em corpo e espaçamento diferentes. Ao lado da home renovada, pareciam de outro site.
+
+O que se repetia em três páginas virou componente: `PublicPageHeader` (eyebrow miúdo, título em display, filete de ornamento, link de voltar). Não reusa `PublicEditorialSection` porque ali o título é um `<h2>` — uma seção dentro da página —, e aqui é o `<h1>`, o assunto da página inteira.
+
+O resto foi alinhamento: margem lateral de 24px em todas as páginas, cartões sem elevação (`UiCard` ganhou `elevation="none"`, para que o cartão de presente continuasse usando o componente em vez de reconstruir a moldura), ícones nos discos de ornamento, e o painel de contexto do RSVP trocando o gradiente na cor primária pela faixa bege das seções.
+
+E a guarda de layout passou a varrer **as quatro páginas públicas**, não só a home: elas herdam os mesmos componentes de cabeçalho, cartão e barra fixa, então um defeito de largura numa é um defeito em todas. `/rsvp/[code]` fica de fora por exigir um token de convite que o teste não provisiona — o fluxo dela é o mesmo de `/rsvp`.
