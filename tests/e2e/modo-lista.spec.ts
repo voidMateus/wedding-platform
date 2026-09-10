@@ -190,6 +190,13 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     await expect(page.getByRole('option', { name: 'Adolescente' })).toBeHidden()
     await page.keyboard.press('Escape')
 
+    // A coluna Convite mostra o ESTÁGIO do convite, não "Vinculado". Nesta
+    // massa ninguém tem convite, então é o estado mais urgente do funil: sem
+    // convite não dá nem para enviar, e a pessoa não alcança o RSVP.
+    const linhaDoJoao = page.getByRole('row').filter({ hasText: 'Joao da Silva' }).last()
+    await expect(linhaDoJoao).toContainText('Sem convite')
+    await expect(linhaDoJoao).not.toContainText('Vinculado')
+
     // --- salvar o cadastro fecha a modal, também aqui ---
     //
     // Fechar era decisão do PAI, e as duas telas que montam esta mesma modal

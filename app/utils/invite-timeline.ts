@@ -24,6 +24,13 @@ export const INVITE_EVENT_PRESENTATION: Record<InviteEventType, InviteEventPrese
   },
   'token.generated': { label: 'Link de acesso gerado', icon: 'lucide:key', tone: 'muted' },
   'token.sent': { label: 'Convite marcado como enviado', icon: 'lucide:send', tone: 'muted' },
+  // O desmarcar tambem e historia: o casal corrigiu um clique errado, e o
+  // log append-only existe para preservar a correcao, nao para esconde-la.
+  'token.unsent': {
+    label: 'Marcacao de envio desfeita',
+    icon: 'lucide:undo-2',
+    tone: 'muted',
+  },
   'rsvp.first_access': {
     label: 'Convite aberto pela primeira vez',
     icon: 'lucide:eye',

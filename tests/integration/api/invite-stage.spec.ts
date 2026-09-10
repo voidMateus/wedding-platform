@@ -201,6 +201,76 @@ describe('api: funil de estágios do convite', () => {
     expect(res.status).toBe(401)
   })
 
+  it('desmarcar o envio devolve o convite ao estágio anterior', async () => {
+    // "Enviado" é informação manual do casal, não entrega comprovada: um
+    // clique errado ficava permanente e empurrava o convite para um estágio
+    // falso, sem caminho de volta pela interface.
+    const { invite } = await novoConvite('Desmarcar Envio', 2)
+    const client = createTestApiClient({ cookie })
+
+    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+    expect(await stageOf(invite.id)).toBe('sent')
+
+    const res = await client.post(`/api/invites/${invite.id}/send`, { sent: false })
+    expect(res.status).toBe(200)
+    expect((await res.json()).enviado_em).toBeNull()
+    expect(await stageOf(invite.id)).toBe('not_sent')
+  })
+
+  it('desmarcar o envio não apaga o acesso: quem abriu continua em opened', async () => {
+    // Envio é informação do casal; acesso é fato comprovado pelo sistema.
+    // Desmarcar corrige o registro, nunca reescreve o que aconteceu.
+    const { invite } = await novoConvite('Desmarcar Com Acesso', 2)
+    const client = createTestApiClient({ cookie })
+
+    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+    await admin.from('historico_convite').insert({
+      casamento_id: wedding.id,
+      convite_id: invite.id,
+      tipo_evento: 'rsvp.first_access',
+    })
+    expect(await stageOf(invite.id)).toBe('opened')
+
+    await client.post(`/api/invites/${invite.id}/send`, { sent: false })
+    expect(await stageOf(invite.id)).toBe('opened')
+  })
+
+  it('os dois sentidos entram na Linha do Tempo', async () => {
+    const { invite } = await novoConvite('Historico do Envio', 1)
+    const client = createTestApiClient({ cookie })
+
+    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+    await client.post(`/api/invites/${invite.id}/send`, { sent: false })
+
+    const { data: eventos } = await admin
+      .from('historico_convite')
+      .select('tipo_evento')
+      .eq('convite_id', invite.id)
+      .in('tipo_evento', ['token.sent', 'token.unsent'])
+
+    const tipos = (eventos ?? []).map((e) => e.tipo_evento)
+    expect(tipos).toContain('token.sent')
+    expect(tipos).toContain('token.unsent')
+  })
+
+  it('a listagem de convidados devolve o estágio do convite de cada pessoa', async () => {
+    // É o que a coluna "Convite" do Modo Lista exibe: o estágio de fato, em vez
+    // de só "Vinculado" — que não dizia nada que o casal já não soubesse.
+    const { invite, membros } = await novoConvite('Estagio na Lista', 1)
+    const solto = await createTestGuest(admin, wedding.id, { nome_completo: 'Pessoa Sem Convite' })
+    const client = createTestApiClient({ cookie })
+
+    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+
+    const res = await client.get('/api/guests?pageSize=200')
+    expect(res.status).toBe(200)
+    const linhas = (await res.json()).data as Array<{ id: string; inviteStage: string | null }>
+
+    expect(linhas.find((l) => l.id === membros[0]!.id)?.inviteStage).toBe('sent')
+    // Sem convite é null, e a tela o traduz para "Sem convite".
+    expect(linhas.find((l) => l.id === solto.id)?.inviteStage).toBeNull()
+  })
+
   it('o filtro por estágio recorta no servidor, antes de paginar', async () => {
     const client = createTestApiClient({ cookie })
     const res = await client.get('/api/invites?stage=responded&pageSize=100')

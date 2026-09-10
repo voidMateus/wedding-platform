@@ -117,6 +117,22 @@ test('registrar a resposta pelo casal move o convite no funil', async ({ page })
       .eq('tipo_evento', 'rsvp.first_access')
     expect(count).toBe(0)
 
+    // --- desmarcar o envio, para o clique errado ter volta ---
+    //
+    // "Enviado" é informação manual do casal, não entrega comprovada. Marcar
+    // sem querer ficava permanente e empurrava o convite para um estágio falso
+    // do funil, sem caminho de volta pela interface.
+    const desmarcado = dialogo.getByRole('button', { name: 'Desmarcar envio' })
+    await expect(desmarcado).toBeHidden()
+
+    await dialogo.getByRole('button', { name: 'Marcar como enviado' }).click()
+    await expect(desmarcado).toBeVisible({ timeout: 20_000 })
+
+    await desmarcado.click()
+    await expect(dialogo.getByRole('button', { name: 'Marcar como enviado' })).toBeVisible({
+      timeout: 20_000,
+    })
+
     // --- a listagem por trás acompanha ---
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toBeHidden({ timeout: 10_000 })

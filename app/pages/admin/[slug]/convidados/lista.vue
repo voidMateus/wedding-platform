@@ -27,10 +27,8 @@ const { data: overview, refresh: refreshOverview } = getGuestOverview()
 const convidados = computed(() => data.value?.convidados ?? [])
 const grupos = computed(() => gruposData.value?.data ?? [])
 
-const { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo } = useGuestListModeColumns(
-  convidados,
-  grupos,
-)
+const { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo, rotuloDoConvite } =
+  useGuestListModeColumns(convidados, grupos)
 
 const filters = useTableFilters(colunas)
 
@@ -536,14 +534,18 @@ async function confirmarExclusao() {
                    esperado — quem precisa ser visto de longe é quem ainda NÃO
                    tem convite. -->
               <template #cell-convite="{ row }">
-                <!-- `whitespace-nowrap` pelo mesmo motivo do badge de RSVP:
-                     "Sem convite" quebrava em duas linhas e engordava a linha
+                <!-- O ESTÁGIO do convite, não "Vinculado": saber que a pessoa
+                     tem convite não diz nada que o casal já não saiba — o que
+                     falta saber é se aquele convite foi enviado, aberto ou
+                     respondido. "Sem convite" continua como estava.
+
+                     `whitespace-nowrap` pelo mesmo motivo do badge de RSVP:
+                     "Não enviado" quebrava em duas linhas e engordava a linha
                      inteira. A coluna rola junto com a tabela se faltar
                      largura. -->
-                <UiBadge v-if="!row.convite_id" tone="warning" class="whitespace-nowrap">
-                  Sem convite
+                <UiBadge :tone="rotuloDoConvite(row).tone" class="whitespace-nowrap">
+                  {{ rotuloDoConvite(row).label }}
                 </UiBadge>
-                <span v-else class="text-xs text-text-muted">Vinculado</span>
               </template>
 
               <template #cell-rsvp="{ row }">
@@ -556,10 +558,6 @@ async function confirmarExclusao() {
                 >
                   {{ rsvpStatusPresentation(row.status_rsvp).label }}
                 </UiBadge>
-              </template>
-
-              <template #cell-observacao="{ row }">
-                <span class="text-text-muted">{{ row.observacoes || '—' }}</span>
               </template>
 
               <!-- Só a lixeira. O lápis foi um terceiro caminho para o mesmo

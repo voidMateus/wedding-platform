@@ -41,6 +41,7 @@ export type InviteEventType =
   | 'invite.unarchived'
   | 'token.generated'
   | 'token.sent'
+  | 'token.unsent'
   | 'rsvp.first_access'
   | 'rsvp.guest_status_changed'
   | 'rsvp.message_sent'

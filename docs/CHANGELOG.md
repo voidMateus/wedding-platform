@@ -866,3 +866,25 @@ O prazo de RSVP deliberadamente **não** se aplica ao caminho do casal — ele �
 ### Verificação
 
 A regra do funil foi validada contra o banco de dev antes de qualquer teste automatizado, com um script descartável que exercita os cinco estágios manipulando os fatos — inclusive os dois casos que mais importam: "aberto sem envio" (o flag manual se corrigindo) e "a avó direto a respondido". Onze checagens, todas verdes. A cobertura permanente é integração (14 casos, que é o que roda no CI), unitário para o mapa de estágios e um E2E que prova a fiação da tela.
+
+### Rodada seguinte: desmarcar envio, e a coluna Convite dizendo o estágio
+
+Dois pedidos do usuário logo depois do funil entrar.
+
+**"Depois de marcar como Enviado, tem que ter uma opção para voltar o status, pois vai que a pessoa clica sem querer."** Defeito real, e eu já o tinha anotado no levantamento sem consertar: `status_convite` só ia numa direção. "Enviado" é o único estágio do funil que é **informação manual** — o sistema não comprova entrega nenhuma —, então um clique errado empurrava o convite para um estágio falso sem caminho de volta pela interface. O endpoint passou a aceitar os dois sentidos (`{ sent: boolean }`, mesmo desenho de arquivar/desarquivar, pelo mesmo motivo: registro reversível do casal, não fato comprovado), e o botão alterna. Sem diálogo de confirmação de propósito: desmarcar **é** a recuperação de um clique errado, e pedir confirmação para desfazer seria colocar atrito na frente do atrito.
+
+Desmarcar não reescreve história: quem já abriu o convite continua em `aberto`, porque acesso é fato comprovado e envio é informação do casal. E os dois sentidos entram na Linha do Tempo (`token.sent`/`token.unsent`) — o log é append-only justamente para preservar a correção, não para escondê-la.
+
+**"O status da coluna Convite precisa ser o status do convite de fato."** A célula dizia "Vinculado", que é a informação menos útil possível: o casal já sabe que a pessoa tem convite. O que falta saber é se aquele convite foi enviado, aberto ou respondido. `/api/guests` passou a devolver `inviteStage` por linha (segunda consulta a `convites_com_resumo`, em vez de pendurar o funil na view da lista — duas views que mudam por motivos diferentes não devem se acoplar), e a coluna exibe o estágio. "Sem convite" continua como estava, e ordena **primeiro**: é o mais urgente do funil, porque sem convite não dá nem para enviar.
+
+A ordenação da coluna passou a ser pelo funil, não pelo alfabeto — "Aberto" antes de "Enviado" não quer dizer nada.
+
+E a coluna **Observação saiu** da lista, a pedido, para dar espaço: era a única cujo conteúdo não cabia numa célula e não recortava nem ordenava nada.
+
+### Não resolvido: o scroll horizontal da tabela
+
+O usuário reportou "está bugando bastante esse scroll horizontal", com print da Visão Geral mostrando barra horizontal cujo polegar ocupa quase toda a pista — ou seja, um excedente pequeno.
+
+**Medido, e não reproduzido.** Com 40 convidados mais um núcleo, em 1920/1600/1440/1280px, `scrollWidth === clientWidth` nas duas telas: excedente zero. E o `min-content` da tabela é **616px** na Visão Geral e **881px** no Modo Lista, muito abaixo de qualquer largura de desktop — então a tabela tem folga de sobra para encolher, e o conteúdo não pode ser a causa nessas larguras. Forçar barra de rolagem clássica no Chromium (`--disable-features=OverlayScrollbar`) também não produziu excedente.
+
+Duas coisas que o print sugere e o ambiente daqui não tem: barras de rolagem **clássicas** (as do print têm setas, estilo Windows, e consomem largura) e possivelmente zoom ou escala de tela diferente de 100%. A hipótese que sobra é a interação entre os dois eixos de `overflow: auto` da mesma caixa — a barra vertical consome largura e faz a horizontal aparecer —, cujo conserto seria `scrollbar-gutter: stable` na `.table-scroll`. Não aplicado: seria consertar no escuro algo que nunca reproduzi, e o número do usuário resolve a dúvida em um minuto.

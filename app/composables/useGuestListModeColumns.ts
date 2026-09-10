@@ -3,6 +3,7 @@ import type { Group } from '~/types/group'
 import type { GuestListItem } from '~/types/guest'
 import type { AdminTableColumn } from '~/types/table'
 import { compareText, type ClientColumn } from '~/utils/table-rows'
+import type { StatusPresentation } from '~/utils/status-presentation'
 
 /**
  * Colunas do Modo Lista, com os acessores do recorte no client e os mapas de
@@ -103,7 +104,6 @@ export function useGuestListModeColumns(
       sort: 'alpha',
       filter: { type: 'select', multiple: true, options: opcoesDeStatus },
     },
-    { key: 'observacao', label: 'Observação' },
     { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
   ])
 
@@ -139,8 +139,14 @@ export function useGuestListModeColumns(
         compare: compareText((row) => categorias.value.get(row.id)?.label),
       },
       convite: {
-        value: (row) => (row.convite_id ? 'vinculado' : 'sem-convite'),
-        compare: compareText((row) => (row.convite_id ? 'A' : 'B')),
+        // O ESTÁGIO do convite, não 'vinculado': o casal já sabe que a pessoa
+        // tem convite — o que ele precisa saber é em que ponto aquele convite
+        // está. Sem convite continua sendo um valor próprio, e é o mais
+        // urgente de todos (não dá nem para enviar).
+        value: (row) => row.inviteStage ?? 'sem-convite',
+        // Ordena pelo funil, nunca pelo alfabeto: a coluna descreve um
+        // processo, e 'Aberto' antes de 'Enviado' não quer dizer nada.
+        compare: compareText((row) => String(ordemDoEstagio(row)).padStart(2, '0')),
       },
       rsvp: {
         value: (row) => row.status_rsvp,
@@ -148,6 +154,23 @@ export function useGuestListModeColumns(
       },
     }
   })
+
+  /**
+   * Posição no funil, para ordenar a coluna Convite pelo processo.
+   *
+   * "Sem convite" vem primeiro porque é o mais urgente de todos: sem convite
+   * não dá nem para enviar, e a pessoa não alcança o RSVP.
+   */
+  function ordemDoEstagio(convidado: GuestListItem): number {
+    if (!convidado.inviteStage) return 0
+    return INVITE_STAGE_VALUES.indexOf(convidado.inviteStage) + 1
+  }
+
+  /** Rótulo da célula: o estágio do convite, ou a ausência dele. */
+  function rotuloDoConvite(convidado: GuestListItem): StatusPresentation {
+    if (!convidado.inviteStage) return { label: 'Sem convite', tone: 'warning' }
+    return inviteStagePresentation(convidado.inviteStage)
+  }
 
   function nomeDoGrupo(convidado: GuestListItem): string {
     if (!convidado.grupo_id) return '—'
@@ -159,5 +182,5 @@ export function useGuestListModeColumns(
     return rotulosDeNucleo.value.get(convidado.nucleo_id) ?? '—'
   }
 
-  return { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo }
+  return { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo, rotuloDoConvite }
 }
