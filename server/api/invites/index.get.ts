@@ -109,7 +109,7 @@ export default defineEventHandler(async (event) => {
     // `convites`, onde id/nome/casamento_id são NOT NULL — o resto do objeto é
     // uma linha de convite com três colunas derivadas a mais, que ficam aqui e
     // não no DTO.
-    const { total_membros, total_respondidos, status_operacional, ...invite } = row
+    const { total_membros, total_respondidos, status_operacional, estagio_desde, ...invite } = row
 
     return {
       ...(invite as unknown as Invite),
@@ -119,6 +119,7 @@ export default defineEventHandler(async (event) => {
       memberCount: total_membros ?? 0,
       respondedCount: total_respondidos ?? 0,
       stage: inviteStageFromView(status_operacional),
+      stageSince: estagio_desde,
     }
   })
 

@@ -55,7 +55,6 @@ const RSVP_TONES: Record<RsvpStatus, StatusTone> = {
   // erro/exclusão.
   recusado: 'neutral',
   lista_espera: 'neutral',
-  removido: 'neutral',
 }
 
 export function rsvpStatusPresentation(status: RsvpStatus): StatusPresentation {

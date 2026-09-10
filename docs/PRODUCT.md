@@ -314,6 +314,10 @@ Cada estágio implica os anteriores, então **uma coluna basta** e o modal mostr
 
 **O funil não é só digital, e essa é a regra que o sustenta.** Nenhum estágio exige que o convidado use o site. A avó que recebe convite em papel, não sabe usar o formulário e confirma por telefone tem a resposta **registrada pelo casal** (seção 5.2) e o convite vai direto a *Respondido*, sem nunca passar por *Aberto*. O sistema nunca exige jornada digital para que uma confirmação exista.
 
+**O tempo no estágio é o que transforma o status em providência.** "Aberto" é um fato; "Aberto há 14 dias" é um pedido de lembrete. Cada estágio tem o seu: *Enviado* usa `enviado_em`, *Aberto* usa o **primeiro** acesso, *Parcial* e *Respondido* usam a resposta **mais recente** — porque o que o casal precisa saber é há quanto tempo nada acontece, e a primeira resposta pode ser de um mês atrás num convite que recebeu outra ontem. *Não enviado* não tem data: não existe "há N dias sem nada ter acontecido".
+
+Na listagem aparece **um** dado de apoio por estágio, nunca dois, e é o estágio que decide qual: o **tempo** em *Enviado*/*Aberto* (onde a fração seria "0 de 5" em toda linha) e a **fração** em *Parcial*/*Respondido* (onde ela diz quantos faltam). Os dois juntos recriariam na coluna o empilhamento de badges que este desenho existe para eliminar; no detalhe do convite, onde espaço não é escasso, os dois aparecem.
+
 **Arquivado e excluído ficam fora do funil.** Arquivar é escopo administrativo — um convite pode estar arquivado em qualquer estágio —, e continua sendo o recorte "Ativos / Arquivados" da listagem. Excluído segue sendo soft delete, invisível.
 
 **A Linha do Tempo continua, com função distinta.** O status responde "onde este convite está agora"; a Linha do Tempo, "o que aconteceu para ele chegar aqui".
@@ -331,7 +335,7 @@ O casal agora registra a resposta pela linha do convidado, dentro do convite. Tr
 Duas decisões sobre o que conta como resposta:
 
 - **`lista_espera` conta.** O convidado deu retorno; quem está segurando é o casal. Logo *Respondido* significa "todos deram algum retorno", não "todos confirmados".
-- **`removido` não é oferecido.** É valor morto do vocabulário (nada no produto o grava; "Remover do convite" apenas desfaz o vínculo, e o fluxo do convidado o lê como pendente). Oferecê-lo o faria contar como resposta, e um convite sem ninguém confirmado passaria a dizer *Respondido*.
+- **`removido` deixou de existir.** Era valor morto do vocabulário — nada no produto o gravava ("Remover do convite" apenas desfaz o vínculo) e o fluxo do convidado já o lia como pendente. Como *Respondido* significa "todos os membros têm resposta", um `removido` gravado por acidente contaria como resposta e um convite sem ninguém confirmado passaria a dizer *Respondido*. Saiu do CHECK de `respostas_rsvp` em 2026-09-10, o que torna esse estado impossível em vez de apenas escondido.
 
 **O prazo de RSVP não se aplica a este caminho.** Ele bloqueia o convidado (`/api/rsvp/**`), não o casal: depois do prazo é exatamente quando se está ligando para quem não respondeu, e travar aqui deixaria essas respostas sem lugar para existir.
 

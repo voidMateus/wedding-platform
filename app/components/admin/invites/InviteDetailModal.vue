@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatarTempoDecorrido } from '#shared/utils/format-date'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { InviteDetail, InviteEvent } from '~/types/invite'
 
@@ -33,6 +34,9 @@ const timeline = ref<InviteEvent[]>([])
 const isLoading = ref(false)
 const hasLoadError = ref(false)
 const isBusy = ref(false)
+
+/** "há 8 dias" no estágio atual — null em `not_sent`, onde nada aconteceu. */
+const tempoNoEstagio = computed(() => formatarTempoDecorrido(invite.value?.stageSince))
 
 const stagePresentation = computed(() =>
   invite.value
@@ -180,6 +184,11 @@ async function toggleArchive() {
           </span>
           <span v-if="invite.memberCount" class="num text-xs text-text-muted">
             {{ invite.respondedCount }} de {{ invite.memberCount }} responderam
+          </span>
+          <!-- Aqui os dois números convivem: no detalhe o espaço não é escasso,
+               e é onde o casal decide o que fazer com ESTE convite. -->
+          <span v-if="tempoNoEstagio" class="text-xs text-text-muted">
+            {{ tempoNoEstagio }}
           </span>
           <UiBadge v-if="invite.arquivado_em" tone="neutral">arquivado</UiBadge>
         </div>

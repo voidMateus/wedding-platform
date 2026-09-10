@@ -12,7 +12,7 @@ export interface RsvpMember {
   guestId: string
   fullName: string
   nickname: string | null
-  status: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
+  status: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera'
 }
 
 export interface RsvpInvitePayload {

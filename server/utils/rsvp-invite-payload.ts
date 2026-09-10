@@ -77,7 +77,7 @@ export async function buildRsvpInvitePayload(
       fullName: guest.nome_completo,
       nickname: guest.apelido,
       status: (statusByGuest.get(guest.id) ?? 'pendente') as
-        'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido',
+        'pendente' | 'confirmado' | 'recusado' | 'lista_espera',
     })),
   }
 }

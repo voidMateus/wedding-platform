@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDatePtBR } from '#shared/utils/format-date'
+import { formatDatePtBR, formatarTempoDecorrido } from '#shared/utils/format-date'
 import type { InviteListItem, InviteStage } from '~/types/invite'
 import type { AdminTableColumn } from '~/types/table'
 
@@ -133,18 +133,31 @@ function statusOf(invite: InviteListItem) {
 }
 
 /**
- * "3 de 5" ao lado do estágio — o único dado de apoio da célula.
+ * UM dado de apoio por estágio, nunca dois — e é o estágio que decide qual.
  *
- * Só nos dois estágios em que a fração muda a providência: em `partial` ela diz
- * quantos faltam, e em `responded` confirma o total. Antes de existir resposta
- * a fração seria "0 de 5" em toda linha da tela, um número que não distingue
- * nada. E deliberadamente só UM dado de apoio: a alternativa (fração + tempo no
- * estágio + origem das respostas) recria na coluna o empilhamento de badges que
- * este redesenho existe para eliminar.
+ * A escolha não é estética: em cada ponto do funil só um dos dois números muda
+ * a providência.
+ *
+ * - `sent`/`opened`: o tempo. Quanto mais tempo parado, mais urgente o
+ *   lembrete. A fração aqui seria "0 de 5" em toda linha da tela — um número
+ *   que não distingue nada.
+ * - `partial`: a fração, que diz quantos ainda faltam.
+ * - `responded`: a fração, que confirma o total.
+ * - `not_sent`: nada. Não existe "há N dias sem nada ter acontecido".
+ *
+ * Mostrar os dois juntos (mais a origem das respostas, como a proposta
+ * original previa) recriaria na coluna o empilhamento de badges que este
+ * redesenho existe para eliminar. No detalhe do convite, onde espaço não é
+ * escasso, os dois aparecem.
  */
-function fracaoDeRespostas(invite: InviteListItem): string | null {
-  if (invite.stage !== 'partial' && invite.stage !== 'responded') return null
-  return `${invite.respondedCount} de ${invite.memberCount}`
+function apoioDoEstagio(invite: InviteListItem): string | null {
+  if (invite.stage === 'partial' || invite.stage === 'responded') {
+    return `${invite.respondedCount} de ${invite.memberCount}`
+  }
+  if (invite.stage === 'sent' || invite.stage === 'opened') {
+    return formatarTempoDecorrido(invite.stageSince)
+  }
+  return null
 }
 
 // --- criar/abrir ---
@@ -297,8 +310,8 @@ async function confirmDelete() {
             <template #cell-status="{ row }">
               <span class="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
-                <span v-if="fracaoDeRespostas(row)" class="num text-xs text-text-muted">
-                  {{ fracaoDeRespostas(row) }}
+                <span v-if="apoioDoEstagio(row)" class="num text-xs text-text-muted">
+                  {{ apoioDoEstagio(row) }}
                 </span>
               </span>
             </template>

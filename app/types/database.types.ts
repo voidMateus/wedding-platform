@@ -1637,6 +1637,7 @@ export type Database = {
           nome: string | null
           observacoes: string | null
           status_convite: string | null
+          estagio_desde: string | null
           status_operacional: string | null
           total_membros: number | null
           total_respondidos: number | null

@@ -8,7 +8,7 @@ import {
   type FaixaEtariaFiltro,
 } from '#shared/utils/faixa-etaria'
 
-type ResponseStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
+type ResponseStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera'
 
 function computeInviteStatus(statuses: ResponseStatus[]): 'pending' | 'partial' | 'responded' {
   if (statuses.length === 0) return 'pending'

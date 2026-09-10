@@ -293,7 +293,6 @@ export const CAMPOS_CONVIDADO: readonly CampoConvidado[] = [
       { valor: 'confirmado', rotulo: 'Estará lá' },
       { valor: 'recusado', rotulo: 'Não poderá ir' },
       { valor: 'lista_espera', rotulo: 'Em espera' },
-      { valor: 'removido', rotulo: 'Removido' },
     ],
   },
 ]

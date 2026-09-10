@@ -52,6 +52,12 @@ export interface InviteListItem extends Invite {
   stage: InviteStage
   /** Quantos dos membros já responderam — o "3 de 5" ao lado do estágio. */
   respondedCount: number
+  /**
+   * Quando o convite entrou no estágio atual, ou null em `not_sent` (nada
+   * aconteceu ainda). É o que transforma o estágio em providência: "Aberto"
+   * informa, "Aberto há 14 dias" pede um lembrete.
+   */
+  stageSince: string | null
 }
 
 export interface InviteMember {
@@ -67,13 +73,14 @@ export interface InviteMember {
    */
   partyId: string | null
   isResponsible: boolean
-  rsvpStatus: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
+  rsvpStatus: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera'
 }
 
 export interface InviteDetail extends Invite {
   stage: InviteStage
   memberCount: number
   respondedCount: number
+  stageSince: string | null
   members: InviteMember[]
   tags: InviteTag[]
 }

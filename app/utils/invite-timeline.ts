@@ -56,7 +56,6 @@ const RSVP_STATUS_PRESENTATION: Record<string, InviteEventPresentation> = {
   recusado: { label: 'não poderá ir', icon: 'lucide:x-circle', tone: 'danger' },
   lista_espera: { label: 'entrou na lista de espera', icon: 'lucide:clock', tone: 'muted' },
   pendente: { label: 'voltou para pendente', icon: 'lucide:rotate-ccw', tone: 'muted' },
-  removido: { label: 'foi removido do convite', icon: 'lucide:user-minus', tone: 'muted' },
 }
 
 // `tipo_evento` é texto livre no banco (log append-only, sem CHECK): um evento

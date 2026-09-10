@@ -70,7 +70,7 @@ const showStatusFilter = computed(() => presentStatuses.value.size > 1)
 
 const statusChips = computed(() => [
   { value: 'todos', label: 'Todos' },
-  ...(['confirmado', 'pendente', 'recusado', 'lista_espera', 'removido'] as const)
+  ...(['confirmado', 'pendente', 'recusado', 'lista_espera'] as const)
     .filter((status) => presentStatuses.value.has(status))
     .map((status) => ({ value: status, label: rsvpStatusPresentation(status).label })),
 ])

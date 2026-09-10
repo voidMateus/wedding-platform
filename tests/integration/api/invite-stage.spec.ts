@@ -271,6 +271,78 @@ describe('api: funil de estágios do convite', () => {
     expect(linhas.find((l) => l.id === solto.id)?.inviteStage).toBeNull()
   })
 
+  it('estagio_desde acompanha o fato que define o estágio', async () => {
+    // É o que transforma o estágio em providência: "Aberto" informa, "Aberto há
+    // 14 dias" pede um lembrete. Cada estágio tem o SEU fato, e a data é a dele.
+    const { invite, membros } = await novoConvite('Tempo no Estagio', 2)
+    const client = createTestApiClient({ cookie })
+
+    async function detalhe() {
+      const res = await client.get(`/api/invites/${invite.id}`)
+      expect(res.status).toBe(200)
+      return (await res.json()) as { stage: string; stageSince: string | null }
+    }
+
+    // Nada aconteceu: não existe "há N dias sem nada ter acontecido".
+    expect((await detalhe()).stageSince).toBeNull()
+
+    const enviadoEm = '2026-09-01T10:00:00.000Z'
+    await admin.from('convites').update({ enviado_em: enviadoEm }).eq('id', invite.id)
+    const enviado = await detalhe()
+    expect(enviado.stage).toBe('sent')
+    expect(new Date(enviado.stageSince!).toISOString()).toBe(enviadoEm)
+
+    // O PRIMEIRO acesso, não o último: são inseridos fora de ordem de
+    // propósito, para o `min` ser o que decide e não a ordem das linhas.
+    const primeiro = '2026-09-03T08:00:00.000Z'
+    await admin.from('historico_convite').insert([
+      {
+        casamento_id: wedding.id,
+        convite_id: invite.id,
+        tipo_evento: 'rsvp.first_access',
+        ocorrido_em: '2026-09-05T08:00:00.000Z',
+      },
+      {
+        casamento_id: wedding.id,
+        convite_id: invite.id,
+        tipo_evento: 'rsvp.first_access',
+        ocorrido_em: primeiro,
+      },
+    ])
+    const aberto = await detalhe()
+    expect(aberto.stage).toBe('opened')
+    expect(new Date(aberto.stageSince!).toISOString()).toBe(primeiro)
+
+    // Em `partial`/`responded` vale a resposta MAIS RECENTE: o que o casal
+    // precisa saber é há quanto tempo nada acontece, e a primeira resposta
+    // pode ser de um mês atrás num convite que recebeu outra ontem.
+    await client.put(`/api/guests/${membros[0]!.id}/rsvp`, { status: 'confirmado' })
+    const parcial = await detalhe()
+    expect(parcial.stage).toBe('partial')
+    const daPrimeiraResposta = new Date(parcial.stageSince!).getTime()
+
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+    await client.put(`/api/guests/${membros[1]!.id}/rsvp`, { status: 'recusado' })
+    const respondido = await detalhe()
+    expect(respondido.stage).toBe('responded')
+    expect(new Date(respondido.stageSince!).getTime()).toBeGreaterThan(daPrimeiraResposta)
+  })
+
+  it('a listagem também devolve o estágio e a data dele', async () => {
+    const { invite } = await novoConvite('Tempo na Listagem', 1)
+    await admin
+      .from('convites')
+      .update({ enviado_em: '2026-09-02T10:00:00.000Z' })
+      .eq('id', invite.id)
+
+    const client = createTestApiClient({ cookie })
+    const res = await client.get('/api/invites?pageSize=200')
+    const linha = (
+      (await res.json()).data as Array<{ id: string; stageSince: string | null }>
+    ).find((i) => i.id === invite.id)
+    expect(linha?.stageSince).toBeTruthy()
+  })
+
   it('o filtro por estágio recorta no servidor, antes de paginar', async () => {
     const client = createTestApiClient({ cookie })
     const res = await client.get('/api/invites?stage=responded&pageSize=100')

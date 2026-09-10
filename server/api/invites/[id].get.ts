@@ -29,7 +29,8 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Convite não encontrado.')
   }
 
-  const { total_membros, total_respondidos, status_operacional, ...invite } = inviteRow
+  const { total_membros, total_respondidos, status_operacional, estagio_desde, ...invite } =
+    inviteRow
 
   const [guestsResult, responsesResult, tagLinksResult] = await Promise.all([
     client
@@ -70,6 +71,7 @@ export default defineEventHandler(async (event) => {
     stage: inviteStageFromView(status_operacional),
     memberCount: total_membros ?? 0,
     respondedCount: total_respondidos ?? 0,
+    stageSince: estagio_desde,
     members,
     tags,
   }

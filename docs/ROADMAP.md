@@ -67,11 +67,12 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 O grosso saiu no PR #99; a entrada rápida e o colar da planilha saíram na
 sequência. O que resta:
 
-- [ ] **Tela do rascunho "Em consideração".** `GuestListDraftPanel.vue` está no
-      repositório com zero usuários. A coluna, o CHECK, o filtro na API e o
-      contador estão prontos — mas não há como marcar alguém como em
-      consideração, ver quem está, nem promover um rascunho para a lista. O
-      número aparece e não leva a lugar nenhum.
+**Tela do rascunho "Em consideração" — descartada por ora** (decisão do usuário,
+2026-09-10: "não vejo necessidade alguma de fazer, talvez no futuro"). O
+`GuestListDraftPanel.vue` segue no repositório com zero usuários, e a coluna, o
+CHECK, o filtro na API e o contador continuam prontos — quem retomar não começa
+do zero. O que fica sem caminho é marcar alguém como em consideração, ver quem
+está e promover um rascunho: o contador aparece e não leva a lugar nenhum.
 
 Inertes por decisão, com o motivo no `title` de cada um:
 
@@ -105,9 +106,7 @@ dois membros dissolve o núcleo.
 
 - [ ] **`prefers-reduced-motion` não é respeitado em lugar nenhum da plataforma** (levantado em 2026-09-09). Quem liga "Reduzir movimento" no sistema normalmente tem distúrbio vestibular — enjoo ou tontura de verdade com movimento que acontece sozinho. O inventário real é pequeno: o `animate-bounce` da seta "role para descobrir" no Hero do site público (loop infinito, na primeira tela que todo convidado vê) e o `animate-pulse` do `UiSkeleton` são os dois casos que rodam **sem ninguém pedir**; o resto (`.transition-brand`, o `scale` do `UiModal`, o `translateX` da linha de tabela) responde a clique ou hover, o que é aceitável. O conserto é um bloco `@media (prefers-reduced-motion: reduce)` no `main.css` zerando `animation-duration`/`iteration-count` e o `--transition-duration` — a vantagem de o movimento sair de um token só. Duas ressalvas para não dar falsa sensação de resolvido: o `duration-200` do `UiModal` está escrito na classe e não no token (precisa migrar ou ganhar regra própria), e `scrollIntoView({ behavior: 'smooth' })` em JS **ignora** o CSS — só respeita se o código consultar `matchMedia` antes, o que são 2 lugares hoje.
 - [ ] **Remover `convites.status_convite`** (obsoleta desde 2026-09-10). O mesmo fato é `enviado_em`, e nada no código a lê ou escreve mais. Não foi removida junto porque as migrations são aplicadas em prod no merge, em paralelo com o deploy da Vercel: existe uma janela em que o código antigo roda contra o schema novo, e nela um `update` na coluna removida falharia. Entra numa migration própria, quando nenhuma versão em voo a escrever.
-- [ ] **Tempo no estágio do convite** ("Aberto há 8 dias") — é o que torna o status acionável de verdade, e foi deixado para depois de propósito: exige um timestamp por estágio (`enviado_em` existe; o primeiro acesso está em `historico_convite.ocorrido_em`; "parcial desde" é o `respondido_em` mais recente) e é a parte que mais engorda a view. Junto viria o rótulo de providência na própria listagem, hoje só no detalhe.
 - [ ] **A trava de rolagem do painel está no `<body>`, onde não funciona** (achada em 2026-09-10, ao consertar a rolagem infinita da lista de convidados). `app/layouts/admin.vue` põe `overflow-hidden` no body para o documento não rolar por baixo do app shell, mas `main.css` põe `overflow-x: hidden` no `html` — o que faz o `overflow-y` do html computar `auto` e torna o **html** o contêiner de rolagem do viewport. Daí o overflow do body deixa de propagar para o viewport: ele recorta só o conteúdo do próprio body, e absoluto/fixo ancorado no bloco contêiner inicial vaza para a área de rolagem do html. Foi assim que 196 rótulos `sr-only` esticaram o documento para 5646px. A raiz daquele caso está corrigida (`relative` no `AdminRowAction`) e coberta por `tests/e2e/rolagem-do-painel.spec.ts`, mas a trava continua no lugar errado — o certo é `html`, como a própria nota de `main.css` já diz para o eixo horizontal. Mover afeta todas as páginas do painel, e precisa verificar que o site público volta a rolar ao sair do admin.
-- [ ] **Corrida entre o filtro debounced e o clique na linha** (`useTableFilters`, encontrada em 2026-09-09). Digitar no filtro e clicar numa linha dentro da janela do debounce faz a gravação atrasada reescrever a query a partir de um retrato anterior e apagar o `?editar=<id>` que o clique acabou de pôr — o modal não abre. Vale para pessoa real, não só para teste; ver o achado detalhado em `CHANGELOG.md`.
 
 ## 5. Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados).
