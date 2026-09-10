@@ -791,3 +791,22 @@ A causa não estava na tabela: a grade tem `max-height: 60vh` e conta 574px, con
 **Achado colateral, não corrigido:** o `overflow: hidden` que o layout do admin põe no `<body>` (com o comentário "sem travar aqui ele ainda rolava") **não** trava mais nada. `main.css` põe `overflow-x: hidden` no `html` — de propósito, para blindar elementos off-canvas —, o que faz o `overflow-y` do `html` computar `auto` e torna o `html` o contêiner de rolagem do viewport. A partir daí o `overflow` do `body` deixa de propagar para o viewport: ele só recorta o conteúdo do próprio body, e absolutos/fixos ancorados no bloco contêiner inicial vazam para a área de rolagem do `html`. O lugar certo da trava é `html`, não `body` — o que a própria nota de `main.css` já dizia sobre `overflow-x` e vale igual para o vertical. Fica registrado porque mover a trava afeta todas as páginas do painel e o site público, e o defeito reportado já está resolvido na raiz.
 
 O teste que guarda isso (`tests/e2e/rolagem-do-painel.spec.ts`) semeia 60 convidados de propósito: com poucos, a grade caberia na tela e a asserção passaria mesmo com o defeito de volta. Ele afirma a promessa (o documento não rola) e não a correção, então continua valendo para o próximo elemento absoluto que alguém acrescentar — verificado falhando com `scrollY: 3162` ao remover o `relative`.
+
+### O bloco de convite do cadastro virou uma linha de estado com uma ação
+
+Proposta do usuário: "ao invés de ser um bloco com checkbox, poderíamos fazer algo como função — um botão de criar convite que crie e já vincula, assim na modal do convidado deixa de aparecer dados que poderiam ser editados apenas na tela de convite, e sim apenas um sinal de vínculo que pode direcionar o usuário lá para Convites".
+
+O que decidiu a forma foi notar que **o mesmo formulário já tem esse padrão**: "Criar novo grupo", no bloco da pessoa, cria o grupo na hora, põe a referência no rascunho e deixa o formulário salvar só o vínculo. O convite passa a ser a mesma coisa.
+
+E o levantamento achou uma falta maior que os campos sobrando: com o convidado **já vinculado**, o bloco desaparecia inteiro. O cadastro não dizia que existia vínculo, nem a quê, nem como chegar lá — apesar de `GET /api/guests/:id` sempre ter devolvido `invite: { id, nome }`. O formulário sabia e guardava só um booleano, para esconder o bloco.
+
+A linha agora existe **sempre**, em três estados: vinculado (nome + caminho para Convites), sem convite (o motivo — sem convite não há RSVP — e o botão que o pede) e pedido (o nome que vai nascer, e como desfazer). `nome` e `observações` saíram: são dados do convite, e pedir "observações internas de um convite" a quem está cadastrando uma pessoa nunca fez sentido. O nome é derivado do primeiro nome e renomear é assunto de Convites.
+
+Duas decisões do usuário fecharam o desenho, e uma delas contra a minha primeira inclinação:
+
+- **Criar no Save, não no clique.** Eu tinha recomendado criar na hora, por consistência com o grupo; o usuário escolheu a transação única. É a escolha melhor: cancelar o cadastro depois de pedir o convite não deixa convite vazio para trás — o que "Criar novo grupo" ainda faz.
+- **A linha aparece também para quem está sozinho.** Antes ela só existia com acompanhantes, então quem cadastrava uma pessoa só não via nada sobre convite e ficava sem poder responder, sem nada na tela dizendo por quê.
+
+Mudança de comportamento deliberada: criar o convite passou a ser **ação pedida, não resposta já dada**. Como caixa pré-marcada, nascia um convite por núcleo cadastrado mesmo para o casal que planeja os convites na tela de Convites — um cartão para uma família inteira, por exemplo — que tinha de desmarcar para não acumular.
+
+E a dica do campo que sumiu dizia "Como **o grupo** aparece na tela de Convites". Grupo é outro conceito, com tela própria, e existe um campo Grupo no mesmo formulário poucos centímetros acima — exatamente a confusão entre os três conceitos que CLAUDE.md seção 12 proíbe, escrita em texto visível.

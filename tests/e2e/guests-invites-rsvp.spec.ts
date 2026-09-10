@@ -69,10 +69,53 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await expect(filaDoNucleo.filter({ hasText: primaryName })).toHaveCount(1)
   await expect(page.locator('p', { hasText: 'Na lista, aparece como' })).toBeVisible()
 
-  // O convite aparece como linha marcável, já sugerida — sem passo próprio.
-  await expect(page.getByLabel(/Criar um convite para estas 2 pessoas/)).toBeChecked()
+  // O convite é uma AÇÃO pedida, não uma caixa já marcada: a linha explica o
+  // que falta (sem convite não há RSVP) e o botão registra o pedido. Nome e
+  // observações do convite não moram mais aqui — são da tela de Convites.
+  const linhaDoConvite = page.getByRole('dialog').locator('section', { hasText: 'Convite' }).last()
+  await expect(linhaDoConvite).toContainText('não conseguem responder ao RSVP')
+  await linhaDoConvite.getByRole('button', { name: 'Criar convite' }).click()
+  // Diz o nome derivado antes de salvar, para não haver surpresa.
+  await expect(linhaDoConvite).toContainText('Será criado ao salvar')
+  await expect(linhaDoConvite).toContainText(`Família ${primaryName.split(' ')[0]}`)
+
   await page.getByRole('button', { name: 'Cadastrar convidado' }).click()
   await expect(page).toHaveURL(new RegExp(`/admin/${adminSlug}/convidados$`), { timeout: 10_000 })
+
+  // --- reabrir o cadastro mostra o vínculo, que antes era invisível ---
+  //
+  // `GET /api/guests/:id` sempre devolveu `invite: { id, nome }`, e o formulário
+  // usava isso apenas para ESCONDER o bloco: o cadastro sabia do convite e não
+  // dizia nem o nome nem como chegar lá.
+  // Filtrar antes de clicar: a Visão Geral é paginada pelo servidor, e um
+  // convidado recém-criado não está necessariamente na primeira página. E a
+  // espera pela URL é obrigatória — o campo é debounced, e clicar dentro da
+  // janela do debounce faz a gravação atrasada apagar o `?editar=<id>` que o
+  // clique acabou de pôr (dívida registrada em ROADMAP.md).
+  await expect(async () => {
+    await page.getByPlaceholder('Digite um nome...').fill(primaryName)
+    await expect(page).toHaveURL(/[?&]nome=/, { timeout: 3_000 })
+  }).toPass({ timeout: 20_000 })
+
+  await expect(async () => {
+    await page
+      .getByRole('button', { name: primaryName, exact: true })
+      .filter({ visible: true })
+      .first()
+      .click()
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+
+  const conviteVinculado = page
+    .getByRole('dialog')
+    .locator('section', { hasText: 'Convite' })
+    .last()
+  await expect(conviteVinculado).toContainText(`Família ${primaryName.split(' ')[0]}`)
+  await expect(conviteVinculado.getByRole('link', { name: 'Abrir em Convites' })).toHaveAttribute(
+    'href',
+    /\/convites\?editar=/,
+  )
+  await page.getByRole('button', { name: 'Cancelar' }).click()
 
   // --- convite criado automaticamente, com responsável destacado ---
   // O detalhe do convite é um modal sobre a listagem: o nome na tabela é um

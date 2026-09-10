@@ -47,6 +47,8 @@ const emit = defineEmits<{
 const { fetchGuestDetail, syncGuestParty } = useGuests()
 const { listGroups } = useGroups()
 const toast = useToast()
+/** Para o link do convite vinculado apontar para a tela de Convites deste casamento. */
+const slug = useActiveWeddingSlug()
 
 const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
 const groupOptions = computed(() => montarOpcoesDeGrupo(groupsData.value?.data ?? []))
@@ -65,18 +67,18 @@ const companions = ref<CompanionEntry[]>([])
  */
 const primaryPosition = ref(0)
 const removedGuestIds = ref<string[]>([])
-const hasExistingInvite = ref(false)
-const inviteDraft = ref<InviteDraft>({ criar: true, nome: '', observacoes: '' })
+/**
+ * O convite já vinculado, quando existe. `GET /api/guests/:id` sempre devolveu
+ * `invite: { id, nome }`, e o formulário guardava só um booleano para ESCONDER
+ * o bloco — então a tela sabia do vínculo e não contava a ninguém: nem o nome,
+ * nem o caminho para a tela de Convites.
+ */
+const inviteVinculado = ref<{ id: string; nome: string } | null>(null)
+const inviteDraft = ref<InviteDraft>({ criar: false, nome: '' })
 
 const primaryNameError = ref<string | null>(null)
 const isSubmitting = ref(false)
 const errorMessage = ref<string | null>(null)
-
-/**
- * O convite só se propõe quando há grupo para convidar e ainda não existe um.
- * Com um convite já vinculado, mexer nele é assunto da tela de Convites.
- */
-const mostrarConvite = computed(() => companions.value.length > 0 && !hasExistingInvite.value)
 
 /**
  * Repõe o formulário do zero a cada abertura.
@@ -101,8 +103,13 @@ function aplicarConvidado(detail: GuestDetail | null) {
         .length
     : 0
   removedGuestIds.value = []
-  hasExistingInvite.value = Boolean(detail?.invite)
-  inviteDraft.value = { criar: true, nome: '', observacoes: '' }
+  inviteVinculado.value = detail?.invite ?? null
+  // `criar: false` a cada abertura: virou ação pedida, não resposta já dada.
+  // Como caixa pré-marcada, o convite nascia sem ninguém escolher — e o casal
+  // que planeja os convites na tela de Convites (um cartão para uma família
+  // inteira, por exemplo) tinha de desmarcar para não acumular convite por
+  // núcleo cadastrado.
+  inviteDraft.value = { criar: false, nome: '' }
   primaryNameError.value = null
   errorMessage.value = null
 }
@@ -135,14 +142,21 @@ watch(
   { immediate: true },
 )
 
-// Sugere o nome do convite a partir do responsável, sem nunca sobrescrever o
-// que já foi digitado.
+// O nome do convite é DERIVADO do primeiro nome, e a linha de convite o mostra
+// antes de salvar para não haver surpresa. Não é mais um campo aqui: renomear é
+// assunto da tela de Convites, que é onde o convite se administra.
+//
+// Sem `if (inviteDraft.nome)` para travar: como ninguém digita mais nada aqui,
+// não existe valor do usuário a preservar — e travar deixaria o nome preso ao
+// primeiro rascunho, anunciando "Família Joao" depois de o campo virar "Maria".
 watch(
   () => primary.value.nomeCompleto,
   (nome) => {
-    if (inviteDraft.value.nome || !nome) return
     const primeiroNome = nome.trim().split(/\s+/)[0]
-    if (primeiroNome) inviteDraft.value = { ...inviteDraft.value, nome: `Família ${primeiroNome}` }
+    inviteDraft.value = {
+      ...inviteDraft.value,
+      nome: primeiroNome ? `Família ${primeiroNome}` : '',
+    }
   },
 )
 
@@ -164,12 +178,11 @@ async function salvar() {
       companions: companions.value.map((entry) => entry.person),
       primaryPosition: primaryPosition.value,
       removedGuestIds: removedGuestIds.value,
+      // Só quando pedido, e nunca sobre um convite que já existe: mexer no
+      // convite vinculado é assunto da tela de Convites.
       invite:
-        mostrarConvite.value && inviteDraft.value.criar
-          ? {
-              nome: inviteDraft.value.nome || 'Convite',
-              observacoes: inviteDraft.value.observacoes,
-            }
+        !inviteVinculado.value && inviteDraft.value.criar
+          ? { nome: inviteDraft.value.nome || 'Convite' }
           : undefined,
     })
     toast.success(isEditing.value ? 'Convidado atualizado.' : 'Convidado cadastrado.')
@@ -226,10 +239,14 @@ async function salvar() {
         @remove-existing="(guestId) => removedGuestIds.push(guestId)"
       />
 
+      <!-- Sem `v-if`: a linha existe sempre, porque o estado do vínculo é
+           informação em todos os casos — inclusive (e principalmente) quando já
+           existe convite, situação em que o bloco antigo desaparecia. -->
       <AdminGuestsGuestPartyInvite
-        v-if="mostrarConvite"
         v-model="inviteDraft"
         :party-size="companions.length + 1"
+        :invite-vinculado="inviteVinculado"
+        :wedding-slug="slug"
       />
     </div>
 
