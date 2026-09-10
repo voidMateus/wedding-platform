@@ -56,7 +56,18 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await page.getByRole('button', { name: /^Incluir/ }).click()
   await expect(page.getByLabel('Nome completo').last()).toHaveValue(companionName)
   await page.getByRole('button', { name: 'Adicionar', exact: true }).click()
-  await expect(page.getByText(companionName)).toBeVisible()
+
+  // A fila do núcleo mostra as DUAS pessoas — o convidado deste cadastro
+  // incluído, porque o núcleo é simétrico e a ordem dele é escolha, não
+  // consequência de qual cadastro foi aberto.
+  //
+  // Por linha, e não por `getByText(nome)`: o nome de cada pessoa aparece
+  // também nos rótulos acessíveis das ações da linha ("Editar X", "Subir X na
+  // ordem"), então buscar o texto solto casa com cinco elementos.
+  const filaDoNucleo = page.getByRole('listitem')
+  await expect(filaDoNucleo.filter({ hasText: companionName })).toHaveCount(1)
+  await expect(filaDoNucleo.filter({ hasText: primaryName })).toHaveCount(1)
+  await expect(page.locator('p', { hasText: 'Na lista, aparece como' })).toBeVisible()
 
   // O convite aparece como linha marcável, já sugerida — sem passo próprio.
   await expect(page.getByLabel(/Criar um convite para estas 2 pessoas/)).toBeChecked()

@@ -48,6 +48,35 @@ const visibleMembers = computed(() =>
     : props.invite.members.filter((member) => member.rsvpStatus === statusFilter.value),
 )
 
+/**
+ * Quem vem junto de quem, dentro deste convite.
+ *
+ * Um convite pode conter vários núcleos de Acompanhantes — três casais sob o
+ * mesmo cartão — e essa estrutura era invisível aqui: a lista mostrava seis
+ * nomes soltos. O núcleo existe justamente para dizer que dois deles são um
+ * par, e é a linha de corte natural se o casal precisar separar os cartões
+ * depois.
+ *
+ * Rótulo por linha, e não um agrupamento em blocos: o filtro de status acima
+ * pode esconder o meio de um núcleo, e uma moldura que dependa de as linhas
+ * estarem vizinhas passa a mentir na primeira filtragem.
+ *
+ * Sempre da lista COMPLETA (`invite.members`), nunca da filtrada: o rótulo
+ * descreve o núcleo, e filtrar por status não desfaz um casal. O índice serve
+ * de `ordem_nucleo` porque o servidor já devolve cada núcleo junto e na ordem
+ * dele (`ordenarMembrosDoConvite`). Pela MESMA função da listagem, para o
+ * casal ler o mesmo "João e Maria" nas duas telas.
+ */
+const rotulosDeNucleo = computed(() =>
+  montarRotulosDeNucleo(
+    props.invite.members.map((member, index) => ({
+      nucleo_id: member.partyId,
+      nome_completo: member.fullName,
+      ordem_nucleo: index,
+    })),
+  ),
+)
+
 // PATCH /api/invites/:id é sobrescrita total: os campos que este bloco não
 // edita (nome, observações, max_acompanhantes) precisam ser reenviados como
 // estão, ou trocar o responsável apagaria todos eles. tagIds fica fora de
@@ -172,6 +201,14 @@ async function confirmAdd() {
           <span class="truncate">{{ member.fullName }}</span>
           <span v-if="member.isResponsible" class="shrink-0 text-xs text-text-muted">
             (Responsável)
+          </span>
+          <span
+            v-if="member.partyId"
+            class="inline-flex shrink-0 items-center gap-1 text-xs text-text-muted"
+            :title="`Acompanhantes: vêm sempre juntos neste convite`"
+          >
+            <Icon name="lucide:users" class="h-3.5 w-3.5" />
+            {{ rotulosDeNucleo.get(member.partyId) }}
           </span>
           <UiBadge :tone="rsvpStatusPresentation(member.rsvpStatus).tone">
             {{ rsvpStatusPresentation(member.rsvpStatus).label }}

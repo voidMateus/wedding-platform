@@ -12,7 +12,8 @@ const router = useRouter()
 const slug = useActiveWeddingSlug()
 const toast = useToast()
 
-const { deleteGuest, exportGuests, bulkUpdateGuests, getGuestOverview } = useGuests()
+const { deleteGuest, exportGuests, bulkUpdateGuests, groupGuestsAsParty, getGuestOverview } =
+  useGuests()
 const { listGroups } = useGroups()
 
 // A lista INTEIRA, não uma página: o agrupamento em blocos e os contadores
@@ -146,8 +147,12 @@ async function comLote(acao: () => Promise<unknown>, mensagem: (total: number) =
     selecionados.value = []
     await recarregarTudo()
     toast.success(mensagem(total))
-  } catch {
-    toast.error('Não foi possível aplicar a alteração.')
+  } catch (err) {
+    // A mensagem do servidor, quando existe: agrupar recusa por motivos
+    // específicos (convites diferentes, rascunho na seleção) e "não foi
+    // possível" não diz o que fazer a respeito.
+    const apiError = err as { data?: { message?: string } }
+    toast.error(apiError.data?.message ?? 'Não foi possível aplicar a alteração.')
   } finally {
     aplicandoEmMassa.value = false
   }
@@ -168,6 +173,61 @@ function alterarCategoriaEmMassa(faixa: string) {
         faixaEtariaManual: faixa as FaixaEtariaChave,
       }),
     (total) => `Categoria alterada em ${total}.`,
+  )
+}
+
+// --- agrupar como acompanhantes ---
+//
+// A confirmação só aparece quando a operação faz MAIS do que a seleção diz:
+// arrasta gente pelo núcleo, funde núcleos ou dá convite a quem não tinha.
+// Agrupar duas pessoas soltas é inequívoco, e um diálogo ali seria um clique
+// para confirmar exatamente o que se acabou de pedir.
+const previaDoAgrupamento = computed(() =>
+  montarPreviaDoAgrupamento(convidados.value, selecionados.value),
+)
+
+const precisaConfirmarAgrupamento = computed(() => {
+  const previa = previaDoAgrupamento.value
+  return (
+    previa.convitesDiferentes ||
+    previa.temRascunho ||
+    previa.arrastados > 0 ||
+    previa.nucleosFundidos > 0 ||
+    previa.ganhamConvite > 0
+  )
+})
+
+const impedimentoDoAgrupamento = computed(() => {
+  const previa = previaDoAgrupamento.value
+  if (previa.convitesDiferentes) {
+    return 'Essas pessoas estão em convites diferentes. Acompanhantes vão sempre no mesmo convite — junte os convites antes, ou agrupe só quem já está no mesmo.'
+  }
+  if (previa.temRascunho) {
+    return 'Quem está em consideração não entra em Acompanhantes — promova a convidado primeiro.'
+  }
+  return null
+})
+
+const isAgruparOpen = ref(false)
+
+function pedirAgrupamento() {
+  if (precisaConfirmarAgrupamento.value) {
+    isAgruparOpen.value = true
+    return
+  }
+  return agruparSelecionados()
+}
+
+function confirmarAgrupamento() {
+  isAgruparOpen.value = false
+  return agruparSelecionados()
+}
+
+function agruparSelecionados() {
+  const previa = previaDoAgrupamento.value
+  return comLote(
+    () => groupGuestsAsParty({ ids: selecionados.value }),
+    () => `${previa.total} pessoas agrupadas como acompanhantes.`,
   )
 }
 
@@ -577,6 +637,7 @@ async function confirmarExclusao() {
           :todos-selecionados="todosSelecionados"
           @mover-para-grupo="moverParaGrupo"
           @alterar-categoria="alterarCategoriaEmMassa"
+          @agrupar="pedirAgrupamento"
           @excluir="isBulkDeleteOpen = true"
           @limpar="selecionados = []"
           @alternar-todos="alternarTodos"
@@ -610,6 +671,55 @@ async function confirmarExclusao() {
         <UiButton variant="ghost" @click="isDeleteModalOpen = false">Cancelar</UiButton>
         <UiButton variant="destructive" :disabled="isDeleting" @click="confirmarExclusao">
           {{ isDeleting ? 'Excluindo...' : 'Excluir' }}
+        </UiButton>
+      </template>
+    </UiModal>
+
+    <!-- Só aparece quando agrupar faz mais do que a seleção diz. O texto conta
+         cada efeito que o casal não pediu explicitamente, porque os dois que
+         existem mexem em dado já compartilhado com convidado: o núcleo de
+         alguém vem inteiro, e o convite passa a valer para quem não tinha. -->
+    <UiModal v-model="isAgruparOpen" title="Agrupar como acompanhantes">
+      <div class="flex flex-col gap-3 text-sm">
+        <p v-if="impedimentoDoAgrupamento" class="text-danger">
+          {{ impedimentoDoAgrupamento }}
+        </p>
+
+        <template v-else>
+          <p class="text-text">
+            <span class="num">{{ previaDoAgrupamento.total }}</span>
+            pessoas ficam como acompanhantes, num grupo só.
+          </p>
+          <ul class="flex list-disc flex-col gap-1 pl-5 text-text-muted">
+            <li v-if="previaDoAgrupamento.arrastados > 0">
+              <span class="num">{{ previaDoAgrupamento.arrastados }}</span>
+              {{ previaDoAgrupamento.arrastados === 1 ? 'entra' : 'entram' }} por já acompanhar
+              alguém que você marcou — quem vem junto não fica atrás.
+            </li>
+            <li v-if="previaDoAgrupamento.nucleosFundidos > 0">
+              <span class="num">{{ previaDoAgrupamento.nucleosFundidos }}</span>
+              grupos de acompanhantes viram um.
+            </li>
+            <li v-if="previaDoAgrupamento.ganhamConvite > 0">
+              <span class="num">{{ previaDoAgrupamento.ganhamConvite }}</span>
+              {{ previaDoAgrupamento.ganhamConvite === 1 ? 'entra' : 'entram' }} no convite de quem
+              já tinha, e com isso
+              {{ previaDoAgrupamento.ganhamConvite === 1 ? 'passa' : 'passam' }}
+              a poder responder ao RSVP.
+            </li>
+          </ul>
+        </template>
+      </div>
+      <template #footer>
+        <UiButton variant="ghost" @click="isAgruparOpen = false">
+          {{ impedimentoDoAgrupamento ? 'Fechar' : 'Cancelar' }}
+        </UiButton>
+        <UiButton
+          v-if="!impedimentoDoAgrupamento"
+          :disabled="aplicandoEmMassa"
+          @click="confirmarAgrupamento"
+        >
+          Agrupar
         </UiButton>
       </template>
     </UiModal>

@@ -36,25 +36,29 @@ export default defineEventHandler(async (event) => {
   const [guestsResult, responsesResult, tagLinksResult] = await Promise.all([
     client
       .from('convidados')
-      .select('id, nome_completo, apelido, ordem_nucleo')
+      .select('id, nome_completo, apelido, nucleo_id, ordem_nucleo')
       .eq('convite_id', id)
-      .is('excluido_em', null)
-      .order('ordem_nucleo', { ascending: true }),
+      .is('excluido_em', null),
     client.from('respostas_rsvp').select('convidado_id, status_rsvp').eq('convite_id', id),
-    client.from('vinculos_convite_etiqueta').select('etiqueta_id, etiquetas_convite(id, casamento_id, nome, created_at, updated_at)').eq('convite_id', id),
+    client
+      .from('vinculos_convite_etiqueta')
+      .select('etiqueta_id, etiquetas_convite(id, casamento_id, nome, created_at, updated_at)')
+      .eq('convite_id', id),
   ])
 
   if (guestsResult.error) throw badRequestError(guestsResult.error.message)
   if (responsesResult.error) throw badRequestError(responsesResult.error.message)
   if (tagLinksResult.error) throw badRequestError(tagLinksResult.error.message)
 
-  const statusByGuest = new Map(responsesResult.data?.map((r) => [r.convidado_id, r.status_rsvp]) ?? [])
+  const statusByGuest = new Map(
+    responsesResult.data?.map((r) => [r.convidado_id, r.status_rsvp]) ?? [],
+  )
 
-  const members: InviteMember[] = (guestsResult.data ?? []).map((guest) => ({
+  const members: InviteMember[] = ordenarMembrosDoConvite(guestsResult.data ?? []).map((guest) => ({
     id: guest.id,
     fullName: guest.nome_completo,
     nickname: guest.apelido,
-    partyOrder: guest.ordem_nucleo,
+    partyId: guest.nucleo_id,
     isResponsible: guest.id === invite.convidado_responsavel_id,
     rsvpStatus: (statusByGuest.get(guest.id) ?? 'pendente') as InviteMember['rsvpStatus'],
   }))

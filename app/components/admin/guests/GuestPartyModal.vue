@@ -58,6 +58,12 @@ const hasLoadError = ref(false)
 
 const primary = ref(emptyPerson())
 const companions = ref<CompanionEntry[]>([])
+/**
+ * Posição deste convidado na fila do núcleo. Era implícita e sempre zero, o
+ * que fazia salvar pela Maria reescrever "João e Maria" como "Maria e João" na
+ * lista inteira — ver `primaryPosition` em `guestPartySyncSchema`.
+ */
+const primaryPosition = ref(0)
 const removedGuestIds = ref<string[]>([])
 const hasExistingInvite = ref(false)
 const inviteDraft = ref<InviteDraft>({ criar: true, nome: '', observacoes: '' })
@@ -88,6 +94,12 @@ function aplicarConvidado(detail: GuestDetail | null) {
     key: member.id,
     person: personFromGuest(member),
   }))
+  // Onde este convidado entra na fila: `partyMembers` vem ordenado por
+  // `ordem_nucleo` e sem ele, então a posição dele é quantos vêm antes.
+  primaryPosition.value = detail
+    ? (detail.partyMembers ?? []).filter((member) => member.ordem_nucleo < detail.ordem_nucleo)
+        .length
+    : 0
   removedGuestIds.value = []
   hasExistingInvite.value = Boolean(detail?.invite)
   inviteDraft.value = { criar: true, nome: '', observacoes: '' }
@@ -150,6 +162,7 @@ async function salvar() {
     await syncGuestParty({
       primary: primary.value,
       companions: companions.value.map((entry) => entry.person),
+      primaryPosition: primaryPosition.value,
       removedGuestIds: removedGuestIds.value,
       invite:
         mostrarConvite.value && inviteDraft.value.criar
@@ -204,8 +217,10 @@ async function salvar() {
 
       <AdminGuestsGuestPartyCompanions
         v-model="companions"
+        v-model:primary-position="primaryPosition"
         :group-options="groupOptions"
         :primary-id="primary.id"
+        :primary-name="primary.nomeCompleto"
         class="border-t border-border pt-5"
         @group-created="() => refreshGroups()"
         @remove-existing="(guestId) => removedGuestIds.push(guestId)"

@@ -737,3 +737,45 @@ O botão passou a ser o atalho em destaque, e esse destino sai da lista de links
 Isso trouxe um problema de espaço: o rótulo do catálogo é escrito para o Hero, e "Ver lista de presentes" empurrava o nome do casal para as reticências. Daí o `navLabel` — o mesmo atalho tem nomes diferentes conforme o espaço: no Hero é um convite ("Ver lista de presentes"), na barra é um rótulo ("Presentear"). Vale também para "Manual dos padrinhos"→"Padrinhos" e "Perguntas frequentes"→"Dúvidas".
 
 **A barra também encolheu** (69 → 61px), a pedido: a primeira tela já traz os cinco destinos do menu mais os atalhos do Hero, e a faixa alta empurrava o nome do casal para baixo sem acrescentar nada. O piso é a área de toque do maior filho (44px) mais o respiro — abaixo disso o alvo do menu ficaria menor que o mínimo acessível.
+
+## Fase Acompanhantes (2026-09-10)
+
+A pergunta que abriu a fase foi do usuário: "vamos pensar como será os Núcleos". O levantamento respondeu antes de qualquer proposta: `nucleos_acompanhantes` estava implementado no banco e no cadastro, e **quase não existia como produto** — duas capacidades prontas e desligadas (`PATCH /api/guests/party/reorder`, com endpoint e composable e zero chamadores; o botão "Adicionar ao núcleo" da barra de seleção renderizado `disabled`), e nenhuma tela.
+
+**A pergunta que decidiu o resto: o que o núcleo dá que o convite não dá?** `sincronizar_nucleo_convidado()` já empurrava o núcleo inteiro para um convite só, então a suspeita de conceito redundante era legítima. Duas respostas sobreviveram, e são as que justificam mantê-lo: (1) o núcleo existe **antes** de qualquer convite — `convite_id` é nullable, e durante a montagem da lista ele é o único lugar onde cabe "esses dois vão juntos"; (2) convite não tem sub-estrutura — `grupos` tem subdivisão de um nível, `convites` não tem nenhuma, e um cartão com seis pessoas pode conter três casais. Isso definiu o que ele é: **estrutura interna, não eixo de organização.**
+
+**A tela de Núcleos foi descartada, não adiada.** Grupos e Convites têm tela porque o casal os nomeia e administra; o núcleo não tem nome gravado por decisão anterior, e o rótulo dele muda quando alguém entra ou sai. Uma tela listando linhas sem nome, cujo título se mexe sozinho, não serve de referência ("qual daqueles era o que eu editei ontem?"). O item saiu do roadmap com o motivo escrito.
+
+Três decisões do usuário fecharam o desenho: núcleo **não** atravessa convites ("se vão em convites diferentes, eles deixaram de ser convidados juntos"); seleção que pega núcleos diferentes **funde tudo num só, avisando antes**; e na UI o conceito se chama sempre "Acompanhantes", com "núcleo" só no código.
+
+### Achado: a ordem do núcleo virava sozinha ao editar outro membro
+
+`ordem_nucleo = 0` era atribuído a quem estava sendo editado. Como o rótulo derivado usa os dois primeiros nomes por essa ordem, abrir o cadastro da Maria e salvar reescrevia "João e Maria" como "Maria e João" **na lista inteira**, sem ninguém ter pedido — e na mesma coluna que o casal usa para ordenar e filtrar.
+
+A correção não foi só preservar a ordem: foi tornar a posição **visível e informada**. O bloco de Acompanhantes passou a mostrar a fila do núcleo completa, com o convidado do próprio cadastro como uma linha igual às outras — que é o que "agrupamento simétrico" sempre significou e a tela nunca mostrou. A posição dele viaja como `primaryPosition` (`guestPartySyncSchema`), e o bloco exibe a prévia do rótulo ("Na lista, aparece como João e Maria") pela **mesma** função da listagem, nunca por uma segunda regra.
+
+Consequência: `PATCH /api/guests/party/reorder` foi **removido**. Nunca teve chamador porque a ordem sempre foi gravada pelo próprio cadastro; dois caminhos para escrever a mesma coisa, um deles morto, é como o errado acaba ligado depois.
+
+### Achado: núcleo de uma pessoa, e linha órfã que nada apagava
+
+Remover o único acompanhante (ou excluí-lo) deixava o sobrevivente num núcleo sozinho, rotulado só "João" e listado no filtro como se agrupasse algo. E **nada no código nunca apagou uma linha de `nucleos_acompanhantes`** — a FK é `on delete set null`, então dissolver sempre custou um DELETE, só nunca acontecia.
+
+`normalizar_nucleo_acompanhantes()` fechou os dois lados: dissolve o núcleo com menos de dois membros e adensa `ordem_nucleo` a partir de 0. O caso que faltava em todas as versões anteriores era o núcleo de **origem** de quem foi movido para outro núcleo — mover alguém deixava atrás exatamente o núcleo de um que a função agora dissolve.
+
+### Achado: `ordem_nucleo` ordenava um convite
+
+`server/api/invites/[id].get.ts` e `server/utils/rsvp-invite-payload.ts` ordenavam os membros por `ordem_nucleo`. A coluna é posição **dentro** de um núcleo: com dois núcleos no mesmo convite a sequência era 0,1,0,1, e com gente sem núcleo era 0 para todos (o índice único é parcial, `where nucleo_id is not null`). Ordem arbitrária com cara de intencional, nos dois lugares.
+
+`ordenarMembrosDoConvite()` mantém cada núcleo junto e ordena os blocos pelo nome de quem vem primeiro em cada um — quem não tem núcleo é um bloco de um, entrando na mesma ordem alfabética. Resolvido em TypeScript porque a chave é o nome do primeiro membro do núcleo, que o PostgREST não expressa, e a lista de um convite tem punhado de linhas. O DTO trocou `partyOrder` (que ninguém lia) por `partyId`, e a tela do convite passou a exibir o rótulo do núcleo por linha — por linha, e não moldura em bloco, porque o filtro de status pode esconder o meio de um núcleo e uma moldura que dependa de adjacência mente na primeira filtragem.
+
+### Achado: o desempate do merge era um uuid
+
+Primeira execução do E2E de agrupamento: o teste esperava "Joao e Maria +2" e não achou. A causa não era o teste — com dois núcleos de tamanho igual, `order by count(*) desc, nucleo_id` decidia quem sobrevivia por comparação de uuid, e o rótulo do grupo na tela mudava conforme um valor aleatório. O desempate passou a ser o núcleo mais **antigo**. É o tipo de arbitrariedade que só aparece quando se olha a tela: nenhuma asserção de banco teria reclamado.
+
+### Achado (reportado pelo usuário, no meio da fase): o seletor de categoria ignorava as faixas desligadas
+
+"Lá na config de faixa etária eu tirei o adolescente e idoso, mas na opção de dropdown continua aparecendo."
+
+Duas listas montavam as opções a partir do **catálogo** da plataforma (`FAIXA_ETARIA_CHAVES`, sempre as quatro) em vez das faixas **ativas** do evento: `useAgeGroups#manualOptions`, que alimenta as pílulas de Categoria do cadastro, e uma lista própria montada dentro de `lista.vue` — o caso exato que CLAUDE.md seção 13 descreve ao proibir uma segunda lista em paralelo. O filtro por coluna já usava as faixas ativas e estava correto, o que explica o sintoma aparecer só nos dois seletores de escrita.
+
+O conserto tem duas metades. As opções passaram a vir de `faixas` (as ativas, na ordem do evento) e a lista duplicada da página foi apagada. E o **valor exibido** passou a ser a faixa resolvida, não a gravada: `faixa_etaria_manual` continua "adolescente" de propósito — desligar é configuração do evento, não edição do cadastro das pessoas —, então o seletor recebia um valor ausente das próprias opções e caía no placeholder, enquanto a coluna ao lado exibia a faixa herdada. Nos dois lugares o dado gravado segue intacto: mostrar o equivalente é leitura, e só uma escolha explícita do casal grava algo.

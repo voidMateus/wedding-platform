@@ -53,6 +53,7 @@ const {
 const emit = defineEmits<{
   'mover-para-grupo': [grupoId: string]
   'alterar-categoria': [faixa: string]
+  agrupar: []
   excluir: []
   limpar: []
   'alternar-todos': []
@@ -73,6 +74,11 @@ function moverParaGrupo(grupoId: string) {
 function alterarCategoria(faixa: string) {
   acoesAbertas.value = false
   emit('alterar-categoria', faixa)
+}
+
+function agrupar() {
+  acoesAbertas.value = false
+  emit('agrupar')
 }
 
 function excluir() {
@@ -127,8 +133,10 @@ function excluir() {
         :grupos-disponiveis="gruposDisponiveis"
         :categorias-disponiveis="categoriasDisponiveis"
         :aplicando="aplicando"
+        :total-selecionado="selecionados"
         @mover-para-grupo="moverParaGrupo"
         @alterar-categoria="alterarCategoria"
+        @agrupar="agrupar"
         @excluir="excluir"
       />
     </div>
@@ -140,8 +148,10 @@ function excluir() {
       :grupos-disponiveis="gruposDisponiveis"
       :categorias-disponiveis="categoriasDisponiveis"
       :aplicando="aplicando"
+      :total-selecionado="selecionados"
       @mover-para-grupo="moverParaGrupo"
       @alterar-categoria="alterarCategoria"
+      @agrupar="agrupar"
       @excluir="excluir"
     />
   </UiModal>

@@ -45,6 +45,20 @@ export const guestPartySyncSchema = z.object({
   companions: z.array(guestPersonSchema).default([]),
   removedGuestIds: z.array(z.string().uuid()).default([]),
   invite: guestPartyInviteSchema.optional(),
+  /**
+   * Posição do convidado deste cadastro DENTRO do núcleo — um índice na fila
+   * de `companions`, não uma hierarquia.
+   *
+   * Existe porque o núcleo é simétrico e a ordem dele não podia depender de
+   * quem foi aberto por último. `ordem_nucleo = 0` era atribuído ao editado,
+   * então salvar o cadastro da Maria trocava o rótulo derivado de "João e
+   * Maria" para "Maria e João" na lista inteira, sem ninguém ter pedido.
+   *
+   * Zero continua sendo o default: quem cadastra uma pessoa e adiciona
+   * acompanhantes espera aparecer primeiro, e é o que acontece sem informar
+   * nada.
+   */
+  primaryPosition: z.number().int().min(0).default(0),
 })
 
 export type GuestPartySyncInput = z.infer<typeof guestPartySyncSchema>
@@ -102,9 +116,18 @@ export const guestBulkUpdateSchema = z
 
 export type GuestBulkUpdateInput = z.infer<typeof guestBulkUpdateSchema>
 
-export const guestPartyReorderSchema = z.object({
-  partyId: z.string().uuid(),
-  orderedGuestIds: z.array(z.string().uuid()).min(1),
+/**
+ * Agrupar os selecionados da lista como Acompanhantes.
+ *
+ * Só os ids: tudo o que decide o resultado — qual núcleo sobrevive ao merge,
+ * qual ordem, qual convite — é estado que já está no banco, e reenviá-lo do
+ * client seria dar ao navegador a chance de discordar dele.
+ *
+ * Dois é o mínimo real, não um limite arbitrário: um núcleo de uma pessoa não
+ * agrupa nada e é justamente o estado que o banco passou a dissolver.
+ */
+export const guestPartyGroupSchema = z.object({
+  ids: z.array(z.string().uuid()).min(2, 'Selecione ao menos duas pessoas.').max(50),
 })
 
-export type GuestPartyReorderInput = z.infer<typeof guestPartyReorderSchema>
+export type GuestPartyGroupInput = z.infer<typeof guestPartyGroupSchema>

@@ -1,7 +1,7 @@
 import { nomeDoArquivoDaExportacao } from '#shared/utils/exportacao-convidados'
 import type {
   GuestBulkUpdateInput,
-  GuestPartyReorderInput,
+  GuestPartyGroupInput,
   GuestPartySyncInput,
   GuestQuickCreateInput,
 } from '#shared/schemas/guests'
@@ -68,6 +68,17 @@ interface GuestPartySyncResult {
 }
 
 /**
+ * `guestIds` volta com o núcleo INTEIRO, na ordem final — que pode ser maior
+ * que a seleção enviada: agrupar quem já tinha núcleo traz o núcleo dele
+ * junto, senão agrupar o João com o Pedro afastaria a Maria do João.
+ */
+export interface GuestPartyGroupResult {
+  partyId: string
+  guestIds: string[]
+  inviteId: string | null
+}
+
+/**
  * CRUD de guests (CLAUDE.md, seção 15). Toda chamada de rede do client
  * passa por aqui, nunca direto em página/componente (CLAUDE.md, seção 5.1).
  */
@@ -104,8 +115,20 @@ export function useGuests() {
     return $fetch<GuestPartySyncResult>('/api/guests/party', { method: 'PUT', body: input })
   }
 
-  async function reorderGuestParty(input: GuestPartyReorderInput) {
-    return $fetch('/api/guests/party/reorder', { method: 'PATCH', body: input })
+  /**
+   * Agrupa os selecionados da lista como Acompanhantes.
+   *
+   * Substitui o `reorderGuestParty` que existia aqui: o endpoint de reordenar
+   * nunca teve um único chamador, porque a ordem do núcleo sempre foi gravada
+   * pelo próprio cadastro (`syncGuestParty`, com `primaryPosition`). Dois
+   * caminhos para escrever a mesma coisa, um deles morto, é como o errado
+   * acaba ligado depois.
+   */
+  async function groupGuestsAsParty(input: GuestPartyGroupInput): Promise<GuestPartyGroupResult> {
+    return $fetch<GuestPartyGroupResult>('/api/guests/party/group', {
+      method: 'POST',
+      body: input,
+    })
   }
 
   /**
@@ -171,7 +194,7 @@ export function useGuests() {
     createGuest,
     bulkUpdateGuests,
     syncGuestParty,
-    reorderGuestParty,
+    groupGuestsAsParty,
     deleteGuest,
     exportGuests,
   }

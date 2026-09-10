@@ -206,6 +206,27 @@ Cada campo declara o que se pode fazer com ele:
 
 **Fora do escopo desta versão:** acompanhantes (`nucleos_acompanhantes`). O conceito é simétrico e não cabe numa coluna de planilha sem inventar sintaxe; pessoas sob o mesmo `convite` já cobrem a intenção real, que é o que habilita o RSVP.
 
+### 3.7 Acompanhantes
+
+**O princípio:** o núcleo (`nucleos_acompanhantes`) é **estrutura interna, não um eixo de organização.** Grupo é etiqueta livre e convite é a unidade de RSVP; o núcleo é a afirmação "estas pessoas vão juntas", e existe por duas razões que nenhum dos outros dois cobre:
+
+1. **Ele existe antes de qualquer convite.** `convidados.convite_id` é nullable — enquanto o casal monta a lista, o núcleo é o único lugar onde cabe "esses dois vão juntos". O convite não pode registrar isso porque ainda não existe.
+2. **Convite não tem sub-estrutura.** `grupos` tem subdivisão de um nível; `convites` não tem nenhuma. "Família Silva" com 6 pessoas é um cartão e um código, mas podem ser três casais lá dentro — o núcleo é o que faz a lista mostrar três unidades em vez de seis nomes soltos, e é a linha de corte natural quando precisarem de cartões separados.
+
+**Por isso o núcleo não tem tela própria.** Grupos e Convites têm, porque o casal os **nomeia e administra** — grupo tem nome, convite tem nome, código, link e QR. O núcleo não tem nome gravado (seção 3.1.1) e o rótulo dele muda quando alguém entra ou sai: uma tela listando coisas sem nome, cujo título se mexe sozinho, não serve de referência ("qual daqueles era o que eu editei ontem?"). Ele aparece onde significa algo — na linha do convidado, no cadastro, dentro do convite e no filtro do Modo Lista.
+
+**Na interface chama-se "Acompanhantes"; "núcleo" só existe no código.** Duas palavras para a mesma coisa nas duas formas de ver a mesma lista obrigavam o casal a ligar as duas sozinho. A célula da coluna exibe o rótulo do núcleo inteiro ("João e Maria"), igual nas duas linhas do casal — é o que faz a coluna agrupar ao ordenar e filtrar; um "vem com a Maria" por linha leria melhor e agruparia nada.
+
+**Núcleo nunca atravessa convites.** Se duas pessoas vão em convites diferentes, deixaram de ser "convidadas juntas" — então a operação é recusada, nunca resolvida movendo alguém de convite (o que trocaria o link/QR que já pode ter sido compartilhado). Na direção oposta, a consequência prática: agrupar alguém com quem já tem convite coloca todos nele, e isso é avisado antes, porque habilita RSVP para quem não podia responder. Rascunho da lista (`em_consideracao`) não entra em núcleo pelo mesmo motivo — ele nunca recebe convite.
+
+**A ordem dentro do núcleo é escolha, nunca efeito colateral.** O rótulo derivado usa os dois primeiros nomes por `ordem_nucleo`, então essa ordem é visível na lista inteira. O cadastro mostra a fila do núcleo **completa**, com o convidado que está sendo editado como uma linha igual às outras (é o que "simétrico" significa), e a ordem que se vê ali é a que fica gravada. `ordem_nucleo` não significa "quem é o principal" — quem responde pelo convite é `convites.convidado_responsavel_id`, outro conceito.
+
+**Núcleo de uma pessoa não existe.** Um agrupamento de um não agrupa nada, e ainda apareceria no filtro como se agrupasse. Todo caminho que mexe em núcleo dissolve o que ficou com menos de dois membros — inclusive o núcleo de **origem** de quem foi movido para outro.
+
+**Agrupar a partir da seleção da lista** fecha o ciclo de quem monta a lista por entrada rápida ou colando da planilha: os nomes entram soltos e o agrupamento vem depois. Quem já está num núcleo entra trazendo o núcleo inteiro — agrupar o João (que já vem com a Maria) com o Pedro resulta no trio, porque agrupar não pode afastar a Maria do João. Seleção com núcleos diferentes funde tudo num só, avisando antes; o núcleo que sobrevive é o maior, e no empate o mais antigo (desempatar por `id` trocaria o nome do grupo na tela conforme um uuid aleatório).
+
+**`ordem_nucleo` não ordena um convite.** Um convite pode conter vários núcleos e gente sem núcleo nenhum, cujo valor é 0 para todos — os membros de um convite são ordenados mantendo cada núcleo junto, com os blocos em ordem alfabética pelo primeiro nome de cada um.
+
 ## 4. Sistema de RSVP
 
 ### 4.1 Conceito

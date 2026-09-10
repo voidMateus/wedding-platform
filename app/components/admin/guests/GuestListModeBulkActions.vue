@@ -8,6 +8,11 @@
   escondida: o casal precisa saber que a capacidade está prevista, e um
   controle que desaparece sem explicação parece defeito.
 -->
+<!--
+  "Agrupar como acompanhantes" exige seleção de DOIS: um núcleo de uma pessoa
+  não agrupa nada, e é o estado que o banco passou a dissolver. Por isso o
+  botão fica desabilitado com um só marcado, em vez de aceitar e não fazer nada.
+-->
 <script setup lang="ts">
 interface OpcaoDeDestino {
   value: string
@@ -26,6 +31,8 @@ interface Props {
    * rótulo ("Mover para gru...").
    */
   layout?: 'fileira' | 'coluna'
+  /** Quantos estão marcados — agrupar como acompanhantes precisa de dois. */
+  totalSelecionado?: number
 }
 
 const {
@@ -33,11 +40,13 @@ const {
   categoriasDisponiveis,
   aplicando = false,
   layout = 'fileira',
+  totalSelecionado = 0,
 } = defineProps<Props>()
 
 const emit = defineEmits<{
   'mover-para-grupo': [grupoId: string]
   'alterar-categoria': [faixa: string]
+  agrupar: []
   excluir: []
 }>()
 
@@ -81,18 +90,25 @@ function alterarCategoria(valor: string) {
       @update:model-value="alterarCategoria"
     />
 
-    <!-- Núcleo exige orquestrar convite e ordem dentro do núcleo numa
-         transação (`sincronizar_nucleo_convidado`); não é um update em lote
-         como os outros dois. -->
+    <!-- Não é um update em lote como os dois seletores acima: núcleo, ordem e
+         convite mudam juntos numa transação (`agrupar_acompanhantes`). É a
+         operação que faltava para quem monta a lista por entrada rápida ou
+         colando da planilha — os nomes entram soltos, o agrupamento vem
+         depois. -->
     <UiButton
       variant="ghost"
       :size="emColuna ? 'md' : 'sm'"
-      disabled
+      :disabled="aplicando || totalSelecionado < 2"
       :class="emColuna && 'w-full justify-center'"
-      title="Em breve — acompanhantes são definidos no cadastro do convidado."
+      :title="
+        totalSelecionado < 2
+          ? 'Marque ao menos duas pessoas — acompanhantes são quem vai junto.'
+          : undefined
+      "
+      @click="emit('agrupar')"
     >
       <Icon name="lucide:user-round-plus" class="h-4 w-4" />
-      Adicionar ao núcleo
+      Agrupar como acompanhantes
     </UiButton>
 
     <UiButton

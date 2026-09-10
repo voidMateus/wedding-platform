@@ -78,7 +78,15 @@ export function useGuestListModeColumns(
     },
     {
       key: 'nucleo',
-      label: 'Núcleo',
+      // "Acompanhantes" na tela, "núcleo" só no código: a Visão Geral já
+      // chamava esta coluna assim, e duas palavras para a mesma coisa nas duas
+      // formas de ver a MESMA lista obrigavam o casal a ligar as duas sozinho.
+      //
+      // A célula continua exibindo o rótulo do núcleo INTEIRO ("João e Maria"),
+      // igual nas duas linhas do casal — é o que faz a coluna agrupar ao
+      // ordenar e filtrar. Um "vem com a Maria" por linha leria melhor e
+      // agruparia nada.
+      label: 'Acompanhantes',
       sort: 'alpha',
       filter: { type: 'select', multiple: true, options: opcoesDeNucleo.value },
     },

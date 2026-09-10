@@ -39,7 +39,14 @@ export interface InviteMember {
   id: string
   fullName: string
   nickname: string | null
-  partyOrder: number
+  /**
+   * Núcleo de Acompanhantes a que a pessoa pertence, ou null. Serve para
+   * manter os que vêm juntos juntos na exibição do convite — substitui o
+   * `partyOrder` que existia aqui e que ninguém lia: posição dentro de um
+   * núcleo não tem significado nenhum na escala do convite, que pode conter
+   * vários núcleos e gente sem núcleo.
+   */
+  partyId: string | null
   isResponsible: boolean
   rsvpStatus: 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
 }

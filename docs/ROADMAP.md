@@ -75,15 +75,31 @@ sequência. O que resta:
 
 Inertes por decisão, com o motivo no `title` de cada um:
 
-- [ ] **"Adicionar ao núcleo" em massa** — diferente de mover para grupo e
-      alterar categoria, não é update em lote: exige orquestrar convite e ordem
-      dentro do núcleo numa transação (`sincronizar_nucleo_convidado`).
-- [ ] **Tela de Núcleos** — hoje só se editam dentro do cadastro do convidado.
 - [ ] **Formulários e Integrações** — dois itens de menu sem nada por trás.
 
 E uma lacuna de acabamento: **edição inline só existe na coluna Categoria**.
-Nome, grupo, núcleo e observação ainda exigem abrir a modal, o que é o buraco
-mais visível numa tela que se propõe "planilha inteligente".
+Nome, grupo, acompanhantes e observação ainda exigem abrir a modal, o que é o
+buraco mais visível numa tela que se propõe "planilha inteligente".
+
+Resolvido na **Fase Acompanhantes** (2026-09-10; decisões de produto em
+[`PRODUCT.md`](PRODUCT.md) seção 3.7): "Agrupar como acompanhantes" saiu do
+estado inerte e virou `agrupar_acompanhantes()`, com aviso antes quando a
+operação faz mais do que a seleção diz. A **tela de Núcleos foi descartada, não
+adiada** — o núcleo não tem nome e o rótulo dele muda quando alguém entra ou
+sai, então uma tela listando essas linhas não serviria de referência para
+ninguém; ele aparece onde significa algo (linha, cadastro, convite, filtro). No
+caminho: a ordem do núcleo deixou de virar sozinha ao salvar o cadastro de outro
+membro, núcleo de uma pessoa passou a ser dissolvido, `ordem_nucleo` parou de
+ordenar convite (`server/utils/membros-do-convite.ts`) e
+`PATCH /api/guests/party/reorder` foi removido — nunca teve chamador, porque a
+ordem sempre foi gravada pelo próprio cadastro.
+
+Fica de fora, à espera de decisão: **agrupar visualmente os membros por núcleo
+na tela do convidado (RSVP)**. Quem abre um convite de 6 pessoas vê 6 nomes
+soltos; agrupar ajudaria e não feriria o invariante (a resposta continua por
+pessoa), mas é mexer no fluxo do convidado, não só no admin. E **desagrupar em
+massa** não existe: desfazer é remover o acompanhante pelo cadastro, que com
+dois membros dissolve o núcleo.
 
 ## 4. Dívidas conhecidas (fora de fase — pequenas e independentes)
 
