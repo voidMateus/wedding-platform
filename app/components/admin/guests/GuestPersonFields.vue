@@ -72,21 +72,25 @@ const isCalculada = computed(() => classificacao.value.origem === 'calculada')
  * que não se sabe nada. Sem pílula nenhuma marcada, a tela começa quieta, e
  * desmarcar é o "limpar" que aparece só depois de haver o que limpar.
  *
- * Derivado de `manualOptions` (que já vem de `FAIXA_ETARIA_CHAVES`) para que
- * uma faixa nova apareça aqui sozinha.
+ * `manualOptions` já traz só as faixas ativas do evento, então desligar uma
+ * faixa em Configurações a remove daqui sozinho.
  */
-const opcoesDeCategoria = computed(() => manualOptions.value.filter((opcao) => opcao.value !== ''))
+const opcoesDeCategoria = manualOptions
 
 /**
- * Travada, a pílula mostra a faixa CALCULADA — não o valor manual guardado.
- * Marcar "Adulto" ao lado da data de nascimento de uma criança diria o oposto
- * do que o sistema faz. O valor manual continua gravado intacto, e volta a
- * valer se a data for apagada.
+ * Sempre a faixa que a classificação resolveu, nunca o valor cru guardado.
+ *
+ * Cobre os dois desencontros possíveis. Com data de nascimento, a faixa é
+ * calculada e marcar o valor manual diria o oposto do que o sistema faz. Sem
+ * data, um valor manual de faixa DESLIGADA não tem pílula para marcar — e
+ * `classificarFaixaEtaria` já devolve a faixa que herdou o território dele, que
+ * é o que todas as outras telas exibem.
+ *
+ * Nos dois casos `faixa_etaria_manual` continua gravado intacto: mostrar o
+ * equivalente é leitura, e só uma escolha explícita do casal grava algo
+ * (CLAUDE.md, seção 12).
  */
-const categoriaSelecionada = computed(() => {
-  if (isCalculada.value) return classificacao.value.chave ?? ''
-  return props.modelValue.faixaEtariaManual || ''
-})
+const categoriaSelecionada = computed(() => classificacao.value.chave ?? '')
 
 const nascimentoId = useId()
 

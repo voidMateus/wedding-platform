@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
-import { FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_ROTULOS } from '#shared/utils/faixa-etaria'
+import { FAIXA_ETARIA_NAO_INFORMADA } from '#shared/utils/faixa-etaria'
+import type { FaixaEtariaChave } from '#shared/utils/faixa-etaria'
 import type { GuestListItem } from '~/types/guest'
 import { applyTableFilters } from '~/utils/table-rows'
 
@@ -64,10 +65,16 @@ const rotuloDoPainel = computed(() => {
   return `${rotulo} · ${confirmados} confirmados`
 })
 
-/** Opções do seletor de categoria de cada linha e da ação em massa. */
-const opcoesDeCategoriaManual = computed(() =>
-  FAIXA_ETARIA_CHAVES.map((chave) => ({ value: chave, label: FAIXA_ETARIA_ROTULOS[chave] })),
-)
+/**
+ * Opções do seletor de categoria de cada linha e da ação em massa.
+ *
+ * Vem de `useAgeGroups`, nunca do catálogo de faixas: esta lista era montada
+ * aqui a partir de `FAIXA_ETARIA_CHAVES` e continuava oferecendo Adolescente e
+ * Idoso depois de o casamento desligar as duas em Configurações. Duas listas em
+ * paralelo para a mesma coisa é como uma delas fica errada sem nada acusar
+ * (CLAUDE.md, seção 13).
+ */
+const { manualOptions: opcoesDeCategoriaManual } = useAgeGroups()
 
 // --- blocos ---
 const recolhidos = ref<string[]>([])
@@ -158,7 +165,7 @@ function alterarCategoriaEmMassa(faixa: string) {
     () =>
       bulkUpdateGuests({
         ids: selecionados.value,
-        faixaEtariaManual: faixa as (typeof FAIXA_ETARIA_CHAVES)[number],
+        faixaEtariaManual: faixa as FaixaEtariaChave,
       }),
     (total) => `Categoria alterada em ${total}.`,
   )
@@ -188,7 +195,7 @@ async function definirCategoria(convidado: GuestListItem, faixa: string) {
   try {
     await bulkUpdateGuests({
       ids: [convidado.id],
-      faixaEtariaManual: (faixa || null) as (typeof FAIXA_ETARIA_CHAVES)[number] | null,
+      faixaEtariaManual: (faixa || null) as FaixaEtariaChave | null,
     })
     await refresh()
   } catch {
@@ -198,6 +205,20 @@ async function definirCategoria(convidado: GuestListItem, faixa: string) {
 
 function categoriaTravada(convidado: GuestListItem): boolean {
   return Boolean(convidado.data_nascimento)
+}
+
+/**
+ * Valor do seletor da linha: a faixa RESOLVIDA, não a que está gravada.
+ *
+ * As duas divergem quando o casamento desliga uma faixa: `faixa_etaria_manual`
+ * continua "adolescente" — de propósito, desligar é configuração do evento e
+ * não edição do cadastro das pessoas —, e a leitura resolve para a faixa que
+ * herdou o território. Passando o valor cru, o seletor não achava a opção e
+ * caía no placeholder, enquanto a coluna ao lado exibia a faixa herdada.
+ */
+function categoriaDaLinha(convidado: GuestListItem): string {
+  const chave = categorias.value.get(convidado.id)?.chave
+  return !chave || chave === FAIXA_ETARIA_NAO_INFORMADA ? '' : chave
 }
 
 const isFirstLoad = computed(() => status.value === 'pending' && !data.value)
@@ -429,7 +450,7 @@ async function confirmarExclusao() {
               <template #cell-faixa="{ row }">
                 <UiSelect
                   v-if="!categoriaTravada(row)"
-                  :model-value="row.faixa_etaria_manual ?? ''"
+                  :model-value="categoriaDaLinha(row)"
                   :options="opcoesDeCategoriaManual"
                   placeholder="—"
                   :aria-label="`Categoria de ${row.nome_completo}`"
