@@ -28,7 +28,18 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
   test.setTimeout(90_000)
   const admin = getServiceRoleClient()
 
-  const wedding = await createTestWedding(admin, { nomes_noivos: 'Teste E2E Modo Lista' })
+  // Duas faixas, não as quatro do padrão: é o casamento que "não quer separar
+  // em 4 mas em apenas 2", e é o cenário que pega a classe de bug do seletor de
+  // categoria montado a partir do catálogo em vez das faixas ATIVAS do evento.
+  const wedding = await createTestWedding(admin, {
+    nomes_noivos: 'Teste E2E Modo Lista',
+    config_faixas_etarias: {
+      principal: [
+        { chave: 'crianca', idadeMinima: 0, idadeMaxima: 11 },
+        { chave: 'adulto', idadeMinima: 12, idadeMaxima: null },
+      ],
+    },
+  })
 
   const email = `teste-e2e-modo-lista-${Date.now()}@example.com`
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
@@ -163,7 +174,44 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
 
     // Categoria é editável só para quem NÃO tem data de nascimento — a faixa é
     // sempre derivada, e a manual perde para uma data válida.
-    await expect(page.getByRole('combobox', { name: 'Categoria de Joao da Silva' })).toBeVisible()
+    const categoriaDoJoao = page.getByRole('combobox', { name: 'Categoria de Joao da Silva' })
+    await expect(categoriaDoJoao).toBeVisible()
+
+    // E oferece só as faixas que ESTE casamento usa. O seletor era montado a
+    // partir do catálogo da plataforma (sempre as quatro), então um evento com
+    // duas faixas continuava oferecendo Adolescente e Idoso — uma escolha que
+    // nenhuma outra tela exibe, porque a leitura resolve a faixa desligada para
+    // a que herdou o território dela.
+    await expect(async () => {
+      await categoriaDoJoao.click()
+      await expect(page.getByRole('option', { name: 'Adulto' })).toBeVisible({ timeout: 1_000 })
+    }).toPass({ timeout: 15_000 })
+    await expect(page.getByRole('option')).toHaveCount(2)
+    await expect(page.getByRole('option', { name: 'Adolescente' })).toBeHidden()
+    await page.keyboard.press('Escape')
+
+    // A coluna Convite mostra o ESTÁGIO do convite, não "Vinculado". Nesta
+    // massa ninguém tem convite, então é o estado mais urgente do funil: sem
+    // convite não dá nem para enviar, e a pessoa não alcança o RSVP.
+    const linhaDoJoao = page.getByRole('row').filter({ hasText: 'Joao da Silva' }).last()
+    await expect(linhaDoJoao).toContainText('Sem convite')
+    await expect(linhaDoJoao).not.toContainText('Vinculado')
+
+    // --- salvar o cadastro fecha a modal, também aqui ---
+    //
+    // Fechar era decisão do PAI, e as duas telas que montam esta mesma modal
+    // divergiam: a Visão Geral fechava, o Modo Lista não. Aqui a modal ficava
+    // aberta com o estado de antes de salvar — ainda anunciando "o convite será
+    // criado" depois de o convite já existir, e um segundo Salvar falhava com
+    // "já pertence a outro convite". Hoje quem fecha é a modal, que é quem sabe
+    // que o salvamento deu certo.
+    await expect(async () => {
+      await page.getByRole('button', { name: 'Joao da Silva', exact: true }).first().click()
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
+    }).toPass({ timeout: 15_000 })
+
+    await page.getByRole('button', { name: 'Salvar', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 })
 
     // --- recolher o pai recolhe a árvore ---
     //

@@ -193,7 +193,31 @@ export default defineEventHandler(async (event) => {
   // para view —, então o tipo gerado sai todo anulável. As colunas vêm 1:1 de
   // `convidados`, onde id/nome_completo/casamento_id são NOT NULL: cada linha é
   // um convidado com uma coluna derivada a mais.
-  const data = pageResult.data as unknown as GuestListItem[]
+  const rows = pageResult.data as unknown as GuestListItem[]
+
+  // Estágio do convite de cada linha, numa segunda consulta em vez de join na
+  // view: `convidados_com_status` é a leitura da lista, e pendurar nela o funil
+  // de convites acoplaria duas views que mudam por motivos diferentes. São
+  // poucos ids por página, e o mesmo padrão do nome do responsável em
+  // /api/invites.
+  const inviteIds = [...new Set(rows.map((row) => row.convite_id).filter(Boolean))] as string[]
+
+  const stageByInvite = new Map<string, string>()
+  if (inviteIds.length) {
+    const { data: invites, error: invitesError } = await client
+      .from('convites_com_resumo')
+      .select('id, status_operacional')
+      .in('id', inviteIds)
+    if (invitesError) throw badRequestError(invitesError.message)
+    for (const invite of invites ?? []) {
+      if (invite.id) stageByInvite.set(invite.id, invite.status_operacional ?? 'nao_enviado')
+    }
+  }
+
+  const data: GuestListItem[] = rows.map((row) => ({
+    ...row,
+    inviteStage: row.convite_id ? inviteStageFromView(stageByInvite.get(row.convite_id)) : null,
+  }))
 
   return {
     data,

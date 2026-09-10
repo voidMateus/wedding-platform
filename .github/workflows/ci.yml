@@ -46,7 +46,13 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versão fixa, nunca `latest`: resolver "a última release" é uma
+          # chamada à API do GitHub sem token, que estoura o rate limit
+          # compartilhado do runner — foi o que derrubou o CI do PR #101 com
+          # "Failed to resolve latest Supabase CLI release: rate limit
+          # exceeded", um vermelho que não tinha nada a ver com o código. Fixar
+          # também mantém CI e máquina de desenvolvimento na mesma versão.
+          version: 2.110.0
 
       - name: Sobe Supabase local (Docker) e aplica migrations
         run: supabase start
@@ -110,7 +116,13 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versão fixa, nunca `latest`: resolver "a última release" é uma
+          # chamada à API do GitHub sem token, que estoura o rate limit
+          # compartilhado do runner — foi o que derrubou o CI do PR #101 com
+          # "Failed to resolve latest Supabase CLI release: rate limit
+          # exceeded", um vermelho que não tinha nada a ver com o código. Fixar
+          # também mantém CI e máquina de desenvolvimento na mesma versão.
+          version: 2.110.0
 
       - name: Confere que o secret de prod existe
         # Sem esta guarda, um secret ausente/renomeado faria o `db push` falhar

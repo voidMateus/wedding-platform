@@ -1,5 +1,4 @@
 import {
-  FAIXA_ETARIA_CHAVES,
   FAIXA_ETARIA_NAO_INFORMADA,
   FAIXA_ETARIA_ROTULOS,
   FAIXA_ETARIA_ROTULOS_PLURAL,
@@ -45,14 +44,27 @@ export function useAgeGroups() {
     return ROTULO_ORIGEM[origem]
   }
 
-  /** Opções do seletor de faixa manual — vazio = "Não informada". */
-  const manualOptions = computed(() => [
-    { value: '', label: FAIXA_ETARIA_ROTULO_NAO_INFORMADA },
-    ...FAIXA_ETARIA_CHAVES.map((chave) => ({
-      value: chave,
-      label: FAIXA_ETARIA_ROTULOS[chave],
+  /**
+   * Opções para informar a faixa à mão — as faixas ATIVAS do evento, na ordem
+   * delas.
+   *
+   * Vinham do catálogo (`FAIXA_ETARIA_CHAVES`, sempre as quatro), então um
+   * casamento que desligou Adolescente e Idoso continuava oferecendo as duas:
+   * o casal escolhia uma categoria que nenhuma outra tela exibe, porque a
+   * leitura resolve a faixa desligada para a que herdou o território
+   * (`faixaAtivaEquivalente`). Quais faixas o evento usa é decisão do evento —
+   * um seletor que ignora isso não mostra uma lista desatualizada, mostra uma
+   * escolha que não existe.
+   *
+   * Não tem entrada vazia: "não informada" é a ausência das outras, e limpar é
+   * ação própria de quem já escolheu algo, não um item de lista.
+   */
+  const manualOptions = computed(() =>
+    faixas.value.map((faixa) => ({
+      value: faixa.chave,
+      label: FAIXA_ETARIA_ROTULOS[faixa.chave],
     })),
-  ])
+  )
 
   /** Recortes da listagem de convidados, na ordem das faixas do evento. */
   const filterChips = computed(() => [

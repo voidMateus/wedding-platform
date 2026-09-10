@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { formatDatePtBR } from '#shared/utils/format-date'
-import type { InviteListItem, InviteResponseStatus } from '~/types/invite'
+import { formatDatePtBR, formatarTempoDecorrido } from '#shared/utils/format-date'
+import type { InviteListItem, InviteStage } from '~/types/invite'
 import type { AdminTableColumn } from '~/types/table'
 
 definePageMeta({ layout: 'admin' })
@@ -23,12 +23,12 @@ const archiveChips = [
   { value: 'archived', label: 'Arquivados' },
 ] as const
 
-// Rótulo do estado consolidado, do mapa único de estados da plataforma. `sent`
-// só muda o tom de "pendente" (providência ou não), nunca o texto — então aqui,
-// onde a opção descreve o recorte e não um convite específico, `true` serve.
-const statusOptions = INVITE_RESPONSE_STATUS_VALUES.map((value) => ({
+// Os cinco estágios do funil, na ordem do processo — não em ordem alfabética
+// nem de "gravidade": a lista de opções é o próprio caminho que um convite
+// percorre, e ler fora de ordem esconde isso.
+const statusOptions = INVITE_STAGE_VALUES.map((value) => ({
   value,
-  label: inviteResponsePresentation(value, { sent: true }).label,
+  label: inviteStagePresentation(value).label,
 }))
 
 // Todo recorte é do endpoint, nunca da página carregada: a listagem é paginada,
@@ -69,8 +69,8 @@ const searchDraft = useDebouncedText(
 // A URL é editável à mão: valor fora do catálogo é descartado aqui, senão o
 // endpoint devolveria 400 (tela de erro) em vez da lista sem o recorte inválido.
 const statusFilter = computed(() =>
-  (filters.values.value.status ?? []).filter((value): value is InviteResponseStatus =>
-    (INVITE_RESPONSE_STATUS_VALUES as readonly string[]).includes(value),
+  (filters.values.value.status ?? []).filter((value): value is InviteStage =>
+    (INVITE_STAGE_VALUES as readonly string[]).includes(value),
   ),
 )
 
@@ -89,7 +89,7 @@ const listParams = computed(() => ({
   pageSize: PAGE_SIZE,
   search: filters.values.value.nome?.[0],
   archived: archiveFilter.value,
-  responseStatus: statusFilter.value.length ? statusFilter.value : undefined,
+  stage: statusFilter.value.length ? statusFilter.value : undefined,
   sort: sortKey.value,
   dir: filters.sortDirection.value,
 }))
@@ -129,9 +129,35 @@ const totalLabel = computed(() => {
 // resto da linha melhor que o texto colorido. Rótulo e tom continuam vindo do
 // mapa único, então tabela e modal nunca divergem de significado.
 function statusOf(invite: InviteListItem) {
-  return inviteResponsePresentation(invite.responseStatus, {
-    sent: invite.status_convite === 'enviado',
-  })
+  return inviteStagePresentation(invite.stage)
+}
+
+/**
+ * UM dado de apoio por estágio, nunca dois — e é o estágio que decide qual.
+ *
+ * A escolha não é estética: em cada ponto do funil só um dos dois números muda
+ * a providência.
+ *
+ * - `sent`/`opened`: o tempo. Quanto mais tempo parado, mais urgente o
+ *   lembrete. A fração aqui seria "0 de 5" em toda linha da tela — um número
+ *   que não distingue nada.
+ * - `partial`: a fração, que diz quantos ainda faltam.
+ * - `responded`: a fração, que confirma o total.
+ * - `not_sent`: nada. Não existe "há N dias sem nada ter acontecido".
+ *
+ * Mostrar os dois juntos (mais a origem das respostas, como a proposta
+ * original previa) recriaria na coluna o empilhamento de badges que este
+ * redesenho existe para eliminar. No detalhe do convite, onde espaço não é
+ * escasso, os dois aparecem.
+ */
+function apoioDoEstagio(invite: InviteListItem): string | null {
+  if (invite.stage === 'partial' || invite.stage === 'responded') {
+    return `${invite.respondedCount} de ${invite.memberCount}`
+  }
+  if (invite.stage === 'sent' || invite.stage === 'opened') {
+    return formatarTempoDecorrido(invite.stageSince)
+  }
+  return null
 }
 
 // --- criar/abrir ---
@@ -282,7 +308,12 @@ async function confirmDelete() {
             </template>
 
             <template #cell-status="{ row }">
-              <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
+              <span class="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
+                <span v-if="apoioDoEstagio(row)" class="num text-xs text-text-muted">
+                  {{ apoioDoEstagio(row) }}
+                </span>
+              </span>
             </template>
 
             <template #cell-enviado="{ row }">

@@ -95,7 +95,11 @@ describe('api: /api/invites', () => {
       expect(body.nome).toBe('Convite Atualizado')
       expect(body.observacoes).toBe('Chegam de van.')
 
-      const { data: stored } = await admin.from('convites').select('*').eq('id', created.id).single()
+      const { data: stored } = await admin
+        .from('convites')
+        .select('*')
+        .eq('id', created.id)
+        .single()
       expect(stored?.nome).toBe('Convite Atualizado')
       expect(stored?.observacoes).toBe('Chegam de van.')
     })
@@ -109,7 +113,11 @@ describe('api: /api/invites', () => {
       const res = await otherClient.patch(`/api/invites/${created.id}`, { nome: 'Sequestrado' })
       expect(res.status).toBe(404)
 
-      const { data: stored } = await admin.from('convites').select('*').eq('id', created.id).single()
+      const { data: stored } = await admin
+        .from('convites')
+        .select('*')
+        .eq('id', created.id)
+        .single()
       expect(stored?.nome).toBe('Convite Isolado')
     })
   })
@@ -123,7 +131,11 @@ describe('api: /api/invites', () => {
       const res = await client.del(`/api/invites/${created.id}`)
       expect(res.status).toBe(200)
 
-      const { data: stored } = await admin.from('convites').select('*').eq('id', created.id).single()
+      const { data: stored } = await admin
+        .from('convites')
+        .select('*')
+        .eq('id', created.id)
+        .single()
       expect(stored).not.toBeNull()
       expect(stored?.excluido_em).not.toBeNull()
     })
@@ -147,7 +159,11 @@ describe('api: /api/invites', () => {
       const body = await res.json()
       expect(body.arquivado_em).not.toBeNull()
 
-      const { data: stored } = await admin.from('convites').select('*').eq('id', created.id).single()
+      const { data: stored } = await admin
+        .from('convites')
+        .select('*')
+        .eq('id', created.id)
+        .single()
       expect(stored?.arquivado_em).not.toBeNull()
     })
 
@@ -192,7 +208,11 @@ describe('api: /api/invites', () => {
       const body = await res.json()
       expect(body.addedGuestIds).toEqual([guest.id])
 
-      const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+      const { data: stored } = await admin
+        .from('convidados')
+        .select('*')
+        .eq('id', guest.id)
+        .single()
       expect(stored?.convite_id).toBe(invite.id)
     })
 
@@ -210,10 +230,16 @@ describe('api: /api/invites', () => {
       const invite = await createRes.json()
       const foreignGuest = await createTestGuest(admin, otherWedding.id)
 
-      const res = await client.post(`/api/invites/${invite.id}/guests`, { guestIds: [foreignGuest.id] })
+      const res = await client.post(`/api/invites/${invite.id}/guests`, {
+        guestIds: [foreignGuest.id],
+      })
       expect(res.status).toBe(200)
 
-      const { data: stored } = await admin.from('convidados').select('*').eq('id', foreignGuest.id).single()
+      const { data: stored } = await admin
+        .from('convidados')
+        .select('*')
+        .eq('id', foreignGuest.id)
+        .single()
       expect(stored?.convite_id).toBeNull()
     })
   })
@@ -228,7 +254,11 @@ describe('api: /api/invites', () => {
       const res = await client.del(`/api/invites/${invite.id}/guests/${guest.id}`)
       expect(res.status).toBe(200)
 
-      const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+      const { data: stored } = await admin
+        .from('convidados')
+        .select('*')
+        .eq('id', guest.id)
+        .single()
       expect(stored).not.toBeNull()
       expect(stored?.excluido_em).toBeNull()
       expect(stored?.convite_id).toBeNull()
@@ -246,7 +276,7 @@ describe('api: /api/invites', () => {
   })
 
   describe('POST /api/invites/[id]/send', () => {
-    it('caminho feliz: marca o convite como enviado (status_convite/enviado_em) — não envia e-mail/SMS de verdade (Fase 2)', async () => {
+    it('caminho feliz: marca o convite como enviado (enviado_em) — não envia e-mail/SMS de verdade (Fase 2)', async () => {
       const client = createTestApiClient({ cookie })
       const createRes = await client.post('/api/invites', { nome: 'Convite Para Enviar' })
       const invite = await createRes.json()
@@ -255,12 +285,13 @@ describe('api: /api/invites', () => {
       const res = await client.post(`/api/invites/${invite.id}/send`, {})
       expect(res.status).toBe(200)
 
+      // `enviado_em`, e não `status_convite`: os dois diziam o mesmo fato, e a
+      // coluna ficou obsoleta com o funil de estágios — nada no código a lê ou
+      // escreve mais (ver 20260910090001_status_operacional_do_convite.sql).
       const body = await res.json()
-      expect(body.status_convite).toBe('enviado')
       expect(body.enviado_em).not.toBeNull()
 
       const { data: stored } = await admin.from('convites').select('*').eq('id', invite.id).single()
-      expect(stored?.status_convite).toBe('enviado')
       expect(stored?.enviado_em).not.toBeNull()
     })
 

@@ -11,7 +11,7 @@ const querySchema = paginationQuerySchema(100).extend({
   includeArchived: z.coerce.boolean().optional(),
 })
 
-type ResponseStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido'
+type ResponseStatus = 'pendente' | 'confirmado' | 'recusado' | 'lista_espera'
 
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)

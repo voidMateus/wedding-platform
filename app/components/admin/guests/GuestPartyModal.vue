@@ -40,13 +40,25 @@ const props = withDefaults(defineProps<Props>(), { guestId: null, initialGroupId
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  /** Convidado (com acompanhantes/convite) salvo — o pai recarrega a listagem e fecha. */
+  /**
+   * Convidado (com acompanhantes/convite) salvo — o pai recarrega a listagem.
+   *
+   * Fechar NÃO é responsabilidade do pai: quem sabe que o salvamento deu certo
+   * é este componente, e deixar a decisão fora dele fez as duas telas
+   * divergirem. A Visão Geral fechava, o Modo Lista não — e ali a modal ficava
+   * aberta com o estado de antes de salvar, anunciando "o convite será criado"
+   * depois de o convite já ter sido criado. Um segundo clique em Salvar então
+   * falhava com "já pertence a outro convite", porque o formulário ainda
+   * pensava que não havia vínculo.
+   */
   saved: []
 }>()
 
 const { fetchGuestDetail, syncGuestParty } = useGuests()
 const { listGroups } = useGroups()
 const toast = useToast()
+/** Para o link do convite vinculado apontar para a tela de Convites deste casamento. */
+const slug = useActiveWeddingSlug()
 
 const { data: groupsData, refresh: refreshGroups } = listGroups({ pageSize: 100 })
 const groupOptions = computed(() => montarOpcoesDeGrupo(groupsData.value?.data ?? []))
@@ -58,19 +70,25 @@ const hasLoadError = ref(false)
 
 const primary = ref(emptyPerson())
 const companions = ref<CompanionEntry[]>([])
+/**
+ * Posição deste convidado na fila do núcleo. Era implícita e sempre zero, o
+ * que fazia salvar pela Maria reescrever "João e Maria" como "Maria e João" na
+ * lista inteira — ver `primaryPosition` em `guestPartySyncSchema`.
+ */
+const primaryPosition = ref(0)
 const removedGuestIds = ref<string[]>([])
-const hasExistingInvite = ref(false)
-const inviteDraft = ref<InviteDraft>({ criar: true, nome: '', observacoes: '' })
+/**
+ * O convite já vinculado, quando existe. `GET /api/guests/:id` sempre devolveu
+ * `invite: { id, nome }`, e o formulário guardava só um booleano para ESCONDER
+ * o bloco — então a tela sabia do vínculo e não contava a ninguém: nem o nome,
+ * nem o caminho para a tela de Convites.
+ */
+const inviteVinculado = ref<{ id: string; nome: string } | null>(null)
+const inviteDraft = ref<InviteDraft>({ criar: false, nome: '' })
 
 const primaryNameError = ref<string | null>(null)
 const isSubmitting = ref(false)
 const errorMessage = ref<string | null>(null)
-
-/**
- * O convite só se propõe quando há grupo para convidar e ainda não existe um.
- * Com um convite já vinculado, mexer nele é assunto da tela de Convites.
- */
-const mostrarConvite = computed(() => companions.value.length > 0 && !hasExistingInvite.value)
 
 /**
  * Repõe o formulário do zero a cada abertura.
@@ -88,9 +106,20 @@ function aplicarConvidado(detail: GuestDetail | null) {
     key: member.id,
     person: personFromGuest(member),
   }))
+  // Onde este convidado entra na fila: `partyMembers` vem ordenado por
+  // `ordem_nucleo` e sem ele, então a posição dele é quantos vêm antes.
+  primaryPosition.value = detail
+    ? (detail.partyMembers ?? []).filter((member) => member.ordem_nucleo < detail.ordem_nucleo)
+        .length
+    : 0
   removedGuestIds.value = []
-  hasExistingInvite.value = Boolean(detail?.invite)
-  inviteDraft.value = { criar: true, nome: '', observacoes: '' }
+  inviteVinculado.value = detail?.invite ?? null
+  // `criar: false` a cada abertura: virou ação pedida, não resposta já dada.
+  // Como caixa pré-marcada, o convite nascia sem ninguém escolher — e o casal
+  // que planeja os convites na tela de Convites (um cartão para uma família
+  // inteira, por exemplo) tinha de desmarcar para não acumular convite por
+  // núcleo cadastrado.
+  inviteDraft.value = { criar: false, nome: '' }
   primaryNameError.value = null
   errorMessage.value = null
 }
@@ -123,14 +152,21 @@ watch(
   { immediate: true },
 )
 
-// Sugere o nome do convite a partir do responsável, sem nunca sobrescrever o
-// que já foi digitado.
+// O nome do convite é DERIVADO do primeiro nome, e a linha de convite o mostra
+// antes de salvar para não haver surpresa. Não é mais um campo aqui: renomear é
+// assunto da tela de Convites, que é onde o convite se administra.
+//
+// Sem `if (inviteDraft.nome)` para travar: como ninguém digita mais nada aqui,
+// não existe valor do usuário a preservar — e travar deixaria o nome preso ao
+// primeiro rascunho, anunciando "Família Joao" depois de o campo virar "Maria".
 watch(
   () => primary.value.nomeCompleto,
   (nome) => {
-    if (inviteDraft.value.nome || !nome) return
     const primeiroNome = nome.trim().split(/\s+/)[0]
-    if (primeiroNome) inviteDraft.value = { ...inviteDraft.value, nome: `Família ${primeiroNome}` }
+    inviteDraft.value = {
+      ...inviteDraft.value,
+      nome: primeiroNome ? `Família ${primeiroNome}` : '',
+    }
   },
 )
 
@@ -150,17 +186,22 @@ async function salvar() {
     await syncGuestParty({
       primary: primary.value,
       companions: companions.value.map((entry) => entry.person),
+      primaryPosition: primaryPosition.value,
       removedGuestIds: removedGuestIds.value,
+      // Só quando pedido, e nunca sobre um convite que já existe: mexer no
+      // convite vinculado é assunto da tela de Convites.
       invite:
-        mostrarConvite.value && inviteDraft.value.criar
-          ? {
-              nome: inviteDraft.value.nome || 'Convite',
-              observacoes: inviteDraft.value.observacoes,
-            }
+        !inviteVinculado.value && inviteDraft.value.criar
+          ? { nome: inviteDraft.value.nome || 'Convite' }
           : undefined,
     })
     toast.success(isEditing.value ? 'Convidado atualizado.' : 'Convidado cadastrado.')
     emit('saved')
+    // Fecha aqui, e não no pai: ver a nota em `saved`. O formulário inteiro
+    // descreve o estado de ANTES do salvamento (o convite pedido, as chaves
+    // dos acompanhantes novos, a posição no núcleo), então deixá-lo aberto
+    // depois de gravar é deixar uma tela que mente.
+    emit('update:modelValue', false)
   } catch (err) {
     const apiError = err as { data?: { message?: string } }
     errorMessage.value = apiError.data?.message ?? 'Não foi possível salvar. Tente novamente.'
@@ -204,17 +245,23 @@ async function salvar() {
 
       <AdminGuestsGuestPartyCompanions
         v-model="companions"
+        v-model:primary-position="primaryPosition"
         :group-options="groupOptions"
         :primary-id="primary.id"
+        :primary-name="primary.nomeCompleto"
         class="border-t border-border pt-5"
         @group-created="() => refreshGroups()"
         @remove-existing="(guestId) => removedGuestIds.push(guestId)"
       />
 
+      <!-- Sem `v-if`: a linha existe sempre, porque o estado do vínculo é
+           informação em todos os casos — inclusive (e principalmente) quando já
+           existe convite, situação em que o bloco antigo desaparecia. -->
       <AdminGuestsGuestPartyInvite
-        v-if="mostrarConvite"
         v-model="inviteDraft"
         :party-size="companions.length + 1"
+        :invite-vinculado="inviteVinculado"
+        :wedding-slug="slug"
       />
     </div>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getApiErrorMessage } from '~/utils/api-error'
+import { rsvpAdminStatusSchema } from '#shared/schemas/rsvp'
 import type { InviteDetail } from '~/types/invite'
 
 // Rótulo e cor de cada status saem do mapa único
@@ -19,10 +20,42 @@ const emit = defineEmits<{
 }>()
 
 const { updateInvite, addGuestsToInvite, removeGuestFromInvite } = useInvites()
-const { listGuests, fetchGuestDetail } = useGuests()
+const { listGuests, fetchGuestDetail, setGuestRsvp } = useGuests()
 const toast = useToast()
 
 const isBusy = ref(false)
+
+/**
+ * Registrar a resposta de quem não usou o site — a avó que confirmou por
+ * telefone. Antes, `respostas_rsvp` só era escrita pelo fluxo do convidado, e
+ * quem nunca abriu o link ficava eternamente "pendente": o acompanhamento do
+ * casal funcionava só para convidado digital.
+ *
+ * Seletor discreto no lugar do badge, e não badge + botão: é um fato só, e o
+ * padrão de edição em linha desta plataforma já é esse (a coluna Categoria do
+ * Modo Lista). O estado consolidado colorido continua no topo da modal.
+ *
+ * `removido` fica fora das opções — ver `rsvpAdminStatusSchema`.
+ */
+const opcoesDeResposta = rsvpAdminStatusSchema.shape.status.options.map((status) => ({
+  value: status,
+  label: rsvpStatusPresentation(status).label,
+}))
+
+const guestSalvando = ref<string | null>(null)
+
+async function registrarResposta(guestId: string, status: string) {
+  if (!status) return
+  guestSalvando.value = guestId
+  try {
+    await setGuestRsvp(guestId, { status: status as (typeof opcoesDeResposta)[number]['value'] })
+    emit('changed')
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível registrar a resposta.'))
+  } finally {
+    guestSalvando.value = null
+  }
+}
 
 // Filtro por status. Só aparece quando há mais de um status entre os membros —
 // num convite em que todos estão pendentes ele não recortaria nada, e a barra
@@ -37,7 +70,7 @@ const showStatusFilter = computed(() => presentStatuses.value.size > 1)
 
 const statusChips = computed(() => [
   { value: 'todos', label: 'Todos' },
-  ...(['confirmado', 'pendente', 'recusado', 'lista_espera', 'removido'] as const)
+  ...(['confirmado', 'pendente', 'recusado', 'lista_espera'] as const)
     .filter((status) => presentStatuses.value.has(status))
     .map((status) => ({ value: status, label: rsvpStatusPresentation(status).label })),
 ])
@@ -46,6 +79,35 @@ const visibleMembers = computed(() =>
   statusFilter.value === 'todos'
     ? props.invite.members
     : props.invite.members.filter((member) => member.rsvpStatus === statusFilter.value),
+)
+
+/**
+ * Quem vem junto de quem, dentro deste convite.
+ *
+ * Um convite pode conter vários núcleos de Acompanhantes — três casais sob o
+ * mesmo cartão — e essa estrutura era invisível aqui: a lista mostrava seis
+ * nomes soltos. O núcleo existe justamente para dizer que dois deles são um
+ * par, e é a linha de corte natural se o casal precisar separar os cartões
+ * depois.
+ *
+ * Rótulo por linha, e não um agrupamento em blocos: o filtro de status acima
+ * pode esconder o meio de um núcleo, e uma moldura que dependa de as linhas
+ * estarem vizinhas passa a mentir na primeira filtragem.
+ *
+ * Sempre da lista COMPLETA (`invite.members`), nunca da filtrada: o rótulo
+ * descreve o núcleo, e filtrar por status não desfaz um casal. O índice serve
+ * de `ordem_nucleo` porque o servidor já devolve cada núcleo junto e na ordem
+ * dele (`ordenarMembrosDoConvite`). Pela MESMA função da listagem, para o
+ * casal ler o mesmo "João e Maria" nas duas telas.
+ */
+const rotulosDeNucleo = computed(() =>
+  montarRotulosDeNucleo(
+    props.invite.members.map((member, index) => ({
+      nucleo_id: member.partyId,
+      nome_completo: member.fullName,
+      ordem_nucleo: index,
+    })),
+  ),
 )
 
 // PATCH /api/invites/:id é sobrescrita total: os campos que este bloco não
@@ -173,9 +235,23 @@ async function confirmAdd() {
           <span v-if="member.isResponsible" class="shrink-0 text-xs text-text-muted">
             (Responsável)
           </span>
-          <UiBadge :tone="rsvpStatusPresentation(member.rsvpStatus).tone">
-            {{ rsvpStatusPresentation(member.rsvpStatus).label }}
-          </UiBadge>
+          <span
+            v-if="member.partyId"
+            class="inline-flex shrink-0 items-center gap-1 text-xs text-text-muted"
+            :title="`Acompanhantes: vêm sempre juntos neste convite`"
+          >
+            <Icon name="lucide:users" class="h-3.5 w-3.5" />
+            {{ rotulosDeNucleo.get(member.partyId) }}
+          </span>
+          <UiSelect
+            :model-value="member.rsvpStatus"
+            :options="opcoesDeResposta"
+            :disabled="isBusy || guestSalvando === member.id"
+            :aria-label="`Resposta de ${member.fullName}`"
+            variant="quiet"
+            class="w-36 shrink-0"
+            @update:model-value="(status) => registrarResposta(member.id, status)"
+          />
         </span>
         <span class="inline-flex shrink-0 items-center gap-1">
           <UiButton

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
-import { FAIXA_ETARIA_CHAVES, FAIXA_ETARIA_ROTULOS } from '#shared/utils/faixa-etaria'
+import { FAIXA_ETARIA_NAO_INFORMADA } from '#shared/utils/faixa-etaria'
+import type { FaixaEtariaChave } from '#shared/utils/faixa-etaria'
 import type { GuestListItem } from '~/types/guest'
 import { applyTableFilters } from '~/utils/table-rows'
 
@@ -11,7 +12,8 @@ const router = useRouter()
 const slug = useActiveWeddingSlug()
 const toast = useToast()
 
-const { deleteGuest, exportGuests, bulkUpdateGuests, getGuestOverview } = useGuests()
+const { deleteGuest, exportGuests, bulkUpdateGuests, groupGuestsAsParty, getGuestOverview } =
+  useGuests()
 const { listGroups } = useGroups()
 
 // A lista INTEIRA, não uma página: o agrupamento em blocos e os contadores
@@ -25,10 +27,8 @@ const { data: overview, refresh: refreshOverview } = getGuestOverview()
 const convidados = computed(() => data.value?.convidados ?? [])
 const grupos = computed(() => gruposData.value?.data ?? [])
 
-const { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo } = useGuestListModeColumns(
-  convidados,
-  grupos,
-)
+const { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo, rotuloDoConvite } =
+  useGuestListModeColumns(convidados, grupos)
 
 const filters = useTableFilters(colunas)
 
@@ -64,10 +64,16 @@ const rotuloDoPainel = computed(() => {
   return `${rotulo} · ${confirmados} confirmados`
 })
 
-/** Opções do seletor de categoria de cada linha e da ação em massa. */
-const opcoesDeCategoriaManual = computed(() =>
-  FAIXA_ETARIA_CHAVES.map((chave) => ({ value: chave, label: FAIXA_ETARIA_ROTULOS[chave] })),
-)
+/**
+ * Opções do seletor de categoria de cada linha e da ação em massa.
+ *
+ * Vem de `useAgeGroups`, nunca do catálogo de faixas: esta lista era montada
+ * aqui a partir de `FAIXA_ETARIA_CHAVES` e continuava oferecendo Adolescente e
+ * Idoso depois de o casamento desligar as duas em Configurações. Duas listas em
+ * paralelo para a mesma coisa é como uma delas fica errada sem nada acusar
+ * (CLAUDE.md, seção 13).
+ */
+const { manualOptions: opcoesDeCategoriaManual } = useAgeGroups()
 
 // --- blocos ---
 const recolhidos = ref<string[]>([])
@@ -139,8 +145,12 @@ async function comLote(acao: () => Promise<unknown>, mensagem: (total: number) =
     selecionados.value = []
     await recarregarTudo()
     toast.success(mensagem(total))
-  } catch {
-    toast.error('Não foi possível aplicar a alteração.')
+  } catch (err) {
+    // A mensagem do servidor, quando existe: agrupar recusa por motivos
+    // específicos (convites diferentes, rascunho na seleção) e "não foi
+    // possível" não diz o que fazer a respeito.
+    const apiError = err as { data?: { message?: string } }
+    toast.error(apiError.data?.message ?? 'Não foi possível aplicar a alteração.')
   } finally {
     aplicandoEmMassa.value = false
   }
@@ -158,9 +168,64 @@ function alterarCategoriaEmMassa(faixa: string) {
     () =>
       bulkUpdateGuests({
         ids: selecionados.value,
-        faixaEtariaManual: faixa as (typeof FAIXA_ETARIA_CHAVES)[number],
+        faixaEtariaManual: faixa as FaixaEtariaChave,
       }),
     (total) => `Categoria alterada em ${total}.`,
+  )
+}
+
+// --- agrupar como acompanhantes ---
+//
+// A confirmação só aparece quando a operação faz MAIS do que a seleção diz:
+// arrasta gente pelo núcleo, funde núcleos ou dá convite a quem não tinha.
+// Agrupar duas pessoas soltas é inequívoco, e um diálogo ali seria um clique
+// para confirmar exatamente o que se acabou de pedir.
+const previaDoAgrupamento = computed(() =>
+  montarPreviaDoAgrupamento(convidados.value, selecionados.value),
+)
+
+const precisaConfirmarAgrupamento = computed(() => {
+  const previa = previaDoAgrupamento.value
+  return (
+    previa.convitesDiferentes ||
+    previa.temRascunho ||
+    previa.arrastados > 0 ||
+    previa.nucleosFundidos > 0 ||
+    previa.ganhamConvite > 0
+  )
+})
+
+const impedimentoDoAgrupamento = computed(() => {
+  const previa = previaDoAgrupamento.value
+  if (previa.convitesDiferentes) {
+    return 'Essas pessoas estão em convites diferentes. Acompanhantes vão sempre no mesmo convite — junte os convites antes, ou agrupe só quem já está no mesmo.'
+  }
+  if (previa.temRascunho) {
+    return 'Quem está em consideração não entra em Acompanhantes — promova a convidado primeiro.'
+  }
+  return null
+})
+
+const isAgruparOpen = ref(false)
+
+function pedirAgrupamento() {
+  if (precisaConfirmarAgrupamento.value) {
+    isAgruparOpen.value = true
+    return
+  }
+  return agruparSelecionados()
+}
+
+function confirmarAgrupamento() {
+  isAgruparOpen.value = false
+  return agruparSelecionados()
+}
+
+function agruparSelecionados() {
+  const previa = previaDoAgrupamento.value
+  return comLote(
+    () => groupGuestsAsParty({ ids: selecionados.value }),
+    () => `${previa.total} pessoas agrupadas como acompanhantes.`,
   )
 }
 
@@ -188,7 +253,7 @@ async function definirCategoria(convidado: GuestListItem, faixa: string) {
   try {
     await bulkUpdateGuests({
       ids: [convidado.id],
-      faixaEtariaManual: (faixa || null) as (typeof FAIXA_ETARIA_CHAVES)[number] | null,
+      faixaEtariaManual: (faixa || null) as FaixaEtariaChave | null,
     })
     await refresh()
   } catch {
@@ -198,6 +263,20 @@ async function definirCategoria(convidado: GuestListItem, faixa: string) {
 
 function categoriaTravada(convidado: GuestListItem): boolean {
   return Boolean(convidado.data_nascimento)
+}
+
+/**
+ * Valor do seletor da linha: a faixa RESOLVIDA, não a que está gravada.
+ *
+ * As duas divergem quando o casamento desliga uma faixa: `faixa_etaria_manual`
+ * continua "adolescente" — de propósito, desligar é configuração do evento e
+ * não edição do cadastro das pessoas —, e a leitura resolve para a faixa que
+ * herdou o território. Passando o valor cru, o seletor não achava a opção e
+ * caía no placeholder, enquanto a coluna ao lado exibia a faixa herdada.
+ */
+function categoriaDaLinha(convidado: GuestListItem): string {
+  const chave = categorias.value.get(convidado.id)?.chave
+  return !chave || chave === FAIXA_ETARIA_NAO_INFORMADA ? '' : chave
 }
 
 const isFirstLoad = computed(() => status.value === 'pending' && !data.value)
@@ -429,7 +508,7 @@ async function confirmarExclusao() {
               <template #cell-faixa="{ row }">
                 <UiSelect
                   v-if="!categoriaTravada(row)"
-                  :model-value="row.faixa_etaria_manual ?? ''"
+                  :model-value="categoriaDaLinha(row)"
                   :options="opcoesDeCategoriaManual"
                   placeholder="—"
                   :aria-label="`Categoria de ${row.nome_completo}`"
@@ -455,14 +534,18 @@ async function confirmarExclusao() {
                    esperado — quem precisa ser visto de longe é quem ainda NÃO
                    tem convite. -->
               <template #cell-convite="{ row }">
-                <!-- `whitespace-nowrap` pelo mesmo motivo do badge de RSVP:
-                     "Sem convite" quebrava em duas linhas e engordava a linha
+                <!-- O ESTÁGIO do convite, não "Vinculado": saber que a pessoa
+                     tem convite não diz nada que o casal já não saiba — o que
+                     falta saber é se aquele convite foi enviado, aberto ou
+                     respondido. "Sem convite" continua como estava.
+
+                     `whitespace-nowrap` pelo mesmo motivo do badge de RSVP:
+                     "Não enviado" quebrava em duas linhas e engordava a linha
                      inteira. A coluna rola junto com a tabela se faltar
                      largura. -->
-                <UiBadge v-if="!row.convite_id" tone="warning" class="whitespace-nowrap">
-                  Sem convite
+                <UiBadge :tone="rotuloDoConvite(row).tone" class="whitespace-nowrap">
+                  {{ rotuloDoConvite(row).label }}
                 </UiBadge>
-                <span v-else class="text-xs text-text-muted">Vinculado</span>
               </template>
 
               <template #cell-rsvp="{ row }">
@@ -475,10 +558,6 @@ async function confirmarExclusao() {
                 >
                   {{ rsvpStatusPresentation(row.status_rsvp).label }}
                 </UiBadge>
-              </template>
-
-              <template #cell-observacao="{ row }">
-                <span class="text-text-muted">{{ row.observacoes || '—' }}</span>
               </template>
 
               <!-- Só a lixeira. O lápis foi um terceiro caminho para o mesmo
@@ -556,6 +635,7 @@ async function confirmarExclusao() {
           :todos-selecionados="todosSelecionados"
           @mover-para-grupo="moverParaGrupo"
           @alterar-categoria="alterarCategoriaEmMassa"
+          @agrupar="pedirAgrupamento"
           @excluir="isBulkDeleteOpen = true"
           @limpar="selecionados = []"
           @alternar-todos="alternarTodos"
@@ -589,6 +669,55 @@ async function confirmarExclusao() {
         <UiButton variant="ghost" @click="isDeleteModalOpen = false">Cancelar</UiButton>
         <UiButton variant="destructive" :disabled="isDeleting" @click="confirmarExclusao">
           {{ isDeleting ? 'Excluindo...' : 'Excluir' }}
+        </UiButton>
+      </template>
+    </UiModal>
+
+    <!-- Só aparece quando agrupar faz mais do que a seleção diz. O texto conta
+         cada efeito que o casal não pediu explicitamente, porque os dois que
+         existem mexem em dado já compartilhado com convidado: o núcleo de
+         alguém vem inteiro, e o convite passa a valer para quem não tinha. -->
+    <UiModal v-model="isAgruparOpen" title="Agrupar como acompanhantes">
+      <div class="flex flex-col gap-3 text-sm">
+        <p v-if="impedimentoDoAgrupamento" class="text-danger">
+          {{ impedimentoDoAgrupamento }}
+        </p>
+
+        <template v-else>
+          <p class="text-text">
+            <span class="num">{{ previaDoAgrupamento.total }}</span>
+            pessoas ficam como acompanhantes, num grupo só.
+          </p>
+          <ul class="flex list-disc flex-col gap-1 pl-5 text-text-muted">
+            <li v-if="previaDoAgrupamento.arrastados > 0">
+              <span class="num">{{ previaDoAgrupamento.arrastados }}</span>
+              {{ previaDoAgrupamento.arrastados === 1 ? 'entra' : 'entram' }} por já acompanhar
+              alguém que você marcou — quem vem junto não fica atrás.
+            </li>
+            <li v-if="previaDoAgrupamento.nucleosFundidos > 0">
+              <span class="num">{{ previaDoAgrupamento.nucleosFundidos }}</span>
+              grupos de acompanhantes viram um.
+            </li>
+            <li v-if="previaDoAgrupamento.ganhamConvite > 0">
+              <span class="num">{{ previaDoAgrupamento.ganhamConvite }}</span>
+              {{ previaDoAgrupamento.ganhamConvite === 1 ? 'entra' : 'entram' }} no convite de quem
+              já tinha, e com isso
+              {{ previaDoAgrupamento.ganhamConvite === 1 ? 'passa' : 'passam' }}
+              a poder responder ao RSVP.
+            </li>
+          </ul>
+        </template>
+      </div>
+      <template #footer>
+        <UiButton variant="ghost" @click="isAgruparOpen = false">
+          {{ impedimentoDoAgrupamento ? 'Fechar' : 'Cancelar' }}
+        </UiButton>
+        <UiButton
+          v-if="!impedimentoDoAgrupamento"
+          :disabled="aplicandoEmMassa"
+          @click="confirmarAgrupamento"
+        >
+          Agrupar
         </UiButton>
       </template>
     </UiModal>

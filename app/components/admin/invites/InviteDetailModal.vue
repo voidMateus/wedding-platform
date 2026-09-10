@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatarTempoDecorrido } from '#shared/utils/format-date'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { InviteDetail, InviteEvent } from '~/types/invite'
 
@@ -19,7 +20,7 @@ const emit = defineEmits<{
   changed: []
 }>()
 
-const { fetchInvite, fetchInviteTimeline, markInviteSent, setInviteArchived } = useInvites()
+const { fetchInvite, fetchInviteTimeline, setInviteSent, setInviteArchived } = useInvites()
 const { getWedding } = useWedding()
 const toast = useToast()
 
@@ -34,12 +35,13 @@ const isLoading = ref(false)
 const hasLoadError = ref(false)
 const isBusy = ref(false)
 
-const responsePresentation = computed(() =>
+/** "há 8 dias" no estágio atual — null em `not_sent`, onde nada aconteceu. */
+const tempoNoEstagio = computed(() => formatarTempoDecorrido(invite.value?.stageSince))
+
+const stagePresentation = computed(() =>
   invite.value
-    ? inviteResponsePresentation(invite.value.responseStatus, {
-        sent: invite.value.status_convite === 'enviado',
-      })
-    : { label: '', tone: 'neutral' as const },
+    ? inviteStagePresentation(invite.value.stage)
+    : { label: '', tone: 'neutral' as const, action: null },
 )
 
 async function load() {
@@ -86,15 +88,34 @@ async function handleChanged() {
   emit('changed')
 }
 
-async function markSent() {
+/**
+ * Marca ou desmarca o envio, nos dois sentidos e sem confirmação.
+ *
+ * Sem diálogo de propósito: desmarcar É a recuperação de um clique errado, e
+ * pedir confirmação para desfazer seria colocar atrito na frente do atrito.
+ * (Arquivar confirma porque tira o convite da listagem — aqui nada desaparece.)
+ *
+ * Vale notar o que desmarcar NÃO faz: se o convidado já abriu o convite, o
+ * estágio continua "Aberto", porque acesso é fato comprovado e envio é
+ * informação do casal. Desmarcar corrige o registro, não apaga o que aconteceu.
+ */
+async function toggleSent() {
   if (!invite.value) return
+  const marcando = !invite.value.enviado_em
   isBusy.value = true
   try {
-    await markInviteSent(invite.value.id)
-    toast.success('Convite marcado como enviado.')
+    await setInviteSent(invite.value.id, marcando)
+    toast.success(marcando ? 'Convite marcado como enviado.' : 'Marcação de envio desfeita.')
     await handleChanged()
   } catch (err) {
-    toast.error(getApiErrorMessage(err, 'Não foi possível marcar o convite como enviado.'))
+    toast.error(
+      getApiErrorMessage(
+        err,
+        marcando
+          ? 'Não foi possível marcar o convite como enviado.'
+          : 'Não foi possível desfazer a marcação de envio.',
+      ),
+    )
   } finally {
     isBusy.value = false
   }
@@ -150,21 +171,33 @@ async function toggleArchive() {
     <div v-else-if="invite" class="flex flex-col gap-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
-          <UiBadge :tone="responsePresentation.tone">
-            {{ responsePresentation.label }}
+          <!-- UM badge de estágio, não três empilhados. "enviado" saiu
+               porque virou estágio do funil; "arquivado" fica porque não é
+               estágio — é escopo, e um convite arquivado pode estar em
+               qualquer ponto do funil. A providência ao lado é o que o
+               estágio pede a seguir. -->
+          <UiBadge :tone="stagePresentation.tone">
+            {{ stagePresentation.label }}
           </UiBadge>
-          <UiBadge v-if="invite.status_convite === 'enviado'" tone="neutral">enviado</UiBadge>
+          <span v-if="stagePresentation.action" class="text-xs text-text-muted">
+            {{ stagePresentation.action }}
+          </span>
+          <span v-if="invite.memberCount" class="num text-xs text-text-muted">
+            {{ invite.respondedCount }} de {{ invite.memberCount }} responderam
+          </span>
+          <!-- Aqui os dois números convivem: no detalhe o espaço não é escasso,
+               e é onde o casal decide o que fazer com ESTE convite. -->
+          <span v-if="tempoNoEstagio" class="text-xs text-text-muted">
+            {{ tempoNoEstagio }}
+          </span>
           <UiBadge v-if="invite.arquivado_em" tone="neutral">arquivado</UiBadge>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <UiButton
-            v-if="invite.status_convite !== 'enviado'"
-            size="sm"
-            variant="ghost"
-            :disabled="isBusy"
-            @click="markSent"
-          >
-            Marcar como enviado
+          <!-- Sempre visível, nos dois sentidos: "enviado" é informação manual
+               do casal, e um clique errado ficava permanente — empurrando o
+               convite para um estágio falso do funil sem caminho de volta. -->
+          <UiButton size="sm" variant="ghost" :disabled="isBusy" @click="toggleSent">
+            {{ invite.enviado_em ? 'Desmarcar envio' : 'Marcar como enviado' }}
           </UiButton>
           <UiButton
             size="sm"

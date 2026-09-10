@@ -1,24 +1,9 @@
 import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
-import type { Invite, InviteListItem, InviteResponseStatus } from '~/types/invite'
+import type { Invite, InviteListItem } from '~/types/invite'
 
-/**
- * A view devolve o status em português, porque é coluna de banco; o DTO da
- * listagem é inglês desde sempre — campo computado de exibição, não espelho de
- * uma linha de tabela (CLAUDE.md, seção 6). A tradução mora aqui, nos dois
- * sentidos: o filtro chega no vocabulário do client e vira o do banco.
- */
-const STATUS_FROM_VIEW: Record<string, InviteResponseStatus> = {
-  pendente: 'pending',
-  parcial: 'partial',
-  respondido: 'responded',
-}
-
-const STATUS_TO_VIEW: Record<InviteResponseStatus, string> = {
-  pending: 'pendente',
-  partial: 'parcial',
-  responded: 'respondido',
-}
+// A tradução do estágio (banco <-> DTO) vive em server/utils/invite-stage.ts:
+// o detalhe do convite precisa da mesma, e antes ele reimplementava a regra.
 
 /**
  * Ordenação pedida pela coluna correspondente da tabela do admin. "Responsável"
@@ -41,7 +26,7 @@ const querySchema = paginationQuerySchema(25).extend({
    * carregada.
    */
   archived: z.enum(['active', 'archived', 'all']).default('active'),
-  responseStatus: queryList(z.enum(['pending', 'partial', 'responded'])),
+  stage: queryList(z.enum(['not_sent', 'sent', 'opened', 'partial', 'responded'])),
   sort: z.enum(['nome', 'pessoas', 'enviado']).optional(),
   dir: z.enum(['asc', 'desc']).default('asc'),
 })
@@ -53,7 +38,7 @@ export default defineEventHandler(async (event) => {
     pageSize = 25,
     search,
     archived,
-    responseStatus,
+    stage,
     sort,
     dir,
   } = validateQuery(event, querySchema)
@@ -80,11 +65,10 @@ export default defineEventHandler(async (event) => {
   if (search) {
     query = query.ilike('nome', `%${search}%`)
   }
-  if (responseStatus?.length) {
-    query = query.in(
-      'status_resposta',
-      responseStatus.map((status) => STATUS_TO_VIEW[status]),
-    )
+  if (stage?.length) {
+    // No banco, antes de paginar: recortar no client filtraria só os 25 da
+    // página — é por isso que o estágio é derivado na view e não na tela.
+    query = query.in('status_operacional', stage.map(inviteStageToView))
   }
 
   // Ordem padrão continua sendo o mais recente primeiro — `sort` ausente não
@@ -125,8 +109,7 @@ export default defineEventHandler(async (event) => {
     // `convites`, onde id/nome/casamento_id são NOT NULL — o resto do objeto é
     // uma linha de convite com três colunas derivadas a mais, que ficam aqui e
     // não no DTO.
-    const { total_membros, total_respondidos, status_resposta, ...invite } = row
-    void total_respondidos
+    const { total_membros, total_respondidos, status_operacional, estagio_desde, ...invite } = row
 
     return {
       ...(invite as unknown as Invite),
@@ -134,7 +117,9 @@ export default defineEventHandler(async (event) => {
         ? (responsibleNameById.get(invite.convidado_responsavel_id) ?? null)
         : null,
       memberCount: total_membros ?? 0,
-      responseStatus: STATUS_FROM_VIEW[status_resposta ?? 'pendente'] ?? 'pending',
+      respondedCount: total_respondidos ?? 0,
+      stage: inviteStageFromView(status_operacional),
+      stageSince: estagio_desde,
     }
   })
 

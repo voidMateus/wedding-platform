@@ -24,6 +24,13 @@ export const INVITE_EVENT_PRESENTATION: Record<InviteEventType, InviteEventPrese
   },
   'token.generated': { label: 'Link de acesso gerado', icon: 'lucide:key', tone: 'muted' },
   'token.sent': { label: 'Convite marcado como enviado', icon: 'lucide:send', tone: 'muted' },
+  // O desmarcar tambem e historia: o casal corrigiu um clique errado, e o
+  // log append-only existe para preservar a correcao, nao para esconde-la.
+  'token.unsent': {
+    label: 'Marcacao de envio desfeita',
+    icon: 'lucide:undo-2',
+    tone: 'muted',
+  },
   'rsvp.first_access': {
     label: 'Convite aberto pela primeira vez',
     icon: 'lucide:eye',
@@ -49,7 +56,6 @@ const RSVP_STATUS_PRESENTATION: Record<string, InviteEventPresentation> = {
   recusado: { label: 'não poderá ir', icon: 'lucide:x-circle', tone: 'danger' },
   lista_espera: { label: 'entrou na lista de espera', icon: 'lucide:clock', tone: 'muted' },
   pendente: { label: 'voltou para pendente', icon: 'lucide:rotate-ccw', tone: 'muted' },
-  removido: { label: 'foi removido do convite', icon: 'lucide:user-minus', tone: 'muted' },
 }
 
 // `tipo_evento` é texto livre no banco (log append-only, sem CHECK): um evento

@@ -25,7 +25,7 @@ const MEMBROS: InviteMember[] = [
     id: 'guest-1',
     fullName: 'Ana Souza',
     nickname: null,
-    partyOrder: 0,
+    partyId: null,
     isResponsible: true,
     rsvpStatus: 'confirmado',
   },

@@ -737,3 +737,196 @@ O botão passou a ser o atalho em destaque, e esse destino sai da lista de links
 Isso trouxe um problema de espaço: o rótulo do catálogo é escrito para o Hero, e "Ver lista de presentes" empurrava o nome do casal para as reticências. Daí o `navLabel` — o mesmo atalho tem nomes diferentes conforme o espaço: no Hero é um convite ("Ver lista de presentes"), na barra é um rótulo ("Presentear"). Vale também para "Manual dos padrinhos"→"Padrinhos" e "Perguntas frequentes"→"Dúvidas".
 
 **A barra também encolheu** (69 → 61px), a pedido: a primeira tela já traz os cinco destinos do menu mais os atalhos do Hero, e a faixa alta empurrava o nome do casal para baixo sem acrescentar nada. O piso é a área de toque do maior filho (44px) mais o respiro — abaixo disso o alvo do menu ficaria menor que o mínimo acessível.
+
+## Fase Acompanhantes (2026-09-10)
+
+A pergunta que abriu a fase foi do usuário: "vamos pensar como será os Núcleos". O levantamento respondeu antes de qualquer proposta: `nucleos_acompanhantes` estava implementado no banco e no cadastro, e **quase não existia como produto** — duas capacidades prontas e desligadas (`PATCH /api/guests/party/reorder`, com endpoint e composable e zero chamadores; o botão "Adicionar ao núcleo" da barra de seleção renderizado `disabled`), e nenhuma tela.
+
+**A pergunta que decidiu o resto: o que o núcleo dá que o convite não dá?** `sincronizar_nucleo_convidado()` já empurrava o núcleo inteiro para um convite só, então a suspeita de conceito redundante era legítima. Duas respostas sobreviveram, e são as que justificam mantê-lo: (1) o núcleo existe **antes** de qualquer convite — `convite_id` é nullable, e durante a montagem da lista ele é o único lugar onde cabe "esses dois vão juntos"; (2) convite não tem sub-estrutura — `grupos` tem subdivisão de um nível, `convites` não tem nenhuma, e um cartão com seis pessoas pode conter três casais. Isso definiu o que ele é: **estrutura interna, não eixo de organização.**
+
+**A tela de Núcleos foi descartada, não adiada.** Grupos e Convites têm tela porque o casal os nomeia e administra; o núcleo não tem nome gravado por decisão anterior, e o rótulo dele muda quando alguém entra ou sai. Uma tela listando linhas sem nome, cujo título se mexe sozinho, não serve de referência ("qual daqueles era o que eu editei ontem?"). O item saiu do roadmap com o motivo escrito.
+
+Três decisões do usuário fecharam o desenho: núcleo **não** atravessa convites ("se vão em convites diferentes, eles deixaram de ser convidados juntos"); seleção que pega núcleos diferentes **funde tudo num só, avisando antes**; e na UI o conceito se chama sempre "Acompanhantes", com "núcleo" só no código.
+
+### Achado: a ordem do núcleo virava sozinha ao editar outro membro
+
+`ordem_nucleo = 0` era atribuído a quem estava sendo editado. Como o rótulo derivado usa os dois primeiros nomes por essa ordem, abrir o cadastro da Maria e salvar reescrevia "João e Maria" como "Maria e João" **na lista inteira**, sem ninguém ter pedido — e na mesma coluna que o casal usa para ordenar e filtrar.
+
+A correção não foi só preservar a ordem: foi tornar a posição **visível e informada**. O bloco de Acompanhantes passou a mostrar a fila do núcleo completa, com o convidado do próprio cadastro como uma linha igual às outras — que é o que "agrupamento simétrico" sempre significou e a tela nunca mostrou. A posição dele viaja como `primaryPosition` (`guestPartySyncSchema`), e o bloco exibe a prévia do rótulo ("Na lista, aparece como João e Maria") pela **mesma** função da listagem, nunca por uma segunda regra.
+
+Consequência: `PATCH /api/guests/party/reorder` foi **removido**. Nunca teve chamador porque a ordem sempre foi gravada pelo próprio cadastro; dois caminhos para escrever a mesma coisa, um deles morto, é como o errado acaba ligado depois.
+
+### Achado: núcleo de uma pessoa, e linha órfã que nada apagava
+
+Remover o único acompanhante (ou excluí-lo) deixava o sobrevivente num núcleo sozinho, rotulado só "João" e listado no filtro como se agrupasse algo. E **nada no código nunca apagou uma linha de `nucleos_acompanhantes`** — a FK é `on delete set null`, então dissolver sempre custou um DELETE, só nunca acontecia.
+
+`normalizar_nucleo_acompanhantes()` fechou os dois lados: dissolve o núcleo com menos de dois membros e adensa `ordem_nucleo` a partir de 0. O caso que faltava em todas as versões anteriores era o núcleo de **origem** de quem foi movido para outro núcleo — mover alguém deixava atrás exatamente o núcleo de um que a função agora dissolve.
+
+### Achado: `ordem_nucleo` ordenava um convite
+
+`server/api/invites/[id].get.ts` e `server/utils/rsvp-invite-payload.ts` ordenavam os membros por `ordem_nucleo`. A coluna é posição **dentro** de um núcleo: com dois núcleos no mesmo convite a sequência era 0,1,0,1, e com gente sem núcleo era 0 para todos (o índice único é parcial, `where nucleo_id is not null`). Ordem arbitrária com cara de intencional, nos dois lugares.
+
+`ordenarMembrosDoConvite()` mantém cada núcleo junto e ordena os blocos pelo nome de quem vem primeiro em cada um — quem não tem núcleo é um bloco de um, entrando na mesma ordem alfabética. Resolvido em TypeScript porque a chave é o nome do primeiro membro do núcleo, que o PostgREST não expressa, e a lista de um convite tem punhado de linhas. O DTO trocou `partyOrder` (que ninguém lia) por `partyId`, e a tela do convite passou a exibir o rótulo do núcleo por linha — por linha, e não moldura em bloco, porque o filtro de status pode esconder o meio de um núcleo e uma moldura que dependa de adjacência mente na primeira filtragem.
+
+### Achado: o desempate do merge era um uuid
+
+Primeira execução do E2E de agrupamento: o teste esperava "Joao e Maria +2" e não achou. A causa não era o teste — com dois núcleos de tamanho igual, `order by count(*) desc, nucleo_id` decidia quem sobrevivia por comparação de uuid, e o rótulo do grupo na tela mudava conforme um valor aleatório. O desempate passou a ser o núcleo mais **antigo**. É o tipo de arbitrariedade que só aparece quando se olha a tela: nenhuma asserção de banco teria reclamado.
+
+### Achado (reportado pelo usuário, no meio da fase): o seletor de categoria ignorava as faixas desligadas
+
+"Lá na config de faixa etária eu tirei o adolescente e idoso, mas na opção de dropdown continua aparecendo."
+
+Duas listas montavam as opções a partir do **catálogo** da plataforma (`FAIXA_ETARIA_CHAVES`, sempre as quatro) em vez das faixas **ativas** do evento: `useAgeGroups#manualOptions`, que alimenta as pílulas de Categoria do cadastro, e uma lista própria montada dentro de `lista.vue` — o caso exato que CLAUDE.md seção 13 descreve ao proibir uma segunda lista em paralelo. O filtro por coluna já usava as faixas ativas e estava correto, o que explica o sintoma aparecer só nos dois seletores de escrita.
+
+O conserto tem duas metades. As opções passaram a vir de `faixas` (as ativas, na ordem do evento) e a lista duplicada da página foi apagada. E o **valor exibido** passou a ser a faixa resolvida, não a gravada: `faixa_etaria_manual` continua "adolescente" de propósito — desligar é configuração do evento, não edição do cadastro das pessoas —, então o seletor recebia um valor ausente das próprias opções e caía no placeholder, enquanto a coluna ao lado exibia a faixa herdada. Nos dois lugares o dado gravado segue intacto: mostrar o equivalente é leitura, e só uma escolha explícita do casal grava algo.
+
+### Achado: a tela do painel rolava para um vazio enorme abaixo do conteúdo
+
+Reportado pelo usuário em 2026-09-10, na lista de convidados: "a tela rola infinitamente". Medido no navegador antes de qualquer conserto — `window.scrollTo(0, 99999)` levava o `scrollY` a 4688, com `documentElement.scrollHeight` em 5646 contra 958 de viewport.
+
+A causa não estava na tabela: a grade tem `max-height: 60vh` e conta 574px, contendo suas ~5400px de linhas corretamente. O que vazava eram os **rótulos acessíveis das ações de linha**. `sr-only` do Tailwind é `position: absolute`, e um absoluto sem nenhum ancestral posicionado tem como bloco contêiner o bloco contêiner **inicial** — escapa de qualquer `overflow` no caminho e se assenta na posição estática dele no documento. A cadeia do span até a `<table>` era `static` inteira. O último rótulo, na linha 196, ficava a 5646px do topo: exatamente a altura de rolagem que o documento passava a ter.
+
+`relative` no botão do `AdminRowAction` resolve na raiz — o span passa a resolver contra o próprio botão, 1px dentro da linha, e a grade volta a cortá-lo. Depois: `scrollHeight` 958 = `clientHeight` 958, `scrollY` 0.
+
+**Achado colateral, não corrigido:** o `overflow: hidden` que o layout do admin põe no `<body>` (com o comentário "sem travar aqui ele ainda rolava") **não** trava mais nada. `main.css` põe `overflow-x: hidden` no `html` — de propósito, para blindar elementos off-canvas —, o que faz o `overflow-y` do `html` computar `auto` e torna o `html` o contêiner de rolagem do viewport. A partir daí o `overflow` do `body` deixa de propagar para o viewport: ele só recorta o conteúdo do próprio body, e absolutos/fixos ancorados no bloco contêiner inicial vazam para a área de rolagem do `html`. O lugar certo da trava é `html`, não `body` — o que a própria nota de `main.css` já dizia sobre `overflow-x` e vale igual para o vertical. Fica registrado porque mover a trava afeta todas as páginas do painel e o site público, e o defeito reportado já está resolvido na raiz.
+
+O teste que guarda isso (`tests/e2e/rolagem-do-painel.spec.ts`) semeia 60 convidados de propósito: com poucos, a grade caberia na tela e a asserção passaria mesmo com o defeito de volta. Ele afirma a promessa (o documento não rola) e não a correção, então continua valendo para o próximo elemento absoluto que alguém acrescentar — verificado falhando com `scrollY: 3162` ao remover o `relative`.
+
+### O bloco de convite do cadastro virou uma linha de estado com uma ação
+
+Proposta do usuário: "ao invés de ser um bloco com checkbox, poderíamos fazer algo como função — um botão de criar convite que crie e já vincula, assim na modal do convidado deixa de aparecer dados que poderiam ser editados apenas na tela de convite, e sim apenas um sinal de vínculo que pode direcionar o usuário lá para Convites".
+
+O que decidiu a forma foi notar que **o mesmo formulário já tem esse padrão**: "Criar novo grupo", no bloco da pessoa, cria o grupo na hora, põe a referência no rascunho e deixa o formulário salvar só o vínculo. O convite passa a ser a mesma coisa.
+
+E o levantamento achou uma falta maior que os campos sobrando: com o convidado **já vinculado**, o bloco desaparecia inteiro. O cadastro não dizia que existia vínculo, nem a quê, nem como chegar lá — apesar de `GET /api/guests/:id` sempre ter devolvido `invite: { id, nome }`. O formulário sabia e guardava só um booleano, para esconder o bloco.
+
+A linha agora existe **sempre**, em três estados: vinculado (nome + caminho para Convites), sem convite (o motivo — sem convite não há RSVP — e o botão que o pede) e pedido (o nome que vai nascer, e como desfazer). `nome` e `observações` saíram: são dados do convite, e pedir "observações internas de um convite" a quem está cadastrando uma pessoa nunca fez sentido. O nome é derivado do primeiro nome e renomear é assunto de Convites.
+
+Duas decisões do usuário fecharam o desenho, e uma delas contra a minha primeira inclinação:
+
+- **Criar no Save, não no clique.** Eu tinha recomendado criar na hora, por consistência com o grupo; o usuário escolheu a transação única. É a escolha melhor: cancelar o cadastro depois de pedir o convite não deixa convite vazio para trás — o que "Criar novo grupo" ainda faz.
+- **A linha aparece também para quem está sozinho.** Antes ela só existia com acompanhantes, então quem cadastrava uma pessoa só não via nada sobre convite e ficava sem poder responder, sem nada na tela dizendo por quê.
+
+Mudança de comportamento deliberada: criar o convite passou a ser **ação pedida, não resposta já dada**. Como caixa pré-marcada, nascia um convite por núcleo cadastrado mesmo para o casal que planeja os convites na tela de Convites — um cartão para uma família inteira, por exemplo — que tinha de desmarcar para não acumular.
+
+E a dica do campo que sumiu dizia "Como **o grupo** aparece na tela de Convites". Grupo é outro conceito, com tela própria, e existe um campo Grupo no mesmo formulário poucos centímetros acima — exatamente a confusão entre os três conceitos que CLAUDE.md seção 12 proíbe, escrita em texto visível.
+
+### Achado: no Modo Lista, salvar o cadastro deixava a modal aberta com o estado de antes
+
+Reportado pelo usuário no mesmo dia da mudança acima: "quando eu marco para criar o convite no save ele apresenta para mim que será criado, mas ao clicar em salvar a modal não atualiza e fica ainda apresentando que ainda será criado o convite".
+
+A causa não era a linha de convite: **fechar era decisão do pai**, e as duas telas que montam a mesma modal divergiam. A Visão Geral fazia `recarregarTudo()` e depois `closeGuestModal()`; o Modo Lista tinha só `@saved="recarregarTudo"` e nunca fechava. Nessa tela o formulário inteiro continuava descrevendo o estado anterior ao salvamento — o convite pedido, as chaves dos acompanhantes recém-criados, a posição no núcleo.
+
+E o sintoma visual era o menor dos problemas: um segundo clique em Salvar reenviava `invite` sem id, porque o formulário ainda achava que não havia vínculo — e a função recusava com `GUEST_ALREADY_IN_ANOTHER_INVITE`, que na tela vira "Um dos acompanhantes já pertence a outro convite". Erro incompreensível para quem só clicou em salvar duas vezes.
+
+Fechar passou a ser da modal, que é quem sabe que o salvamento deu certo: ela emite `saved` (o pai recarrega) e em seguida `update:modelValue: false`. Os dois pais já tratavam esse evento para limpar `?editar` da URL, então nenhum precisou de caminho novo — e nenhum pode mais esquecer de fechar. É a mesma classe de divergência do lápis da linha, resolvida da mesma forma: a decisão vai para onde a informação está, não para cada tela.
+
+## Fase Status do Convite (2026-09-10)
+
+Pedido do usuário: "vamos dar uma melhorada nos status dos convites, me cita quais são hoje e vamos repensar". O levantamento achou **quatro coisas independentes** funcionando como status, e só uma se chamando "Status" na tela: `convites.status_convite` (`pendente`/`enviado`, marcado à mão), o `status_resposta` derivado na view, `arquivado_em` e `excluido_em`. A coluna Status mostrava só a segunda; o modal empilhava três badges; e "abriu e não respondeu" — o dado mais acionável que existe — ficava enterrado na Linha do Tempo.
+
+O usuário escreveu então um documento de remodelagem completo e pediu validação. Ele estava certo, e o código confirmou três coisas que ele supunha piores do que eram:
+
+- **A origem da resposta já estava modelada.** `salvar_rsvp_convidado` tem `p_origem` e **já aceitava `'admin_panel'`**, com `'public_site'` como default, gravando em `historico_convite.metadados.source`. "Resposta manual como cidadã de primeira classe" não precisava de conceito novo.
+- **O envio já era um fato.** `send.post.ts` já gravava `token.sent` no histórico. Logo `status_convite` era a **terceira** representação do mesmo acontecimento (coluna + timestamp + evento), não a segunda.
+- **"Aberto" saiu de graça.** `rsvp.first_access` é gravado por convite, não por convidado — então "João abriu, Maria não → Aberto" é literalmente o que o dado já diz, e não precisou de coluna nova. Eu ia propor criar uma; o usuário evitou isso ao insistir em derivar dos fatos.
+
+E três que eram piores:
+
+- **"Registrar resposta" não existia.** `respostas_rsvp` era escrita em um lugar só, chamado apenas pelo caminho do convidado. Era a maior peça do documento, e é ela que faz o funil valer para a lista inteira em vez de só para convidado digital.
+- **Derivar "dos fatos" tinha de significar derivar em SQL.** O recorte por status é do endpoint, antes de paginar; calculado no navegador, o filtro voltaria a recortar só os 25 da página — o bug que a view `convites_com_resumo` foi criada para matar.
+- **"Todos possuem resposta" precisava definir "resposta".** A view contava tudo que fosse `<> 'pendente'`, o que inclui `lista_espera` e `removido`.
+
+### O funil
+
+`nao_enviado -> enviado -> aberto -> parcial -> respondido`, o estágio mais avançado alcançado, derivado em `convites_com_resumo.status_operacional`. Cada estágio implica os anteriores, então a coluna Status mostra um e o modal mostra um badge — os três empilhados viraram um, e "enviado" deixou de ser badge porque virou estágio.
+
+**"Aberto" passa na frente de "Enviado" de propósito**, e é o detalhe que salva o funil: "Enviado" é só o casal informando que mandou, e mente sempre que esquecem de marcar. "Aberto" é o único estágio comprovado pelo sistema — se alguém acessou, o convite chegou. O estágio avança sozinho e corrige o flag manual.
+
+### Duas decisões que ficaram comigo
+
+O usuário não respondeu duas perguntas antes de mandar desenvolver, então assumi e registrei: **`lista_espera` conta como resposta** (o convidado deu retorno; quem segura é o casal — e é o comportamento que já existia, então nada mudou em silêncio), e **a fração "3 de 5" é o único dado de apoio da célula**, exibida só em `parcial`/`respondido`, onde muda a providência. Antes de existir resposta ela seria "0 de 5" em toda linha, um número que não distingue nada.
+
+Discordei de um ponto do documento: ele propunha "Respondido · 5 de 5 · 2 respostas manuais" na listagem. O redesenho existe para acabar com badges concorrentes, e o terceiro pedaço é um badge concorrente com passos extras — a origem não muda providência nenhuma na lista. Ela fica no detalhe e na Linha do Tempo, onde já estava.
+
+### O caminho da avó
+
+O teste que descreve a regra melhor que qualquer frase: convite em papel, nunca abriu o site, confirmou por telefone. A resposta é registrada pelo casal e o convite vai **direto** a `respondido`, sem passar por `aberto` — e sem que nenhum evento de acesso seja inventado. Nenhum estágio exige jornada digital.
+
+`removido` ficou fora do seletor de resposta manual: é valor morto do vocabulário (nada no produto o grava, "Remover do convite" só desfaz o vínculo, e o fluxo do convidado o lê como pendente). Oferecê-lo o faria contar como resposta, e um convite sem ninguém confirmado passaria a dizer "respondido".
+
+O prazo de RSVP deliberadamente **não** se aplica ao caminho do casal — ele é checado na camada de API do convidado, nunca dentro da função. Depois do prazo é exatamente quando se está ligando para quem não respondeu.
+
+### Achado colateral: o detalhe do convite reimplementava a regra
+
+`invites/[id].get.ts` calculava o status consolidado em TypeScript (`computeResponseStatus`), uma segunda implementação do que a view já decidia. Com o funil a divergência seria imediata: a versão em TS não sabia nada sobre "aberto". Passou a ler da própria view, e a tradução banco↔DTO virou `server/utils/invite-stage.ts`, compartilhada pelos dois endpoints.
+
+`convites.status_convite` ficou obsoleta — nada a lê ou escreve. A remoção não entrou na mesma migration de propósito: as migrations são aplicadas em prod no merge, em paralelo com o deploy da Vercel, e existe uma janela em que o código antigo roda contra o schema novo. Registrada no roadmap.
+
+### Verificação
+
+A regra do funil foi validada contra o banco de dev antes de qualquer teste automatizado, com um script descartável que exercita os cinco estágios manipulando os fatos — inclusive os dois casos que mais importam: "aberto sem envio" (o flag manual se corrigindo) e "a avó direto a respondido". Onze checagens, todas verdes. A cobertura permanente é integração (14 casos, que é o que roda no CI), unitário para o mapa de estágios e um E2E que prova a fiação da tela.
+
+### Rodada seguinte: desmarcar envio, e a coluna Convite dizendo o estágio
+
+Dois pedidos do usuário logo depois do funil entrar.
+
+**"Depois de marcar como Enviado, tem que ter uma opção para voltar o status, pois vai que a pessoa clica sem querer."** Defeito real, e eu já o tinha anotado no levantamento sem consertar: `status_convite` só ia numa direção. "Enviado" é o único estágio do funil que é **informação manual** — o sistema não comprova entrega nenhuma —, então um clique errado empurrava o convite para um estágio falso sem caminho de volta pela interface. O endpoint passou a aceitar os dois sentidos (`{ sent: boolean }`, mesmo desenho de arquivar/desarquivar, pelo mesmo motivo: registro reversível do casal, não fato comprovado), e o botão alterna. Sem diálogo de confirmação de propósito: desmarcar **é** a recuperação de um clique errado, e pedir confirmação para desfazer seria colocar atrito na frente do atrito.
+
+Desmarcar não reescreve história: quem já abriu o convite continua em `aberto`, porque acesso é fato comprovado e envio é informação do casal. E os dois sentidos entram na Linha do Tempo (`token.sent`/`token.unsent`) — o log é append-only justamente para preservar a correção, não para escondê-la.
+
+**"O status da coluna Convite precisa ser o status do convite de fato."** A célula dizia "Vinculado", que é a informação menos útil possível: o casal já sabe que a pessoa tem convite. O que falta saber é se aquele convite foi enviado, aberto ou respondido. `/api/guests` passou a devolver `inviteStage` por linha (segunda consulta a `convites_com_resumo`, em vez de pendurar o funil na view da lista — duas views que mudam por motivos diferentes não devem se acoplar), e a coluna exibe o estágio. "Sem convite" continua como estava, e ordena **primeiro**: é o mais urgente do funil, porque sem convite não dá nem para enviar.
+
+A ordenação da coluna passou a ser pelo funil, não pelo alfabeto — "Aberto" antes de "Enviado" não quer dizer nada.
+
+E a coluna **Observação saiu** da lista, a pedido, para dar espaço: era a única cujo conteúdo não cabia numa célula e não recortava nem ordenava nada.
+
+### Não resolvido: o scroll horizontal da tabela
+
+O usuário reportou "está bugando bastante esse scroll horizontal", com print da Visão Geral mostrando barra horizontal cujo polegar ocupa quase toda a pista — ou seja, um excedente pequeno.
+
+**Medido, e não reproduzido.** Com 40 convidados mais um núcleo, em 1920/1600/1440/1280px, `scrollWidth === clientWidth` nas duas telas: excedente zero. E o `min-content` da tabela é **616px** na Visão Geral e **881px** no Modo Lista, muito abaixo de qualquer largura de desktop — então a tabela tem folga de sobra para encolher, e o conteúdo não pode ser a causa nessas larguras. Forçar barra de rolagem clássica no Chromium (`--disable-features=OverlayScrollbar`) também não produziu excedente.
+
+Duas coisas que o print sugere e o ambiente daqui não tem: barras de rolagem **clássicas** (as do print têm setas, estilo Windows, e consomem largura) e possivelmente zoom ou escala de tela diferente de 100%. A hipótese que sobra é a interação entre os dois eixos de `overflow: auto` da mesma caixa — a barra vertical consome largura e faz a horizontal aparecer —, cujo conserto seria `scrollbar-gutter: stable` na `.table-scroll`. Não aplicado: seria consertar no escuro algo que nunca reproduzi, e o número do usuário resolve a dúvida em um minuto.
+
+### Três acabamentos, e uma dívida que já estava paga
+
+Pedido do usuário depois de eu enumerar o que ainda caberia na branch: tempo no estágio, a corrida do filtro debounced e limpar o `removido`. A tela do rascunho "Em consideração" foi **descartada por ora** — decisão dele, registrada no roadmap como decisão e não como pendência.
+
+**Tempo no estágio.** `convites_com_resumo.estagio_desde` devolve o timestamp do fato que define o estágio atual, espelhando o mesmo `CASE` do `status_operacional` no mesmo `SELECT` — é o que garante que os dois nunca divirjam. Cada estágio tem o seu fato: *Enviado* usa `enviado_em`, *Aberto* usa o **primeiro** acesso (`min` do log, não `limit 1`), *Parcial* e *Respondido* usam a resposta **mais recente**, porque a pergunta é há quanto tempo nada acontece — a primeira resposta pode ser de um mês atrás num convite que recebeu outra ontem. *Não enviado* fica nulo: não existe "há N dias sem nada ter acontecido".
+
+Na listagem entrou **um** dado de apoio por estágio, e é o estágio que decide qual: tempo em *Enviado*/*Aberto* (onde a fração seria "0 de 5" em toda linha da tela) e fração em *Parcial*/*Respondido* (onde ela diz quantos faltam). Foi a única forma de atender o §13 da proposta sem reintroduzir o empilhamento que o redesenho eliminou; no detalhe do convite, onde espaço não é escasso, os dois aparecem.
+
+O formatador (`formatarTempoDecorrido`) conta dias corridos, não de calendário — para "quanto tempo faz", 23h de ontem e 1h de hoje são a mesma coisa. E vira mês só a partir de 60 dias, porque "há 45 dias" diz mais que "há 1 mês". **O teste pegou um defeito meu na primeira execução:** com esse corte, o ramo `'há 1 mês'` é inalcançável (60 dias já dão 2 meses). Ramo morto removido, com a razão escrita — ramo morto é o que faz alguém acreditar que um caso está tratado quando ele nunca acontece.
+
+**A corrida do filtro debounced: eu concluí errado, e a medição seguinte me corrigiu.**
+
+Primeira medição, com a máquina folgada: não reproduzia. A URL chegava a `?editar=…&nome=Beat` com o campo intacto, e `applyQuery` de fato monta o destino a partir de `route.query` no flush, preservando as chaves alheias. Conclui que a dívida estava paga e a fechei.
+
+Rodando a suíte inteira em 4 workers, ela falhou — e o sintoma era exatamente o descrito na dívida: **o modal não abre**. O mecanismo, que a primeira medição não podia revelar: o clique dispara `router.push` com `?editar=<id>` e, com essa navegação ainda em voo, o `router.replace` do filtro **aborta** a anterior. O Vue Router cancela a navegação pendente e o `editar` nunca chega. Não é retrato velho de query, é aborto de navegação — e só acontece quando o `push` não completa antes do flush, o que exige contenção.
+
+A dívida voltou para o roadmap com o mecanismo certo e a receita de reprodução. O conserto passa por serializar as duas escritas na URL e é trabalho próprio: mexe no composable que governa filtro e ordenação das quatro telas com tabela.
+
+O teste que eu havia escrito foi **descartado**: ele falha só sob contenção, então seria vermelho intermitente que ninguém investiga. Vale mais a receita escrita.
+
+O caminho rendeu dois aprendizados sobre testar isto, que ficaram escritos na dívida. Um: digitar antes de o Vue hidratar não acumula no input controlado — cada tecla substitui a anterior, e o sintoma ("o campo tem só a última letra") parece bug de produto. Dois: `fill('')` dentro de um `toPass` agenda um commit de string vazia por tentativa, e esse commit volta 300ms depois e apaga o texto já digitado — o teste fabricava um estado que pessoa nenhuma produz.
+
+**`removido` saiu do vocabulário.** Era valor morto: nada no produto o gravava ("Remover do convite" só faz `convite_id = null`), o schema do RSVP público só aceita confirmado/recusado, e o fluxo do convidado já o **lia** como pendente — o que confirma que ninguém o tratava como resposta. Veio do schema anterior ao rename para português (`removed`) e sobreviveu por inércia, aparecendo em seletor, chip de filtro e mapa de tons como se fosse alcançável.
+
+Remover em vez de esconder, porque com o funil ele passou a ser perigoso: *Respondido* significa "todos os membros têm resposta", e a contagem considera resposta tudo que não é `pendente` — um `removido` gravado por acidente contaria, e um convite sem ninguém confirmado diria *Respondido*. Fechar o CHECK torna isso impossível. O `UPDATE` que antecede o `ALTER` é defensivo, não corretivo: em dev não existia uma linha só com esse valor (medido antes), e se prod tiver alguma, ela vira `pendente` — exatamente como a tela do convidado já a exibia. Sem ele, o `ALTER` falharia contra dado existente e derrubaria a promoção de migrations no merge.
+
+A lista de validação dentro de `salvar_rsvp_convidado` ficou com o valor antigo de propósito, com o motivo escrito na migration: recriar cem linhas de função para tirar um item de um `if` não compra garantia nenhuma, porque o CHECK é o portão real e o Zod já recusa antes.
+
+As duas views novas foram validadas contra o banco de dev antes de qualquer teste automatizado, com scripts descartáveis — inclusive os dois casos que só a ordem revela: o "primeiro acesso" (eventos inseridos fora de ordem, para o `min` ser o que decide) e a "resposta mais recente".
+
+### Achado do CI: `POST /invites/:id/send` sem corpo passou a responder 400
+
+O CI do PR pegou o que esta máquina não podia pegar — integração exige Docker, e aqui não tem. Quatro falhas em 340; uma delas era defeito de produto, e das piores: silenciosa e só na janela de deploy.
+
+Ao tornar o envio reversível, o endpoint ganhou `validateBody` com `z.object({ sent: z.boolean().default(true) })`. Escrevi no comentário que o default mantinha a chamada antiga (sem corpo) funcionando — e **estava errado**: `readBody` devolve `undefined` quando não há corpo, `z.object({...})` recusa `undefined`, e default de campo só age sobre chave ausente DENTRO de um objeto. O código publicado chama `POST /send` sem corpo nenhum, então "Marcar como enviado" quebraria com 400 entre o merge e o deploy novo — exatamente a janela que o comentário afirmava cobrir.
+
+`.default({})` no objeto resolve (`undefined` → `{}` → `{ sent: true }`), e o caso está guardado pelo próprio teste que o pegou, que chama o endpoint sem corpo de propósito.
+
+As outras três eram dos testes: dois `pageSize=200` acima do teto de 100 (o endpoint respondia 400 e o teste morria com TypeError ao ler `.data` de um corpo de erro), e a suíte antiga de convites ainda afirmando `status_convite = 'enviado'`, coluna que este trabalho aposentou.
+
+A lição não é sobre Zod: é que **eu documentei como garantia uma suposição que nunca tinha executado**. O comentário dizia "mantém funcionando" sobre um caminho que nenhum teste local exercitava.

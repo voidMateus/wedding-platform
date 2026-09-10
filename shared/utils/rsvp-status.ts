@@ -7,6 +7,12 @@
  * cor (`rsvpStatusPresentation`) e o servidor para validar o filtro por status
  * da listagem de convidados.
  *
+ * `removido` saiu em 2026-09-10: era valor morto (nada no produto o gravava,
+ * e o fluxo do convidado já o lia como `pendente`) e, com o funil de estágios
+ * do convite, contava como resposta na consolidação — um convite sem ninguém
+ * confirmado podia dizer "Respondido". Ver a migration
+ * 20260910100001_aposentar_status_rsvp_removido.
+ *
  * "pendente" é o único que também descreve a ausência de linha: quem nunca
  * respondeu não tem registro em `respostas_rsvp`, e é a view
  * `convidados_com_status` que resolve os dois casos no mesmo valor.
@@ -16,7 +22,6 @@ export const RSVP_STATUS_VALUES = [
   'confirmado',
   'recusado',
   'lista_espera',
-  'removido',
 ] as const
 
 export type RsvpStatus = (typeof RSVP_STATUS_VALUES)[number]

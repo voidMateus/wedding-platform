@@ -36,11 +36,16 @@ interface Props {
   groupOptions: Array<{ value: string; label: string }>
   /** Excluído da busca de convidado existente — normalmente o próprio responsável. */
   primaryId?: string
+  /** Nome do convidado deste cadastro, para ele aparecer na fila do núcleo. */
+  primaryName: string
+  /** Posição dele nessa fila — ver `primaryPosition` em guestPartySyncSchema. */
+  primaryPosition: number
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:modelValue': [value: CompanionEntry[]]
+  'update:primaryPosition': [value: number]
   'group-created': [group: Group]
   /** Acompanhante removido que já existia cadastrado — o pai desvincula no submit. */
   'remove-existing': [guestId: string]
@@ -203,22 +208,87 @@ function confirmarRascunho() {
   fecharRascunho()
 }
 
-function removerAcompanhante(entry: CompanionEntry) {
-  if (entry.person.id) emit('remove-existing', entry.person.id)
+/**
+ * A fila do núcleo INTEIRO — o convidado deste cadastro incluído, na posição
+ * dele.
+ *
+ * Ele aparece aqui porque o núcleo é simétrico: não existe "o titular e os
+ * acompanhantes dele", existe um grupo de pessoas que vão juntas. Enquanto a
+ * lista mostrava só os outros, a posição do editado era invisível e implícita
+ * (`ordem_nucleo = 0`, sempre) — então salvar pela Maria trocava "João e Maria"
+ * por "Maria e João" na lista inteira.
+ *
+ * Com ele na fila, a ordem que se vê aqui é literalmente a ordem que fica
+ * gravada, e mudá-la é uma escolha, não um efeito de qual cadastro foi aberto.
+ */
+type LinhaDoNucleo =
+  { tipo: 'principal'; nome: string } | { tipo: 'acompanhante'; entry: CompanionEntry }
+
+const membrosDoNucleo = computed<LinhaDoNucleo[]>(() => {
+  const linhas: LinhaDoNucleo[] = props.modelValue.map((entry) => ({
+    tipo: 'acompanhante',
+    entry,
+  }))
+  const posicao = Math.min(Math.max(props.primaryPosition, 0), linhas.length)
+  // Nome vazio acontece durante um cadastro novo, antes de o campo de cima ser
+  // preenchido: a linha existe de todo modo, senão a fila mudaria de tamanho
+  // conforme se digita.
+  linhas.splice(posicao, 0, {
+    tipo: 'principal',
+    nome: props.primaryName.trim() || 'Este convidado',
+  })
+  return linhas
+})
+
+/**
+ * Prévia do rótulo que a lista vai exibir ("João e Maria +1").
+ *
+ * Pela MESMA função que a listagem usa, nunca por uma segunda regra montada
+ * aqui: o valor deste aviso é ser exatamente o que vai aparecer depois, e duas
+ * implementações do mesmo rótulo divergem na primeira mudança de uma delas.
+ */
+const rotuloDoNucleo = computed(() => {
+  if (!props.modelValue.length) return ''
+  const membros = membrosDoNucleo.value.map((linha, index) => ({
+    nucleo_id: 'previa',
+    nome_completo: linha.tipo === 'principal' ? linha.nome : linha.entry.person.nomeCompleto,
+    ordem_nucleo: index,
+  }))
+  return montarRotulosDeNucleo(membros).get('previa') ?? ''
+})
+
+/** Decompõe a fila de volta nos dois modelos que o pai guarda. */
+function aplicarFila(linhas: LinhaDoNucleo[]) {
+  emit(
+    'update:primaryPosition',
+    linhas.findIndex((linha) => linha.tipo === 'principal'),
+  )
   emit(
     'update:modelValue',
-    props.modelValue.filter((c) => c.key !== entry.key),
+    linhas.flatMap((linha) => (linha.tipo === 'acompanhante' ? [linha.entry] : [])),
   )
 }
 
-function moverAcompanhante(index: number, direcao: -1 | 1) {
+function removerAcompanhante(entry: CompanionEntry) {
+  if (entry.person.id) emit('remove-existing', entry.person.id)
+  // Pela fila, e não filtrando `modelValue`: tirar alguém que estava ANTES do
+  // principal muda a posição dele, e recalcular daqui é o que mantém as duas
+  // metades coerentes.
+  aplicarFila(
+    membrosDoNucleo.value.filter(
+      (linha) => linha.tipo === 'principal' || linha.entry.key !== entry.key,
+    ),
+  )
+}
+
+function mover(index: number, direcao: -1 | 1) {
+  const linhas = [...membrosDoNucleo.value]
   const alvo = index + direcao
-  if (alvo < 0 || alvo >= props.modelValue.length) return
-  const lista = [...props.modelValue]
-  const temp = lista[index]!
-  lista[index] = lista[alvo]!
-  lista[alvo] = temp
-  emit('update:modelValue', lista)
+  if (alvo < 0 || alvo >= linhas.length) return
+  const temp = linhas[index]!
+  linhas[index] = linhas[alvo]!
+  linhas[alvo] = temp
+  aplicarFila(linhas)
 }
 </script>
 
@@ -239,47 +309,71 @@ function moverAcompanhante(index: number, direcao: -1 | 1) {
       responde o RSVP em nome próprio.
     </p>
 
+    <!-- A fila inclui o convidado deste cadastro: a ordem que se vê aqui é a
+         que fica gravada, e quem vem primeiro é escolha, não consequência de
+         qual cadastro foi aberto. -->
     <ul v-if="modelValue.length" class="flex flex-col gap-2">
       <li
-        v-for="(entry, index) in modelValue"
-        :key="entry.key"
-        class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2"
+        v-for="(linha, index) in membrosDoNucleo"
+        :key="linha.tipo === 'principal' ? 'principal' : linha.entry.key"
+        class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2"
+        :class="
+          linha.tipo === 'principal' ? 'border-primary/30 bg-surface-muted/40' : 'border-border'
+        "
       >
         <Icon name="lucide:user-round" class="h-4 w-4 shrink-0 text-text-muted" />
         <span class="min-w-0 flex-1 truncate text-sm font-medium text-text">
-          {{ entry.person.nomeCompleto }}
+          {{ linha.tipo === 'principal' ? linha.nome : linha.entry.person.nomeCompleto }}
         </span>
-        <span v-if="categoriaDe(entry.person)" class="shrink-0 text-xs text-text-muted">
-          {{ categoriaDe(entry.person) }}
+        <span v-if="linha.tipo === 'principal'" class="shrink-0 text-xs text-text-muted">
+          este cadastro
+        </span>
+        <span v-else-if="categoriaDe(linha.entry.person)" class="shrink-0 text-xs text-text-muted">
+          {{ categoriaDe(linha.entry.person) }}
         </span>
 
         <div class="flex shrink-0 items-center">
           <AdminRowAction
             icon="lucide:chevron-up"
-            label="Subir na ordem do núcleo"
+            :label="`Subir ${linha.tipo === 'principal' ? linha.nome : linha.entry.person.nomeCompleto} na ordem`"
             :disabled="index === 0"
-            @click="moverAcompanhante(index, -1)"
+            @click="mover(index, -1)"
           />
           <AdminRowAction
             icon="lucide:chevron-down"
-            label="Descer na ordem do núcleo"
-            :disabled="index === modelValue.length - 1"
-            @click="moverAcompanhante(index, 1)"
+            :label="`Descer ${linha.tipo === 'principal' ? linha.nome : linha.entry.person.nomeCompleto} na ordem`"
+            :disabled="index === membrosDoNucleo.length - 1"
+            @click="mover(index, 1)"
           />
-          <AdminRowAction
-            icon="lucide:pencil"
-            label="Editar acompanhante"
-            @click="editarAcompanhante(entry)"
-          />
-          <AdminRowAction
-            icon="lucide:x"
-            label="Remover acompanhante"
-            tone="danger"
-            @click="removerAcompanhante(entry)"
-          />
+          <!-- O principal se edita nos campos acima, não numa linha da fila:
+               são os mesmos dados, e um segundo formulário para eles seria
+               duas verdades na mesma tela. Remover, idem — quem sai do núcleo
+               é acompanhante; o cadastro em si se exclui pela lista. -->
+          <template v-if="linha.tipo === 'acompanhante'">
+            <AdminRowAction
+              icon="lucide:pencil"
+              :label="`Editar ${linha.entry.person.nomeCompleto}`"
+              @click="editarAcompanhante(linha.entry)"
+            />
+            <AdminRowAction
+              icon="lucide:x"
+              :label="`Remover ${linha.entry.person.nomeCompleto} dos acompanhantes`"
+              tone="danger"
+              @click="removerAcompanhante(linha.entry)"
+            />
+          </template>
         </div>
       </li>
     </ul>
+
+    <!-- O que a lista vai exibir. O núcleo não tem nome gravado, então o
+         rótulo é derivado de quem está dentro e na ordem em que está — dizer
+         isso aqui é o que torna a ordem acima uma decisão informada, em vez de
+         um detalhe que só aparece depois de salvar. -->
+    <p v-if="rotuloDoNucleo" class="text-xs text-text-muted">
+      Na lista, aparece como
+      <span class="font-medium text-text">{{ rotuloDoNucleo }}</span>
+    </p>
 
     <div v-if="rascunhoAberto" class="rounded-md border border-primary/30 bg-surface-muted/40 p-4">
       <!-- Etapa 1: só a busca. Nada abaixo do campo, para o resultado nascer

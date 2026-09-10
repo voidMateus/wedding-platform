@@ -23,10 +23,9 @@ export async function buildRsvpInvitePayload(
       .single(),
     client
       .from('convidados')
-      .select('id, nome_completo, apelido, ordem_nucleo')
+      .select('id, nome_completo, apelido, nucleo_id, ordem_nucleo')
       .eq('convite_id', inviteId)
-      .is('excluido_em', null)
-      .order('ordem_nucleo', { ascending: true }),
+      .is('excluido_em', null),
   ])
 
   if (weddingResult.error || !weddingResult.data) {
@@ -70,12 +69,15 @@ export async function buildRsvpInvitePayload(
     isPastDeadline,
     maxCompanions: invite.max_acompanhantes,
     message: invite.mensagem_rsvp,
-    members: (membersResult.data ?? []).map((guest) => ({
+    // Ordem: cada núcleo de Acompanhantes junto, blocos em ordem alfabética
+    // (ver ordenarMembrosDoConvite) — antes era `ordem_nucleo`, que só tem
+    // significado DENTRO de um núcleo e vinha 0 para todo mundo sem núcleo.
+    members: ordenarMembrosDoConvite(membersResult.data ?? []).map((guest) => ({
       guestId: guest.id,
       fullName: guest.nome_completo,
       nickname: guest.apelido,
       status: (statusByGuest.get(guest.id) ?? 'pendente') as
-        'pendente' | 'confirmado' | 'recusado' | 'lista_espera' | 'removido',
+        'pendente' | 'confirmado' | 'recusado' | 'lista_espera',
     })),
   }
 }

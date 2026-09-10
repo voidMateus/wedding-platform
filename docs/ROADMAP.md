@@ -67,28 +67,51 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 O grosso saiu no PR #99; a entrada rápida e o colar da planilha saíram na
 sequência. O que resta:
 
-- [ ] **Tela do rascunho "Em consideração".** `GuestListDraftPanel.vue` está no
-      repositório com zero usuários. A coluna, o CHECK, o filtro na API e o
-      contador estão prontos — mas não há como marcar alguém como em
-      consideração, ver quem está, nem promover um rascunho para a lista. O
-      número aparece e não leva a lugar nenhum.
+**Tela do rascunho "Em consideração" — descartada por ora** (decisão do usuário,
+2026-09-10: "não vejo necessidade alguma de fazer, talvez no futuro"). O
+`GuestListDraftPanel.vue` segue no repositório com zero usuários, e a coluna, o
+CHECK, o filtro na API e o contador continuam prontos — quem retomar não começa
+do zero. O que fica sem caminho é marcar alguém como em consideração, ver quem
+está e promover um rascunho: o contador aparece e não leva a lugar nenhum.
 
 Inertes por decisão, com o motivo no `title` de cada um:
 
-- [ ] **"Adicionar ao núcleo" em massa** — diferente de mover para grupo e
-      alterar categoria, não é update em lote: exige orquestrar convite e ordem
-      dentro do núcleo numa transação (`sincronizar_nucleo_convidado`).
-- [ ] **Tela de Núcleos** — hoje só se editam dentro do cadastro do convidado.
 - [ ] **Formulários e Integrações** — dois itens de menu sem nada por trás.
 
 E uma lacuna de acabamento: **edição inline só existe na coluna Categoria**.
-Nome, grupo, núcleo e observação ainda exigem abrir a modal, o que é o buraco
-mais visível numa tela que se propõe "planilha inteligente".
+Nome, grupo, acompanhantes e observação ainda exigem abrir a modal, o que é o
+buraco mais visível numa tela que se propõe "planilha inteligente".
+
+Resolvido na **Fase Acompanhantes** (2026-09-10; decisões de produto em
+[`PRODUCT.md`](PRODUCT.md) seção 3.7): "Agrupar como acompanhantes" saiu do
+estado inerte e virou `agrupar_acompanhantes()`, com aviso antes quando a
+operação faz mais do que a seleção diz. A **tela de Núcleos foi descartada, não
+adiada** — o núcleo não tem nome e o rótulo dele muda quando alguém entra ou
+sai, então uma tela listando essas linhas não serviria de referência para
+ninguém; ele aparece onde significa algo (linha, cadastro, convite, filtro). No
+caminho: a ordem do núcleo deixou de virar sozinha ao salvar o cadastro de outro
+membro, núcleo de uma pessoa passou a ser dissolvido, `ordem_nucleo` parou de
+ordenar convite (`server/utils/membros-do-convite.ts`) e
+`PATCH /api/guests/party/reorder` foi removido — nunca teve chamador, porque a
+ordem sempre foi gravada pelo próprio cadastro.
+
+Fica de fora, à espera de decisão: **agrupar visualmente os membros por núcleo
+na tela do convidado (RSVP)**. Quem abre um convite de 6 pessoas vê 6 nomes
+soltos; agrupar ajudaria e não feriria o invariante (a resposta continua por
+pessoa), mas é mexer no fluxo do convidado, não só no admin. E **desagrupar em
+massa** não existe: desfazer é remover o acompanhante pelo cadastro, que com
+dois membros dissolve o núcleo.
 
 ## 4. Dívidas conhecidas (fora de fase — pequenas e independentes)
 
 - [ ] **`prefers-reduced-motion` não é respeitado em lugar nenhum da plataforma** (levantado em 2026-09-09). Quem liga "Reduzir movimento" no sistema normalmente tem distúrbio vestibular — enjoo ou tontura de verdade com movimento que acontece sozinho. O inventário real é pequeno: o `animate-bounce` da seta "role para descobrir" no Hero do site público (loop infinito, na primeira tela que todo convidado vê) e o `animate-pulse` do `UiSkeleton` são os dois casos que rodam **sem ninguém pedir**; o resto (`.transition-brand`, o `scale` do `UiModal`, o `translateX` da linha de tabela) responde a clique ou hover, o que é aceitável. O conserto é um bloco `@media (prefers-reduced-motion: reduce)` no `main.css` zerando `animation-duration`/`iteration-count` e o `--transition-duration` — a vantagem de o movimento sair de um token só. Duas ressalvas para não dar falsa sensação de resolvido: o `duration-200` do `UiModal` está escrito na classe e não no token (precisa migrar ou ganhar regra própria), e `scrollIntoView({ behavior: 'smooth' })` em JS **ignora** o CSS — só respeita se o código consultar `matchMedia` antes, o que são 2 lugares hoje.
-- [ ] **Corrida entre o filtro debounced e o clique na linha** (`useTableFilters`, encontrada em 2026-09-09). Digitar no filtro e clicar numa linha dentro da janela do debounce faz a gravação atrasada reescrever a query a partir de um retrato anterior e apagar o `?editar=<id>` que o clique acabou de pôr — o modal não abre. Vale para pessoa real, não só para teste; ver o achado detalhado em `CHANGELOG.md`.
+- [ ] **Remover `convites.status_convite`** (obsoleta desde 2026-09-10). O mesmo fato é `enviado_em`, e nada no código a lê ou escreve mais. Não foi removida junto porque as migrations são aplicadas em prod no merge, em paralelo com o deploy da Vercel: existe uma janela em que o código antigo roda contra o schema novo, e nela um `update` na coluna removida falharia. Entra numa migration própria, quando nenhuma versão em voo a escrever.
+- [ ] **Corrida entre o filtro debounced e o clique na linha** (`useTableFilters`, encontrada em 2026-09-09, reproduzida com precisão em 2026-09-10). Digitar no filtro e clicar numa linha dentro da janela do debounce (300ms) faz o modal não abrir: o clique dispara `router.push` com `?editar=<id>` e, com a navegação ainda em voo, o `router.replace` do filtro **aborta** a anterior — o Vue Router cancela a navegação pendente, e o `editar` nunca chega. O merge em `applyQuery` **não** é o problema (ele monta o destino a partir de `route.query` no flush e preserva as chaves alheias); o problema é o aborto da navegação.
+
+      Só aparece sob carga: com a máquina folgada o `push` completa antes do flush, e é por isso que a primeira medição do dia concluiu, errado, que a dívida estava paga. Reprodução: rodar a suíte E2E inteira em 4 workers e, num teste que digita no filtro e clica na linha em seguida, o modal falha em ~1 de 3 execuções. Um teste dedicado foi escrito e **descartado** por ser instável por construção (falha só sob contenção) — vale mais esta receita que um teste que ninguém confia.
+
+      O conserto passa por serializar as duas escritas na URL (o filtro precisa ceder a passagem à navegação do usuário, ou reaplicar-se depois dela), e é trabalho próprio: mexe no composable que governa filtro e ordenação das quatro telas com tabela.
+- [ ] **A trava de rolagem do painel está no `<body>`, onde não funciona** (achada em 2026-09-10, ao consertar a rolagem infinita da lista de convidados). `app/layouts/admin.vue` põe `overflow-hidden` no body para o documento não rolar por baixo do app shell, mas `main.css` põe `overflow-x: hidden` no `html` — o que faz o `overflow-y` do html computar `auto` e torna o **html** o contêiner de rolagem do viewport. Daí o overflow do body deixa de propagar para o viewport: ele recorta só o conteúdo do próprio body, e absoluto/fixo ancorado no bloco contêiner inicial vaza para a área de rolagem do html. Foi assim que 196 rótulos `sr-only` esticaram o documento para 5646px. A raiz daquele caso está corrigida (`relative` no `AdminRowAction`) e coberta por `tests/e2e/rolagem-do-painel.spec.ts`, mas a trava continua no lugar errado — o certo é `html`, como a própria nota de `main.css` já diz para o eixo horizontal. Mover afeta todas as páginas do painel, e precisa verificar que o site público volta a rolar ao sair do admin.
 
 ## 5. Fase 4 — Preparação para Escala
 - [ ] Revisão de performance com dados de casamentos grandes (500+ convidados).

@@ -278,10 +278,10 @@ function closeGuestModal() {
   router.replace({ query: { ...route.query, novo: undefined, editar: undefined } })
 }
 
-async function handleGuestSaved() {
-  await recarregarTudo()
-  closeGuestModal()
-}
+// Só recarrega: fechar é da modal, que é quem sabe que o salvamento deu certo.
+// Enquanto essa decisão morava aqui, o Modo Lista — que também monta a mesma
+// modal — não fechava, e ali ela ficava aberta com o estado de antes de salvar.
+const handleGuestSaved = recarregarTudo
 
 // --- excluir ---
 

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  guestPartyReorderSchema,
+  guestPartyGroupSchema,
   guestPartySyncSchema,
   guestPersonSchema,
 } from '#shared/schemas/guests'
 
 const validGroupId = '11111111-1111-1111-1111-111111111111'
+const otherGuestId = '22222222-2222-2222-2222-222222222222'
 
 describe('guestPersonSchema', () => {
   it('aceita um convidado válido com todos os campos', () => {
@@ -75,18 +76,51 @@ describe('guestPartySyncSchema', () => {
   })
 })
 
-describe('guestPartyReorderSchema', () => {
-  it('aceita partyId + lista de convidados ordenada', () => {
-    const result = guestPartyReorderSchema.safeParse({
-      partyId: validGroupId,
-      orderedGuestIds: [validGroupId],
+describe('guestPartySyncSchema — primaryPosition', () => {
+  it('assume 0 quando não informada: quem cadastra e adiciona acompanhantes aparece primeiro', () => {
+    const result = guestPartySyncSchema.safeParse({ primary: { nomeCompleto: 'Joao' } })
+
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.primaryPosition).toBe(0)
+  })
+
+  it('aceita uma posição adiante na fila do núcleo', () => {
+    const result = guestPartySyncSchema.safeParse({
+      primary: { nomeCompleto: 'Maria' },
+      companions: [{ nomeCompleto: 'Joao' }],
+      primaryPosition: 1,
     })
+
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.primaryPosition).toBe(1)
+  })
+
+  it('rejeita posição negativa e fracionada — é índice de fila, não medida', () => {
+    for (const primaryPosition of [-1, 1.5]) {
+      const result = guestPartySyncSchema.safeParse({
+        primary: { nomeCompleto: 'Joao' },
+        primaryPosition,
+      })
+      expect(result.success).toBe(false)
+    }
+  })
+})
+
+describe('guestPartyGroupSchema', () => {
+  it('aceita dois convidados', () => {
+    const result = guestPartyGroupSchema.safeParse({ ids: [validGroupId, otherGuestId] })
 
     expect(result.success).toBe(true)
   })
 
-  it('rejeita lista vazia', () => {
-    const result = guestPartyReorderSchema.safeParse({ partyId: validGroupId, orderedGuestIds: [] })
+  it('rejeita um só — um núcleo de uma pessoa não agrupa nada', () => {
+    const result = guestPartyGroupSchema.safeParse({ ids: [validGroupId] })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejeita id que não é uuid', () => {
+    const result = guestPartyGroupSchema.safeParse({ ids: [validGroupId, 'nao-e-uuid'] })
 
     expect(result.success).toBe(false)
   })

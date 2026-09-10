@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
     p_acompanhantes: input.companions,
     p_ids_convidados_removidos: input.removedGuestIds,
     p_convite: input.invite ?? null,
+    p_posicao_principal: input.primaryPosition,
   })
 
   if (error) {

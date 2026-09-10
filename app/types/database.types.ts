@@ -1637,7 +1637,8 @@ export type Database = {
           nome: string | null
           observacoes: string | null
           status_convite: string | null
-          status_resposta: string | null
+          estagio_desde: string | null
+          status_operacional: string | null
           total_membros: number | null
           total_respondidos: number | null
           updated_at: string | null
@@ -1668,6 +1669,10 @@ export type Database = {
       }
     }
     Functions: {
+      agrupar_acompanhantes: {
+        Args: { p_casamento_id: string; p_ids: string[] }
+        Returns: Json
+      }
       buscar_convidados_por_nome: {
         Args: { p_busca: string; p_casamento_id: string; p_limite?: number }
         Returns: {
@@ -1813,12 +1818,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      normalizar_nucleo_acompanhantes: {
+        Args: { p_nucleo_id: string }
+        Returns: undefined
+      }
       sincronizar_nucleo_convidado: {
         Args: {
           p_acompanhantes?: Json
           p_casamento_id: string
           p_convite?: Json
           p_ids_convidados_removidos?: string[]
+          p_posicao_principal?: number
           p_principal: Json
         }
         Returns: Json

@@ -1,11 +1,5 @@
 import type { InviteInput } from '#shared/schemas/invites'
-import type {
-  Invite,
-  InviteDetail,
-  InviteEvent,
-  InviteListItem,
-  InviteResponseStatus,
-} from '~/types/invite'
+import type { Invite, InviteDetail, InviteEvent, InviteListItem, InviteStage } from '~/types/invite'
 
 interface InviteListResponse {
   data: InviteListItem[]
@@ -19,7 +13,7 @@ interface InviteListParams {
   /** 'active' (padrão) esconde arquivados; 'archived' mostra só eles; 'all' junta os dois. */
   archived?: 'active' | 'archived' | 'all'
   /** Status consolidado do convite — resolvido no banco, aceita mais de um valor. */
-  responseStatus?: InviteResponseStatus | InviteResponseStatus[]
+  stage?: InviteStage | InviteStage[]
   /** Ordenação pedida pela coluna da tabela (ver /api/invites). */
   sort?: 'nome' | 'pessoas' | 'enviado'
   dir?: 'asc' | 'desc'
@@ -74,8 +68,13 @@ export function useInvites() {
     return $fetch<{ id: string }>(`/api/invites/${id}/guests/${guestId}`, { method: 'DELETE' })
   }
 
-  async function markInviteSent(id: string): Promise<Invite> {
-    return $fetch<Invite>(`/api/invites/${id}/send`, { method: 'POST' })
+  /**
+   * Marca/desmarca o envio. Dois sentidos, como `setInviteArchived`: enviado
+   * e informacao manual do casal, nao fato comprovado pelo sistema — e um
+   * clique errado precisa ter volta.
+   */
+  async function setInviteSent(id: string, sent: boolean): Promise<Invite> {
+    return $fetch<Invite>(`/api/invites/${id}/send`, { method: 'POST', body: { sent } })
   }
 
   async function setInviteArchived(id: string, archived: boolean): Promise<Invite> {
@@ -98,7 +97,7 @@ export function useInvites() {
     deleteInvite,
     addGuestsToInvite,
     removeGuestFromInvite,
-    markInviteSent,
+    setInviteSent,
     setInviteArchived,
     getInviteTimeline,
   }

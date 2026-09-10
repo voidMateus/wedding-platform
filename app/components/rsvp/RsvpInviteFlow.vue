@@ -25,7 +25,10 @@ const guestStates = ref<GuestState[]>(
   props.payload.members.map((m) => ({
     guestId: m.guestId,
     fullName: m.fullName,
-    status: m.status === 'lista_espera' || m.status === 'removido' ? 'pendente' : m.status,
+    // `lista_espera` é decisão do casal, não resposta do convidado: para ele a
+    // pergunta segue aberta. (`removido` saía daqui também, e foi aposentado do
+    // vocabulário em 2026-09-10 por ser valor morto.)
+    status: m.status === 'lista_espera' ? 'pendente' : m.status,
   })),
 )
 

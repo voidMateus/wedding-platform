@@ -79,7 +79,7 @@ Pontos que geram confusão se não forem lidos com atenção:
 
 ### 3.1 Conceito
 
-Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real de RSVP) para poder responder — o vínculo pode ficar pendente ("Fazer Depois" no wizard) até ser resolvido. Independentemente disso, um convidado pode opcionalmente ter uma etiqueta livre (`grupo`, ex. "Família da Noiva") e pertencer a um agrupamento de Acompanhantes (`nucleos_acompanhantes`) — os três vínculos (`convite_id`, `grupo_id`, `nucleo_id`) são independentes entre si (ver [`DATABASE.md`](DATABASE.md)).
+Convidados (`convidados`) são sempre vinculados a um `convite` (a unidade real de RSVP) para poder responder — o vínculo pode ficar pendente até ser resolvido (o cadastro oferece criar o convite, mas não obriga). Independentemente disso, um convidado pode opcionalmente ter uma etiqueta livre (`grupo`, ex. "Família da Noiva") e pertencer a um agrupamento de Acompanhantes (`nucleos_acompanhantes`) — os três vínculos (`convite_id`, `grupo_id`, `nucleo_id`) são independentes entre si (ver [`DATABASE.md`](DATABASE.md)).
 
 **Rascunho da lista (`em_consideracao`).** Uma lista de casamento não nasce pronta: "será que convidamos o Marcelo?" é o estado mais comum durante o planejamento, e obrigar o casal a decidir na hora do cadastro é o que empurra a lista para o Excel. Uma pessoa marcada como *em consideração* existe no planejamento sem ser convidada — **não conta** em nenhum indicador de convidados, não pode receber convite e portanto nunca entra em RSVP nem aparece na busca pública por nome. Virar convidado de verdade é ação explícita do casal, nunca efeito colateral de preencher outro campo. Detalhe da garantia: [`DATABASE.md`](DATABASE.md), seção 3.2.
 
@@ -206,6 +206,31 @@ Cada campo declara o que se pode fazer com ele:
 
 **Fora do escopo desta versão:** acompanhantes (`nucleos_acompanhantes`). O conceito é simétrico e não cabe numa coluna de planilha sem inventar sintaxe; pessoas sob o mesmo `convite` já cobrem a intenção real, que é o que habilita o RSVP.
 
+### 3.7 Acompanhantes
+
+**O princípio:** o núcleo (`nucleos_acompanhantes`) é **estrutura interna, não um eixo de organização.** Grupo é etiqueta livre e convite é a unidade de RSVP; o núcleo é a afirmação "estas pessoas vão juntas", e existe por duas razões que nenhum dos outros dois cobre:
+
+1. **Ele existe antes de qualquer convite.** `convidados.convite_id` é nullable — enquanto o casal monta a lista, o núcleo é o único lugar onde cabe "esses dois vão juntos". O convite não pode registrar isso porque ainda não existe.
+2. **Convite não tem sub-estrutura.** `grupos` tem subdivisão de um nível; `convites` não tem nenhuma. "Família Silva" com 6 pessoas é um cartão e um código, mas podem ser três casais lá dentro — o núcleo é o que faz a lista mostrar três unidades em vez de seis nomes soltos, e é a linha de corte natural quando precisarem de cartões separados.
+
+**Por isso o núcleo não tem tela própria.** Grupos e Convites têm, porque o casal os **nomeia e administra** — grupo tem nome, convite tem nome, código, link e QR. O núcleo não tem nome gravado (seção 3.1.1) e o rótulo dele muda quando alguém entra ou sai: uma tela listando coisas sem nome, cujo título se mexe sozinho, não serve de referência ("qual daqueles era o que eu editei ontem?"). Ele aparece onde significa algo — na linha do convidado, no cadastro, dentro do convite e no filtro do Modo Lista.
+
+**Na interface chama-se "Acompanhantes"; "núcleo" só existe no código.** Duas palavras para a mesma coisa nas duas formas de ver a mesma lista obrigavam o casal a ligar as duas sozinho. A célula da coluna exibe o rótulo do núcleo inteiro ("João e Maria"), igual nas duas linhas do casal — é o que faz a coluna agrupar ao ordenar e filtrar; um "vem com a Maria" por linha leria melhor e agruparia nada.
+
+**Núcleo nunca atravessa convites.** Se duas pessoas vão em convites diferentes, deixaram de ser "convidadas juntas" — então a operação é recusada, nunca resolvida movendo alguém de convite (o que trocaria o link/QR que já pode ter sido compartilhado). Na direção oposta, a consequência prática: agrupar alguém com quem já tem convite coloca todos nele, e isso é avisado antes, porque habilita RSVP para quem não podia responder. Rascunho da lista (`em_consideracao`) não entra em núcleo pelo mesmo motivo — ele nunca recebe convite.
+
+**A ordem dentro do núcleo é escolha, nunca efeito colateral.** O rótulo derivado usa os dois primeiros nomes por `ordem_nucleo`, então essa ordem é visível na lista inteira. O cadastro mostra a fila do núcleo **completa**, com o convidado que está sendo editado como uma linha igual às outras (é o que "simétrico" significa), e a ordem que se vê ali é a que fica gravada. `ordem_nucleo` não significa "quem é o principal" — quem responde pelo convite é `convites.convidado_responsavel_id`, outro conceito.
+
+**Núcleo de uma pessoa não existe.** Um agrupamento de um não agrupa nada, e ainda apareceria no filtro como se agrupasse. Todo caminho que mexe em núcleo dissolve o que ficou com menos de dois membros — inclusive o núcleo de **origem** de quem foi movido para outro.
+
+**Agrupar a partir da seleção da lista** fecha o ciclo de quem monta a lista por entrada rápida ou colando da planilha: os nomes entram soltos e o agrupamento vem depois. Quem já está num núcleo entra trazendo o núcleo inteiro — agrupar o João (que já vem com a Maria) com o Pedro resulta no trio, porque agrupar não pode afastar a Maria do João. Seleção com núcleos diferentes funde tudo num só, avisando antes; o núcleo que sobrevive é o maior, e no empate o mais antigo (desempatar por `id` trocaria o nome do grupo na tela conforme um uuid aleatório).
+
+**O cadastro do convidado resolve o VÍNCULO; o convite se administra na tela de Convites.** A linha de convite do cadastro relata o estado e oferece uma ação só — nunca campos do convite. Vinculado, ela mostra o nome e o caminho para a tela de Convites (antes o bloco desaparecia nesse caso: o formulário sabia do vínculo pelo próprio payload que já carregava, e não contava). Sem convite, ela diz o que falta — sem convite não existe RSVP — e o botão registra o pedido; o convite nasce na mesma transação do convidado, nunca no clique, para que cancelar o cadastro não deixe convite vazio para trás. O nome é derivado do primeiro nome ("Família Mateus") e renomear é assunto de Convites.
+
+Criar o convite é **ação pedida, não resposta já dada**: era uma caixa pré-marcada, o que fazia nascer um convite por núcleo cadastrado mesmo para o casal que planeja os convites na tela de Convites (um cartão para uma família inteira, por exemplo). E a linha aparece também para quem está sozinho — uma pessoa só precisa de convite igual, e antes o cadastro não dizia nada sobre isso.
+
+**`ordem_nucleo` não ordena um convite.** Um convite pode conter vários núcleos e gente sem núcleo nenhum, cujo valor é 0 para todos — os membros de um convite são ordenados mantendo cada núcleo junto, com os blocos em ordem alfabética pelo primeiro nome de cada um.
+
 ## 4. Sistema de RSVP
 
 ### 4.1 Conceito
@@ -262,6 +287,57 @@ Dois conceitos independentes, fáceis de confundir pelo nome:
 
 - Excluir um convite ou grupo com convidados associados exige realocar os convidados ou confirmar exclusão em cascata (soft delete) — nunca exclusão física silenciosa. A cascata soft-deleta os convidados **e** o próprio convite/grupo (nunca um `DELETE` físico): `convidados.convite_id` é `ON DELETE RESTRICT`, então a linha do convite permanece referenciada por qualquer convidado soft-deleted que já tenha pertencido a ele. Um convite/grupo sem nenhum convidado (nem ativo, nem soft-deleted) também é apenas soft-deleted, pela mesma convenção.
 - `max_acompanhantes` é validado no momento da revisão final do RSVP (`finalizar_rsvp_convite`): não permite confirmar mais acompanhantes avulsos do que o limite definido pelo casal.
+
+### 5.1 Status do convite — um funil operacional
+
+**O princípio:** o status responde "o que o casal precisa saber ou fazer sobre este convite agora?", e não "quais fatos aconteceram com ele". Os fatos ficam registrados à parte (`enviado_em`, o evento `rsvp.first_access`, as linhas de `respostas_rsvp`, a Linha do Tempo); o status é a leitura deles.
+
+**O problema que isso resolve.** Quatro coisas independentes funcionavam como status: `status_convite` (`pendente`/`enviado`, marcado à mão), o `status_resposta` derivado, `arquivado_em` e `excluido_em`. A coluna Status mostrava só a segunda, o modal empilhava três badges, e "abriu e não respondeu" — o dado mais acionável que existe — ficava enterrado na Linha do Tempo. O efeito prático: **"Pendente" cobria quatro situações com providências opostas** (não foi enviado, foi enviado e ninguém respondeu, alguém abriu e não respondeu, parte respondeu), distinguidas apenas pelo tom do badge.
+
+**O funil**, o estágio mais avançado que o convite alcançou:
+
+| Estágio | Significado | Providência |
+|---|---|---|
+| **Não enviado** | Nenhum fato aconteceu ainda | Enviar convite |
+| **Enviado** | O casal informou que mandou; ninguém abriu nem respondeu | Aguardar |
+| **Aberto** | Alguém acessou o convite e ninguém respondeu | Enviar lembrete |
+| **Parcial** | Parte dos membros respondeu | Lembrar os que faltam |
+| **Respondido** | Todos os membros têm resposta | Nenhuma |
+
+Cada estágio implica os anteriores, então **uma coluna basta** e o modal mostra **um badge**. A providência ("Enviar lembrete", nunca "cobrar") é o que justifica o funil existir.
+
+**Derivado, nunca uma fonte de verdade nova** (`convites_com_resumo.status_operacional`). Trocar `status_convite` por uma coluna de cinco valores só mudaria o tamanho do problema: seria mais um estado a manter sincronizado com os fatos. E derivado **em SQL**, não na tela: a listagem é paginada e o recorte por estágio é do endpoint — calculado no navegador, o filtro voltaria a recortar só a página carregada.
+
+**"Aberto" é o único estágio comprovado pelo sistema**, e por isso passa na frente de "Enviado": se alguém acessou, o convite chegou — mesmo que o casal tenha esquecido de marcar o envio. É o que corrige o elo mais fraco do funil, já que "Enviado" significa apenas *o casal informou que enviou*, nunca *o sistema confirmou a entrega*.
+
+**Acesso parcial não é resposta parcial.** O primeiro acesso é gravado por convite, não por convidado: João abriu e Maria não, sem ninguém responder, é **Aberto** — nunca Parcial.
+
+**O funil não é só digital, e essa é a regra que o sustenta.** Nenhum estágio exige que o convidado use o site. A avó que recebe convite em papel, não sabe usar o formulário e confirma por telefone tem a resposta **registrada pelo casal** (seção 5.2) e o convite vai direto a *Respondido*, sem nunca passar por *Aberto*. O sistema nunca exige jornada digital para que uma confirmação exista.
+
+**O tempo no estágio é o que transforma o status em providência.** "Aberto" é um fato; "Aberto há 14 dias" é um pedido de lembrete. Cada estágio tem o seu: *Enviado* usa `enviado_em`, *Aberto* usa o **primeiro** acesso, *Parcial* e *Respondido* usam a resposta **mais recente** — porque o que o casal precisa saber é há quanto tempo nada acontece, e a primeira resposta pode ser de um mês atrás num convite que recebeu outra ontem. *Não enviado* não tem data: não existe "há N dias sem nada ter acontecido".
+
+Na listagem aparece **um** dado de apoio por estágio, nunca dois, e é o estágio que decide qual: o **tempo** em *Enviado*/*Aberto* (onde a fração seria "0 de 5" em toda linha) e a **fração** em *Parcial*/*Respondido* (onde ela diz quantos faltam). Os dois juntos recriariam na coluna o empilhamento de badges que este desenho existe para eliminar; no detalhe do convite, onde espaço não é escasso, os dois aparecem.
+
+**Arquivado e excluído ficam fora do funil.** Arquivar é escopo administrativo — um convite pode estar arquivado em qualquer estágio —, e continua sendo o recorte "Ativos / Arquivados" da listagem. Excluído segue sendo soft delete, invisível.
+
+**A Linha do Tempo continua, com função distinta.** O status responde "onde este convite está agora"; a Linha do Tempo, "o que aconteceu para ele chegar aqui".
+
+### 5.2 Resposta registrada pelo casal
+
+Até esta rodada, `respostas_rsvp` era escrita em um lugar só — o fluxo do convidado. Quem nunca abria o link ficava eternamente pendente, e o acompanhamento funcionava apenas para convidado digital.
+
+O casal agora registra a resposta pela linha do convidado, dentro do convite. Três garantias:
+
+- **A origem fica registrada** (`admin_panel` contra `public_site`, no histórico). O sistema nunca finge que a avó acessou o site — são fatos diferentes, e a Linha do Tempo conta a diferença.
+- **Não cria acesso falso**: nenhum evento `rsvp.first_access` é inventado, então o convite não passa por *Aberto* a caminho de *Respondido*.
+- **Tem volta**: registrar "pendente" desfaz, porque registrar por engano precisa ter saída.
+
+Duas decisões sobre o que conta como resposta:
+
+- **`lista_espera` conta.** O convidado deu retorno; quem está segurando é o casal. Logo *Respondido* significa "todos deram algum retorno", não "todos confirmados".
+- **`removido` deixou de existir.** Era valor morto do vocabulário — nada no produto o gravava ("Remover do convite" apenas desfaz o vínculo) e o fluxo do convidado já o lia como pendente. Como *Respondido* significa "todos os membros têm resposta", um `removido` gravado por acidente contaria como resposta e um convite sem ninguém confirmado passaria a dizer *Respondido*. Saiu do CHECK de `respostas_rsvp` em 2026-09-10, o que torna esse estado impossível em vez de apenas escondido.
+
+**O prazo de RSVP não se aplica a este caminho.** Ele bloqueia o convidado (`/api/rsvp/**`), não o casal: depois do prazo é exatamente quando se está ligando para quem não respondeu, e travar aqui deixaria essas respostas sem lugar para existir.
 
 ## 6. Sistema de Presentes
 

@@ -1,6 +1,6 @@
 import { rotuloDeValor } from '#shared/utils/campos-convidado'
 import type { RsvpStatus } from '#shared/utils/rsvp-status'
-import type { InviteResponseStatus } from '~/types/invite'
+import type { InviteStage } from '~/types/invite'
 
 /**
  * Fonte única de rótulo + cor de estado da plataforma.
@@ -23,7 +23,8 @@ import type { InviteResponseStatus } from '~/types/invite'
  *
  * "Pendente" só é `warning` quando existe providência a tomar. Quando
  * significa apenas "ainda não aconteceu", é `neutral` — ver
- * inviteResponsePresentation, onde isso depende do convite ter sido enviado.
+ * inviteStagePresentation, onde "Enviado" (a bola está com o convidado) é
+ * neutral e "Aberto" (abriu e não respondeu) é warning.
  *
  * A apresentação é badge (UiBadge) em todo lugar — tabela e modal —, decisão
  * do usuário depois de ver as duas alternativas lado a lado: o preenchimento
@@ -54,32 +55,54 @@ const RSVP_TONES: Record<RsvpStatus, StatusTone> = {
   // erro/exclusão.
   recusado: 'neutral',
   lista_espera: 'neutral',
-  removido: 'neutral',
 }
 
 export function rsvpStatusPresentation(status: RsvpStatus): StatusPresentation {
   return { label: rotuloDeValor('status_rsvp', status), tone: RSVP_TONES[status] }
 }
 
-/** Os três estados consolidados de um convite, na ordem em que a tela oferece. */
-export const INVITE_RESPONSE_STATUS_VALUES: readonly InviteResponseStatus[] = [
-  'responded',
+/** Os cinco estágios do funil, na ordem do processo. */
+export const INVITE_STAGE_VALUES: readonly InviteStage[] = [
+  'not_sent',
+  'sent',
+  'opened',
   'partial',
-  'pending',
+  'responded',
 ]
 
+interface StagePresentation extends StatusPresentation {
+  /**
+   * O que o casal faz a seguir. É o que justifica o funil existir: cada
+   * estágio tem uma providência diferente, e era isso que a palavra
+   * "Pendente" apagava ao cobrir quatro situações.
+   *
+   * "Enviar lembrete", nunca "cobrar": num produto de casamento o segundo
+   * soa como dívida.
+   */
+  action: string | null
+}
+
+const STAGE_PRESENTATION: Record<InviteStage, StagePresentation> = {
+  // Providência do casal pendente — âmbar é "pendente COM ação esperada".
+  not_sent: { label: 'Não enviado', tone: 'warning', action: 'Enviar convite' },
+  // Enviado e no prazo: a bola está com o convidado, nada a fazer ainda.
+  sent: { label: 'Enviado', tone: 'neutral', action: null },
+  // O único estágio comprovado pelo sistema, e o mais acionável de todos:
+  // chegou, a pessoa olhou, e não respondeu.
+  opened: { label: 'Aberto', tone: 'warning', action: 'Enviar lembrete' },
+  partial: { label: 'Parcial', tone: 'warning', action: 'Lembrar os que faltam' },
+  responded: { label: 'Respondido', tone: 'success', action: null },
+}
+
 /**
- * Resposta consolidada de um convite. `sent` decide o tom de "pendente": sem
- * ter sido enviado, ninguém deve nada e o estado é só "ainda não aconteceu";
- * enviado e sem resposta, há providência (cobrar o convidado).
+ * Estágio do convite. Sem o parâmetro `sent` que `inviteResponsePresentation`
+ * exigia: ele existia para desambiguar "Pendente" — a mesma palavra em duas
+ * situações, distinguidas só pelo tom. Agora as duas situações têm palavras
+ * próprias ("Não enviado" e "Enviado"), então o tom não precisa carregar
+ * significado que o texto não diz.
  */
-export function inviteResponsePresentation(
-  status: InviteResponseStatus,
-  options: { sent: boolean },
-): StatusPresentation {
-  if (status === 'responded') return { label: 'Respondido', tone: 'success' }
-  if (status === 'partial') return { label: 'Parcial', tone: 'warning' }
-  return { label: 'Pendente', tone: options.sent ? 'warning' : 'neutral' }
+export function inviteStagePresentation(stage: InviteStage): StagePresentation {
+  return STAGE_PRESENTATION[stage]
 }
 
 /** Estado derivado de um presente na listagem administrativa. */
