@@ -59,6 +59,30 @@ Encontrado ao validar o cadastro de convidado no navegador: `/admin/{slug}/convi
 
 **Regra que fica**: um componente de `components/ui/` que embrulha um primitive de terceiro precisa absorver as restrições dele, não repassá-las ao chamador — o contrato público do `UiSelect` é "uma lista de `{value, label}`", e o chamador não tem como saber que um valor é proibido.
 
+### Achado real: todo modal do admin usava os tokens do site público (2026-09-09)
+
+Retorno do usuário depois do rebrand do painel: "as modais atuais ainda não têm o aspecto visual que aplicamos na tela, principalmente fundos e fontes".
+
+A causa não estava em nenhum modal. `UiModal` usa `DialogPortal` do Reka, que renderiza o conteúdo como **filho de `<body>`** — fora da `<div class="admin-ui">` do layout. Variável CSS herda pela árvore do DOM, não pela árvore de componentes do Vue, então dentro de qualquer modal do painel os tokens voltavam a ser os do `:root`, isto é, os do site público.
+
+Medido no dialog do cadastro, antes e depois de mover o escopo para o `body`:
+
+| | antes | depois |
+|---|---|---|
+| `--color-surface` | `#fcfaf4` | `#f4f4f6` |
+| `--color-surface-muted` | `#f7f3e9` | `#ededf0` |
+| `--color-border` | `#e3ddd3` | `#e3e3e8` |
+| `--font-sans` | Inter | Manrope |
+| `--font-display` | Playfair Display | Sora |
+
+O título do modal renderizava **em Playfair Display** — a serifada do site público, dentro de uma tela de dados. O `--color-surface-muted` de `#f7f3e9` também revela que os tons de superfície vinham do tema do casamento, não do default da plataforma: era o creme daquele casal pintando o fundo dos campos do painel.
+
+Valia para **todo** modal do admin (cadastro, importação, detalhe de convite, confirmações de exclusão, formulário de presente), e ficou invisível por um bom tempo porque, antes de o painel ter neutros próprios, público e admin compartilhavam os mesmos tokens — só o par tipográfico divergia, e um modal em Playfair passa por "decisão de design" à primeira vista.
+
+Corrigido movendo `admin-ui` para `bodyAttrs` no `layouts/admin.vue`, junto do `overflow-hidden` que já morava lá. **Regra que fica:** escopo de tokens que precise valer para conteúdo portalado vai no `body`, nunca num contêiner interno — e a prova de que valeu é medir `getComputedStyle` dentro do portal, não olhar a tela.
+
+---
+
 ### Reversão de escopo: cadastro de convidado deixou de ser wizard (2026-09-08)
 
 Pedido do usuário na fase Modo Lista, com o site casamentos.com como referência: "por mim não precisa ser em etapas igual é hoje".

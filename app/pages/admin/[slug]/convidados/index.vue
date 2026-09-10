@@ -221,6 +221,19 @@ const isTemplateModalOpen = ref(false)
 // a query é uma segunda porta de entrada, não a fonte única.
 const isImportModalOpen = ref(route.query.importar === '1')
 
+/**
+ * Qual entrada do importador abre expandida. "Colar do Excel" e "Importar" são
+ * a MESMA operação com origens diferentes, então levam ao mesmo modal — o que
+ * muda é onde o cursor cai. Abrir no seletor de arquivo depois de clicar em
+ * "colar" seria entregar outra coisa.
+ */
+const modoDeImportacao = ref<'arquivo' | 'colar'>('arquivo')
+
+function abrirColagem() {
+  modoDeImportacao.value = 'colar'
+  isImportModalOpen.value = true
+}
+
 watch(
   () => route.query.importar,
   (valor) => {
@@ -307,6 +320,7 @@ async function confirmDelete() {
       @update:busca="searchDraft = $event"
       @adicionar="openCreateGuest"
       @exportar="handleExport"
+      @colar="abrirColagem"
     />
 
     <AdminPanel title="Lista de convidados" :meta="`${data?.data.length ?? 0} exibidos`">
@@ -400,20 +414,17 @@ async function confirmDelete() {
               <span v-else class="text-text-muted">—</span>
             </template>
 
+            <!-- Só a lixeira, pela mesma razão do Modo Lista: o nome já é o
+                 `<button>` que abre a edição, e as duas telas mostram o mesmo
+                 cadastro — a linha não pode oferecer ações diferentes em cada
+                 uma. -->
             <template #cell-acoes="{ row }">
-              <span class="inline-flex justify-end gap-1">
-                <AdminRowAction
-                  icon="lucide:pencil"
-                  :label="`Editar ${row.nome_completo}`"
-                  @click="openEditGuest(row)"
-                />
-                <AdminRowAction
-                  icon="lucide:trash-2"
-                  tone="danger"
-                  :label="`Excluir ${row.nome_completo}`"
-                  @click="openDeleteModal(row)"
-                />
-              </span>
+              <AdminRowAction
+                icon="lucide:trash-2"
+                tone="danger"
+                :label="`Excluir ${row.nome_completo}`"
+                @click="openDeleteModal(row)"
+              />
             </template>
 
             <template #detail="{ row }">
@@ -463,6 +474,7 @@ async function confirmDelete() {
 
     <AdminGuestsGuestImportModal
       v-model="isImportModalOpen"
+      :modo="modoDeImportacao"
       @imported="handleImported"
       @request-template="isTemplateModalOpen = true"
     />

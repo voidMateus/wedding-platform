@@ -36,7 +36,13 @@ useHead({
   // `document.scrollTop` ia a 708 num clique). Documento rolável por baixo de
   // um app shell dá dois eixos de rolagem competindo, e é o de fora que o
   // navegador move quando precisa revelar um elemento focado.
-  bodyAttrs: { class: 'overflow-hidden' },
+  // `admin-ui` no BODY, e nao na div do shell: todo modal da plataforma sai por
+  // `DialogPortal`, que renderiza como filho de <body> -- fora da div. Variavel
+  // CSS herda pela arvore do DOM, entao com o escopo la dentro os modais do
+  // painel caiam nos tokens do site publico: creme no lugar do cinza, borda tan
+  // e Playfair/Inter no lugar de Sora/Manrope. No body, o portal herda igual ao
+  // resto do painel.
+  bodyAttrs: { class: 'admin-ui overflow-hidden' },
 })
 
 const activeSlug = computed(() => {
@@ -118,7 +124,7 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
     conteúdo → abas) é a ordem de leitura, e no desktop a linha interna volta
     com a coluna do menu ao lado do conteúdo.
   -->
-  <div class="admin-ui flex h-screen flex-col overflow-hidden bg-surface">
+  <div class="flex h-screen flex-col overflow-hidden bg-surface">
     <header
       class="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur lg:h-16 lg:gap-4 lg:px-6"
     >
