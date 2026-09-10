@@ -1,7 +1,13 @@
 import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
 
-const bodySchema = z.object({ sent: z.boolean().default(true) })
+// `.default({})` no OBJETO, não só no campo: `readBody` devolve `undefined`
+// quando a requisição não tem corpo, e `z.object({...})` recusa `undefined`
+// — o default de campo só age sobre chave ausente DENTRO de um objeto. Sem
+// isso, `POST /send` sem corpo passava a responder 400, quebrando "Marcar
+// como enviado" na janela de deploy (o código publicado não manda o campo).
+// Achado pelo CI: a suíte de integração é a única que exercita esse caminho.
+const bodySchema = z.object({ sent: z.boolean().default(true) }).default({})
 
 /**
  * Marca/desmarca o convite como enviado — grava `enviado_em` e o evento na
@@ -14,8 +20,8 @@ const bodySchema = z.object({ sent: z.boolean().default(true) })
  * (`archive.post.ts`), pelo mesmo motivo: registro reversível do casal, não
  * fato comprovado pelo sistema.
  *
- * `default(true)` mantém a chamada antiga (sem corpo) funcionando — importa na
- * janela de deploy, em que o código publicado ainda não manda o campo.
+ * A chamada antiga (sem corpo nenhum) continua funcionando — ver a nota do
+ * schema abaixo, que é onde isso quase deu errado.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)

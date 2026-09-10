@@ -262,7 +262,10 @@ describe('api: funil de estágios do convite', () => {
 
     await client.post(`/api/invites/${invite.id}/send`, { sent: true })
 
-    const res = await client.get('/api/guests?pageSize=200')
+    // 100 é o teto de `pageSize` (server/utils/schemas/pagination.ts) — acima
+    // dele o endpoint responde 400, e o teste morria com TypeError ao ler
+    // `.data` de um corpo de erro.
+    const res = await client.get('/api/guests?pageSize=100')
     expect(res.status).toBe(200)
     const linhas = (await res.json()).data as Array<{ id: string; inviteStage: string | null }>
 
@@ -336,7 +339,8 @@ describe('api: funil de estágios do convite', () => {
       .eq('id', invite.id)
 
     const client = createTestApiClient({ cookie })
-    const res = await client.get('/api/invites?pageSize=200')
+    const res = await client.get('/api/invites?pageSize=100')
+    expect(res.status).toBe(200)
     const linha = (
       (await res.json()).data as Array<{ id: string; stageSince: string | null }>
     ).find((i) => i.id === invite.id)

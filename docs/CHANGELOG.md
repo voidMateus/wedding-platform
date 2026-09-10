@@ -918,3 +918,15 @@ Remover em vez de esconder, porque com o funil ele passou a ser perigoso: *Respo
 A lista de validação dentro de `salvar_rsvp_convidado` ficou com o valor antigo de propósito, com o motivo escrito na migration: recriar cem linhas de função para tirar um item de um `if` não compra garantia nenhuma, porque o CHECK é o portão real e o Zod já recusa antes.
 
 As duas views novas foram validadas contra o banco de dev antes de qualquer teste automatizado, com scripts descartáveis — inclusive os dois casos que só a ordem revela: o "primeiro acesso" (eventos inseridos fora de ordem, para o `min` ser o que decide) e a "resposta mais recente".
+
+### Achado do CI: `POST /invites/:id/send` sem corpo passou a responder 400
+
+O CI do PR pegou o que esta máquina não podia pegar — integração exige Docker, e aqui não tem. Quatro falhas em 340; uma delas era defeito de produto, e das piores: silenciosa e só na janela de deploy.
+
+Ao tornar o envio reversível, o endpoint ganhou `validateBody` com `z.object({ sent: z.boolean().default(true) })`. Escrevi no comentário que o default mantinha a chamada antiga (sem corpo) funcionando — e **estava errado**: `readBody` devolve `undefined` quando não há corpo, `z.object({...})` recusa `undefined`, e default de campo só age sobre chave ausente DENTRO de um objeto. O código publicado chama `POST /send` sem corpo nenhum, então "Marcar como enviado" quebraria com 400 entre o merge e o deploy novo — exatamente a janela que o comentário afirmava cobrir.
+
+`.default({})` no objeto resolve (`undefined` → `{}` → `{ sent: true }`), e o caso está guardado pelo próprio teste que o pegou, que chama o endpoint sem corpo de propósito.
+
+As outras três eram dos testes: dois `pageSize=200` acima do teto de 100 (o endpoint respondia 400 e o teste morria com TypeError ao ler `.data` de um corpo de erro), e a suíte antiga de convites ainda afirmando `status_convite = 'enviado'`, coluna que este trabalho aposentou.
+
+A lição não é sobre Zod: é que **eu documentei como garantia uma suposição que nunca tinha executado**. O comentário dizia "mantém funcionando" sobre um caminho que nenhum teste local exercitava.
