@@ -42,8 +42,24 @@ const toneClasses: Record<NonNullable<Props['tone']>, string> = {
   danger: 'text-text-muted hover:bg-surface-muted hover:text-danger',
 }
 
+// `relative` não é decoração: o rótulo abaixo é um `sr-only`, que o Tailwind
+// implementa com `position: absolute`. Sem um ancestral posicionado, o bloco
+// contêiner dele passa a ser o bloco contêiner inicial — ou seja, o span
+// escapa de QUALQUER `overflow` no caminho e se assenta na posição estática
+// dele dentro do documento.
+//
+// Numa tabela longa isso rolava a tela inteira: a grade tem altura limitada
+// (`.table-scroll`, max-height 60vh), mas os rótulos das ações vazavam dela e
+// o último, na linha 196, ficava a 5646px do topo — exatamente a altura de
+// rolagem que o documento passava a ter, com a página rolando para um vazio
+// enorme abaixo do painel. Medido no navegador; o `overflow: hidden` do body
+// não segura porque `main.css` põe `overflow-x: hidden` no `html`, e daí é o
+// `html` que rola, não o body.
+//
+// Com `relative`, o span resolve contra o próprio botão: 1px dentro da linha,
+// e a grade volta a cortá-lo como corta o resto.
 const classes = computed(() => [
-  'inline-flex items-center justify-center rounded-md p-1.5 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+  'relative inline-flex items-center justify-center rounded-md p-1.5 transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
   disabled ? 'cursor-not-allowed text-text-muted opacity-40' : toneClasses[tone],
 ])
 </script>

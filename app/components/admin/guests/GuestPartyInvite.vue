@@ -1,6 +1,6 @@
 <!--
-  O convite do grupo — antes um passo com duas opções de rádio ("criar agora"
-  / "fazer depois"), agora uma linha marcável.
+  O convite dos acompanhantes — antes um passo com duas opções de rádio
+  ("criar agora" / "fazer depois"), agora uma linha marcável.
 
   Um passo inteiro para uma pergunta de sim ou não obrigava a passar por ele
   mesmo quando a resposta era a padrão. Como caixa, a resposta padrão já está
@@ -19,7 +19,7 @@ export interface InviteDraft {
 
 interface Props {
   modelValue: InviteDraft
-  /** Total de pessoas do grupo (responsável + acompanhantes), só pro texto descritivo. */
+  /** Total de pessoas do núcleo (este cadastro + acompanhantes), só pro texto descritivo. */
   partySize: number
 }
 
@@ -45,7 +45,7 @@ const rotulo = computed(() => `Criar um convite para estas ${props.partySize} pe
       <UiInput
         :model-value="modelValue.nome"
         label="Nome do convite"
-        hint="Como o grupo aparece na tela de Convites."
+        hint="Como este convite aparece na sua tela de Convites. O convidado não vê este nome."
         @update:model-value="update('nome', $event)"
       />
       <UiTextarea
