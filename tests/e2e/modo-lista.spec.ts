@@ -190,6 +190,22 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     await expect(page.getByRole('option', { name: 'Adolescente' })).toBeHidden()
     await page.keyboard.press('Escape')
 
+    // --- salvar o cadastro fecha a modal, também aqui ---
+    //
+    // Fechar era decisão do PAI, e as duas telas que montam esta mesma modal
+    // divergiam: a Visão Geral fechava, o Modo Lista não. Aqui a modal ficava
+    // aberta com o estado de antes de salvar — ainda anunciando "o convite será
+    // criado" depois de o convite já existir, e um segundo Salvar falhava com
+    // "já pertence a outro convite". Hoje quem fecha é a modal, que é quem sabe
+    // que o salvamento deu certo.
+    await expect(async () => {
+      await page.getByRole('button', { name: 'Joao da Silva', exact: true }).first().click()
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
+    }).toPass({ timeout: 15_000 })
+
+    await page.getByRole('button', { name: 'Salvar', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 })
+
     // --- recolher o pai recolhe a árvore ---
     //
     // `toPass` em volta do clique, e não um clique só: a página é renderizada

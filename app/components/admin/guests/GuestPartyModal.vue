@@ -40,7 +40,17 @@ const props = withDefaults(defineProps<Props>(), { guestId: null, initialGroupId
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  /** Convidado (com acompanhantes/convite) salvo — o pai recarrega a listagem e fecha. */
+  /**
+   * Convidado (com acompanhantes/convite) salvo — o pai recarrega a listagem.
+   *
+   * Fechar NÃO é responsabilidade do pai: quem sabe que o salvamento deu certo
+   * é este componente, e deixar a decisão fora dele fez as duas telas
+   * divergirem. A Visão Geral fechava, o Modo Lista não — e ali a modal ficava
+   * aberta com o estado de antes de salvar, anunciando "o convite será criado"
+   * depois de o convite já ter sido criado. Um segundo clique em Salvar então
+   * falhava com "já pertence a outro convite", porque o formulário ainda
+   * pensava que não havia vínculo.
+   */
   saved: []
 }>()
 
@@ -187,6 +197,11 @@ async function salvar() {
     })
     toast.success(isEditing.value ? 'Convidado atualizado.' : 'Convidado cadastrado.')
     emit('saved')
+    // Fecha aqui, e não no pai: ver a nota em `saved`. O formulário inteiro
+    // descreve o estado de ANTES do salvamento (o convite pedido, as chaves
+    // dos acompanhantes novos, a posição no núcleo), então deixá-lo aberto
+    // depois de gravar é deixar uma tela que mente.
+    emit('update:modelValue', false)
   } catch (err) {
     const apiError = err as { data?: { message?: string } }
     errorMessage.value = apiError.data?.message ?? 'Não foi possível salvar. Tente novamente.'

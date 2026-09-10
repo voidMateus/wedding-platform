@@ -810,3 +810,13 @@ Duas decisões do usuário fecharam o desenho, e uma delas contra a minha primei
 Mudança de comportamento deliberada: criar o convite passou a ser **ação pedida, não resposta já dada**. Como caixa pré-marcada, nascia um convite por núcleo cadastrado mesmo para o casal que planeja os convites na tela de Convites — um cartão para uma família inteira, por exemplo — que tinha de desmarcar para não acumular.
 
 E a dica do campo que sumiu dizia "Como **o grupo** aparece na tela de Convites". Grupo é outro conceito, com tela própria, e existe um campo Grupo no mesmo formulário poucos centímetros acima — exatamente a confusão entre os três conceitos que CLAUDE.md seção 12 proíbe, escrita em texto visível.
+
+### Achado: no Modo Lista, salvar o cadastro deixava a modal aberta com o estado de antes
+
+Reportado pelo usuário no mesmo dia da mudança acima: "quando eu marco para criar o convite no save ele apresenta para mim que será criado, mas ao clicar em salvar a modal não atualiza e fica ainda apresentando que ainda será criado o convite".
+
+A causa não era a linha de convite: **fechar era decisão do pai**, e as duas telas que montam a mesma modal divergiam. A Visão Geral fazia `recarregarTudo()` e depois `closeGuestModal()`; o Modo Lista tinha só `@saved="recarregarTudo"` e nunca fechava. Nessa tela o formulário inteiro continuava descrevendo o estado anterior ao salvamento — o convite pedido, as chaves dos acompanhantes recém-criados, a posição no núcleo.
+
+E o sintoma visual era o menor dos problemas: um segundo clique em Salvar reenviava `invite` sem id, porque o formulário ainda achava que não havia vínculo — e a função recusava com `GUEST_ALREADY_IN_ANOTHER_INVITE`, que na tela vira "Um dos acompanhantes já pertence a outro convite". Erro incompreensível para quem só clicou em salvar duas vezes.
+
+Fechar passou a ser da modal, que é quem sabe que o salvamento deu certo: ela emite `saved` (o pai recarrega) e em seguida `update:modelValue: false`. Os dois pais já tratavam esse evento para limpar `?editar` da URL, então nenhum precisou de caminho novo — e nenhum pode mais esquecer de fechar. É a mesma classe de divergência do lápis da linha, resolvida da mesma forma: a decisão vai para onde a informação está, não para cada tela.
