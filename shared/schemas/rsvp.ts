@@ -25,6 +25,34 @@ export const rsvpGuestStatusSchema = z.object({
 
 export type RsvpGuestStatusInput = z.infer<typeof rsvpGuestStatusSchema>
 
+/**
+ * Resposta registrada pelo CASAL, para o convidado que não usa o site.
+ *
+ * Existe porque o funil de status do convite não pode exigir jornada digital: a
+ * avó que confirma por telefone precisa chegar a "respondido" sem nunca abrir o
+ * link. Sem este caminho, o acompanhamento só funcionaria para quem responde
+ * online — e o produto tem que representar o casamento, não a atividade dentro
+ * do site (docs/PRODUCT.md seção 5).
+ *
+ * Aceita mais valores que o schema do convidado acima, e um a menos que o
+ * CHECK do banco:
+ *
+ * - `lista_espera` porque é decisão do casal, não do convidado.
+ * - `pendente` porque registrar por engano precisa ter volta.
+ * - **`removido` fica de fora**: é valor morto do enum (nada no produto o
+ *   grava, "Remover do convite" só faz `convite_id = null`, e o fluxo do
+ *   convidado o converte em `pendente` na leitura). Oferecê-lo aqui o faria
+ *   contar como resposta na view, e um convite sem ninguém confirmado passaria
+ *   a dizer "respondido".
+ */
+export const rsvpAdminStatusSchema = z.object({
+  status: z.enum(['pendente', 'confirmado', 'recusado', 'lista_espera'], {
+    message: 'Resposta inválida.',
+  }),
+})
+
+export type RsvpAdminStatusInput = z.infer<typeof rsvpAdminStatusSchema>
+
 export const rsvpCompanionSchema = z.object({
   nomeCompleto: z.string().trim().min(1, 'Informe o nome do acompanhante.').max(200),
 })

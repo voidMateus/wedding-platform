@@ -6,7 +6,7 @@ import {
   FAIXA_ETARIA_ROTULO_NAO_INFORMADA,
   descreverLimitesFaixaEtaria,
 } from '#shared/utils/faixa-etaria'
-import type { InviteListItem, InviteResponseStatus } from '~/types/invite'
+import type { InviteListItem, InviteStage } from '~/types/invite'
 
 definePageMeta({ layout: 'admin' })
 
@@ -119,7 +119,7 @@ const ageGroupCounts = computed(() => {
 // recentes" (nome, grupo, acompanhantes, status de RSVP, atualizado em), mas
 // /api/guests devolve `convidados.Row` puro — sem status de RSVP (vive em
 // respostas_rsvp, sem join) e sem atualizado_em por resposta. Enquanto esse
-// join não existir, o painel mostra convites, que já trazem responseStatus,
+// join não existir, o painel mostra convites, que já trazem o estágio,
 // memberCount e enviado_em na mesma resposta. Quando a listagem de convidados
 // passar a trazer status + atualizado_em, esta tabela pode voltar a ser de
 // convidados só trocando `columns`/`rows` — AdminTable recebe as colunas por
@@ -140,9 +140,12 @@ const inviteFilters = [
 // O recorte vai para o endpoint, não é aplicado sobre a página carregada: o
 // painel mostra os 8 mais recentes DO RECORTE, e não "os que sobraram dos 8 mais
 // recentes de todos" — que era o que acontecia enquanto o filtro rodava aqui.
-const inviteResponseStatus = computed<InviteResponseStatus[] | undefined>(() => {
+const inviteStages = computed<InviteStage[] | undefined>(() => {
   if (inviteFilter.value === 'respondidos') return ['responded']
-  if (inviteFilter.value === 'aguardando') return ['pending', 'partial']
+  // "Aguardando" é todo estágio em que a resposta ainda não fechou — com o
+  // funil isso deixou de ser dois valores e passou a ser quatro, porque
+  // "pendente" se abriu em não enviado / enviado / aberto.
+  if (inviteFilter.value === 'aguardando') return ['not_sent', 'sent', 'opened', 'partial']
   return undefined
 })
 
@@ -159,7 +162,7 @@ const {
   computed(() => ({
     page: 1,
     pageSize: INVITES_PAGE_SIZE,
-    responseStatus: inviteResponseStatus.value,
+    stage: inviteStages.value,
   })),
 )
 
@@ -181,9 +184,7 @@ const inviteColumns = [
 // Badge, não texto colorido (preferência do usuário em 2026-09-04): rótulo e
 // tom vêm do mapa único (status-presentation.ts), igual ao modal de detalhe.
 function statusOf(invite: InviteListItem) {
-  return inviteResponsePresentation(invite.responseStatus, {
-    sent: invite.status_convite === 'enviado',
-  })
+  return inviteStagePresentation(invite.stage)
 }
 </script>
 

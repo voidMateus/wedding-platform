@@ -1,13 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
-import type { InviteDetail, InviteMember, InviteResponseStatus } from '~/types/invite'
-
-function computeResponseStatus(statuses: string[]): InviteResponseStatus {
-  if (statuses.length === 0) return 'pending'
-  const responded = statuses.filter((s) => s !== 'pendente').length
-  if (responded === 0) return 'pending'
-  if (responded === statuses.length) return 'responded'
-  return 'partial'
-}
+import type { InviteDetail, InviteMember } from '~/types/invite'
 
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
@@ -18,8 +10,12 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
 
-  const { data: invite, error } = await client
-    .from('convites')
+  // Da VIEW, não da tabela: é ela que decide o estágio do funil, e o detalhe
+  // tem de mostrar o mesmo que a listagem. Ler de `convites` obrigava a
+  // recalcular a regra aqui — e a versão em TypeScript não sabia nada sobre
+  // "aberto", então detalhe e listagem passariam a discordar.
+  const { data: inviteRow, error } = await client
+    .from('convites_com_resumo')
     .select('*')
     .eq('id', id)
     .eq('casamento_id', weddingId)
@@ -29,9 +25,11 @@ export default defineEventHandler(async (event) => {
   if (error) {
     throw badRequestError(error.message)
   }
-  if (!invite) {
+  if (!inviteRow) {
     throw notFoundError('Convite não encontrado.')
   }
+
+  const { total_membros, total_respondidos, status_operacional, ...invite } = inviteRow
 
   const [guestsResult, responsesResult, tagLinksResult] = await Promise.all([
     client
@@ -68,8 +66,10 @@ export default defineEventHandler(async (event) => {
     .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag))
 
   const result: InviteDetail = {
-    ...invite,
-    responseStatus: computeResponseStatus(members.map((m) => m.rsvpStatus)),
+    ...(invite as unknown as InviteDetail),
+    stage: inviteStageFromView(status_operacional),
+    memberCount: total_membros ?? 0,
+    respondedCount: total_respondidos ?? 0,
     members,
     tags,
   }

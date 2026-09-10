@@ -12,7 +12,10 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await client
     .from('convites')
-    .update({ status_convite: 'enviado', enviado_em: new Date().toISOString() })
+    // So `enviado_em`: `status_convite` era a terceira representacao do mesmo
+    // fato (coluna + timestamp + evento `token.sent` no historico) e ficou
+    // obsoleta com o funil de estagios, que le o timestamp.
+    .update({ enviado_em: new Date().toISOString() })
     .eq('id', id)
     .eq('casamento_id', weddingId)
     .is('excluido_em', null)

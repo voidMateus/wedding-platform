@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
         .single(),
       client
         .from('convites')
-        .select('id, status_convite, enviado_em, arquivado_em')
+        .select('id, enviado_em, arquivado_em')
         .eq('casamento_id', weddingId)
         .is('excluido_em', null),
       client
@@ -158,7 +158,9 @@ export default defineEventHandler(async (event) => {
     rsvpDeadline: wedding.prazo_rsvp,
     invites: {
       total: invites.length,
-      sent: invites.filter((i) => i.status_convite === 'enviado').length,
+      // `enviado_em`, nunca `status_convite`: a coluna e o timestamp diziam o
+      // mesmo fato, e a coluna ficou obsoleta com o funil de estagios.
+      sent: invites.filter((i) => i.enviado_em !== null).length,
       responded: invitesResponded,
       partial: invitesPartial,
       pending: invitesPending,

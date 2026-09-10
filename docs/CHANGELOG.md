@@ -820,3 +820,49 @@ A causa não era a linha de convite: **fechar era decisão do pai**, e as duas t
 E o sintoma visual era o menor dos problemas: um segundo clique em Salvar reenviava `invite` sem id, porque o formulário ainda achava que não havia vínculo — e a função recusava com `GUEST_ALREADY_IN_ANOTHER_INVITE`, que na tela vira "Um dos acompanhantes já pertence a outro convite". Erro incompreensível para quem só clicou em salvar duas vezes.
 
 Fechar passou a ser da modal, que é quem sabe que o salvamento deu certo: ela emite `saved` (o pai recarrega) e em seguida `update:modelValue: false`. Os dois pais já tratavam esse evento para limpar `?editar` da URL, então nenhum precisou de caminho novo — e nenhum pode mais esquecer de fechar. É a mesma classe de divergência do lápis da linha, resolvida da mesma forma: a decisão vai para onde a informação está, não para cada tela.
+
+## Fase Status do Convite (2026-09-10)
+
+Pedido do usuário: "vamos dar uma melhorada nos status dos convites, me cita quais são hoje e vamos repensar". O levantamento achou **quatro coisas independentes** funcionando como status, e só uma se chamando "Status" na tela: `convites.status_convite` (`pendente`/`enviado`, marcado à mão), o `status_resposta` derivado na view, `arquivado_em` e `excluido_em`. A coluna Status mostrava só a segunda; o modal empilhava três badges; e "abriu e não respondeu" — o dado mais acionável que existe — ficava enterrado na Linha do Tempo.
+
+O usuário escreveu então um documento de remodelagem completo e pediu validação. Ele estava certo, e o código confirmou três coisas que ele supunha piores do que eram:
+
+- **A origem da resposta já estava modelada.** `salvar_rsvp_convidado` tem `p_origem` e **já aceitava `'admin_panel'`**, com `'public_site'` como default, gravando em `historico_convite.metadados.source`. "Resposta manual como cidadã de primeira classe" não precisava de conceito novo.
+- **O envio já era um fato.** `send.post.ts` já gravava `token.sent` no histórico. Logo `status_convite` era a **terceira** representação do mesmo acontecimento (coluna + timestamp + evento), não a segunda.
+- **"Aberto" saiu de graça.** `rsvp.first_access` é gravado por convite, não por convidado — então "João abriu, Maria não → Aberto" é literalmente o que o dado já diz, e não precisou de coluna nova. Eu ia propor criar uma; o usuário evitou isso ao insistir em derivar dos fatos.
+
+E três que eram piores:
+
+- **"Registrar resposta" não existia.** `respostas_rsvp` era escrita em um lugar só, chamado apenas pelo caminho do convidado. Era a maior peça do documento, e é ela que faz o funil valer para a lista inteira em vez de só para convidado digital.
+- **Derivar "dos fatos" tinha de significar derivar em SQL.** O recorte por status é do endpoint, antes de paginar; calculado no navegador, o filtro voltaria a recortar só os 25 da página — o bug que a view `convites_com_resumo` foi criada para matar.
+- **"Todos possuem resposta" precisava definir "resposta".** A view contava tudo que fosse `<> 'pendente'`, o que inclui `lista_espera` e `removido`.
+
+### O funil
+
+`nao_enviado -> enviado -> aberto -> parcial -> respondido`, o estágio mais avançado alcançado, derivado em `convites_com_resumo.status_operacional`. Cada estágio implica os anteriores, então a coluna Status mostra um e o modal mostra um badge — os três empilhados viraram um, e "enviado" deixou de ser badge porque virou estágio.
+
+**"Aberto" passa na frente de "Enviado" de propósito**, e é o detalhe que salva o funil: "Enviado" é só o casal informando que mandou, e mente sempre que esquecem de marcar. "Aberto" é o único estágio comprovado pelo sistema — se alguém acessou, o convite chegou. O estágio avança sozinho e corrige o flag manual.
+
+### Duas decisões que ficaram comigo
+
+O usuário não respondeu duas perguntas antes de mandar desenvolver, então assumi e registrei: **`lista_espera` conta como resposta** (o convidado deu retorno; quem segura é o casal — e é o comportamento que já existia, então nada mudou em silêncio), e **a fração "3 de 5" é o único dado de apoio da célula**, exibida só em `parcial`/`respondido`, onde muda a providência. Antes de existir resposta ela seria "0 de 5" em toda linha, um número que não distingue nada.
+
+Discordei de um ponto do documento: ele propunha "Respondido · 5 de 5 · 2 respostas manuais" na listagem. O redesenho existe para acabar com badges concorrentes, e o terceiro pedaço é um badge concorrente com passos extras — a origem não muda providência nenhuma na lista. Ela fica no detalhe e na Linha do Tempo, onde já estava.
+
+### O caminho da avó
+
+O teste que descreve a regra melhor que qualquer frase: convite em papel, nunca abriu o site, confirmou por telefone. A resposta é registrada pelo casal e o convite vai **direto** a `respondido`, sem passar por `aberto` — e sem que nenhum evento de acesso seja inventado. Nenhum estágio exige jornada digital.
+
+`removido` ficou fora do seletor de resposta manual: é valor morto do vocabulário (nada no produto o grava, "Remover do convite" só desfaz o vínculo, e o fluxo do convidado o lê como pendente). Oferecê-lo o faria contar como resposta, e um convite sem ninguém confirmado passaria a dizer "respondido".
+
+O prazo de RSVP deliberadamente **não** se aplica ao caminho do casal — ele é checado na camada de API do convidado, nunca dentro da função. Depois do prazo é exatamente quando se está ligando para quem não respondeu.
+
+### Achado colateral: o detalhe do convite reimplementava a regra
+
+`invites/[id].get.ts` calculava o status consolidado em TypeScript (`computeResponseStatus`), uma segunda implementação do que a view já decidia. Com o funil a divergência seria imediata: a versão em TS não sabia nada sobre "aberto". Passou a ler da própria view, e a tradução banco↔DTO virou `server/utils/invite-stage.ts`, compartilhada pelos dois endpoints.
+
+`convites.status_convite` ficou obsoleta — nada a lê ou escreve. A remoção não entrou na mesma migration de propósito: as migrations são aplicadas em prod no merge, em paralelo com o deploy da Vercel, e existe uma janela em que o código antigo roda contra o schema novo. Registrada no roadmap.
+
+### Verificação
+
+A regra do funil foi validada contra o banco de dev antes de qualquer teste automatizado, com um script descartável que exercita os cinco estágios manipulando os fatos — inclusive os dois casos que mais importam: "aberto sem envio" (o flag manual se corrigindo) e "a avó direto a respondido". Onze checagens, todas verdes. A cobertura permanente é integração (14 casos, que é o que roda no CI), unitário para o mapa de estágios e um E2E que prova a fiação da tela.

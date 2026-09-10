@@ -34,12 +34,10 @@ const isLoading = ref(false)
 const hasLoadError = ref(false)
 const isBusy = ref(false)
 
-const responsePresentation = computed(() =>
+const stagePresentation = computed(() =>
   invite.value
-    ? inviteResponsePresentation(invite.value.responseStatus, {
-        sent: invite.value.status_convite === 'enviado',
-      })
-    : { label: '', tone: 'neutral' as const },
+    ? inviteStagePresentation(invite.value.stage)
+    : { label: '', tone: 'neutral' as const, action: null },
 )
 
 async function load() {
@@ -150,15 +148,25 @@ async function toggleArchive() {
     <div v-else-if="invite" class="flex flex-col gap-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
-          <UiBadge :tone="responsePresentation.tone">
-            {{ responsePresentation.label }}
+          <!-- UM badge de estágio, não três empilhados. "enviado" saiu
+               porque virou estágio do funil; "arquivado" fica porque não é
+               estágio — é escopo, e um convite arquivado pode estar em
+               qualquer ponto do funil. A providência ao lado é o que o
+               estágio pede a seguir. -->
+          <UiBadge :tone="stagePresentation.tone">
+            {{ stagePresentation.label }}
           </UiBadge>
-          <UiBadge v-if="invite.status_convite === 'enviado'" tone="neutral">enviado</UiBadge>
+          <span v-if="stagePresentation.action" class="text-xs text-text-muted">
+            {{ stagePresentation.action }}
+          </span>
+          <span v-if="invite.memberCount" class="num text-xs text-text-muted">
+            {{ invite.respondedCount }} de {{ invite.memberCount }} responderam
+          </span>
           <UiBadge v-if="invite.arquivado_em" tone="neutral">arquivado</UiBadge>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <UiButton
-            v-if="invite.status_convite !== 'enviado'"
+            v-if="!invite.enviado_em"
             size="sm"
             variant="ghost"
             :disabled="isBusy"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatDatePtBR } from '#shared/utils/format-date'
-import type { InviteListItem, InviteResponseStatus } from '~/types/invite'
+import type { InviteListItem, InviteStage } from '~/types/invite'
 import type { AdminTableColumn } from '~/types/table'
 
 definePageMeta({ layout: 'admin' })
@@ -23,12 +23,12 @@ const archiveChips = [
   { value: 'archived', label: 'Arquivados' },
 ] as const
 
-// Rótulo do estado consolidado, do mapa único de estados da plataforma. `sent`
-// só muda o tom de "pendente" (providência ou não), nunca o texto — então aqui,
-// onde a opção descreve o recorte e não um convite específico, `true` serve.
-const statusOptions = INVITE_RESPONSE_STATUS_VALUES.map((value) => ({
+// Os cinco estágios do funil, na ordem do processo — não em ordem alfabética
+// nem de "gravidade": a lista de opções é o próprio caminho que um convite
+// percorre, e ler fora de ordem esconde isso.
+const statusOptions = INVITE_STAGE_VALUES.map((value) => ({
   value,
-  label: inviteResponsePresentation(value, { sent: true }).label,
+  label: inviteStagePresentation(value).label,
 }))
 
 // Todo recorte é do endpoint, nunca da página carregada: a listagem é paginada,
@@ -69,8 +69,8 @@ const searchDraft = useDebouncedText(
 // A URL é editável à mão: valor fora do catálogo é descartado aqui, senão o
 // endpoint devolveria 400 (tela de erro) em vez da lista sem o recorte inválido.
 const statusFilter = computed(() =>
-  (filters.values.value.status ?? []).filter((value): value is InviteResponseStatus =>
-    (INVITE_RESPONSE_STATUS_VALUES as readonly string[]).includes(value),
+  (filters.values.value.status ?? []).filter((value): value is InviteStage =>
+    (INVITE_STAGE_VALUES as readonly string[]).includes(value),
   ),
 )
 
@@ -89,7 +89,7 @@ const listParams = computed(() => ({
   pageSize: PAGE_SIZE,
   search: filters.values.value.nome?.[0],
   archived: archiveFilter.value,
-  responseStatus: statusFilter.value.length ? statusFilter.value : undefined,
+  stage: statusFilter.value.length ? statusFilter.value : undefined,
   sort: sortKey.value,
   dir: filters.sortDirection.value,
 }))
@@ -129,9 +129,22 @@ const totalLabel = computed(() => {
 // resto da linha melhor que o texto colorido. Rótulo e tom continuam vindo do
 // mapa único, então tabela e modal nunca divergem de significado.
 function statusOf(invite: InviteListItem) {
-  return inviteResponsePresentation(invite.responseStatus, {
-    sent: invite.status_convite === 'enviado',
-  })
+  return inviteStagePresentation(invite.stage)
+}
+
+/**
+ * "3 de 5" ao lado do estágio — o único dado de apoio da célula.
+ *
+ * Só nos dois estágios em que a fração muda a providência: em `partial` ela diz
+ * quantos faltam, e em `responded` confirma o total. Antes de existir resposta
+ * a fração seria "0 de 5" em toda linha da tela, um número que não distingue
+ * nada. E deliberadamente só UM dado de apoio: a alternativa (fração + tempo no
+ * estágio + origem das respostas) recria na coluna o empilhamento de badges que
+ * este redesenho existe para eliminar.
+ */
+function fracaoDeRespostas(invite: InviteListItem): string | null {
+  if (invite.stage !== 'partial' && invite.stage !== 'responded') return null
+  return `${invite.respondedCount} de ${invite.memberCount}`
 }
 
 // --- criar/abrir ---
@@ -282,7 +295,12 @@ async function confirmDelete() {
             </template>
 
             <template #cell-status="{ row }">
-              <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
+              <span class="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <UiBadge :tone="statusOf(row).tone">{{ statusOf(row).label }}</UiBadge>
+                <span v-if="fracaoDeRespostas(row)" class="num text-xs text-text-muted">
+                  {{ fracaoDeRespostas(row) }}
+                </span>
+              </span>
             </template>
 
             <template #cell-enviado="{ row }">

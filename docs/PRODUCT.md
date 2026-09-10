@@ -288,6 +288,53 @@ Dois conceitos independentes, fáceis de confundir pelo nome:
 - Excluir um convite ou grupo com convidados associados exige realocar os convidados ou confirmar exclusão em cascata (soft delete) — nunca exclusão física silenciosa. A cascata soft-deleta os convidados **e** o próprio convite/grupo (nunca um `DELETE` físico): `convidados.convite_id` é `ON DELETE RESTRICT`, então a linha do convite permanece referenciada por qualquer convidado soft-deleted que já tenha pertencido a ele. Um convite/grupo sem nenhum convidado (nem ativo, nem soft-deleted) também é apenas soft-deleted, pela mesma convenção.
 - `max_acompanhantes` é validado no momento da revisão final do RSVP (`finalizar_rsvp_convite`): não permite confirmar mais acompanhantes avulsos do que o limite definido pelo casal.
 
+### 5.1 Status do convite — um funil operacional
+
+**O princípio:** o status responde "o que o casal precisa saber ou fazer sobre este convite agora?", e não "quais fatos aconteceram com ele". Os fatos ficam registrados à parte (`enviado_em`, o evento `rsvp.first_access`, as linhas de `respostas_rsvp`, a Linha do Tempo); o status é a leitura deles.
+
+**O problema que isso resolve.** Quatro coisas independentes funcionavam como status: `status_convite` (`pendente`/`enviado`, marcado à mão), o `status_resposta` derivado, `arquivado_em` e `excluido_em`. A coluna Status mostrava só a segunda, o modal empilhava três badges, e "abriu e não respondeu" — o dado mais acionável que existe — ficava enterrado na Linha do Tempo. O efeito prático: **"Pendente" cobria quatro situações com providências opostas** (não foi enviado, foi enviado e ninguém respondeu, alguém abriu e não respondeu, parte respondeu), distinguidas apenas pelo tom do badge.
+
+**O funil**, o estágio mais avançado que o convite alcançou:
+
+| Estágio | Significado | Providência |
+|---|---|---|
+| **Não enviado** | Nenhum fato aconteceu ainda | Enviar convite |
+| **Enviado** | O casal informou que mandou; ninguém abriu nem respondeu | Aguardar |
+| **Aberto** | Alguém acessou o convite e ninguém respondeu | Enviar lembrete |
+| **Parcial** | Parte dos membros respondeu | Lembrar os que faltam |
+| **Respondido** | Todos os membros têm resposta | Nenhuma |
+
+Cada estágio implica os anteriores, então **uma coluna basta** e o modal mostra **um badge**. A providência ("Enviar lembrete", nunca "cobrar") é o que justifica o funil existir.
+
+**Derivado, nunca uma fonte de verdade nova** (`convites_com_resumo.status_operacional`). Trocar `status_convite` por uma coluna de cinco valores só mudaria o tamanho do problema: seria mais um estado a manter sincronizado com os fatos. E derivado **em SQL**, não na tela: a listagem é paginada e o recorte por estágio é do endpoint — calculado no navegador, o filtro voltaria a recortar só a página carregada.
+
+**"Aberto" é o único estágio comprovado pelo sistema**, e por isso passa na frente de "Enviado": se alguém acessou, o convite chegou — mesmo que o casal tenha esquecido de marcar o envio. É o que corrige o elo mais fraco do funil, já que "Enviado" significa apenas *o casal informou que enviou*, nunca *o sistema confirmou a entrega*.
+
+**Acesso parcial não é resposta parcial.** O primeiro acesso é gravado por convite, não por convidado: João abriu e Maria não, sem ninguém responder, é **Aberto** — nunca Parcial.
+
+**O funil não é só digital, e essa é a regra que o sustenta.** Nenhum estágio exige que o convidado use o site. A avó que recebe convite em papel, não sabe usar o formulário e confirma por telefone tem a resposta **registrada pelo casal** (seção 5.2) e o convite vai direto a *Respondido*, sem nunca passar por *Aberto*. O sistema nunca exige jornada digital para que uma confirmação exista.
+
+**Arquivado e excluído ficam fora do funil.** Arquivar é escopo administrativo — um convite pode estar arquivado em qualquer estágio —, e continua sendo o recorte "Ativos / Arquivados" da listagem. Excluído segue sendo soft delete, invisível.
+
+**A Linha do Tempo continua, com função distinta.** O status responde "onde este convite está agora"; a Linha do Tempo, "o que aconteceu para ele chegar aqui".
+
+### 5.2 Resposta registrada pelo casal
+
+Até esta rodada, `respostas_rsvp` era escrita em um lugar só — o fluxo do convidado. Quem nunca abria o link ficava eternamente pendente, e o acompanhamento funcionava apenas para convidado digital.
+
+O casal agora registra a resposta pela linha do convidado, dentro do convite. Três garantias:
+
+- **A origem fica registrada** (`admin_panel` contra `public_site`, no histórico). O sistema nunca finge que a avó acessou o site — são fatos diferentes, e a Linha do Tempo conta a diferença.
+- **Não cria acesso falso**: nenhum evento `rsvp.first_access` é inventado, então o convite não passa por *Aberto* a caminho de *Respondido*.
+- **Tem volta**: registrar "pendente" desfaz, porque registrar por engano precisa ter saída.
+
+Duas decisões sobre o que conta como resposta:
+
+- **`lista_espera` conta.** O convidado deu retorno; quem está segurando é o casal. Logo *Respondido* significa "todos deram algum retorno", não "todos confirmados".
+- **`removido` não é oferecido.** É valor morto do vocabulário (nada no produto o grava; "Remover do convite" apenas desfaz o vínculo, e o fluxo do convidado o lê como pendente). Oferecê-lo o faria contar como resposta, e um convite sem ninguém confirmado passaria a dizer *Respondido*.
+
+**O prazo de RSVP não se aplica a este caminho.** Ele bloqueia o convidado (`/api/rsvp/**`), não o casal: depois do prazo é exatamente quando se está ligando para quem não respondeu, e travar aqui deixaria essas respostas sem lugar para existir.
+
 ## 6. Sistema de Presentes
 
 ### 6.1 Conceito ("Presentes 2.0")

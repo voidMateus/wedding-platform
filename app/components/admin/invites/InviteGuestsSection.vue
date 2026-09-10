@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getApiErrorMessage } from '~/utils/api-error'
+import { rsvpAdminStatusSchema } from '#shared/schemas/rsvp'
 import type { InviteDetail } from '~/types/invite'
 
 // Rótulo e cor de cada status saem do mapa único
@@ -19,10 +20,42 @@ const emit = defineEmits<{
 }>()
 
 const { updateInvite, addGuestsToInvite, removeGuestFromInvite } = useInvites()
-const { listGuests, fetchGuestDetail } = useGuests()
+const { listGuests, fetchGuestDetail, setGuestRsvp } = useGuests()
 const toast = useToast()
 
 const isBusy = ref(false)
+
+/**
+ * Registrar a resposta de quem não usou o site — a avó que confirmou por
+ * telefone. Antes, `respostas_rsvp` só era escrita pelo fluxo do convidado, e
+ * quem nunca abriu o link ficava eternamente "pendente": o acompanhamento do
+ * casal funcionava só para convidado digital.
+ *
+ * Seletor discreto no lugar do badge, e não badge + botão: é um fato só, e o
+ * padrão de edição em linha desta plataforma já é esse (a coluna Categoria do
+ * Modo Lista). O estado consolidado colorido continua no topo da modal.
+ *
+ * `removido` fica fora das opções — ver `rsvpAdminStatusSchema`.
+ */
+const opcoesDeResposta = rsvpAdminStatusSchema.shape.status.options.map((status) => ({
+  value: status,
+  label: rsvpStatusPresentation(status).label,
+}))
+
+const guestSalvando = ref<string | null>(null)
+
+async function registrarResposta(guestId: string, status: string) {
+  if (!status) return
+  guestSalvando.value = guestId
+  try {
+    await setGuestRsvp(guestId, { status: status as (typeof opcoesDeResposta)[number]['value'] })
+    emit('changed')
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível registrar a resposta.'))
+  } finally {
+    guestSalvando.value = null
+  }
+}
 
 // Filtro por status. Só aparece quando há mais de um status entre os membros —
 // num convite em que todos estão pendentes ele não recortaria nada, e a barra
@@ -210,9 +243,15 @@ async function confirmAdd() {
             <Icon name="lucide:users" class="h-3.5 w-3.5" />
             {{ rotulosDeNucleo.get(member.partyId) }}
           </span>
-          <UiBadge :tone="rsvpStatusPresentation(member.rsvpStatus).tone">
-            {{ rsvpStatusPresentation(member.rsvpStatus).label }}
-          </UiBadge>
+          <UiSelect
+            :model-value="member.rsvpStatus"
+            :options="opcoesDeResposta"
+            :disabled="isBusy || guestSalvando === member.id"
+            :aria-label="`Resposta de ${member.fullName}`"
+            variant="quiet"
+            class="w-36 shrink-0"
+            @update:model-value="(status) => registrarResposta(member.id, status)"
+          />
         </span>
         <span class="inline-flex shrink-0 items-center gap-1">
           <UiButton

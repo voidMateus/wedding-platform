@@ -4,7 +4,23 @@ export type Invite = Database['public']['Tables']['convites']['Row']
 export type InviteTag = Database['public']['Tables']['etiquetas_convite']['Row']
 export type InviteEvent = Database['public']['Tables']['historico_convite']['Row']
 
-export type InviteResponseStatus = 'pending' | 'partial' | 'responded'
+/**
+ * O estágio operacional do convite: o mais avançado que ele alcançou.
+ *
+ * Substitui `InviteResponseStatus` ('pending' | 'partial' | 'responded'), que
+ * respondia só "responderam?" — e por isso escrevia "Pendente" em quatro
+ * situações com providências opostas (não enviado, enviado sem resposta,
+ * aberto sem resposta, parte respondeu). Cada estágio aqui implica os
+ * anteriores, então uma coluna basta e nada se perde.
+ *
+ * Nenhum estágio exige jornada digital: uma resposta registrada pelo casal
+ * leva o convite direto a `partial`/`responded` sem passar por `opened`.
+ *
+ * Derivado em SQL (`convites_com_resumo.status_operacional`), nunca uma fonte
+ * de verdade própria — os fatos são `enviado_em`, o evento `rsvp.first_access`
+ * e as linhas de `respostas_rsvp`.
+ */
+export type InviteStage = 'not_sent' | 'sent' | 'opened' | 'partial' | 'responded'
 
 /**
  * Valores de `historico_convite.tipo_evento` gravados hoje. A coluna é `text`
@@ -32,7 +48,9 @@ export type InviteEventType =
 export interface InviteListItem extends Invite {
   responsibleGuestName: string | null
   memberCount: number
-  responseStatus: InviteResponseStatus
+  stage: InviteStage
+  /** Quantos dos membros já responderam — o "3 de 5" ao lado do estágio. */
+  respondedCount: number
 }
 
 export interface InviteMember {
@@ -52,7 +70,9 @@ export interface InviteMember {
 }
 
 export interface InviteDetail extends Invite {
-  responseStatus: InviteResponseStatus
+  stage: InviteStage
+  memberCount: number
+  respondedCount: number
   members: InviteMember[]
   tags: InviteTag[]
 }

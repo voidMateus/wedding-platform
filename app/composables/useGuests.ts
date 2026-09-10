@@ -5,6 +5,7 @@ import type {
   GuestPartySyncInput,
   GuestQuickCreateInput,
 } from '#shared/schemas/guests'
+import type { RsvpAdminStatusInput } from '#shared/schemas/rsvp'
 import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
 import type { RsvpStatus } from '#shared/utils/rsvp-status'
 import type { Guest, GuestListItem } from '~/types/guest'
@@ -132,6 +133,15 @@ export function useGuests() {
   }
 
   /**
+   * O casal registra a resposta de quem não usou o site (a avó que confirmou
+   * por telefone). Grava com origem `admin_panel`, então o sistema nunca finge
+   * que a pessoa acessou o link — ver `PUT /api/guests/:id/rsvp`.
+   */
+  async function setGuestRsvp(guestId: string, input: RsvpAdminStatusInput) {
+    return $fetch(`/api/guests/${guestId}/rsvp`, { method: 'PUT', body: input })
+  }
+
+  /**
    * Entrada rápida do Modo Lista — só o nome é obrigatório. Não substitui
    * `syncGuestParty`, que é o wizard completo (acompanhantes + convite).
    */
@@ -195,6 +205,7 @@ export function useGuests() {
     bulkUpdateGuests,
     syncGuestParty,
     groupGuestsAsParty,
+    setGuestRsvp,
     deleteGuest,
     exportGuests,
   }
