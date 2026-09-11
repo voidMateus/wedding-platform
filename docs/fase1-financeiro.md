@@ -1099,3 +1099,23 @@ domina: ela identifica o bloco, não o pinta.
    pressionado e uma faixa diz o que está sendo mostrado, com "Ver todos os
    gastos". O bloco "Ainda sem gasto definido" sai do recorte: "gastos sem
    fornecedor" e "fornecedores sem gasto" são perguntas opostas.
+
+### 18.5 Restaurar não pode devolver a cor de outra
+
+Arquivar libera o slot para a próxima categoria criada — é o comportamento
+certo, porque excluir uma categoria não repinta as outras. A consequência
+apareceu no backfill: a arquivada guarda um slot que pode estar ocupado quando
+ela voltar, e aí duas ativas dividiriam a mesma cor.
+
+A migration `20260911220001` trata só a transição arquivada → ativa: se o slot
+guardado ainda está livre, a categoria volta com a cor que sempre teve; se foi
+tomado, ela recebe o menor livre. Quem está ativa nunca muda de cor sozinha.
+Verificado contra o banco de desenvolvimento: A nasce no slot 6, é arquivada, B
+nasce e pega o 6, e A volta no 7.
+
+### 18.6 A cor atravessa as três telas
+
+Orçamento e Fornecedores usam o filete lateral com o fundo tingido; Pagamentos
+usa o mesmo tom como ponto ao lado do nome da categoria na linha. É a mesma
+função (`corDaCategoria`) nos três — a cor vira linguagem do módulo, e o casal
+aprende "petróleo = buffet" sem ler.

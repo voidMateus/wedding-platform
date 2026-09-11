@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     client
       .from('despesas')
       .select(
-        '*, categoria:categorias_orcamento (id, nome), fornecedor:fornecedores!despesas_fornecedor_id_fkey (id, nome)',
+        '*, categoria:categorias_orcamento (id, nome, cor_indice, cor_personalizada), fornecedor:fornecedores!despesas_fornecedor_id_fkey (id, nome)',
       )
       .eq('casamento_id', weddingId)
       .is('excluido_em', null)

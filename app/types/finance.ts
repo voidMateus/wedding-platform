@@ -85,7 +85,9 @@ export interface PagamentoListado extends Omit<ParcelaDespesa, 'vence_em'> {
   vence_em: string | null
   totalDeParcelas: number
   despesa: Pick<Despesa, 'id' | 'descricao'>
-  categoria: Pick<CategoriaOrcamento, 'id' | 'nome'> | null
+  // A cor vem junto para a categoria ser reconhecível aqui com o mesmo ponto
+  // que a identifica no Orçamento e em Fornecedores.
+  categoria: Pick<CategoriaOrcamento, 'id' | 'nome' | 'cor_indice' | 'cor_personalizada'> | null
   fornecedor: Pick<Fornecedor, 'id' | 'nome'> | null
 }
 

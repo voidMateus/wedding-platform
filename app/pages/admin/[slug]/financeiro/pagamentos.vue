@@ -33,6 +33,7 @@ const base = `/admin/${slug}/financeiro`
 const toast = useToast()
 
 const { getPagamentos, atualizarParcela, excluirParcela, gerarParcelasDaDespesa } = useFinance()
+const { corDaCategoria } = useCategoriaCores()
 const { data, status, error, refresh } = getPagamentos()
 
 const hoje = hojeNoFusoDoEvento()
@@ -378,10 +379,26 @@ function rotuloDeLancamentos(quantidade: number): string {
               >
                 {{ row.despesa.descricao }}
               </button>
-              <span class="block truncate text-xs text-text-muted">
-                <template v-if="row.categoria">{{ row.categoria.nome }}</template>
-                <template v-if="row.categoria && row.fornecedor"> · </template>
-                <template v-if="row.fornecedor">{{ row.fornecedor.nome }}</template>
+              <span class="flex items-center gap-1.5 truncate text-xs text-text-muted">
+                <!-- O mesmo ponto que identifica a categoria nas outras duas
+                     telas: a cor vira linguagem do módulo, não decoração de
+                     uma tela só. -->
+                <span
+                  v-if="row.categoria"
+                  aria-hidden="true"
+                  class="h-2 w-2 shrink-0 rounded-full"
+                  :style="{
+                    backgroundColor: corDaCategoria(
+                      row.categoria.cor_indice,
+                      row.categoria.cor_personalizada,
+                    ).solida,
+                  }"
+                />
+                <span class="truncate">
+                  <template v-if="row.categoria">{{ row.categoria.nome }}</template>
+                  <template v-if="row.categoria && row.fornecedor"> · </template>
+                  <template v-if="row.fornecedor">{{ row.fornecedor.nome }}</template>
+                </span>
               </span>
             </div>
           </template>
