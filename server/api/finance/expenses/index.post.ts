@@ -23,7 +23,10 @@ export default defineEventHandler(async (event) => {
       categoria_id: input.categoriaId ?? null,
       fornecedor_id: input.fornecedorId ?? null,
       descricao: input.descricao,
-      valor_centavos: input.valorCentavos,
+      valor_estimado_centavos: input.valorEstimadoCentavos ?? null,
+      // Nulo enquanto o gasto é só planejamento: é o preenchimento desta
+      // coluna que o transforma em compromisso.
+      valor_centavos: input.valorCentavos ?? null,
       observacao: input.observacao ?? null,
     })
     .select()
@@ -33,8 +36,10 @@ export default defineEventHandler(async (event) => {
     throw badRequestError(error.message)
   }
 
+  // Só se parcela o que já tem valor fechado — parcelar uma estimativa seria
+  // agendar a saída de um dinheiro que ninguém se comprometeu a pagar.
   const parcelamento = input.parcelamento
-  if (parcelamento && parcelamento.modo !== 'depois') {
+  if (input.valorCentavos && parcelamento && parcelamento.modo !== 'depois') {
     const parcelas =
       parcelamento.modo === 'a_vista'
         ? gerarParcelas(input.valorCentavos, 1, parcelamento.venceEm)
@@ -67,7 +72,11 @@ export default defineEventHandler(async (event) => {
     action: 'finance.expense.create',
     entityType: 'expense',
     entityId: despesa.id,
-    metadata: { descricao: despesa.descricao, valorCentavos: despesa.valor_centavos },
+    metadata: {
+      descricao: despesa.descricao,
+      valorEstimadoCentavos: despesa.valor_estimado_centavos,
+      valorCentavos: despesa.valor_centavos,
+    },
   })
 
   setResponseStatus(event, 201)

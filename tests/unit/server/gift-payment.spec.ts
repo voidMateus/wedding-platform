@@ -34,7 +34,10 @@ function chainable(result: { data?: unknown; error?: unknown }) {
   return node
 }
 
-function makeClient(fromImpls: Array<ReturnType<typeof chainable>>, rpcResult?: { data?: unknown; error?: unknown }) {
+function makeClient(
+  fromImpls: Array<ReturnType<typeof chainable>>,
+  rpcResult?: { data?: unknown; error?: unknown },
+) {
   const from = vi.fn()
   for (const impl of fromImpls) {
     from.mockImplementationOnce(() => impl)
@@ -98,7 +101,9 @@ describe('confirmGiftPayment', () => {
     const result = await confirmGiftPayment(client, 'payment-1')
 
     expect(result).toEqual(confirmedPayment)
-    expect(client.rpc).toHaveBeenCalledWith('confirmar_pagamento_presente', { p_pagamento_id: 'payment-1' })
+    expect(client.rpc).toHaveBeenCalledWith('confirmar_pagamento_presente', {
+      p_pagamento_id: 'payment-1',
+    })
   })
 
   it('permanece pendente quando payment_check confirma paid:false (sem marcar falhou numa única checagem)', async () => {

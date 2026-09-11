@@ -251,22 +251,20 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
 
   if (ROTAS_DO_MODULO_FINANCEIRO.some((rota) => path.startsWith(`${base}${rota}`))) {
     return [
+      // As três telas são o CAMINHO do dinheiro, nesta ordem: planejar ->
+      // contratar -> pagar. Uma "Visão geral" por cima delas repetiria os
+      // mesmos números num quarto lugar — o topo do Orçamento já é o resumo.
       {
         label: 'Financeiro',
         itens: [
-          {
-            to: `${base}/financeiro`,
-            label: 'Visão geral',
-            icon: 'lucide:gauge',
-            exact: true,
-          },
-          { to: `${base}/financeiro/orcamento`, label: 'Orçamento', icon: 'lucide:list-tree' },
+          { to: `${base}/financeiro`, label: 'Orçamento', icon: 'lucide:list-tree', exact: true },
+          { to: `${base}/financeiro/fornecedores`, label: 'Fornecedores', icon: 'lucide:store' },
+          { to: `${base}/financeiro/pagamentos`, label: 'Pagamentos', icon: 'lucide:receipt' },
         ],
       },
       {
         label: 'Gerenciar',
         itens: [
-          { to: `${base}/financeiro/fornecedores`, label: 'Fornecedores', icon: 'lucide:store' },
           { to: `${base}/financeiro/documentos`, label: 'Documentos', icon: 'lucide:folder' },
         ],
       },

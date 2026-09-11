@@ -1,55 +1,43 @@
 <!--
-  A árvore do Orçamento em três níveis: categoria -> despesa -> parcelas.
+  Uma categoria do Orçamento e os gastos dela.
 
-  A categoria repete os quatro estágios no recorte dela, a despesa mostra o
-  saldo e a divergência (nos dois sentidos, sempre como aviso), e a parcela é
-  onde "marcar como paga" acontece — sem modal, porque é a ação mais repetida
-  do módulo e um diálogo para gravar uma data é fricção pura.
+  Aqui é PLANEJAMENTO: cada gasto mostra o custo estimado e, quando já foi
+  fechado, o custo final ao lado. Parcelas não aparecem nesta tela — elas são o
+  assunto de Pagamentos. Misturar as duas coisas foi o que deixou o casal sem
+  lugar para planejar.
+
+  Gasto sem custo final é o estado normal do começo: aparece como "a contratar",
+  com o caminho para fechar logo ali.
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
-import { situacaoDaParcela } from '#shared/utils/orcamento'
-import type { CategoriaComDespesas, DespesaComParcelas, ParcelaDespesa } from '~/types/finance'
+import type { CategoriaComDespesas, DespesaComParcelas } from '~/types/finance'
 
 interface Props {
   categoria: CategoriaComDespesas
-  hoje: string
   aberta: boolean
 }
 
-const { categoria, hoje, aberta } = defineProps<Props>()
+const { categoria, aberta } = defineProps<Props>()
 
 const emit = defineEmits<{
   alternar: []
   editarCategoria: []
-  excluirCategoria: []
+  arquivarCategoria: []
   novaDespesa: []
   editarDespesa: [despesa: DespesaComParcelas]
   excluirDespesa: [despesa: DespesaComParcelas]
-  parcelar: [despesa: DespesaComParcelas]
-  alternarPagamento: [parcela: ParcelaDespesa]
+  contratarDespesa: [despesa: DespesaComParcelas]
 }>()
 
-const despesasAbertas = ref(new Set<string>())
-
-function alternarDespesa(id: string) {
-  const proximas = new Set(despesasAbertas.value)
-  if (proximas.has(id)) proximas.delete(id)
-  else proximas.add(id)
-  despesasAbertas.value = proximas
-}
-
-function avisoDaDespesa(despesa: DespesaComParcelas): string | null {
-  if (despesa.totais.parcelasAlemDoValor > 0) {
-    return `As parcelas somam ${formatCentsToBRL(despesa.totais.parcelasAlemDoValor)} a mais que o valor da despesa`
+/** Quanto o fechado diferiu do que se imaginava — economia aparece como ganho. */
+function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean } | null {
+  const valor = despesa.totais.desvioDoEstimado
+  if (valor === null || valor === 0) return null
+  return {
+    texto: `${valor > 0 ? '+' : '−'}${formatCentsToBRL(Math.abs(valor))}`,
+    economia: valor < 0,
   }
-  if (despesa.totais.pagoAlemDoValor > 0) {
-    return `Pago ${formatCentsToBRL(despesa.totais.pagoAlemDoValor)} acima do valor registrado`
-  }
-  if (despesa.totais.naoParcelado > 0 && despesa.parcelas.length > 0) {
-    return `${formatCentsToBRL(despesa.totais.naoParcelado)} ainda não parcelados`
-  }
-  return null
 }
 </script>
 
@@ -69,30 +57,43 @@ function avisoDaDespesa(despesa: DespesaComParcelas): string | null {
         <span class="truncate font-display text-base font-semibold text-text">
           {{ categoria.nome }}
         </span>
-        <UiBadge v-if="categoria.acimaDoPlanejado > 0" tone="warning">
-          {{ formatCentsToBRL(categoria.acimaDoPlanejado) }} acima
+        <UiBadge v-if="categoria.acimaDoOrcado > 0" tone="warning">
+          {{ formatCentsToBRL(categoria.acimaDoOrcado) }} acima do orçado
         </UiBadge>
-        <span v-else-if="categoria.percentualContratado !== null" class="text-xs text-text-muted">
-          {{ categoria.percentualContratado }}% contratado
+        <span v-else-if="categoria.gastosPlanejados > 0" class="text-xs text-text-muted">
+          {{ categoria.gastosPlanejados }} a contratar
         </span>
       </button>
 
       <dl class="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm tabular-nums">
-        <div v-if="categoria.previsto > 0" class="flex items-baseline gap-1.5">
-          <dt class="text-xs text-text-muted">Planejado</dt>
-          <dd class="text-text-muted">{{ formatCentsToBRL(categoria.previsto) }}</dd>
+        <!--
+          "Orçado" aparece SEMPRE, e vazio vira um convite clicável: escondê-lo
+          quando é zero tirava da tela de planejamento a única porta para
+          planejar.
+        -->
+        <div class="flex items-baseline gap-1.5">
+          <dt class="text-xs text-text-muted">Orçado</dt>
+          <dd v-if="categoria.orcado > 0" class="text-text-muted">
+            {{ formatCentsToBRL(categoria.orcado) }}
+          </dd>
+          <dd v-else-if="categoria.categoriaId">
+            <button
+              type="button"
+              class="text-xs text-primary underline-offset-2 hover:underline"
+              @click="emit('editarCategoria')"
+            >
+              definir
+            </button>
+          </dd>
+          <dd v-else class="text-text-muted">—</dd>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <dt class="text-xs text-text-muted">Estimado</dt>
+          <dd class="text-text">{{ formatCentsToBRL(categoria.estimado) }}</dd>
         </div>
         <div class="flex items-baseline gap-1.5">
           <dt class="text-xs text-text-muted">Contratado</dt>
           <dd class="text-text">{{ formatCentsToBRL(categoria.contratado) }}</dd>
-        </div>
-        <div class="flex items-baseline gap-1.5">
-          <dt class="text-xs text-text-muted">Pago</dt>
-          <dd class="text-text-muted">{{ formatCentsToBRL(categoria.pago) }}</dd>
-        </div>
-        <div class="flex items-baseline gap-1.5">
-          <dt class="text-xs text-text-muted">A pagar</dt>
-          <dd class="text-text">{{ formatCentsToBRL(categoria.aPagar) }}</dd>
         </div>
       </dl>
 
@@ -107,114 +108,81 @@ function avisoDaDespesa(despesa: DespesaComParcelas): string | null {
           v-if="categoria.categoriaId"
           icon="lucide:archive"
           label="Arquivar categoria"
-          @click="emit('excluirCategoria')"
+          @click="emit('arquivarCategoria')"
         />
       </div>
     </div>
 
     <div v-if="aberta" class="border-t border-border">
       <p v-if="categoria.despesas.length === 0" class="px-4 py-4 text-sm text-text-muted sm:px-5">
-        Nenhuma despesa nesta categoria ainda.
+        Nenhum gasto nesta categoria ainda.
       </p>
 
-      <ul v-else class="divide-y divide-border">
-        <li v-for="despesa in categoria.despesas" :key="despesa.id">
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
-            <button
-              type="button"
-              class="flex min-w-0 flex-1 items-center gap-2 text-left"
-              :aria-expanded="despesasAbertas.has(despesa.id)"
-              @click="alternarDespesa(despesa.id)"
-            >
-              <Icon
-                :name="
-                  despesasAbertas.has(despesa.id) ? 'lucide:chevron-down' : 'lucide:chevron-right'
-                "
-                class="h-4 w-4 shrink-0 text-text-muted"
-              />
-              <span class="min-w-0">
-                <span class="block truncate text-sm text-text">{{ despesa.descricao }}</span>
-                <span v-if="despesa.fornecedor" class="block truncate text-xs text-text-muted">
-                  {{ despesa.fornecedor.nome }}
+      <table v-else class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-border text-xs uppercase tracking-wide text-text-muted">
+            <th scope="col" class="px-4 py-2 text-left font-medium sm:px-5">Gasto</th>
+            <th scope="col" class="px-4 py-2 text-right font-medium">Estimado</th>
+            <th scope="col" class="px-4 py-2 text-right font-medium">Final</th>
+            <th scope="col" class="px-4 py-2 text-right font-medium">Pago</th>
+            <th scope="col" class="w-px px-4 py-2 sm:px-5"><span class="sr-only">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          <tr v-for="despesa in categoria.despesas" :key="despesa.id">
+            <th scope="row" class="px-4 py-2.5 text-left font-normal sm:px-5">
+              <span class="block truncate text-text">{{ despesa.descricao }}</span>
+              <span v-if="despesa.fornecedor" class="block truncate text-xs text-text-muted">
+                {{ despesa.fornecedor.nome }}
+              </span>
+            </th>
+            <td class="px-4 py-2.5 text-right tabular-nums text-text-muted">
+              {{ formatCentsToBRL(despesa.totais.estimado) }}
+            </td>
+            <td class="px-4 py-2.5 text-right tabular-nums">
+              <template v-if="despesa.totais.contratado !== null">
+                <span class="text-text">{{ formatCentsToBRL(despesa.totais.contratado) }}</span>
+                <span
+                  v-if="desvio(despesa)"
+                  class="ml-1.5 text-xs"
+                  :class="desvio(despesa)?.economia ? 'text-success' : 'text-warning'"
+                >
+                  {{ desvio(despesa)?.texto }}
                 </span>
-              </span>
-            </button>
-
-            <div class="flex items-baseline gap-4 text-sm tabular-nums">
-              <span class="text-text">{{ formatCentsToBRL(despesa.valor_centavos) }}</span>
-              <span class="text-xs text-text-muted">
-                {{ formatCentsToBRL(despesa.totais.pago) }} pago
-              </span>
-            </div>
-
-            <div class="flex items-center gap-1">
-              <AdminRowAction
-                icon="lucide:calendar-plus"
-                label="Gerar parcelas"
-                @click="emit('parcelar', despesa)"
-              />
-              <AdminRowAction
-                icon="lucide:pencil"
-                label="Editar despesa"
-                @click="emit('editarDespesa', despesa)"
-              />
-              <AdminRowAction
-                icon="lucide:trash-2"
-                label="Excluir despesa"
-                @click="emit('excluirDespesa', despesa)"
-              />
-            </div>
-          </div>
-
-          <p
-            v-if="avisoDaDespesa(despesa)"
-            class="px-4 pb-2 pl-10 text-xs text-text-muted sm:px-5 sm:pl-11"
-          >
-            {{ avisoDaDespesa(despesa) }}
-          </p>
-
-          <ul
-            v-if="despesasAbertas.has(despesa.id) && despesa.parcelas.length > 0"
-            class="border-t border-border bg-surface-muted/40"
-          >
-            <li
-              v-for="parcela in despesa.parcelas"
-              :key="parcela.id"
-              class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 pl-10 text-sm sm:px-5 sm:pl-11"
-            >
-              <span class="text-xs text-text-muted">
-                {{ parcela.numero }} de {{ despesa.parcelas.length }}
-              </span>
-              <span class="text-text-muted">{{ formatarVencimento(parcela.vence_em, hoje) }}</span>
-              <span class="tabular-nums text-text">
-                {{ formatCentsToBRL(parcela.valor_centavos) }}
-              </span>
-              <UiBadge :tone="situacaoParcelaPresentation(situacaoDaParcela(parcela, hoje)).tone">
-                {{ situacaoParcelaPresentation(situacaoDaParcela(parcela, hoje)).label }}
-              </UiBadge>
-              <UiButton
-                size="sm"
-                variant="ghost"
-                class="ml-auto"
-                @click="emit('alternarPagamento', parcela)"
+              </template>
+              <button
+                v-else
+                type="button"
+                class="text-xs text-primary underline-offset-2 hover:underline"
+                @click="emit('contratarDespesa', despesa)"
               >
-                {{ parcela.pago_em ? 'Desfazer pagamento' : 'Marcar paga' }}
-              </UiButton>
-            </li>
-          </ul>
-
-          <p
-            v-else-if="despesasAbertas.has(despesa.id)"
-            class="border-t border-border bg-surface-muted/40 px-4 py-2 pl-10 text-xs text-text-muted sm:px-5 sm:pl-11"
-          >
-            Nenhuma parcela definida — o valor inteiro está em aberto.
-          </p>
-        </li>
-      </ul>
+                registrar valor fechado
+              </button>
+            </td>
+            <td class="px-4 py-2.5 text-right tabular-nums text-text-muted">
+              {{ despesa.totais.pago > 0 ? formatCentsToBRL(despesa.totais.pago) : '—' }}
+            </td>
+            <td class="px-4 py-2.5 sm:px-5">
+              <div class="flex items-center justify-end gap-1">
+                <AdminRowAction
+                  icon="lucide:pencil"
+                  label="Editar gasto"
+                  @click="emit('editarDespesa', despesa)"
+                />
+                <AdminRowAction
+                  icon="lucide:trash-2"
+                  label="Excluir gasto"
+                  @click="emit('excluirDespesa', despesa)"
+                />
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <div class="border-t border-border px-4 py-3 sm:px-5">
         <UiButton size="sm" variant="outline" @click="emit('novaDespesa')">
-          Adicionar despesa
+          Adicionar gasto
         </UiButton>
       </div>
     </div>

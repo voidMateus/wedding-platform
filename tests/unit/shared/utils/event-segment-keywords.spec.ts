@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { EVENT_SEGMENT_ICONS, classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
+import {
+  EVENT_SEGMENT_ICONS,
+  classifyEventSegmentTitle,
+} from '#shared/utils/event-segment-keywords'
 
 describe('classifyEventSegmentTitle', () => {
   it('classifica títulos de cerimônia (com e sem acento)', () => {

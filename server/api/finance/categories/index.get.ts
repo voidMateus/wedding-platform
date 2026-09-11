@@ -1,16 +1,28 @@
+import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
 
-/** Categorias ativas do orçamento, na ordem de exibição. */
+const querySchema = z.object({
+  /** `?incluirArquivadas=1` traz também as arquivadas, para a tela de restauração. */
+  incluirArquivadas: z.string().optional(),
+})
+
+/** Categorias do orçamento, na ordem de exibição. */
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
+  const { incluirArquivadas } = validateQuery(event, querySchema)
 
   const client = await serverSupabaseClient(event)
-  const { data, error } = await client
+  let query = client
     .from('categorias_orcamento')
     .select('*')
     .eq('casamento_id', weddingId)
-    .is('excluido_em', null)
     .order('ordem_exibicao', { ascending: true })
+
+  if (!incluirArquivadas) {
+    query = query.is('excluido_em', null)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw badRequestError(error.message)

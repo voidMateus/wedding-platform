@@ -1,10 +1,12 @@
 import type { Database } from './database.types'
 import type {
   BlocoDeAtencao,
+  EstagioDoGasto,
   LinhaDeCategoria,
   ResumoDoOrcamento,
   SituacaoFinanceiraFornecedor,
   SituacaoParcela,
+  TotaisDaDespesa,
 } from '#shared/utils/orcamento'
 
 // Tipos do módulo Financeiro. Os que espelham uma linha de tabela derivam de
@@ -17,22 +19,20 @@ export type ParcelaDespesa = Database['public']['Tables']['parcelas_despesa']['R
 export type Fornecedor = Database['public']['Tables']['fornecedores']['Row']
 export type Documento = Database['public']['Tables']['documentos']['Row']
 
-export type { SituacaoParcela, SituacaoFinanceiraFornecedor, LinhaDeCategoria, BlocoDeAtencao }
+export type {
+  SituacaoParcela,
+  SituacaoFinanceiraFornecedor,
+  LinhaDeCategoria,
+  BlocoDeAtencao,
+  EstagioDoGasto,
+}
 
 /** Despesa com as parcelas e os totais já calculados pelo endpoint. */
 export interface DespesaComParcelas extends Despesa {
   parcelas: ParcelaDespesa[]
   categoria: Pick<CategoriaOrcamento, 'id' | 'nome'> | null
   fornecedor: Pick<Fornecedor, 'id' | 'nome'> | null
-  totais: {
-    valor: number
-    pago: number
-    agendado: number
-    aPagar: number
-    naoParcelado: number
-    parcelasAlemDoValor: number
-    pagoAlemDoValor: number
-  }
+  totais: TotaisDaDespesa
 }
 
 /** Uma categoria com as despesas dela — o nível de cima da árvore do Orçamento. */
@@ -66,9 +66,18 @@ export interface ResumoFinanceiro extends ResumoDoOrcamento {
   vazio: boolean
 }
 
-/** Parcela com a despesa e a categoria a que pertence, para as listas de vencimento. */
-export interface ParcelaComContexto extends ParcelaDespesa {
+/** Uma linha da tela de Pagamentos: a parcela mais o contexto que a torna reconhecível. */
+export interface PagamentoListado extends ParcelaDespesa {
   situacao: SituacaoParcela
   despesa: Pick<Despesa, 'id' | 'descricao'>
   categoria: Pick<CategoriaOrcamento, 'id' | 'nome'> | null
+  fornecedor: Pick<Fornecedor, 'id' | 'nome'> | null
+}
+
+/** Os quatro números do topo de Pagamentos — sempre do conjunto todo, nunca do recorte. */
+export interface ResumoDePagamentos {
+  pago: BlocoDeAtencao
+  vencidos: BlocoDeAtencao
+  proximos30Dias: BlocoDeAtencao
+  aPagar: BlocoDeAtencao
 }

@@ -5,17 +5,28 @@
  * impede o total do cabeçalho de discordar da soma das linhas — o mesmo motivo
  * que levou a classificação etária para `faixa-etaria.ts`.
  *
+ * O dinheiro atravessa CINCO estágios, e a separação entre os dois primeiros é
+ * a razão desta rodada (2026-09-11): planejar e pagar são momentos diferentes
+ * do casal, e misturá-los obrigava a escrever o número do contrato antes de
+ * existir contrato.
+ *
+ *   Orçado      teto da categoria          categorias_orcamento.valor_previsto
+ *   Estimado    "acho que vai custar"      despesas.valor_estimado_centavos
+ *   Contratado  "fechei por"               despesas.valor_centavos (nulo até fechar)
+ *   Pago        saiu do bolso              parcelas com pago_em
+ *   A pagar     contratado − pago          o que ainda vai sair
+ *
  * Três regras atravessam tudo aqui:
  *
  * 1. PISO EM ZERO SEMPRE POR LINHA, ANTES DE SOMAR. "A pagar" do resumo é a
- *    soma de `max(0, valor - pago)` de cada despesa, nunca
- *    `soma(valores) - soma(pagos)`: somar primeiro faz uma despesa paga a mais
+ *    soma de `max(0, final - pago)` de cada despesa, nunca
+ *    `soma(finais) - soma(pagos)`: somar primeiro faz uma despesa paga a mais
  *    compensar outra em aberto, e as duas anomalias somem justo do número que
  *    deveria denunciá-las.
  *
- * 2. DENOMINADOR VAZIO NÃO PRODUZ INDICADOR. Percentual sobre planejado zero
- *    devolve `null`, nunca 0 — é o `null` que faz a tela omitir a linha em vez
- *    de exibir "0% contratado" para quem nunca planejou nada.
+ * 2. DENOMINADOR VAZIO NÃO PRODUZ INDICADOR. Percentual sobre zero devolve
+ *    `null`, nunca 0 — é o `null` que faz a tela omitir a linha em vez de
+ *    exibir "0% contratado" para quem nunca planejou nada.
  *
  * 3. "HOJE" É ENTRADA, NUNCA `new Date()` LÁ DENTRO. Além de tornar o cálculo
  *    testável, é o que permite resolver o dia no fuso de quem casa: o servidor
@@ -25,7 +36,7 @@
  * Todo valor é em centavos (inteiro), como em `presentes`.
  */
 
-/** Janela do "vence em breve" na Visão geral. Valor de negócio, nunca literal solto. */
+/** Janela do "vence em breve". Valor de negócio, nunca literal solto. */
 export const DIAS_HORIZONTE_VENCIMENTO = 30
 
 /** O fuso do evento. Datas do módulo são "ingênuas" (date puro), e o dia é o do casal. */
@@ -35,6 +46,9 @@ export type SituacaoParcela = 'paga' | 'a_vencer' | 'vencida'
 
 export type SituacaoFinanceiraFornecedor = 'sem_despesa' | 'a_pagar' | 'quitado'
 
+/** Onde o gasto está entre planejar e pagar — o que a tela de Orçamento mostra por linha. */
+export type EstagioDoGasto = 'planejado' | 'contratado' | 'quitado'
+
 /** Linha de `parcelas_despesa`, no shape em que ela sai do banco. */
 export interface ParcelaCalculavel {
   vence_em: string
@@ -42,13 +56,14 @@ export interface ParcelaCalculavel {
   pago_em: string | null
 }
 
-/** Linha de `despesas` com suas parcelas. */
+/** Linha de `despesas` com suas parcelas. `valor_centavos` nulo = ainda não contratado. */
 export interface DespesaCalculavel {
-  valor_centavos: number
+  valor_estimado_centavos: number | null
+  valor_centavos: number | null
   parcelas: ParcelaCalculavel[]
 }
 
-/** Uma categoria e as despesas dela. `categoriaId` nulo é o grupo "Sem categoria". */
+/** Uma categoria e os gastos dela. `categoriaId` nulo é o grupo "Sem categoria". */
 export interface GrupoDeCategoria {
   categoriaId: string | null
   nome: string
@@ -57,33 +72,47 @@ export interface GrupoDeCategoria {
 }
 
 export interface TotaisDaDespesa {
-  valor: number
+  /** Custo estimado; cai para o final quando o gasto nasceu já contratado. */
+  estimado: number
+  /** Custo final, ou `null` enquanto o gasto é só planejamento. */
+  contratado: number | null
   /** Soma das parcelas com `pago_em`. */
   pago: number
   /** Soma das parcelas sem `pago_em` — o que já tem vencimento marcado. */
   agendado: number
-  /** Saldo financeiro da despesa: `max(0, valor - pago)`. */
+  /** Saldo do compromisso: `max(0, final - pago)`. Zero enquanto não há final. */
   aPagar: number
   /** Parte do saldo ainda sem vencimento definido. `aPagar = agendado + naoParcelado`. */
   naoParcelado: number
-  /** Quanto as parcelas passam do valor da despesa (aviso, nunca bloqueio). */
+  /** Quanto as parcelas passam do valor final (aviso, nunca bloqueio). */
   parcelasAlemDoValor: number
-  /** Quanto o pago passa do valor da despesa (aviso, nunca bloqueio). */
+  /** Quanto o pago passa do valor final (aviso, nunca bloqueio). */
   pagoAlemDoValor: number
+  /** Diferença entre o que se fechou e o que se imaginava — negativo é economia. */
+  desvioDoEstimado: number | null
+  estagio: EstagioDoGasto
 }
 
 export interface LinhaDeCategoria {
   categoriaId: string | null
   nome: string
-  previsto: number
+  /** Teto da categoria (`valor_previsto_centavos`). */
+  orcado: number
+  /** Soma dos custos estimados dos gastos dela. */
+  estimado: number
+  /** Soma dos custos finais — só o que já foi contratado. */
   contratado: number
   pago: number
   aPagar: number
-  /** `max(0, previsto - contratado)` — trabalho que falta. */
+  /** `max(0, orçado - estimado)`: quanto do teto ainda não tem destino. */
+  aPlanejar: number
+  /** `max(0, estimado - orçado)`: o planejamento já passou do teto. */
+  acimaDoOrcado: number
+  /** `max(0, estimado - contratado)`: o que falta fechar do que foi planejado. */
   aContratar: number
-  /** `max(0, contratado - previsto)` — o outro lado do mesmo desvio, nunca o mesmo número com sinal. */
-  acimaDoPlanejado: number
   percentualContratado: number | null
+  /** Quantos gastos ainda não têm custo final. */
+  gastosPlanejados: number
 }
 
 export interface BlocoDeAtencao {
@@ -93,21 +122,23 @@ export interface BlocoDeAtencao {
 
 export interface ResumoDoOrcamento {
   teto: number | null
-  planejado: number
+  orcado: number
+  estimado: number
   contratado: number
   pago: number
   aPagar: number
   agendado: number
   naoParcelado: number
+  aPlanejar: number
   aContratar: number
   percentualContratado: number | null
   percentualPago: number | null
-  /** `teto - planejado` quando há teto; pode ser negativo (distribuiu mais do que tem). */
+  /** `teto - orçado` quando há teto; pode ser negativo (distribuiu mais do que tem). */
   naoDistribuido: number | null
   atencao: {
     vencidos: BlocoDeAtencao
     proximos30Dias: BlocoDeAtencao
-    acimaDoPlanejado: BlocoDeAtencao
+    acimaDoOrcado: BlocoDeAtencao
   }
   porCategoria: LinhaDeCategoria[]
 }
@@ -160,56 +191,74 @@ export function totaisDaDespesa(despesa: DespesaCalculavel): TotaisDaDespesa {
     else agendado += parcela.valor_centavos
   }
 
-  const valor = despesa.valor_centavos
-  const aPagar = Math.max(0, valor - pago)
+  const contratado = despesa.valor_centavos
+  // Sem estimado, o próprio valor fechado serve de estimativa: é o caso de quem
+  // contrata direto, sem passar pelo planejamento — e o total estimado da
+  // categoria continuaria certo.
+  const estimado = despesa.valor_estimado_centavos ?? contratado ?? 0
+  const aPagar = contratado === null ? 0 : Math.max(0, contratado - pago)
+
+  const estagio: EstagioDoGasto =
+    contratado === null ? 'planejado' : aPagar === 0 && pago > 0 ? 'quitado' : 'contratado'
 
   return {
-    valor,
+    estimado,
+    contratado,
     pago,
     agendado,
     aPagar,
     // O piso mantém a identidade `aPagar = agendado + naoParcelado` de pé
     // mesmo quando as parcelas passam do valor da despesa.
     naoParcelado: Math.max(0, aPagar - agendado),
-    parcelasAlemDoValor: Math.max(0, pago + agendado - valor),
-    pagoAlemDoValor: Math.max(0, pago - valor),
+    parcelasAlemDoValor: contratado === null ? 0 : Math.max(0, pago + agendado - contratado),
+    pagoAlemDoValor: contratado === null ? 0 : Math.max(0, pago - contratado),
+    desvioDoEstimado:
+      contratado === null || despesa.valor_estimado_centavos === null
+        ? null
+        : contratado - despesa.valor_estimado_centavos,
+    estagio,
   }
 }
 
 export function linhaDeCategoria(grupo: GrupoDeCategoria): LinhaDeCategoria {
+  let estimado = 0
   let contratado = 0
   let pago = 0
   let aPagar = 0
+  let gastosPlanejados = 0
 
   for (const despesa of grupo.despesas) {
     const totais = totaisDaDespesa(despesa)
-    contratado += totais.valor
+    estimado += totais.estimado
+    contratado += totais.contratado ?? 0
     pago += totais.pago
     aPagar += totais.aPagar
+    if (totais.contratado === null) gastosPlanejados += 1
   }
 
-  const previsto = grupo.valorPrevistoCentavos
+  const orcado = grupo.valorPrevistoCentavos
 
   return {
     categoriaId: grupo.categoriaId,
     nome: grupo.nome,
-    previsto,
+    orcado,
+    estimado,
     contratado,
     pago,
     aPagar,
-    aContratar: Math.max(0, previsto - contratado),
-    // Sem previsto não existe estouro: "Sem categoria" com R$ 450 gastos não
-    // está R$ 450 acima de nada, está fora do planejamento (regra 2). Contar
-    // aqui encheria o bloco de atenção de alarme falso justo para quem ainda
-    // não planejou — o oposto do que ele serve.
-    acimaDoPlanejado: previsto > 0 ? Math.max(0, contratado - previsto) : 0,
-    percentualContratado: percentual(contratado, previsto),
+    aPlanejar: Math.max(0, orcado - estimado),
+    // Sem teto não existe estouro: categoria sem orçado não está acima de nada,
+    // está fora do planejamento (regra 2).
+    acimaDoOrcado: orcado > 0 ? Math.max(0, estimado - orcado) : 0,
+    aContratar: Math.max(0, estimado - contratado),
+    percentualContratado: percentual(contratado, estimado),
+    gastosPlanejados,
   }
 }
 
 /**
- * O resumo da Visão geral: os quatro estágios, as duas distâncias e o bloco de
- * atenção, prontos para a tela (docs/fase1-financeiro.md, seções 1.1 e 7).
+ * O resumo do topo do Orçamento: os estágios, as distâncias entre eles e o
+ * bloco de atenção (docs/fase1-financeiro.md, seções 1.1 e 7).
  */
 export function resumoDoOrcamento(
   grupos: GrupoDeCategoria[],
@@ -217,27 +266,31 @@ export function resumoDoOrcamento(
 ): ResumoDoOrcamento {
   const porCategoria = grupos.map(linhaDeCategoria)
 
-  let planejado = 0
+  let orcado = 0
+  let estimado = 0
   let contratado = 0
   let pago = 0
   let aPagar = 0
   let agendado = 0
   let naoParcelado = 0
+  let aPlanejar = 0
   let aContratar = 0
-  let acimaDoPlanejadoValor = 0
-  let acimaDoPlanejadoQuantidade = 0
+  let acimaDoOrcadoValor = 0
+  let acimaDoOrcadoQuantidade = 0
 
   for (const linha of porCategoria) {
-    planejado += linha.previsto
+    orcado += linha.orcado
+    estimado += linha.estimado
     contratado += linha.contratado
     pago += linha.pago
     aPagar += linha.aPagar
     // Somar os pisos por categoria, nunca subtrair os totais: categoria
-    // estourada não reduz o trabalho de contratar a que nem começou.
+    // estourada não reduz o trabalho de planejar a que nem começou.
+    aPlanejar += linha.aPlanejar
     aContratar += linha.aContratar
-    if (linha.acimaDoPlanejado > 0) {
-      acimaDoPlanejadoValor += linha.acimaDoPlanejado
-      acimaDoPlanejadoQuantidade += 1
+    if (linha.acimaDoOrcado > 0) {
+      acimaDoOrcadoValor += linha.acimaDoOrcado
+      acimaDoOrcadoQuantidade += 1
     }
   }
 
@@ -270,22 +323,24 @@ export function resumoDoOrcamento(
 
   return {
     teto: opcoes.tetoCentavos,
-    planejado,
+    orcado,
+    estimado,
     contratado,
     pago,
     aPagar,
     agendado,
     naoParcelado,
+    aPlanejar,
     aContratar,
-    percentualContratado: percentual(contratado, planejado),
+    percentualContratado: percentual(contratado, estimado),
     percentualPago: percentual(pago, contratado),
-    naoDistribuido: opcoes.tetoCentavos === null ? null : opcoes.tetoCentavos - planejado,
+    naoDistribuido: opcoes.tetoCentavos === null ? null : opcoes.tetoCentavos - orcado,
     atencao: {
       vencidos,
       proximos30Dias,
-      acimaDoPlanejado: {
-        valor: acimaDoPlanejadoValor,
-        quantidade: acimaDoPlanejadoQuantidade,
+      acimaDoOrcado: {
+        valor: acimaDoOrcadoValor,
+        quantidade: acimaDoOrcadoQuantidade,
       },
     },
     porCategoria,

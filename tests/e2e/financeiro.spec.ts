@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test'
 
-// O módulo Financeiro contra o Supabase de desenvolvimento real. Mesma
-// condição de login.spec.ts.
+// O Financeiro contra o Supabase de desenvolvimento real, no desenho de
+// 2026-09-11: três telas para três momentos — planejar (Orçamento), contratar
+// (Fornecedores) e pagar (Pagamentos).
 //
-// Cobre o caminho que o casal faz de verdade: abrir a Visão geral, seguir o
-// bloco de atenção até o recorte certo no Orçamento, e marcar uma parcela
-// como paga. É também a garantia de que os números da tela vêm do mesmo
-// cálculo do endpoint — se o resumo e a árvore discordassem, a soma do
-// cabeçalho e a das linhas apareceriam diferentes aqui.
+// O que estes testes protegem é justamente a separação: gasto só planejado não
+// pode aparecer em Pagamentos, e valor fechado precisa atravessar as três telas
+// sem alguém redigitar nada.
 const email = process.env.E2E_ADMIN_EMAIL
 const password = process.env.E2E_ADMIN_PASSWORD
 
@@ -26,90 +25,137 @@ async function entrar(page: import('@playwright/test').Page): Promise<string> {
   return slug
 }
 
-test('a Visão geral mostra os quatro estágios do dinheiro', async ({ page }) => {
+test('o Orçamento mostra a viagem do dinheiro, do orçado ao pago', async ({ page }) => {
   test.setTimeout(90_000)
   const slug = await entrar(page)
 
   await page.goto(`/admin/${slug}/financeiro`)
-  await expect(page.getByRole('heading', { level: 1, name: 'Financeiro' })).toBeVisible({
-    timeout: 20_000,
-  })
-
-  // Contratado, Pago e A pagar existem sempre; Planejado só com previsto
-  // definido — é a degradação deliberada, não um bug de renderização.
-  for (const estagio of ['Contratado', 'Pago', 'A pagar']) {
-    await expect(page.getByText(estagio, { exact: true }).first()).toBeVisible({ timeout: 20_000 })
-  }
-
-  await expect(page.getByText('Orçamento total').first()).toBeVisible()
-})
-
-test('o bloco de atenção leva ao recorte correspondente no Orçamento', async ({ page }) => {
-  test.setTimeout(90_000)
-  const slug = await entrar(page)
-
-  await page.goto(`/admin/${slug}/financeiro`)
-  await expect(page.getByRole('heading', { level: 1, name: 'Financeiro' })).toBeVisible({
-    timeout: 20_000,
-  })
-
-  const atencao = page.getByRole('link', { name: /vencid/i }).first()
-  // Sem parcela vencida o bloco não existe — e a ausência é a informação.
-  // O teste só segue quando há o que seguir.
-  if (await atencao.isVisible().catch(() => false)) {
-    await atencao.click()
-    await expect(page).toHaveURL(/vencimento=vencidos/, { timeout: 15_000 })
-    await expect(page.getByText('Mostrando só o que está vencido')).toBeVisible({
-      timeout: 20_000,
-    })
-
-    // "Ver tudo" limpa o recorte sem recarregar a página inteira. `toPass`
-    // porque a faixa remonta quando os dados do recorte chegam, e um clique
-    // no elemento antigo se perde em silêncio.
-    await expect(async () => {
-      await page.getByRole('button', { name: 'Ver tudo' }).click({ timeout: 3_000 })
-      await expect(page).not.toHaveURL(/vencimento=/)
-    }).toPass({ timeout: 30_000 })
-  }
-})
-
-test('marcar parcela como paga move o valor de "a pagar" para "pago"', async ({ page }) => {
-  test.setTimeout(120_000)
-  const slug = await entrar(page)
-
-  await page.goto(`/admin/${slug}/financeiro/orcamento`)
   await expect(page.getByRole('heading', { level: 1, name: 'Orçamento' })).toBeVisible({
     timeout: 20_000,
   })
 
-  const marcarPaga = page.getByRole('button', { name: 'Marcar paga' })
-  const desfazer = page.getByRole('button', { name: 'Desfazer pagamento' })
+  for (const parada of ['Estimado', 'Contratado', 'Pago']) {
+    await expect(page.getByText(parada, { exact: true }).first()).toBeVisible({ timeout: 20_000 })
+  }
 
-  // Abre a árvore inteira: categoria e despesa usam o mesmo `aria-expanded`,
-  // então clicar em tudo que está fechado desce os três níveis sem precisar
-  // saber qual linha é qual — e sem depender de os dados de teste terem
-  // parcela em aberto logo na primeira categoria.
+  await expect(page.getByText('Orçamento do casamento')).toBeVisible()
+})
+
+test('gasto sem valor fechado fica "a contratar" e não aparece em Pagamentos', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Orçamento' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // Abre a árvore inteira para alcançar as linhas de gasto.
   const fechados = page.getByRole('button', { expanded: false })
-  for (let passo = 0; passo < 40; passo += 1) {
-    // `toPass`: a página admin renderiza no servidor, e clique antes da
-    // hidratação é descartado em silêncio.
+  for (let passo = 0; passo < 30; passo += 1) {
     if ((await fechados.count()) === 0) break
     await fechados.first().click()
-    await page.waitForTimeout(150)
+    await page.waitForTimeout(120)
   }
 
-  if ((await marcarPaga.count()) === 0) {
-    test.skip(true, 'Nenhuma parcela em aberto neste casamento de teste')
-    return
+  // O convite para fechar o valor é a porta da contratação, dentro da linha.
+  const aContratar = page.getByRole('button', { name: 'registrar valor fechado' })
+  await expect(aContratar.first()).toBeVisible({ timeout: 20_000 })
+
+  // O gasto planejado precisa ter um nome visível no Orçamento...
+  const nomeDoGastoPlanejado = 'Flores da cerimônia'
+  await expect(page.getByText(nomeDoGastoPlanejado).first()).toBeVisible()
+
+  // ...e NÃO pode existir em Pagamentos, onde só entra o que foi contratado.
+  await page.goto(`/admin/${slug}/financeiro/pagamentos`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.getByText(nomeDoGastoPlanejado)).toHaveCount(0)
+})
+
+test('Pagamentos separa pago, a vencer e vencido, e a baixa acontece na linha', async ({
+  page,
+}) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/pagamentos`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  for (const indicador of ['Pago', 'A pagar', 'Vencidos', 'Próximos 30 dias']) {
+    await expect(page.getByText(indicador, { exact: true }).first()).toBeVisible({
+      timeout: 20_000,
+    })
   }
 
-  await marcarPaga.first().click()
+  // O filtro entra na URL — é o que permite a Visão do Orçamento apontar para
+  // um recorte específico.
+  // `toPass` porque a página admin renderiza no servidor: clique que chega
+  // antes da hidratação é descartado em silêncio.
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Vencidos' }).click({ timeout: 3_000 })
+    await expect(page).toHaveURL(/filtro=vencidos/, { timeout: 3_000 })
+  }).toPass({ timeout: 30_000 })
 
-  // A ação volta como "Desfazer pagamento" na mesma linha: o estado é a data
-  // gravada, não um badge local.
+  await page.getByRole('button', { name: 'Todos' }).click()
+  await expect(page).not.toHaveURL(/filtro=/)
+
+  // Esperar a lista completa voltar antes de contar: logo depois de trocar o
+  // filtro, a tabela ainda é a do recorte anterior, e contar aí faria o teste
+  // se declarar "sem parcelas em aberto" sem ter olhado a lista certa.
+  const marcarPago = page.getByRole('button', { name: 'Marcar pago' })
+  await expect(marcarPago.first()).toBeVisible({ timeout: 20_000 })
+
+  await marcarPago.first().click()
+  await expect(page.getByRole('heading', { name: 'Registrar pagamento' })).toBeVisible({
+    timeout: 10_000,
+  })
+  await page.getByRole('button', { name: 'Confirmar' }).click()
+
+  // A ação volta como "Desfazer" na mesma linha: o estado é a data gravada,
+  // não um destaque local.
+  const desfazer = page.getByRole('button', { name: 'Desfazer' })
   await expect(desfazer.first()).toBeVisible({ timeout: 20_000 })
 
-  // Desfaz para o teste não deixar resíduo no casamento de desenvolvimento.
+  // Desfaz para não deixar resíduo no casamento de desenvolvimento.
   await desfazer.first().click()
-  await expect(marcarPaga.first()).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('button', { name: 'Marcar pago' }).first()).toBeVisible({
+    timeout: 20_000,
+  })
+})
+
+test('contratar um fornecedor preenche o gasto planejado e cria o pagamento', async ({ page }) => {
+  test.setTimeout(150_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/fornecedores`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Fornecedores' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // "Estúdio Luz" está em negociação para Fotografia, que tem um gasto
+  // planejado sem valor fechado — exatamente o caso que a contratação resolve.
+  const linha = page.locator('li').filter({ hasText: 'Estúdio Luz' }).last()
+  await expect(linha).toBeVisible({ timeout: 20_000 })
+
+  await expect(async () => {
+    await linha.getByRole('button', { name: 'Registrar contratação' }).click()
+    await expect(page.getByRole('heading', { name: /Contratar/ })).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+
+  // O gasto é escolhido entre os planejados; a cotação já vem como sugestão.
+  await page.getByRole('combobox', { name: 'Qual gasto?' }).click()
+  await page.getByRole('option', { name: /Fotografia e making of/ }).click()
+
+  await page.getByRole('button', { name: 'Confirmar contratação' }).click()
+
+  // De volta ao Orçamento, o gasto deixou de ser "a contratar".
+  await page.goto(`/admin/${slug}/financeiro`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Orçamento' })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.getByText('Fotografia e vídeo').first()).toBeVisible({ timeout: 20_000 })
 })

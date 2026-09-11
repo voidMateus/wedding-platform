@@ -49,7 +49,7 @@ describe('nav primária do admin', () => {
     ])
   })
 
-  it.each(['/financeiro', '/financeiro/orcamento', '/financeiro/fornecedores'])(
+  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/fornecedores'])(
     'acende Financeiro em %s',
     (caminho) => {
       expect(ehItemAtivo(itemPrimario('Financeiro'), rota(`${BASE}${caminho}`))).toBe(true)
@@ -126,38 +126,40 @@ describe('menu da seção', () => {
 })
 
 describe('menu da seção do Financeiro', () => {
-  it.each(['/financeiro', '/financeiro/orcamento', '/financeiro/documentos'])(
+  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/documentos'])(
     'desenha a coluna do módulo em %s',
     (caminho) => {
       expect(adminSectionMenu(SLUG, `${BASE}${caminho}`).length).toBeGreaterThan(0)
     },
   )
 
-  it('separa a leitura (Visão geral, Orçamento) do cadastro (Gerenciar)', () => {
-    expect(adminSectionMenu(SLUG, `${BASE}/financeiro`).map((g) => g.label)).toEqual([
-      'Financeiro',
-      'Gerenciar',
-    ])
+  // As três telas são o caminho do dinheiro — planejar, contratar, pagar —,
+  // e Documentos é o anexo que serve às três.
+  it('põe as três telas do caminho do dinheiro juntas, e Documentos à parte', () => {
+    const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
+
+    expect(menu.map((g) => g.label)).toEqual(['Financeiro', 'Gerenciar'])
+    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Orçamento', 'Fornecedores', 'Pagamentos'])
   })
 
-  // `exact` na Visão geral, senão ela ficaria acesa dentro de Orçamento,
-  // Fornecedores e Documentos — que são subrotas dela.
-  it('Visão geral acende só na raiz do módulo', () => {
-    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
-    const visaoGeral = financeiro.itens.find((i) => i.label === 'Visão geral')!
-
-    expect(ehItemAtivo(visaoGeral, rota(`${BASE}/financeiro`))).toBe(true)
-    expect(ehItemAtivo(visaoGeral, rota(`${BASE}/financeiro/orcamento`))).toBe(false)
-  })
-
-  // O bloco de atenção da Visão geral leva ao Orçamento com `?vencimento=`.
-  // Um filtro na URL nunca pode apagar o item que o recebe.
-  it('Orçamento continua aceso com o recorte de vencimento na URL', () => {
+  // `exact` no Orçamento, senão ele ficaria aceso dentro de Fornecedores,
+  // Pagamentos e Documentos — que são subrotas dele.
+  it('Orçamento acende só na raiz do módulo', () => {
     const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
     const orcamento = financeiro.itens.find((i) => i.label === 'Orçamento')!
 
+    expect(ehItemAtivo(orcamento, rota(`${BASE}/financeiro`))).toBe(true)
+    expect(ehItemAtivo(orcamento, rota(`${BASE}/financeiro/pagamentos`))).toBe(false)
+  })
+
+  // A tela de Pagamentos guarda o recorte na URL (`?filtro=vencidos`). Um
+  // filtro nunca pode apagar o item de menu que o recebeu.
+  it('Pagamentos continua aceso com o filtro na URL', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const pagamentos = financeiro.itens.find((i) => i.label === 'Pagamentos')!
+
     expect(
-      ehItemAtivo(orcamento, rota(`${BASE}/financeiro/orcamento`, { vencimento: 'vencidos' })),
+      ehItemAtivo(pagamentos, rota(`${BASE}/financeiro/pagamentos`, { filtro: 'vencidos' })),
     ).toBe(true)
   })
 })

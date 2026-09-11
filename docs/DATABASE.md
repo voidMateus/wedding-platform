@@ -57,7 +57,7 @@
 | Tabela | Propósito |
 |---|---|
 | `categorias_orcamento` | Categoria do orçamento (Buffet, Espaço...) com o valor **planejado**. Taxonomia única do módulo: usada por `despesas` e por `fornecedores` |
-| `despesas` | Compromisso de gasto — o valor acordado. Categoria e fornecedor opcionais |
+| `despesas` | Um gasto do casamento, com **custo estimado** (planejamento) e **custo final** (contrato, nulo até fechar). Categoria e fornecedor opcionais |
 | `parcelas_despesa` | Parcela de uma despesa: `vence_em`, `valor_centavos` e `pago_em` — a única fonte do estado de pagamento |
 | `fornecedores` | Contato, estágio da negociação e cotação. O valor do contrato **nunca** mora aqui, mora em `despesas` |
 | `documentos` | Contrato/comprovante/referência — entidade única compartilhada, com arquivo no bucket privado **ou** link externo (XOR) |
@@ -161,6 +161,7 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 
   Latitude e longitude continuam existindo, mas **nunca** são digitadas: vêm da seleção no provedor ou do marcador arrastado no mapa (CLAUDE.md, seção 12).
 
+- **Financeiro: planejar e pagar são colunas diferentes.** `despesas.valor_estimado_centavos` é o número do planejamento; `despesas.valor_centavos` é o do contrato e **aceita nulo** — gasto planejado e ainda não contratado é o estado normal do começo de um casamento, não uma linha incompleta. `CHECK despesas_tem_algum_valor` exige ao menos um dos dois. Só o que tem custo final conta como contratado, aceita parcela e aparece na tela de Pagamentos.
 - **Financeiro: três níveis, nenhum estado gravado.** `categorias_orcamento` → `despesas` (`categoria_id`/`fornecedor_id` opcionais, `restrict`) → `parcelas_despesa` (`despesa_id` obrigatório, `cascade`). `parcelas_despesa.casamento_id` é **derivado** da despesa por trigger (`parcelas_despesa_derivar_casamento_id`), não validado como nas outras filhas: a parcela sempre tem despesa, então não existe caso em que a aplicação precise informá-lo. `pago_em` é a única fonte do estado; não há coluna de status, e "vencida" nasce da passagem do tempo, sem job. Nenhum `CHECK` amarra a soma das parcelas ao `despesas.valor_centavos` — parcelamento incompleto é o caso normal, e a divergência é exibida na tela nos dois sentidos. `categorias_orcamento` tem índice único parcial por `(casamento_id, lower(nome)) where excluido_em is null`. Soft delete em categorias, despesas e fornecedores (referenciados); `parcelas_despesa` e `documentos`, não — a parcela morre com a despesa, e o documento apagado leva o arquivo junto.
 - **`documentos` é a primeira tabela do projeto ligada a um bucket privado.** `caminho_storage` XOR `url_externa` (`num_nonnulls(...) = 1`, o mesmo padrão de `assinaturas`); o bucket `wedding-documents` é `public = false`, com allowlist de MIME (PDF/JPEG/PNG/WebP), 10 MB e **nenhuma policy de leitura pública** — diferente dos três buckets de imagem do site. A leitura é sempre por URL assinada de curta duração gerada no servidor.
 - `casamentos.orcamento_total_centavos` (teto global, nullable) **nunca** é a soma de `categorias_orcamento.valor_previsto_centavos` — é a comparação entre os dois que responde "já distribuí tudo que tenho?". Nulo é estado normal.

@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
       .order('nome', { ascending: true }),
     client
       .from('despesas')
-      .select('id, fornecedor_id, valor_centavos')
+      .select('id, fornecedor_id, valor_centavos, valor_estimado_centavos')
       .eq('casamento_id', weddingId)
       .is('excluido_em', null)
       .not('fornecedor_id', 'is', null),
@@ -50,7 +50,8 @@ export default defineEventHandler(async (event) => {
   const despesasPorFornecedor = new Map<
     string,
     Array<{
-      valor_centavos: number
+      valor_estimado_centavos: number | null
+      valor_centavos: number | null
       parcelas: Array<{ valor_centavos: number; pago_em: string | null; vence_em: string }>
     }>
   >()
@@ -58,6 +59,7 @@ export default defineEventHandler(async (event) => {
     if (!despesa.fornecedor_id) continue
     const lista = despesasPorFornecedor.get(despesa.fornecedor_id) ?? []
     lista.push({
+      valor_estimado_centavos: despesa.valor_estimado_centavos,
       valor_centavos: despesa.valor_centavos,
       parcelas: parcelasPorDespesa.get(despesa.id) ?? [],
     })
@@ -72,7 +74,10 @@ export default defineEventHandler(async (event) => {
       ...fornecedor,
       categoria: categoria ?? null,
       situacaoFinanceira: situacaoFinanceiraFornecedor(despesas),
-      contratadoCentavos: despesas.reduce((total, despesa) => total + despesa.valor_centavos, 0),
+      contratadoCentavos: despesas.reduce(
+        (total, despesa) => total + (despesa.valor_centavos ?? 0),
+        0,
+      ),
       aPagarCentavos: despesas.reduce(
         (total, despesa) => total + totaisDaDespesa(despesa).aPagar,
         0,

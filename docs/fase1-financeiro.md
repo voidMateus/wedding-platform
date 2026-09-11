@@ -6,9 +6,10 @@
 > tarefa). Decisões datadas de **2026-09-10**; só mudam por acordo explícito
 > registrado aqui como nova decisão datada.
 >
-> **Implementado em 2026-09-10** (F1.1 a F1.5, seção 9): migration aplicada no
-> banco de desenvolvimento, módulo completo no painel. O que a implementação
-> decidiu por conta própria está registrado na seção 11.
+> **Implementado em 2026-09-10** (F1.1 a F1.5, seção 9) e **redesenhado em
+> 2026-09-11** (seção 12), quando o uso real mostrou que planejar e pagar
+> precisavam de telas separadas. O que a implementação decidiu por conta
+> própria está na seção 11.
 
 ---
 
@@ -36,23 +37,25 @@ tela, o que a planilha só responde depois de alguém montar uma fórmula. Uma
 planilha deixa escrever "Buffet: R$ 20.000"; o Hub precisa dizer "faltam
 R$ 26.600 do que vocês planejaram para virar contrato".
 
-O módulo inteiro se organiza pelos **quatro estágios do mesmo dinheiro**,
-nesta ordem:
+O módulo inteiro se organiza pelos **estágios do mesmo dinheiro**, nesta
+ordem (revisto em 2026-09-11, seção 12):
 
 | Estágio | A pergunta do casal | De onde sai |
 |---|---|---|
-| **Planejamento** | Quanto imaginávamos gastar? | `categorias_orcamento.valor_previsto_centavos` |
-| **Compromisso** | Quanto já contratamos? | `despesas.valor_centavos` |
-| **Caixa** | Quanto já saiu? | parcelas com `pago_em` |
-| **Futuro** | Quanto ainda vamos precisar pagar? | parcelas sem `pago_em` |
+| **Orçado** | Quanto reservamos para isso? | `categorias_orcamento.valor_previsto_centavos` |
+| **Estimado** | Quanto achamos que vai custar? | `despesas.valor_estimado_centavos` |
+| **Contratado** | Por quanto fechamos? | `despesas.valor_centavos` (nulo até fechar) |
+| **Pago** | Quanto já saiu? | parcelas com `pago_em` |
+| **A pagar** | Quanto ainda sai, e quando? | contratado − pago |
 
-A leitura mais útil não é nenhum dos quatro isolado — é a **distância entre
-eles**. Planejado menos contratado é *trabalho que falta* (decisões a tomar);
+A leitura mais útil não é nenhum estágio isolado — é a **distância entre
+eles**. Estimado menos contratado é *trabalho que falta* (decisões a tomar);
 contratado menos pago é *dinheiro que falta*. São as duas distâncias que a
-planilha não mostra sozinha, e é nelas que este módulo se diferencia. Toda
-tela do Financeiro é uma forma de olhar essa mesma narrativa: a Visão geral
-mostra as quatro de uma vez, o Orçamento mostra por categoria, o Fornecedor
-mostra por quem recebe.
+planilha não mostra sozinha, e é nelas que este módulo se diferencia.
+
+E cada distância vive na SUA tela (seção 12): o Orçamento é onde se planeja,
+Fornecedores é onde se cota e contrata, Pagamentos é onde o dinheiro sai. Uma
+tela só para os três momentos foi exatamente o erro da primeira versão.
 
 ## 2. Escopo da v1
 
@@ -60,10 +63,10 @@ mostra por quem recebe.
 
 | Peça | O que é |
 |---|---|
-| **Orçamento** | Categorias com valor previsto → despesas com valor contratado → parcelas com vencimento e pagamento |
-| **Fornecedores** | Contato + estágio do pipeline + cotação; o dinheiro do contrato vive na despesa, nunca aqui |
+| **Orçamento** (planejar) | Teto do casamento, categorias com valor orçado e gastos com **custo estimado** e **custo final**. Sem parcela nenhuma — aqui não se paga |
+| **Fornecedores** (contratar) | Contato, estágio e cotação, agrupados por categoria. Contratar preenche o custo final de um gasto planejado |
+| **Pagamentos** (pagar) | As parcelas do que foi contratado: pago, a vencer, vencido, e a baixa na própria linha |
 | **Documentos** | Entidade única compartilhada (contrato/comprovante/referência), arquivo enviado **ou** link externo |
-| **Visão geral** | Previsto / Contratado / Pago / A pagar, próximos vencimentos, vencidos, gasto por categoria |
 | **Entradas (só leitura)** | Quanto já entrou pela lista de presentes — bloco separado, não abate orçamento |
 
 ### 2.2 Fica de fora — decisão, não esquecimento
@@ -80,10 +83,12 @@ mostra por quem recebe.
 - **Divisão de quem paga** (noiva / noivo / pais dela / pais dele). Dor real,
   mas multiplica cada número do quadro por quatro. Volta quando o quadro
   simples estiver em uso.
-- **Despesa em dois estados (`prevista` vs `contratada`).** O planejado já
-  vive em `categorias_orcamento.valor_previsto_centavos`; uma despesa é um
-  compromisso. Adicionar o estado depois é uma coluna com default — barato, e
-  por isso não se antecipa.
+- ~~**Despesa em dois estados (`prevista` vs `contratada`)**~~ — **entrou em
+  2026-09-11** (seção 12). A v1 tinha um valor só por gasto, e isso obrigava o
+  casal a escrever o número do contrato antes de existir contrato: a tela de
+  planejar só funcionava depois de planejar em outro lugar. Agora são dois
+  valores (`valor_estimado_centavos` e `valor_centavos`), e é o segundo que
+  transforma o gasto em compromisso.
 - **Comparativo de cotações lado a lado.** O fornecedor guarda
   `valor_proposto_centavos`; comparar é olhar a lista filtrada por categoria.
   Tela de comparação é V2.
@@ -220,14 +225,21 @@ categoria existir.
 | `categoria_id` | uuid null → `categorias_orcamento` (restrict) | nulo = "Sem categoria", agrupado no fim da lista |
 | `fornecedor_id` | uuid null → `fornecedores` (restrict) | |
 | `descricao` | text not null | |
-| `valor_centavos` | integer not null, check ≥ 0 | o valor acordado |
+| `valor_estimado_centavos` | integer null, check ≥ 0 | custo **estimado** — o número do planejamento |
+| `valor_centavos` | integer null, check ≥ 0 | custo **final** (contratado). **Nulo** enquanto o gasto é só planejamento |
 | `observacao` | text null | |
 | `excluido_em` | timestamptz null | soft delete — valor histórico financeiro |
 
-- Categoria **opcional** de propósito: obrigar a criar categoria antes da
-  primeira despesa é a fricção que faz o casal voltar pra planilha.
+- Categoria **opcional** de propósito: obrigar a criar categoria antes do
+  primeiro gasto é a fricção que faz o casal voltar pra planilha.
 - Trigger `despesas_verificar_casamento_id`: categoria e fornecedor precisam
   ser do mesmo casamento, no padrão de `convidados_verificar_casamento_id`.
+- `CHECK despesas_tem_algum_valor` (`num_nonnulls(...) >= 1`): um gasto sem
+  estimado **e** sem final não diz nada nem ao planejamento nem ao caixa.
+- **Preencher `valor_centavos` é o ato que move o gasto de estágio.** Só o que
+  tem custo final conta como contratado, aceita parcela e aparece em
+  Pagamentos — e é por isso que a coluna aceita nulo em vez de zero: zero é um
+  valor fechado de graça, nulo é a ausência de contrato.
 
 ### 4.3 `parcelas_despesa`
 
@@ -624,3 +636,49 @@ Decisões tomadas ao construir, todas dentro do que o refinamento já previa:
 - **Editar despesa não mexe em parcelamento.** Renegociar é ação da própria
   linha (que sabe o que já foi pago), nunca um formulário de edição
   reescrevendo histórico por baixo.
+
+## 12. Redesenho de 2026-09-11 — planejar e pagar em telas separadas
+
+Pedido do usuário depois de usar a v1: *"a gente precisa separar o que é
+planejamento e o que é de fato pagamento; deixar tudo em um local apenas fica
+ruim"*. Ele está certo, e o diagnóstico é mais fundo do que layout: a v1
+tratava um gasto como um número só, então **não existia lugar para planejar** —
+a árvore de categoria → despesa → parcela pedia o valor do contrato antes de
+existir contrato.
+
+**As decisões desta rodada:**
+
+1. **Um gasto tem dois valores**: `valor_estimado_centavos` (planejamento) e
+   `valor_centavos` (contrato, nulo até fechar). O segundo é o que transforma
+   estimativa em compromisso.
+2. **Três telas, uma por momento do dinheiro**, nesta ordem no menu:
+   **Orçamento** (planejar) → **Fornecedores** (cotar e contratar) →
+   **Pagamentos** (pagar). Documentos serve às três e fica em "Gerenciar".
+3. **A "Visão geral" deixou de existir como tela.** O quadro de totais virou o
+   cabeçalho do Orçamento, e os alertas de vencimento moraram em Pagamentos,
+   onde se age sobre eles. Um quarto lugar repetindo os mesmos números só
+   adicionava cliques.
+4. **Contratar preenche um gasto que já existe**, em vez de criar outro: o
+   casal planeja "Buffet, estimado R$ 12.000", cota três fornecedores e, ao
+   fechar com um, diz a qual gasto aquilo corresponde. O valor fechado vira o
+   custo final, o fornecedor é vinculado, o estágio dele vai para
+   `contratado` e as parcelas nascem — `POST /api/finance/vendors/[id]/contract`.
+5. **O teto continua na categoria, e o estimado nos gastos.** São dois níveis
+   de planejamento de propósito: "quero gastar 15 mil em Recepção" é dito antes
+   de existir qualquer item, e a diferença entre o teto e a soma dos estimados
+   é o que denuncia o estouro **antes** de ele virar contrato.
+6. **Pagamentos só lista o que foi contratado.** Gasto em planejamento não
+   aparece lá — não há o que pagar num valor que ninguém fechou. É a separação
+   que a tela existe para manter, e está coberta por teste E2E.
+7. **Fornecedores agrupa e filtra por categoria**, com a soma das cotações por
+   grupo: comparar três buffets é uma pergunta dentro de uma categoria, e com
+   os concorrentes espalhados entre fotógrafos e bandas ninguém compara nada.
+8. **Categoria arquivada tem volta** (`POST /api/finance/categories/[id]/archive`
+   com `{arquivada}`, mesmo desenho de `grupos`). Na v1 ela sumia da tela sem
+   caminho de retorno.
+
+**O que NÃO mudou, e por quê:** a cotação do fornecedor continua fora de todo
+total (três concorrentes somariam três vezes o mesmo gasto); "pago" continua
+não sendo estágio de fornecedor; `pago_em` continua sendo a única fonte do
+estado de pagamento; e todo cálculo continua em `shared/utils/orcamento.ts`,
+agora com `contratado` podendo ser nulo.

@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: despesa, error: despesaError } = await client
     .from('despesas')
-    .select('id, valor_centavos')
+    .select('id, valor_centavos, valor_estimado_centavos')
     .eq('id', id)
     .eq('casamento_id', weddingId)
     .is('excluido_em', null)
@@ -40,6 +40,11 @@ export default defineEventHandler(async (event) => {
   }
   if (!despesa) {
     throw notFoundError('Despesa não encontrada.')
+  }
+  // Parcelar exige contrato: agendar a saída de um valor só estimado colocaria
+  // em Pagamentos um dinheiro que ninguém se comprometeu a pagar.
+  if (despesa.valor_centavos === null) {
+    throw badRequestError('Informe o valor fechado deste gasto antes de parcelar.')
   }
 
   const { data: existentes, error: parcelasError } = await client
@@ -75,6 +80,7 @@ export default defineEventHandler(async (event) => {
     : parcelasAtuais
 
   const totais = totaisDaDespesa({
+    valor_estimado_centavos: despesa.valor_estimado_centavos,
     valor_centavos: despesa.valor_centavos,
     parcelas: mantidas,
   })

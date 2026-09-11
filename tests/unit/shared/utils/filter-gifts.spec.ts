@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { effectiveGiftPriceCents, filterAndSortGifts, segmentGifts } from '#shared/utils/filter-gifts'
+import {
+  effectiveGiftPriceCents,
+  filterAndSortGifts,
+  segmentGifts,
+} from '#shared/utils/filter-gifts'
 import type { FilterableGift, SegmentableGift } from '#shared/utils/filter-gifts'
 
 interface TestGift extends FilterableGift {
@@ -22,7 +26,9 @@ describe('effectiveGiftPriceCents', () => {
   })
 
   it('cai para targetAmountCents quando priceCents é null (presente de cota)', () => {
-    expect(effectiveGiftPriceCents(makeGift({ priceCents: null, targetAmountCents: 20000 }))).toBe(20000)
+    expect(effectiveGiftPriceCents(makeGift({ priceCents: null, targetAmountCents: 20000 }))).toBe(
+      20000,
+    )
   })
 
   it('retorna null quando nenhum dos dois está definido', () => {
@@ -35,7 +41,12 @@ describe('filterAndSortGifts', () => {
     makeGift({ title: 'Jogo de panelas', categoryName: 'Cozinha', priceCents: 15000 }),
     makeGift({ title: 'Toalha de banho', categoryName: 'Casa', priceCents: 5000 }),
     makeGift({ title: 'Liquidificador', categoryName: 'Cozinha', priceCents: 30000 }),
-    makeGift({ title: 'Lua de mel', categoryName: 'Cota', priceCents: null, targetAmountCents: 500000 }),
+    makeGift({
+      title: 'Lua de mel',
+      categoryName: 'Cota',
+      priceCents: null,
+      targetAmountCents: 500000,
+    }),
   ]
 
   it('sem filtros, devolve a lista original na mesma ordem', () => {

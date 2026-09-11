@@ -729,7 +729,8 @@ export type Database = {
           id: string
           observacao: string | null
           updated_at: string
-          valor_centavos: number
+          valor_centavos: number | null
+          valor_estimado_centavos: number | null
         }
         Insert: {
           casamento_id: string
@@ -741,7 +742,8 @@ export type Database = {
           id?: string
           observacao?: string | null
           updated_at?: string
-          valor_centavos: number
+          valor_centavos?: number | null
+          valor_estimado_centavos?: number | null
         }
         Update: {
           casamento_id?: string
@@ -753,7 +755,8 @@ export type Database = {
           id?: string
           observacao?: string | null
           updated_at?: string
-          valor_centavos?: number
+          valor_centavos?: number | null
+          valor_estimado_centavos?: number | null
         }
         Relationships: [
           {

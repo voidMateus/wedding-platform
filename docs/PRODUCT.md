@@ -406,7 +406,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Convidados** | CRUD completo, importação CSV, filtros e busca |
 | **Grupos** | Organização de convidados em grupos, definição de limites de acompanhantes |
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente — tudo na própria página `/admin/presentes` |
-| **Financeiro** | Orçamento (categorias → despesas → parcelas), fornecedores e documentos — ver 7.9. Refinamento completo em [`fase1-financeiro.md`](fase1-financeiro.md) |
+| **Financeiro** | Orçamento (planejar), Fornecedores (contratar), Pagamentos (pagar) e Documentos — ver 7.9. Refinamento completo em [`fase1-financeiro.md`](fase1-financeiro.md) |
 | **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
 | **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, ordem das seções da home, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
@@ -489,7 +489,9 @@ Versículo e "Confirme sua Presença" têm cor própria (a faixa na cor primári
 
 Primeiro módulo do Hub (`docs/plano-produto-hub-casamento.md`), inteiramente administrativo — nenhum dado dele aparece no site do convidado. Escopo, modelo de dados e fluxos completos em [`fase1-financeiro.md`](fase1-financeiro.md); o essencial de produto:
 
-- **O módulo responde decisões, não registra lançamentos.** Toda tela é uma forma de olhar os quatro estágios do mesmo dinheiro — **Planejamento** (quanto imaginávamos gastar) → **Compromisso** (quanto já contratamos) → **Caixa** (quanto já saiu) → **Futuro** (quanto ainda vamos pagar). A leitura que diferencia o produto da planilha são as **distâncias** entre eles: planejado menos contratado é trabalho que falta; contratado menos pago é dinheiro que falta.
+- **O módulo responde decisões, não registra lançamentos.** O dinheiro passa por **Orçado** (quanto reservamos) → **Estimado** (quanto achamos que vai custar) → **Contratado** (por quanto fechamos) → **Pago**, e a leitura que diferencia o produto da planilha são as **distâncias** entre eles: estimado menos contratado é trabalho que falta; contratado menos pago é dinheiro que falta.
+- **Três telas, uma por momento** (redesenho de 2026-09-11): **Orçamento** (planejar), **Fornecedores** (cotar e contratar) e **Pagamentos** (o que sai e quando). Um gasto tem custo estimado e custo final; o final só existe depois de contratar, e é ele que manda o gasto para Pagamentos — gasto em planejamento nunca aparece lá.
+- **Contratar preenche um gasto que já existe**: o casal planeja "Buffet, estimado R$ 12.000", cota fornecedores e, ao fechar com um, diz a qual gasto aquilo corresponde. O valor vira custo final, o fornecedor é vinculado e as parcelas nascem.
 - **Estrutura pronta + liberdade de planilha**: as categorias sugeridas são um botão do estado vazio, nunca linhas criadas por conta própria; categoria, fornecedor, parcelamento e observação são todos opcionais.
 - **Teto global opcional** (`casamentos.orcamento_total_centavos`): "temos R$ 100 mil" é dito antes de existir qualquer categoria, e a diferença para o planejado responde "já distribuí tudo que tenho?". Nulo é estado normal.
 - **O resumo degrada, nunca mente**: quem não preencheu planejamento nenhum não vê "0% contratado" nem alarme de estouro — os blocos sem base somem, e o convite para defini-los aparece no lugar.

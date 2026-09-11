@@ -11,7 +11,9 @@ describe('formatDateTimePtBR', () => {
   })
 
   it('formata data e hora no padrão pt-BR', () => {
-    expect(formatDateTimePtBR('2026-08-20T13:55:00.000Z')).toMatch(/^\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}$/)
+    expect(formatDateTimePtBR('2026-08-20T13:55:00.000Z')).toMatch(
+      /^\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}$/,
+    )
   })
 })
 

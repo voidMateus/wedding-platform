@@ -112,18 +112,54 @@ export const parcelamentoSchema = z.discriminatedUnion('modo', [
 ])
 export type ParcelamentoInput = z.infer<typeof parcelamentoSchema>
 
-export const expenseInputSchema = z.object({
-  descricao: z.string().trim().min(1, 'Descreva a despesa.').max(200),
-  valorCentavos: valorCentavosSchema,
-  categoriaId: uuidOpcional,
-  fornecedorId: uuidOpcional,
-  observacao: textoOpcional,
-  parcelamento: parcelamentoSchema.optional(),
-})
+/**
+ * Um gasto tem DOIS valores, de momentos diferentes: o estimado (planejamento)
+ * e o final (contrato). Pelo menos um precisa existir — sem nenhum dos dois a
+ * linha não diz nada nem ao orçamento nem ao caixa —, e é o final que
+ * transforma o gasto em compromisso.
+ */
+export const expenseInputSchema = z
+  .object({
+    descricao: z.string().trim().min(1, 'Descreva a despesa.').max(200),
+    valorEstimadoCentavos: valorCentavosSchema.nullish(),
+    valorCentavos: valorCentavosSchema.nullish(),
+    categoriaId: uuidOpcional,
+    fornecedorId: uuidOpcional,
+    observacao: textoOpcional,
+    parcelamento: parcelamentoSchema.optional(),
+  })
+  .refine(
+    (valores) =>
+      valores.valorEstimadoCentavos !== null && valores.valorEstimadoCentavos !== undefined
+        ? true
+        : valores.valorCentavos !== null && valores.valorCentavos !== undefined,
+    { message: 'Informe o custo estimado ou o valor já fechado.', path: ['valorEstimadoCentavos'] },
+  )
 export type ExpenseInput = z.infer<typeof expenseInputSchema>
 
-export const expensePatchSchema = expenseInputSchema.omit({ parcelamento: true }).partial()
+export const expensePatchSchema = z.object({
+  descricao: z.string().trim().min(1).max(200).optional(),
+  valorEstimadoCentavos: valorCentavosSchema.nullish(),
+  valorCentavos: valorCentavosSchema.nullish(),
+  categoriaId: uuidOpcional,
+  fornecedorId: uuidOpcional,
+  // `.optional()` DEPOIS do transform: sem isso, campo não enviado chegaria
+  // como null e apagaria a observação de quem só quis mudar o valor.
+  observacao: textoOpcional.optional(),
+})
 export type ExpensePatch = z.infer<typeof expensePatchSchema>
+
+/**
+ * Contratar: o fornecedor cotado vira o custo final de um gasto que já existe
+ * no planejamento. É a ponte entre as três telas — e o momento em que o
+ * dinheiro deixa de ser estimativa e passa a ter data para sair.
+ */
+export const vendorContractSchema = z.object({
+  despesaId: z.string().uuid('Escolha o gasto correspondente.'),
+  valorCentavos: valorCentavosSchema,
+  parcelamento: parcelamentoSchema.optional(),
+})
+export type VendorContractInput = z.infer<typeof vendorContractSchema>
 
 export const installmentInputSchema = z.object({
   venceEm: dataSchema,

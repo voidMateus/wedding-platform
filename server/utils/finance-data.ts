@@ -78,6 +78,7 @@ export async function carregarOrcamento(
       fornecedor: fornecedor ?? null,
       parcelas: parcelasDaDespesa,
       totais: totaisDaDespesa({
+        valor_estimado_centavos: despesa.valor_estimado_centavos,
         valor_centavos: despesa.valor_centavos,
         parcelas: parcelasDaDespesa,
       }),
@@ -104,6 +105,7 @@ export async function carregarOrcamento(
     nome: categoria.nome,
     valorPrevistoCentavos: categoria.valor_previsto_centavos,
     despesas: (despesasPorCategoria.get(categoria.id) ?? []).map((despesa) => ({
+      valor_estimado_centavos: despesa.valor_estimado_centavos,
       valor_centavos: despesa.valor_centavos,
       parcelas: despesa.parcelas,
     })),
@@ -116,6 +118,7 @@ export async function carregarOrcamento(
       nome: GRUPO_SEM_CATEGORIA,
       valorPrevistoCentavos: 0,
       despesas: semCategoria.map((despesa) => ({
+        valor_estimado_centavos: despesa.valor_estimado_centavos,
         valor_centavos: despesa.valor_centavos,
         parcelas: despesa.parcelas,
       })),

@@ -12,7 +12,10 @@ export default defineEventHandler(async (event) => {
 
   const atualizacao: Record<string, unknown> = {}
   if (input.descricao !== undefined) atualizacao.descricao = input.descricao
-  if (input.valorCentavos !== undefined) atualizacao.valor_centavos = input.valorCentavos
+  if (input.valorEstimadoCentavos !== undefined) {
+    atualizacao.valor_estimado_centavos = input.valorEstimadoCentavos ?? null
+  }
+  if (input.valorCentavos !== undefined) atualizacao.valor_centavos = input.valorCentavos ?? null
   if (input.categoriaId !== undefined) atualizacao.categoria_id = input.categoriaId ?? null
   if (input.fornecedorId !== undefined) atualizacao.fornecedor_id = input.fornecedorId ?? null
   if (input.observacao !== undefined) atualizacao.observacao = input.observacao ?? null
