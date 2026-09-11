@@ -52,6 +52,16 @@
 | `credenciais_acesso_convite` | Credencial estável de acesso ao convite (hash do código), sempre por `convite_id` — independente de quantas comunicações foram enviadas |
 | `comunicacoes` | Log de cada envio (convite, lembrete, confirmação) por canal — 1:N em relação à credencial de acesso |
 
+**Financeiro (Fase 1 do Hub — ver [`fase1-financeiro.md`](fase1-financeiro.md))**
+
+| Tabela | Propósito |
+|---|---|
+| `categorias_orcamento` | Categoria do orçamento (Buffet, Espaço...) com o valor **planejado**. Taxonomia única do módulo: usada por `despesas` e por `fornecedores` |
+| `despesas` | Compromisso de gasto — o valor acordado. Categoria e fornecedor opcionais |
+| `parcelas_despesa` | Parcela de uma despesa: `vence_em`, `valor_centavos` e `pago_em` — a única fonte do estado de pagamento |
+| `fornecedores` | Contato, estágio da negociação e cotação. O valor do contrato **nunca** mora aqui, mora em `despesas` |
+| `documentos` | Contrato/comprovante/referência — entidade única compartilhada, com arquivo no bucket privado **ou** link externo (XOR) |
+
 **Mídia e operação**
 
 | Tabela | Propósito |
@@ -151,6 +161,9 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 
   Latitude e longitude continuam existindo, mas **nunca** são digitadas: vêm da seleção no provedor ou do marcador arrastado no mapa (CLAUDE.md, seção 12).
 
+- **Financeiro: três níveis, nenhum estado gravado.** `categorias_orcamento` → `despesas` (`categoria_id`/`fornecedor_id` opcionais, `restrict`) → `parcelas_despesa` (`despesa_id` obrigatório, `cascade`). `parcelas_despesa.casamento_id` é **derivado** da despesa por trigger (`parcelas_despesa_derivar_casamento_id`), não validado como nas outras filhas: a parcela sempre tem despesa, então não existe caso em que a aplicação precise informá-lo. `pago_em` é a única fonte do estado; não há coluna de status, e "vencida" nasce da passagem do tempo, sem job. Nenhum `CHECK` amarra a soma das parcelas ao `despesas.valor_centavos` — parcelamento incompleto é o caso normal, e a divergência é exibida na tela nos dois sentidos. `categorias_orcamento` tem índice único parcial por `(casamento_id, lower(nome)) where excluido_em is null`. Soft delete em categorias, despesas e fornecedores (referenciados); `parcelas_despesa` e `documentos`, não — a parcela morre com a despesa, e o documento apagado leva o arquivo junto.
+- **`documentos` é a primeira tabela do projeto ligada a um bucket privado.** `caminho_storage` XOR `url_externa` (`num_nonnulls(...) = 1`, o mesmo padrão de `assinaturas`); o bucket `wedding-documents` é `public = false`, com allowlist de MIME (PDF/JPEG/PNG/WebP), 10 MB e **nenhuma policy de leitura pública** — diferente dos três buckets de imagem do site. A leitura é sempre por URL assinada de curta duração gerada no servidor.
+- `casamentos.orcamento_total_centavos` (teto global, nullable) **nunca** é a soma de `categorias_orcamento.valor_previsto_centavos` — é a comparação entre os dois que responde "já distribuí tudo que tenho?". Nulo é estado normal.
 - `casamentos.slug` é validado contra `is_slug_reservado()` (`CHECK casamentos_slug_nao_reservado`) — lista fixa de slugs técnicos da própria plataforma (`admin`, `login`, `api`...) que um casamento nunca pode reivindicar, evitando colisão com uma rota real.
 - **Hierarquia de `grupos`: no máximo dois níveis.** `grupo_pai_id` é auto-referência opcional — null é grupo raiz, preenchido é subdivisão ("Tios paternos" dentro de "Família do Mateus"). O convidado tem **uma só** referência de grupo (`convidados.grupo_id`), sempre para a folha onde ele está; não existe `subgrupo_id`, e o grupo-pai é derivado do `grupo_pai_id` da folha. Uma segunda coluna criaria a classe de bug "grupo_id e subgrupo_id discordam", sem resposta certa em tempo de leitura.
 

@@ -1,0 +1,340 @@
+/**
+ * O cálculo do Financeiro, num lugar só (docs/fase1-financeiro.md, seção 5).
+ *
+ * Vive em `shared/` porque endpoint e tela precisam da MESMA conta: é o que
+ * impede o total do cabeçalho de discordar da soma das linhas — o mesmo motivo
+ * que levou a classificação etária para `faixa-etaria.ts`.
+ *
+ * Três regras atravessam tudo aqui:
+ *
+ * 1. PISO EM ZERO SEMPRE POR LINHA, ANTES DE SOMAR. "A pagar" do resumo é a
+ *    soma de `max(0, valor - pago)` de cada despesa, nunca
+ *    `soma(valores) - soma(pagos)`: somar primeiro faz uma despesa paga a mais
+ *    compensar outra em aberto, e as duas anomalias somem justo do número que
+ *    deveria denunciá-las.
+ *
+ * 2. DENOMINADOR VAZIO NÃO PRODUZ INDICADOR. Percentual sobre planejado zero
+ *    devolve `null`, nunca 0 — é o `null` que faz a tela omitir a linha em vez
+ *    de exibir "0% contratado" para quem nunca planejou nada.
+ *
+ * 3. "HOJE" É ENTRADA, NUNCA `new Date()` LÁ DENTRO. Além de tornar o cálculo
+ *    testável, é o que permite resolver o dia no fuso de quem casa: o servidor
+ *    roda em UTC, e às 22h de um sábado em São Paulo o UTC já é domingo — uma
+ *    parcela venceria um dia antes da conta do casal.
+ *
+ * Todo valor é em centavos (inteiro), como em `presentes`.
+ */
+
+/** Janela do "vence em breve" na Visão geral. Valor de negócio, nunca literal solto. */
+export const DIAS_HORIZONTE_VENCIMENTO = 30
+
+/** O fuso do evento. Datas do módulo são "ingênuas" (date puro), e o dia é o do casal. */
+export const FUSO_DO_EVENTO = 'America/Sao_Paulo'
+
+export type SituacaoParcela = 'paga' | 'a_vencer' | 'vencida'
+
+export type SituacaoFinanceiraFornecedor = 'sem_despesa' | 'a_pagar' | 'quitado'
+
+/** Linha de `parcelas_despesa`, no shape em que ela sai do banco. */
+export interface ParcelaCalculavel {
+  vence_em: string
+  valor_centavos: number
+  pago_em: string | null
+}
+
+/** Linha de `despesas` com suas parcelas. */
+export interface DespesaCalculavel {
+  valor_centavos: number
+  parcelas: ParcelaCalculavel[]
+}
+
+/** Uma categoria e as despesas dela. `categoriaId` nulo é o grupo "Sem categoria". */
+export interface GrupoDeCategoria {
+  categoriaId: string | null
+  nome: string
+  valorPrevistoCentavos: number
+  despesas: DespesaCalculavel[]
+}
+
+export interface TotaisDaDespesa {
+  valor: number
+  /** Soma das parcelas com `pago_em`. */
+  pago: number
+  /** Soma das parcelas sem `pago_em` — o que já tem vencimento marcado. */
+  agendado: number
+  /** Saldo financeiro da despesa: `max(0, valor - pago)`. */
+  aPagar: number
+  /** Parte do saldo ainda sem vencimento definido. `aPagar = agendado + naoParcelado`. */
+  naoParcelado: number
+  /** Quanto as parcelas passam do valor da despesa (aviso, nunca bloqueio). */
+  parcelasAlemDoValor: number
+  /** Quanto o pago passa do valor da despesa (aviso, nunca bloqueio). */
+  pagoAlemDoValor: number
+}
+
+export interface LinhaDeCategoria {
+  categoriaId: string | null
+  nome: string
+  previsto: number
+  contratado: number
+  pago: number
+  aPagar: number
+  /** `max(0, previsto - contratado)` — trabalho que falta. */
+  aContratar: number
+  /** `max(0, contratado - previsto)` — o outro lado do mesmo desvio, nunca o mesmo número com sinal. */
+  acimaDoPlanejado: number
+  percentualContratado: number | null
+}
+
+export interface BlocoDeAtencao {
+  valor: number
+  quantidade: number
+}
+
+export interface ResumoDoOrcamento {
+  teto: number | null
+  planejado: number
+  contratado: number
+  pago: number
+  aPagar: number
+  agendado: number
+  naoParcelado: number
+  aContratar: number
+  percentualContratado: number | null
+  percentualPago: number | null
+  /** `teto - planejado` quando há teto; pode ser negativo (distribuiu mais do que tem). */
+  naoDistribuido: number | null
+  atencao: {
+    vencidos: BlocoDeAtencao
+    proximos30Dias: BlocoDeAtencao
+    acimaDoPlanejado: BlocoDeAtencao
+  }
+  porCategoria: LinhaDeCategoria[]
+}
+
+/** Data de hoje (`YYYY-MM-DD`) no fuso do evento — o dia do casal, não o do servidor. */
+export function hojeNoFusoDoEvento(agora: Date = new Date(), fuso = FUSO_DO_EVENTO): string {
+  // 'en-CA' formata como YYYY-MM-DD, que é exatamente o formato de uma coluna
+  // `date` do Postgres — sem montagem manual de string nem risco de mês 1-based.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: fuso,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(agora)
+}
+
+/**
+ * Soma dias a uma data `YYYY-MM-DD`, devolvendo outra `YYYY-MM-DD`.
+ *
+ * Aritmética em UTC de propósito: a data aqui não tem hora, e usar o fuso local
+ * faria o resultado mudar de dia perto da meia-noite em fuso negativo.
+ */
+export function somarDias(dataIso: string, dias: number): string {
+  const [ano, mes, dia] = dataIso.split('-').map(Number)
+  const base = Date.UTC(ano ?? 0, (mes ?? 1) - 1, dia ?? 1)
+  return new Date(base + dias * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * Situação de uma parcela. Parcela que vence HOJE é `a_vencer`, não `vencida`:
+ * o casal ainda tem o dia todo para pagar, e chamar de vencida transformaria o
+ * bloco de atenção num alarme falso diário.
+ */
+export function situacaoDaParcela(parcela: ParcelaCalculavel, hoje: string): SituacaoParcela {
+  if (parcela.pago_em) return 'paga'
+  return parcela.vence_em < hoje ? 'vencida' : 'a_vencer'
+}
+
+/** Percentual inteiro de 0 a N, ou `null` quando não há base para calcular (regra 2). */
+export function percentual(parte: number, total: number): number | null {
+  if (total <= 0) return null
+  return Math.round((parte / total) * 100)
+}
+
+export function totaisDaDespesa(despesa: DespesaCalculavel): TotaisDaDespesa {
+  let pago = 0
+  let agendado = 0
+  for (const parcela of despesa.parcelas) {
+    if (parcela.pago_em) pago += parcela.valor_centavos
+    else agendado += parcela.valor_centavos
+  }
+
+  const valor = despesa.valor_centavos
+  const aPagar = Math.max(0, valor - pago)
+
+  return {
+    valor,
+    pago,
+    agendado,
+    aPagar,
+    // O piso mantém a identidade `aPagar = agendado + naoParcelado` de pé
+    // mesmo quando as parcelas passam do valor da despesa.
+    naoParcelado: Math.max(0, aPagar - agendado),
+    parcelasAlemDoValor: Math.max(0, pago + agendado - valor),
+    pagoAlemDoValor: Math.max(0, pago - valor),
+  }
+}
+
+export function linhaDeCategoria(grupo: GrupoDeCategoria): LinhaDeCategoria {
+  let contratado = 0
+  let pago = 0
+  let aPagar = 0
+
+  for (const despesa of grupo.despesas) {
+    const totais = totaisDaDespesa(despesa)
+    contratado += totais.valor
+    pago += totais.pago
+    aPagar += totais.aPagar
+  }
+
+  const previsto = grupo.valorPrevistoCentavos
+
+  return {
+    categoriaId: grupo.categoriaId,
+    nome: grupo.nome,
+    previsto,
+    contratado,
+    pago,
+    aPagar,
+    aContratar: Math.max(0, previsto - contratado),
+    // Sem previsto não existe estouro: "Sem categoria" com R$ 450 gastos não
+    // está R$ 450 acima de nada, está fora do planejamento (regra 2). Contar
+    // aqui encheria o bloco de atenção de alarme falso justo para quem ainda
+    // não planejou — o oposto do que ele serve.
+    acimaDoPlanejado: previsto > 0 ? Math.max(0, contratado - previsto) : 0,
+    percentualContratado: percentual(contratado, previsto),
+  }
+}
+
+/**
+ * O resumo da Visão geral: os quatro estágios, as duas distâncias e o bloco de
+ * atenção, prontos para a tela (docs/fase1-financeiro.md, seções 1.1 e 7).
+ */
+export function resumoDoOrcamento(
+  grupos: GrupoDeCategoria[],
+  opcoes: { hoje: string; tetoCentavos: number | null },
+): ResumoDoOrcamento {
+  const porCategoria = grupos.map(linhaDeCategoria)
+
+  let planejado = 0
+  let contratado = 0
+  let pago = 0
+  let aPagar = 0
+  let agendado = 0
+  let naoParcelado = 0
+  let aContratar = 0
+  let acimaDoPlanejadoValor = 0
+  let acimaDoPlanejadoQuantidade = 0
+
+  for (const linha of porCategoria) {
+    planejado += linha.previsto
+    contratado += linha.contratado
+    pago += linha.pago
+    aPagar += linha.aPagar
+    // Somar os pisos por categoria, nunca subtrair os totais: categoria
+    // estourada não reduz o trabalho de contratar a que nem começou.
+    aContratar += linha.aContratar
+    if (linha.acimaDoPlanejado > 0) {
+      acimaDoPlanejadoValor += linha.acimaDoPlanejado
+      acimaDoPlanejadoQuantidade += 1
+    }
+  }
+
+  for (const grupo of grupos) {
+    for (const despesa of grupo.despesas) {
+      const totais = totaisDaDespesa(despesa)
+      agendado += totais.agendado
+      naoParcelado += totais.naoParcelado
+    }
+  }
+
+  const limiteDoHorizonte = somarDias(opcoes.hoje, DIAS_HORIZONTE_VENCIMENTO)
+  const vencidos: BlocoDeAtencao = { valor: 0, quantidade: 0 }
+  const proximos30Dias: BlocoDeAtencao = { valor: 0, quantidade: 0 }
+
+  for (const grupo of grupos) {
+    for (const despesa of grupo.despesas) {
+      for (const parcela of despesa.parcelas) {
+        const situacao = situacaoDaParcela(parcela, opcoes.hoje)
+        if (situacao === 'vencida') {
+          vencidos.valor += parcela.valor_centavos
+          vencidos.quantidade += 1
+        } else if (situacao === 'a_vencer' && parcela.vence_em <= limiteDoHorizonte) {
+          proximos30Dias.valor += parcela.valor_centavos
+          proximos30Dias.quantidade += 1
+        }
+      }
+    }
+  }
+
+  return {
+    teto: opcoes.tetoCentavos,
+    planejado,
+    contratado,
+    pago,
+    aPagar,
+    agendado,
+    naoParcelado,
+    aContratar,
+    percentualContratado: percentual(contratado, planejado),
+    percentualPago: percentual(pago, contratado),
+    naoDistribuido: opcoes.tetoCentavos === null ? null : opcoes.tetoCentavos - planejado,
+    atencao: {
+      vencidos,
+      proximos30Dias,
+      acimaDoPlanejado: {
+        valor: acimaDoPlanejadoValor,
+        quantidade: acimaDoPlanejadoQuantidade,
+      },
+    },
+    porCategoria,
+  }
+}
+
+/**
+ * Situação financeira de um fornecedor — DERIVADA das despesas ligadas a ele,
+ * nunca um estágio gravado. "Pago" não é etapa de negociação: o fornecedor
+ * contratado cujas parcelas acabaram está quitado sem ninguém marcar nada.
+ */
+export function situacaoFinanceiraFornecedor(
+  despesas: DespesaCalculavel[],
+): SituacaoFinanceiraFornecedor {
+  if (despesas.length === 0) return 'sem_despesa'
+  const aPagar = despesas.reduce((total, despesa) => total + totaisDaDespesa(despesa).aPagar, 0)
+  return aPagar > 0 ? 'a_pagar' : 'quitado'
+}
+
+/**
+ * Gera parcelas mensais a partir de uma data, dividindo o valor em N.
+ *
+ * A sobra dos centavos vai toda na PRIMEIRA parcela, não na última: é a que o
+ * casal costuma pagar como entrada, e receber o centavo a mais lá evita a
+ * última parcela quebrada que ninguém consegue conciliar com o contrato.
+ */
+export function gerarParcelas(
+  valorCentavos: number,
+  quantidade: number,
+  primeiroVencimento: string,
+): Array<{ numero: number; vence_em: string; valor_centavos: number }> {
+  if (quantidade < 1) return []
+
+  const base = Math.floor(valorCentavos / quantidade)
+  const sobra = valorCentavos - base * quantidade
+  const [ano, mes, dia] = primeiroVencimento.split('-').map(Number)
+
+  return Array.from({ length: quantidade }, (_, indice) => {
+    // Somar meses, não 30 dias: parcela de casamento vence "todo dia 10".
+    // Dia 31 em mês curto cai no último dia do mês, nunca vaza para o mês
+    // seguinte (Date.UTC normalizaria 31/02 para 03/03).
+    const mesAlvo = (mes ?? 1) - 1 + indice
+    const ultimoDiaDoMes = new Date(Date.UTC(ano ?? 0, mesAlvo + 1, 0)).getUTCDate()
+    const vencimento = new Date(Date.UTC(ano ?? 0, mesAlvo, Math.min(dia ?? 1, ultimoDiaDoMes)))
+
+    return {
+      numero: indice + 1,
+      vence_em: vencimento.toISOString().slice(0, 10),
+      valor_centavos: indice === 0 ? base + sobra : base,
+    }
+  })
+}

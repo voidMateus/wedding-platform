@@ -35,17 +35,26 @@ describe('nav primária do admin', () => {
     expect(ehItemAtivo(itemPrimario('Convidados'), rota(`${BASE}/presentes`))).toBe(false)
   })
 
-  // Convites entrou em Convidados; Cronograma e Galeria, em Configurações. O
-  // topo fica com quatro abas — exatamente o que a barra do celular mostra sem
-  // precisar do "Mais".
-  it('mantém só as quatro abas de módulo no topo', () => {
+  // Convites entrou em Convidados; Cronograma e Galeria, em Configurações. Com
+  // a chegada do Financeiro são cinco destinos: a barra do celular mostra os
+  // quatro primeiros e joga Configurações no "Mais" — por isso a ORDEM aqui é
+  // parte do contrato, não detalhe de escrita.
+  it('mantém as cinco abas de módulo no topo, nesta ordem', () => {
     expect(adminPrimaryNav(SLUG).map((i) => i.label)).toEqual([
       'Início',
       'Convidados',
       'Presentes',
+      'Financeiro',
       'Configurações',
     ])
   })
+
+  it.each(['/financeiro', '/financeiro/orcamento', '/financeiro/fornecedores'])(
+    'acende Financeiro em %s',
+    (caminho) => {
+      expect(ehItemAtivo(itemPrimario('Financeiro'), rota(`${BASE}${caminho}`))).toBe(true)
+    },
+  )
 
   it.each(['/configuracoes', '/cronograma', '/galeria'])(
     'acende Configurações em %s',
@@ -113,6 +122,43 @@ describe('menu da seção', () => {
 
     expect(nucleos.to).toBeUndefined()
     expect(ehItemAtivo(nucleos, rota(`${BASE}/convidados`))).toBe(false)
+  })
+})
+
+describe('menu da seção do Financeiro', () => {
+  it.each(['/financeiro', '/financeiro/orcamento', '/financeiro/documentos'])(
+    'desenha a coluna do módulo em %s',
+    (caminho) => {
+      expect(adminSectionMenu(SLUG, `${BASE}${caminho}`).length).toBeGreaterThan(0)
+    },
+  )
+
+  it('separa a leitura (Visão geral, Orçamento) do cadastro (Gerenciar)', () => {
+    expect(adminSectionMenu(SLUG, `${BASE}/financeiro`).map((g) => g.label)).toEqual([
+      'Financeiro',
+      'Gerenciar',
+    ])
+  })
+
+  // `exact` na Visão geral, senão ela ficaria acesa dentro de Orçamento,
+  // Fornecedores e Documentos — que são subrotas dela.
+  it('Visão geral acende só na raiz do módulo', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const visaoGeral = financeiro.itens.find((i) => i.label === 'Visão geral')!
+
+    expect(ehItemAtivo(visaoGeral, rota(`${BASE}/financeiro`))).toBe(true)
+    expect(ehItemAtivo(visaoGeral, rota(`${BASE}/financeiro/orcamento`))).toBe(false)
+  })
+
+  // O bloco de atenção da Visão geral leva ao Orçamento com `?vencimento=`.
+  // Um filtro na URL nunca pode apagar o item que o recebe.
+  it('Orçamento continua aceso com o recorte de vencimento na URL', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const orcamento = financeiro.itens.find((i) => i.label === 'Orçamento')!
+
+    expect(
+      ehItemAtivo(orcamento, rota(`${BASE}/financeiro/orcamento`, { vencimento: 'vencidos' })),
+    ).toBe(true)
   })
 })
 
