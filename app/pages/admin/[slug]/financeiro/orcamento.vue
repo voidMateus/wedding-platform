@@ -296,7 +296,14 @@ async function alternarPagamento(parcela: ParcelaDespesa) {
           : 'Crie a primeira categoria para começar a organizar os custos.'
       "
     >
-      <UiButton v-if="rotuloDoRecorte" variant="outline" @click="limparRecorte">Ver tudo</UiButton>
+      <!--
+        "Limpar filtro", e não "Ver tudo" como na faixa de cima: dois botões
+        com o mesmo nome na mesma tela deixam o leitor de tela anunciando o
+        mesmo destino duas vezes, sem dizer qual é qual.
+      -->
+      <UiButton v-if="rotuloDoRecorte" variant="outline" @click="limparRecorte">
+        Limpar filtro
+      </UiButton>
       <UiButton v-else @click="novaCategoria">Nova categoria</UiButton>
     </UiEmptyState>
 
