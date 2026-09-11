@@ -122,6 +122,63 @@ async function desfazer(pagamento: PagamentoListado) {
   }
 }
 
+// --- editar o lançamento ---
+/**
+ * Vencimento, valor, data de pagamento e forma são todos editáveis: um
+ * pagamento é combinado, remarcado e pago fora da data mais vezes do que o
+ * contrário. A tela só sabia criar e dar baixa — corrigir uma data errada
+ * exigia apagar a parcela e refazer o parcelamento inteiro.
+ */
+const emEdicao = ref<PagamentoListado | null>(null)
+const edicaoVenceEm = ref('')
+const edicaoValor = ref(0)
+const edicaoFoiPago = ref(false)
+const edicaoPagoEm = ref('')
+const edicaoForma = ref<FormaPagamento | ''>('')
+const edicaoObservacao = ref('')
+const salvandoEdicao = ref(false)
+
+function abrirEdicao(pagamento: PagamentoListado) {
+  // A linha `a_definir` não é uma parcela — não há o que editar nela, e o que
+  // ela pede é justamente a data que falta.
+  if (pagamento.tipo === 'a_definir') {
+    abrirAgendamento(pagamento)
+    return
+  }
+
+  emEdicao.value = pagamento
+  edicaoVenceEm.value = pagamento.vence_em ?? ''
+  edicaoValor.value = pagamento.valor_centavos
+  edicaoFoiPago.value = Boolean(pagamento.pago_em)
+  edicaoPagoEm.value = pagamento.pago_em ?? hoje
+  edicaoForma.value = (pagamento.forma_pagamento as FormaPagamento) ?? ''
+  edicaoObservacao.value = pagamento.observacao ?? ''
+}
+
+async function salvarEdicao() {
+  const pagamento = emEdicao.value
+  if (!pagamento) return
+
+  salvandoEdicao.value = true
+  try {
+    await atualizarParcela(pagamento.id, {
+      venceEm: edicaoVenceEm.value,
+      valorCentavos: edicaoValor.value,
+      // Desmarcar é mandar `pagoEm: null` — `pago_em` é a única fonte do
+      // estado de pagamento, então tirar a data É desfazer a baixa.
+      pagoEm: edicaoFoiPago.value ? edicaoPagoEm.value : null,
+      formaPagamento: edicaoFoiPago.value ? edicaoForma.value || null : null,
+      observacao: edicaoObservacao.value || null,
+    })
+    emEdicao.value = null
+    toast.success('Lançamento atualizado.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o lançamento.'))
+  } finally {
+    salvandoEdicao.value = false
+  }
+}
+
 // --- agendar o que está sem data ---
 const agendamento = ref<PagamentoListado | null>(null)
 const quantidadeParcelas = ref('1')
@@ -308,11 +365,19 @@ function rotuloDeLancamentos(quantidade: number): string {
           :columns="colunas"
           :rows="linhasFiltradas"
           :filters="filters"
+          row-clickable
           empty-label="Nenhum lançamento com esses filtros."
+          @row-click="abrirEdicao"
         >
           <template #cell-gasto="{ row }">
             <div class="min-w-0">
-              <span class="block truncate text-text">{{ row.despesa.descricao }}</span>
+              <button
+                type="button"
+                class="block max-w-full truncate text-left text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                @click="abrirEdicao(row)"
+              >
+                {{ row.despesa.descricao }}
+              </button>
               <span class="block truncate text-xs text-text-muted">
                 <template v-if="row.categoria">{{ row.categoria.nome }}</template>
                 <template v-if="row.categoria && row.fornecedor"> · </template>
@@ -425,6 +490,9 @@ function rotuloDeLancamentos(quantidade: number): string {
                   Marcar pago
                 </UiButton>
                 <UiButton v-else variant="ghost" @click="desfazer(row)">Desfazer</UiButton>
+                <UiButton v-if="row.tipo === 'parcela'" variant="ghost" @click="abrirEdicao(row)">
+                  Editar
+                </UiButton>
               </div>
             </div>
           </template>
@@ -445,6 +513,40 @@ function rotuloDeLancamentos(quantidade: number): string {
       <template #footer>
         <UiButton variant="ghost" @click="pagamentoEmEdicao = null">Cancelar</UiButton>
         <UiButton @click="confirmarBaixa">Confirmar</UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      :model-value="Boolean(emEdicao)"
+      title="Editar lançamento"
+      :description="emEdicao?.despesa.descricao ?? ''"
+      @update:model-value="emEdicao = null"
+    >
+      <form class="flex flex-col gap-4" @submit.prevent="salvarEdicao">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UiDatePicker v-model="edicaoVenceEm" label="Vence em" />
+          <UiCurrencyInput v-model="edicaoValor" label="Valor" />
+        </div>
+
+        <UiCheckbox v-model="edicaoFoiPago" label="Este lançamento já foi pago" />
+
+        <div v-if="edicaoFoiPago" class="grid gap-4 sm:grid-cols-2">
+          <UiDatePicker
+            v-model="edicaoPagoEm"
+            label="Pago em"
+            hint="A data do pagamento é o que define o estado — desmarcar acima desfaz a baixa."
+          />
+          <UiSelect v-model="edicaoForma" label="Forma de pagamento" :options="opcoesForma" />
+        </div>
+
+        <UiInput v-model="edicaoObservacao" label="Observação" placeholder="Opcional" />
+      </form>
+
+      <template #footer>
+        <UiButton variant="ghost" @click="emEdicao = null">Cancelar</UiButton>
+        <UiButton :disabled="salvandoEdicao" @click="salvarEdicao">
+          {{ salvandoEdicao ? 'Salvando…' : 'Salvar' }}
+        </UiButton>
       </template>
     </UiModal>
 

@@ -118,6 +118,91 @@ test('Pagamentos registra a baixa na própria linha', async ({ page }) => {
   })
 })
 
+test('o lançamento é editável — vencimento, valor e data de pagamento', async ({ page }) => {
+  test.setTimeout(150_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/pagamentos`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // Pagamento é combinado, remarcado e pago fora da data mais vezes que o
+  // contrário: corrigir uma parcela não pode exigir apagá-la e refazer o
+  // parcelamento inteiro.
+  const linha = page.getByRole('row').filter({ hasText: 'Alianças' }).first()
+  await expect(linha).toBeVisible({ timeout: 20_000 })
+
+  await expect(async () => {
+    await linha.getByRole('button', { name: 'Alianças' }).click({ timeout: 3_000 })
+    await expect(page.getByRole('heading', { name: 'Editar lançamento' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+
+  const valor = page.getByLabel('Valor', { exact: true })
+  const original = await valor.inputValue()
+
+  await valor.fill('R$ 4.321,00')
+  await page.getByRole('button', { name: 'Salvar' }).click()
+  await expect(page.getByRole('heading', { name: 'Editar lançamento' })).toBeHidden({
+    timeout: 20_000,
+  })
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Alianças' }).first().getByText('R$ 4.321,00'),
+  ).toBeVisible({ timeout: 20_000 })
+
+  // Devolve o valor original — o casamento de desenvolvimento é compartilhado.
+  await expect(async () => {
+    await page
+      .getByRole('row')
+      .filter({ hasText: 'Alianças' })
+      .first()
+      .getByRole('button', { name: 'Alianças' })
+      .click({ timeout: 3_000 })
+    await expect(page.getByRole('heading', { name: 'Editar lançamento' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+  await page.getByLabel('Valor', { exact: true }).fill(original)
+  await page.getByRole('button', { name: 'Salvar' }).click()
+  await expect(page.getByRole('heading', { name: 'Editar lançamento' })).toBeHidden({
+    timeout: 20_000,
+  })
+})
+
+test('arquivar cotação contratada explica o vínculo e oferece a saída', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/fornecedores`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Fornecedores' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // O servidor recusa arquivar fornecedor ligado a um gasto. A tela precisa
+  // dizer isso ANTES do botão e oferecer como resolver — antes mandava tentar
+  // para então mostrar o erro num aviso atrás da própria janela.
+  const linha = page.getByRole('row').filter({ hasText: 'Buffet Recanto' }).first()
+  await expect(linha).toBeVisible({ timeout: 20_000 })
+
+  await expect(async () => {
+    await linha.getByRole('button', { name: /Arquivar cotação/ }).click({ timeout: 3_000 })
+    await expect(page.getByRole('heading', { name: 'Arquivar cotação' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+
+  const modal = page.getByRole('dialog')
+  await expect(modal.getByText(/é o contratado de 1 gasto/)).toBeVisible()
+  await expect(modal.getByText('Buffet — 120 pessoas')).toBeVisible()
+  await expect(modal.getByRole('button', { name: 'Desvincular e arquivar' })).toBeVisible()
+
+  // Cancela: o teste prova o caminho, não gasta o dado.
+  await modal.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(page.getByRole('heading', { name: 'Arquivar cotação' })).toBeHidden()
+})
+
 test('as cotações do mesmo gasto ficam juntas, com a menor destacada', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)
@@ -138,6 +223,12 @@ test('as cotações do mesmo gasto ficam juntas, com a menor destacada', async (
 
   const maisBarato = page.getByRole('row').filter({ hasText: 'Atacado do Zé' }).first()
   await expect(maisBarato.getByText('menor preço')).toBeVisible()
+
+  // E o gasto planejado que ninguém cotou ainda aparece igual, com o convite
+  // para a primeira proposta: é o Orçamento que manda nesta tela, não a lista
+  // de cotações já cadastradas.
+  await expect(page.getByText('sem cotação ainda').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Adicionar cotação' }).nth(1)).toBeVisible()
 
   // E elas chegam em ordem de preço, sem ninguém pedir: comparar propostas com
   // a mais cara no topo é olhar a lista errada.

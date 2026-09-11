@@ -824,3 +824,73 @@ neutral, "Contratado" warning (ainda há dinheiro a sair — o mesmo tom que
 `a_pagar` do fornecedor já usava), "Quitado" success. E os 11 "Cancelar" em
 `variant="outline"` viraram `ghost`: dentro de um modal branco, `outline` põe um
 segundo botão na cor do tema ao lado do primário.
+
+---
+
+## 15. O Orçamento manda em Fornecedores (2026-09-11, noite)
+
+Quatro correções de uso real, e a de fundo foi a direção da seta entre as duas
+telas.
+
+### 15.1 Gasto planejado agora aparece em Fornecedores — mesmo sem cotação
+
+Pedido repetido, e que continuava sem resposta: *"os possíveis fornecedores que
+eu coloco lá no Orçamento como um planejamento de gasto deveriam aparecer lá
+nos Fornecedores"*.
+
+A tela montava os blocos **a partir das cotações existentes**. Consequência: o
+casal planejava "Refrigerantes" em Bebidas, ia para Fornecedores e não
+encontrava nada — não havia onde pendurar a primeira proposta, porque o bloco
+do gasto só nascia depois que uma cotação já existisse. A seta estava invertida.
+
+Agora os blocos vêm do **orçamento**, em dois níveis, como o pedido descrevia: a
+categoria (Bebidas) e, dentro dela, o gasto (Refrigerantes) com as propostas que
+o disputam. Gasto sem nenhuma cotação aparece igual, com "sem cotação ainda" e a
+linha "Adicionar cotação" — que é o convite que faltava. Com filtro ativo, os
+gastos sem proposta correspondente somem: quem filtrou está procurando uma
+proposta, não planejando.
+
+O vazio da tela mudou junto: não ter cotação não é vazio, é o começo. O vazio de
+verdade é não ter gasto planejado — e aí o caminho é o Orçamento.
+
+### 15.2 O vínculo fornecedor ↔ gasto era gravado de um lado só
+
+`POST /api/finance/vendors/:id/contract` preenchia `despesas.fornecedor_id` e
+esquecia `fornecedores.despesa_id`. A cotação contratada caía em "Sem gasto
+definido" enquanto Pagamentos já mostrava o nome dela no gasto — duas telas
+descrevendo o mesmo contrato de formas diferentes. O endpoint passou a gravar os
+dois lados, e a migration `20260911190001` repara o que já estava gravado (só
+onde a resposta é única: fornecedor apontado por exatamente um gasto ativo).
+
+### 15.3 O aviso que aparecia atrás da própria janela
+
+Arquivar um fornecedor ligado a um gasto é recusado pelo servidor — com razão.
+Mas a tela mandava tentar para só então mostrar o erro, num toast que ficava
+**atrás** do modal (`ToastViewport` em `z-50` contra o portal do Reka também em
+`z-50`: empatados, quem vem depois no DOM ganha, e o portal sempre vem depois).
+Como nada acontecia visivelmente, o casal clicava de novo — e seis avisos
+idênticos se empilhavam cobrindo meia tela.
+
+Três correções, todas da plataforma e não só do Financeiro:
+
+1. `ToastViewport` subiu para `z-[60]` — toast nunca mais atrás de modal;
+2. mensagem idêntica à que já está na tela reinicia a contagem em vez de
+   empilhar uma cópia (`ui.store.pushToast` devolve o id do toast existente);
+3. o impedimento passou a ser dito **antes** do botão: o modal lista os gastos
+   vinculados e oferece "Desvincular e arquivar", que desfaz o vínculo e
+   arquiva. O gasto continua no orçamento com valor e parcelas — só deixa de
+   apontar para aquele fornecedor.
+
+### 15.4 O lançamento virou editável
+
+Pagamentos só sabia criar e dar baixa. Corrigir um vencimento digitado errado
+exigia apagar a parcela e refazer o parcelamento inteiro — e pagamento é
+combinado, remarcado e pago fora da data mais vezes que o contrário. O endpoint
+`PATCH /api/finance/installments/:id` já aceitava tudo (`venceEm`,
+`valorCentavos`, `pagoEm`, `formaPagamento`, `observacao`); faltava a tela.
+
+Agora a linha abre o lançamento, com vencimento, valor, forma e a data de
+pagamento — e desmarcar "já foi pago" manda `pagoEm: null`, porque `pago_em`
+continua sendo a única fonte do estado de pagamento. A linha `a_definir` não
+abre edição: ela não é uma parcela, e o que ela pede é a data que falta, então o
+clique leva direto para "Agendar".

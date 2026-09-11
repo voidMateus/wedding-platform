@@ -35,7 +35,7 @@ const toast = useToast()
 const { listVendors, criarFornecedor, atualizarFornecedor, arquivarFornecedor } = useVendors()
 const { data, status, error, refresh } = listVendors()
 
-const { listCategorias, getOrcamento, contratarFornecedor } = useFinance()
+const { listCategorias, getOrcamento, contratarFornecedor, atualizarDespesa } = useFinance()
 const { data: todasCategorias } = listCategorias()
 
 // Arquivada não é opção de cadastro — só as ativas vão para o seletor.
@@ -105,64 +105,113 @@ const linhasFiltradas = computed(() =>
 )
 
 const SEM_GASTO = 'sem-gasto'
+const PREFIXO_CATEGORIA = 'cat:'
 
 /**
- * Um bloco por gasto cotado, com a categoria no rótulo. Quem ainda não cota
- * gasto nenhum cai num bloco próprio no fim — é onde ficam os contatos que o
- * casal guardou antes de decidir o que vai precisar.
+ * A tela é a lista de gastos do ORÇAMENTO, não a lista de cotações.
+ *
+ * Essa é a direção certa da seta: o casal planeja "Refrigerantes" em Bebidas e
+ * vem para cá atrás de fornecedores de refrigerante. Montando os blocos a
+ * partir das cotações existentes, o gasto recém-planejado não aparecia em
+ * lugar nenhum — e o casal não tinha onde pendurar a primeira proposta.
+ *
+ * Dois níveis, como no pedido: a categoria (Bebidas) e, dentro dela, o gasto
+ * (Refrigerantes) com as propostas que o disputam. Gasto sem nenhuma cotação
+ * aparece igual, vazio, com a linha "Adicionar cotação" — é justamente o
+ * convite que faltava.
  */
 const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
-  const blocos = new Map<string, AdminTableSection<FornecedorComSituacao>>()
-
+  const porGasto = new Map<string, FornecedorComSituacao[]>()
   for (const fornecedor of linhasFiltradas.value) {
     const chave = fornecedor.gasto?.id ?? SEM_GASTO
-    const gasto = despesas.value.find((despesa) => despesa.id === fornecedor.gasto?.id)
-    const categoria = gasto?.categoria?.nome ?? fornecedor.categoria?.nome
-
-    const bloco = blocos.get(chave) ?? {
-      id: chave,
-      label: fornecedor.gasto?.descricao ?? 'Sem gasto definido',
-      level: 0 as const,
-      meta: categoria ?? undefined,
-      icon: chave === SEM_GASTO ? 'lucide:help-circle' : 'lucide:receipt',
-      rows: [] as FornecedorComSituacao[],
-    }
-    ;(bloco.rows as FornecedorComSituacao[]).push(fornecedor)
-    blocos.set(chave, bloco)
+    const lista = porGasto.get(chave) ?? []
+    lista.push(fornecedor)
+    porGasto.set(chave, lista)
   }
 
-  return [...blocos.values()]
-    .map((bloco) => {
-      // Sem ordenação escolhida, a mais barata vem primeiro: a tela existe
-      // para comparar, e comparar com a mais cara no topo é olhar a lista
-      // errada. Quem escolhe uma ordem no cabeçalho manda, e aí `rows` já
-      // chegou ordenada de applyTableFilters.
-      if (filters.sortKey.value === null) {
-        ;(bloco.rows as FornecedorComSituacao[]).sort(
-          (a, b) =>
-            (a.valor_proposto_centavos ?? Infinity) - (b.valor_proposto_centavos ?? Infinity),
-        )
-      }
-      const cotacoes = bloco.rows
-        .map((f) => f.valor_proposto_centavos)
-        .filter((valor): valor is number => typeof valor === 'number' && valor > 0)
-      const gasto = despesas.value.find((despesa) => despesa.id === bloco.id)
+  // Sem ordenação escolhida, a mais barata vem primeiro: a tela existe para
+  // comparar, e comparar com a mais cara no topo é olhar a lista errada. Quem
+  // escolhe uma ordem no cabeçalho manda, e aí as linhas já chegaram ordenadas
+  // de `applyTableFilters`.
+  if (filters.sortKey.value === null) {
+    for (const lista of porGasto.values()) {
+      lista.sort(
+        (a, b) => (a.valor_proposto_centavos ?? Infinity) - (b.valor_proposto_centavos ?? Infinity),
+      )
+    }
+  }
+
+  const blocos: AdminTableSection<FornecedorComSituacao>[] = []
+
+  for (const categoria of categoriasDoOrcamento.value) {
+    const idCategoria = `${PREFIXO_CATEGORIA}${categoria.categoriaId ?? 'sem-categoria'}`
+
+    const gastos = categoria.despesas
+      .map((despesa) => ({ despesa, cotacoes: porGasto.get(despesa.id) ?? [] }))
+      // Com filtro ativo, gasto sem nenhuma cotação correspondente sai: quem
+      // filtrou está procurando uma proposta, não planejando.
+      .filter(({ cotacoes }) => cotacoes.length > 0 || !temFiltroAtivo.value)
+
+    if (gastos.length === 0) continue
+
+    const totalDeCotacoes = gastos.reduce((total, { cotacoes }) => total + cotacoes.length, 0)
+
+    blocos.push({
+      id: idCategoria,
+      label: categoria.nome,
+      level: 0,
+      meta: `${gastos.length} ${gastos.length === 1 ? 'gasto' : 'gastos'} · ${totalDeCotacoes} ${
+        totalDeCotacoes === 1 ? 'cotação' : 'cotações'
+      }`,
+      icon: 'lucide:folder',
+      rows: [],
+    })
+
+    if (recolhidos.value.includes(idCategoria)) continue
+
+    for (const { despesa, cotacoes } of gastos) {
       const partes: string[] = []
-      if (bloco.meta) partes.push(bloco.meta)
-      if (gasto && gasto.totais.estimado > 0) {
-        partes.push(`estimado ${formatCentsToBRL(gasto.totais.estimado)}`)
+      if (despesa.totais.estimado > 0) {
+        partes.push(`estimado ${formatCentsToBRL(despesa.totais.estimado)}`)
       }
-      if (cotacoes.length > 1) {
-        partes.push(`${cotacoes.length} cotações`)
-      }
-      return { ...bloco, meta: partes.join(' · ') || undefined }
+      partes.push(
+        cotacoes.length === 0
+          ? 'sem cotação ainda'
+          : `${cotacoes.length} ${cotacoes.length === 1 ? 'cotação' : 'cotações'}`,
+      )
+
+      blocos.push({
+        id: despesa.id,
+        label: despesa.descricao,
+        level: 1,
+        meta: partes.join(' · '),
+        rows: cotacoes,
+      })
+    }
+  }
+
+  // Os contatos que o casal guardou antes de decidir de que gasto precisa.
+  const semGasto = porGasto.get(SEM_GASTO) ?? []
+  if (semGasto.length > 0) {
+    blocos.push({
+      id: SEM_GASTO,
+      label: 'Ainda sem gasto definido',
+      level: 0,
+      meta: `${semGasto.length} ${semGasto.length === 1 ? 'cotação' : 'cotações'}`,
+      icon: 'lucide:help-circle',
+      rows: semGasto,
     })
-    .sort((a, b) => {
-      if (a.id === SEM_GASTO) return 1
-      if (b.id === SEM_GASTO) return -1
-      return a.label.localeCompare(b.label, 'pt-BR')
-    })
+  }
+
+  return blocos
 })
+
+/** Categorias do orçamento, só as que têm gasto — é delas que saem os blocos. */
+const categoriasDoOrcamento = computed(() =>
+  (orcamento.value?.categorias ?? []).filter((categoria) => categoria.despesas.length > 0),
+)
+
+const temFiltroAtivo = computed(() => Object.keys(filters.values.value).length > 0)
 
 const recolhidos = ref<string[]>([])
 
@@ -172,10 +221,21 @@ function alternarBloco(id: string) {
     : [...recolhidos.value, id]
 }
 
-const tudoRecolhido = computed(() => recolhidos.value.length >= secoes.value.length)
+// "Recolher tudo" fecha as categorias, não os gastos: recolher a categoria já
+// leva os gastos dela junto, e contar os dois níveis faria o botão trocar de
+// rótulo com metade da tela ainda aberta.
+const categoriasVisiveis = computed(() =>
+  secoes.value.filter((secao) => secao.level === 0).map((secao) => secao.id),
+)
+
+const tudoRecolhido = computed(
+  () =>
+    categoriasVisiveis.value.length > 0 &&
+    categoriasVisiveis.value.every((id) => recolhidos.value.includes(id)),
+)
 
 function alternarTudo() {
-  recolhidos.value = tudoRecolhido.value ? [] : secoes.value.map((secao) => secao.id)
+  recolhidos.value = tudoRecolhido.value ? [] : categoriasVisiveis.value
 }
 
 /** Menor cotação do bloco a que este fornecedor pertence. */
@@ -288,6 +348,40 @@ async function excluirProposta(documento: DocumentoComVinculos) {
 
 // --- arquivar / restaurar ---
 const paraArquivar = ref<FornecedorComSituacao | null>(null)
+const desvinculando = ref(false)
+
+/**
+ * Os gastos do orçamento que apontam para este fornecedor.
+ *
+ * O servidor recusa arquivar enquanto existir algum — e recusava sem dizer
+ * quais nem oferecer saída, num aviso que aparecia atrás da própria janela.
+ * A janela passa a mostrar a lista e a resolver o impedimento.
+ */
+const gastosVinculados = computed(() => {
+  const fornecedor = paraArquivar.value
+  if (!fornecedor) return []
+  return despesas.value.filter((despesa) => despesa.fornecedor?.id === fornecedor.id)
+})
+
+/** Desfaz o vínculo e arquiva na sequência — o gasto continua intacto. */
+async function desvincularEArquivar() {
+  const fornecedor = paraArquivar.value
+  if (!fornecedor) return
+
+  desvinculando.value = true
+  try {
+    for (const despesa of gastosVinculados.value) {
+      await atualizarDespesa(despesa.id, { fornecedorId: null })
+    }
+    await arquivarFornecedor(fornecedor.id, true)
+    paraArquivar.value = null
+    toast.success('Cotação arquivada. Os gastos continuaram no orçamento, agora sem fornecedor.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível desvincular e arquivar.'))
+  } finally {
+    desvinculando.value = false
+  }
+}
 
 async function confirmarArquivamento() {
   const fornecedor = paraArquivar.value
@@ -342,16 +436,17 @@ function linkWhatsApp(telefone: string | null): string | null {
       <UiButton variant="outline" @click="refresh()">Tentar novamente</UiButton>
     </UiEmptyState>
 
+    <!-- O vazio de verdade é não ter o que cotar: sem gasto planejado, esta
+         tela não tem assunto, e o caminho é o Orçamento. Com gastos, ela
+         mostra todos eles esperando proposta — mesmo sem nenhuma cotação
+         cadastrada ainda. -->
     <UiEmptyState
-      v-else-if="fornecedores.length === 0"
+      v-else-if="despesas.length === 0"
       icon="lucide:store"
-      title="Nenhuma cotação ainda"
-      description="Cadastre as propostas que você recebeu para cada gasto do orçamento — elas ficam lado a lado para comparar, sem entrar na conta do orçamento."
+      title="Planeje um gasto primeiro"
+      description="Cada cotação é uma proposta para um gasto do orçamento. Crie o gasto no Orçamento e ele aparece aqui, pronto para receber as propostas dos fornecedores."
     >
-      <UiButton @click="novoFornecedor()">
-        <Icon name="lucide:plus" class="h-4 w-4" />
-        Adicionar cotação
-      </UiButton>
+      <UiButton :to="`/admin/${slug}/financeiro`">Ir para o orçamento</UiButton>
     </UiEmptyState>
 
     <template v-else>
@@ -527,8 +622,10 @@ function linkWhatsApp(telefone: string | null): string | null {
             </div>
           </template>
 
+          <!-- Só o bloco do gasto convida a cotar: a categoria é agrupamento,
+               e cotação pertence a um gasto. -->
           <template #section-footer="{ section }">
-            <div class="px-4 py-2 md:pl-10">
+            <div v-if="section.level === 1 || section.id === SEM_GASTO" class="px-4 py-2 md:pl-14">
               <UiButton
                 size="sm"
                 variant="ghost"
@@ -591,15 +688,56 @@ function linkWhatsApp(telefone: string | null): string | null {
       </template>
     </UiModal>
 
+    <!-- O impedimento é dito ANTES do botão, não depois: o servidor recusa
+         arquivar fornecedor ligado a um gasto, e a tela mandava tentar para só
+         então avisar — num toast que aparecia atrás desta mesma janela. -->
     <UiModal
       :model-value="Boolean(paraArquivar)"
-      title="Arquivar fornecedor"
+      title="Arquivar cotação"
       :description="`“${paraArquivar?.nome}” sai da lista. Dá para restaurar depois, e o histórico das despesas continua.`"
       @update:model-value="paraArquivar = null"
     >
+      <div v-if="gastosVinculados.length > 0" class="flex flex-col gap-3">
+        <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+          <Icon name="lucide:link" class="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p class="text-sm text-text">
+            Este fornecedor é o contratado de
+            {{ gastosVinculados.length }}
+            {{ gastosVinculados.length === 1 ? 'gasto' : 'gastos' }} do orçamento. Arquivar exige
+            desfazer esse vínculo primeiro.
+          </p>
+        </div>
+
+        <ul class="flex flex-col gap-1">
+          <li
+            v-for="despesa in gastosVinculados"
+            :key="despesa.id"
+            class="flex flex-wrap items-baseline justify-between gap-x-3 rounded-md bg-surface-muted/60 px-3 py-2"
+          >
+            <span class="text-sm text-text">{{ despesa.descricao }}</span>
+            <span v-if="despesa.totais.contratado !== null" class="num text-sm text-text-muted">
+              {{ formatCentsToBRL(despesa.totais.contratado) }}
+            </span>
+          </li>
+        </ul>
+
+        <p class="text-sm text-text-muted">
+          O gasto continua no orçamento com o valor fechado e as parcelas — só deixa de apontar para
+          este fornecedor.
+        </p>
+      </div>
+
       <template #footer>
         <UiButton variant="ghost" @click="paraArquivar = null">Cancelar</UiButton>
-        <UiButton variant="destructive" @click="confirmarArquivamento">Arquivar</UiButton>
+        <UiButton
+          v-if="gastosVinculados.length > 0"
+          variant="destructive"
+          :disabled="desvinculando"
+          @click="desvincularEArquivar"
+        >
+          {{ desvinculando ? 'Desvinculando…' : 'Desvincular e arquivar' }}
+        </UiButton>
+        <UiButton v-else variant="destructive" @click="confirmarArquivamento">Arquivar</UiButton>
       </template>
     </UiModal>
   </AdminSection>

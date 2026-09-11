@@ -69,9 +69,13 @@ export default defineEventHandler(async (event) => {
     throw badRequestError(erroDespesa.message)
   }
 
+  // O vínculo é gravado nos DOIS sentidos. Só `despesas.fornecedor_id` deixava
+  // a cotação contratada órfã na tela de Fornecedores — ela caía em "Sem gasto
+  // definido" enquanto Pagamentos já mostrava o nome dela no gasto, e as duas
+  // telas descreviam realidades diferentes do mesmo contrato.
   const { error: erroFornecedor } = await client
     .from('fornecedores')
-    .update({ estagio: 'contratado' })
+    .update({ estagio: 'contratado', despesa_id: input.despesaId })
     .eq('id', id)
     .eq('casamento_id', weddingId)
 
