@@ -19,6 +19,8 @@ import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { percentual, resumoDeCotacoes } from '#shared/utils/orcamento'
 import { ESTAGIOS_FORNECEDOR, ROTULOS_ESTAGIO_FORNECEDOR } from '#shared/schemas/finance'
 import type { VendorContractInput, VendorInput } from '#shared/schemas/finance'
+import type { AdminMetric } from '~/components/admin/AdminMetricStrip.vue'
+import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
 import type {
   DespesaComParcelas,
@@ -42,7 +44,8 @@ const toast = useToast()
 const { listVendors, criarFornecedor, atualizarFornecedor, arquivarFornecedor } = useVendors()
 const { data, status, error, refresh } = listVendors()
 
-const { listCategorias, getOrcamento, contratarFornecedor, atualizarDespesa } = useFinance()
+const { listCategorias, getOrcamento, contratarFornecedor, atualizarDespesa, criarDespesa } =
+  useFinance()
 const { data: todasCategorias } = listCategorias()
 
 // Arquivada não é opção de cadastro — só as ativas vão para o seletor.
@@ -164,6 +167,47 @@ function cotacoesDoGasto(despesaId: string): FornecedorComSituacao[] {
 const percentualContratado = computed(() =>
   percentual(resumo.value.contratado, resumo.value.estimado),
 )
+
+/** Os quatro indicadores do topo, na faixa compartilhada do admin. */
+const indicadores = computed<AdminMetric[]>(() => [
+  {
+    label: 'Orçamento estimado',
+    value: formatCentsToBRL(resumo.value.estimado),
+    apoio: diferencaDoEstimado.value
+      ? `${formatCentsToBRL(resumo.value.contratado)} contratado · ${diferencaDoEstimado.value.texto}`
+      : 'o que o orçamento prevê',
+  },
+  {
+    label: 'Em negociação',
+    value: formatCentsToBRL(resumo.value.emCotacao),
+    apoio:
+      resumo.value.propostasEmAvaliacao > 0
+        ? `${resumo.value.propostasEmAvaliacao} ${
+            resumo.value.propostasEmAvaliacao === 1 ? 'proposta' : 'propostas'
+          } em avaliação`
+        : 'nenhuma proposta em avaliação',
+  },
+  {
+    label: 'Contratado',
+    value: formatCentsToBRL(resumo.value.contratado),
+    apoio:
+      percentualContratado.value === null
+        ? 'já fechado'
+        : `${percentualContratado.value}% do estimado`,
+  },
+  {
+    label: 'Aguardando fornecedor',
+    value: `${resumo.value.gastosSemFornecedor} ${
+      resumo.value.gastosSemFornecedor === 1 ? 'gasto' : 'gastos'
+    }`,
+    tone: resumo.value.gastosSemFornecedor > 0 ? 'warning' : undefined,
+    destaque: true,
+    // Indicador que gera ação vira o filtro dessa ação.
+    acao: 'sem-fornecedor',
+    ativo: recorteSemFornecedor.value,
+    apoio: recorteSemFornecedor.value ? 'filtrando a lista' : 'nenhuma proposta recebida',
+  },
+])
 
 /** "R$ 1.100,00 abaixo" — a leitura que o casal faz do par estimado/contratado. */
 const diferencaDoEstimado = computed(() => {
@@ -413,6 +457,31 @@ function editar(fornecedor: FornecedorComSituacao) {
   modalAberto.value = true
 }
 
+/**
+ * O gasto criado de dentro do cadastro do fornecedor. Ele vira o
+ * `despesaPadrao` do modal, que já está aberto — o casal continua de onde
+ * parou em vez de sair para o Orçamento e voltar.
+ */
+async function criarGastoDoModal(payload: {
+  descricao: string
+  valorEstimadoCentavos: number | null
+}) {
+  try {
+    const despesa = await criarDespesa({
+      descricao: payload.descricao,
+      valorEstimadoCentavos: payload.valorEstimadoCentavos,
+      valorCentavos: null,
+      categoriaId: null,
+      fornecedorId: null,
+      observacao: null,
+    })
+    despesaPadrao.value = despesa.id
+    toast.success('Gasto criado — agora é só terminar o cadastro do fornecedor.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível criar o gasto.'))
+  }
+}
+
 async function salvar(input: VendorInput) {
   try {
     if (emEdicao.value) {
@@ -425,6 +494,42 @@ async function salvar(input: VendorInput) {
   } catch (erro) {
     toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
   }
+}
+
+/**
+ * O que cabe no menu de uma linha. "Contratar" não entra: ela fica fora, com
+ * rótulo, porque é a decisão que a tela existe para registrar.
+ */
+function acoesDaLinha(fornecedor: FornecedorComSituacao): AdminRowMenuItem[] {
+  return [
+    { key: 'editar', label: 'Editar fornecedor', icon: 'lucide:pencil' },
+    {
+      key: 'propostas',
+      label: fornecedor.totalDocumentos > 0 ? 'Ver propostas' : 'Anexar proposta',
+      icon: 'lucide:paperclip',
+    },
+    {
+      key: 'contratar',
+      label: 'Registrar contratação',
+      icon: 'lucide:file-signature',
+      disabled: fornecedor.estagio === 'descartado',
+      title: fornecedor.estagio === 'descartado' ? 'Esta proposta foi descartada.' : undefined,
+    },
+    {
+      key: 'arquivar',
+      label: 'Arquivar',
+      icon: 'lucide:archive',
+      tone: 'danger',
+      separarAntes: true,
+    },
+  ]
+}
+
+function executarAcao(fornecedor: FornecedorComSituacao, acao: string) {
+  if (acao === 'editar') editar(fornecedor)
+  if (acao === 'propostas') propostasAbertas.value = fornecedor
+  if (acao === 'contratar') abrirContratacao(fornecedor)
+  if (acao === 'arquivar') paraArquivar.value = fornecedor
 }
 
 // --- contratar ---
@@ -596,83 +701,16 @@ function linkWhatsApp(telefone: string | null): string | null {
            fornecedor?" antes de o casal descer para a lista. Os dois primeiros
            são o mesmo dinheiro em momentos diferentes; o último é o que ainda
            depende de alguém procurar. -->
-      <dl
-        class="grid grid-cols-2 gap-px overflow-clip rounded-lg border border-border bg-border lg:grid-cols-4"
-      >
-        <div class="bg-surface-elevated px-4 py-3.5">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">
-            Orçamento estimado
-          </dt>
-          <dd class="num mt-0.5 text-lg font-semibold text-text">
-            {{ formatCentsToBRL(resumo.estimado) }}
-          </dd>
-          <!-- A diferença entre o que se planejou e o que já se fechou é a
-               leitura que o casal quer de imediato ("estamos abaixo do que
-               planejamos"), e ela mora aqui porque é aqui que o estimado está. -->
-          <dd v-if="diferencaDoEstimado" class="mt-0.5 text-xs text-text-muted">
-            {{ formatCentsToBRL(resumo.contratado) }} contratado ·
-            <span :class="diferencaDoEstimado.abaixo ? 'text-success' : 'text-warning'">
-              {{ diferencaDoEstimado.texto }}
-            </span>
-          </dd>
-          <dd v-else class="mt-0.5 text-xs text-text-muted">o que o orçamento prevê</dd>
-        </div>
-
-        <div class="bg-surface-elevated px-4 py-3.5">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Em negociação</dt>
-          <dd class="num mt-0.5 text-lg font-semibold text-text">
-            {{ formatCentsToBRL(resumo.emCotacao) }}
-          </dd>
-          <dd class="mt-0.5 text-xs text-text-muted">
-            <template v-if="resumo.propostasEmAvaliacao > 0">
-              {{ resumo.propostasEmAvaliacao }}
-              {{ resumo.propostasEmAvaliacao === 1 ? 'proposta' : 'propostas' }} em avaliação
-            </template>
-            <template v-else>nenhuma proposta em avaliação</template>
-          </dd>
-        </div>
-
-        <div class="bg-surface-elevated px-4 py-3.5">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Contratado</dt>
-          <dd class="num mt-0.5 text-lg font-semibold text-text">
-            {{ formatCentsToBRL(resumo.contratado) }}
-          </dd>
-          <dd class="mt-0.5 text-xs text-text-muted">
-            <template v-if="percentualContratado !== null">
-              {{ percentualContratado }}% do estimado
-            </template>
-            <template v-else>já fechado</template>
-          </dd>
-        </div>
-
-        <!-- Clicável: o indicador que gera ação vira o filtro dessa ação. -->
-        <button
-          type="button"
-          class="px-4 py-3.5 text-left transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          :class="
-            recorteSemFornecedor
-              ? 'bg-primary/10 ring-1 ring-inset ring-primary'
-              : 'bg-surface-muted/70 hover:bg-surface-muted'
-          "
-          :aria-pressed="recorteSemFornecedor"
-          @click="alternarRecorteSemFornecedor"
-        >
-          <span class="block text-xs font-semibold uppercase tracking-wide text-text">
-            Aguardando fornecedor
-          </span>
-          <span
-            class="num mt-0.5 block text-2xl font-semibold"
-            :class="resumo.gastosSemFornecedor > 0 ? 'text-warning' : 'text-text'"
-          >
-            {{ resumo.gastosSemFornecedor }}
-            {{ resumo.gastosSemFornecedor === 1 ? 'gasto' : 'gastos' }}
-          </span>
-          <span class="mt-0.5 flex items-center gap-1 text-xs text-text-muted">
-            <Icon v-if="recorteSemFornecedor" name="lucide:funnel" class="h-3 w-3" />
-            {{ recorteSemFornecedor ? 'filtrando a lista' : 'nenhuma proposta recebida' }}
-          </span>
-        </button>
-      </dl>
+      <!-- Quatro números que respondem "em que pé está a busca por
+           fornecedor?" antes de o casal descer para a lista. -->
+      <div class="overflow-clip rounded-lg border border-border">
+        <AdminMetricStrip
+          :metrics="indicadores"
+          variant="embutida"
+          :colunas="4"
+          @acao="alternarRecorteSemFornecedor"
+        />
+      </div>
 
       <!-- "Fornecedores por gasto" explica, no próprio título, por que uma
            tela de fornecedores está listando gastos. -->
@@ -727,13 +765,21 @@ function linkWhatsApp(telefone: string | null): string | null {
           :collapsed-ids="recolhidos"
           :filters="filters"
           column-header="section"
+          row-clickable
           empty-label="Nenhum fornecedor com esses filtros."
           @toggle-section="alternarBloco"
+          @row-click="editar"
         >
           <template #cell-nome="{ row }">
             <div class="min-w-0">
               <span class="flex items-center gap-1.5">
-                <span class="truncate text-text">{{ row.nome }}</span>
+                <button
+                  type="button"
+                  class="max-w-full truncate text-left text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  @click="editar(row)"
+                >
+                  {{ row.nome }}
+                </button>
                 <UiBadge v-if="ehMaisBarato(row)" tone="success">menor preço</UiBadge>
               </span>
               <UiBadge v-if="faltaLevarAoOrcamento(row)" tone="warning" class="mt-1">
@@ -815,6 +861,9 @@ function linkWhatsApp(telefone: string | null): string | null {
                (fecha o valor, cria as parcelas, muda as três telas) e estava
                atrás de um ícone que ninguém reconhece — enquanto no celular a
                mesma ação já era um botão escrito. -->
+          <!-- "Contratar" continua fora, com rótulo: é a ação que a linha
+               existe para oferecer. Editar e arquivar entram no menu — elas
+               não justificam um ícone repetido em cada linha. -->
           <template #cell-acoes="{ row }">
             <div class="flex items-center justify-end gap-1">
               <UiButton
@@ -825,11 +874,10 @@ function linkWhatsApp(telefone: string | null): string | null {
               >
                 Contratar
               </UiButton>
-              <AdminRowAction icon="lucide:pencil" label="Editar fornecedor" @click="editar(row)" />
-              <AdminRowAction
-                icon="lucide:archive"
-                label="Arquivar fornecedor"
-                @click="paraArquivar = row"
+              <AdminRowMenu
+                :items="acoesDaLinha(row)"
+                :label="`Ações de ${row.nome}`"
+                @select="executarAcao(row, $event)"
               />
             </div>
           </template>
@@ -860,7 +908,6 @@ function linkWhatsApp(telefone: string | null): string | null {
                 >
                   Contratar
                 </UiButton>
-                <UiButton variant="ghost" @click="editar(row)">Editar</UiButton>
                 <AdminRowAction
                   v-if="linkWhatsApp(row.telefone)"
                   icon="lucide:message-circle"
@@ -879,10 +926,10 @@ function linkWhatsApp(telefone: string | null): string | null {
                   :label="`Propostas anexadas de ${row.nome}`"
                   @click="propostasAbertas = row"
                 />
-                <AdminRowAction
-                  icon="lucide:archive"
-                  label="Arquivar fornecedor"
-                  @click="paraArquivar = row"
+                <AdminRowMenu
+                  :items="acoesDaLinha(row)"
+                  :label="`Ações de ${row.nome}`"
+                  @select="executarAcao(row, $event)"
                 />
               </div>
             </div>
@@ -927,6 +974,7 @@ function linkWhatsApp(telefone: string | null): string | null {
       :despesas="despesas"
       :despesa-padrao="despesaPadrao"
       @salvar="salvar"
+      @criar-gasto="criarGastoDoModal"
     />
 
     <AdminFinanceContractModal

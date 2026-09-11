@@ -17,6 +17,8 @@
 import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { ROTULOS_FORMA_PAGAMENTO, type FormaPagamento } from '#shared/schemas/finance'
 import { hojeNoFusoDoEvento } from '#shared/utils/orcamento'
+import type { AdminMetric } from '~/components/admin/AdminMetricStrip.vue'
+import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
 import type { AdminTableColumn } from '~/types/table'
 import type { PagamentoListado } from '~/types/finance'
 import {
@@ -211,6 +213,45 @@ async function confirmarAgendamento() {
   }
 }
 
+/**
+ * O menu da linha. Fora dele fica só a ação que a linha existe para oferecer —
+ * dar baixa, ou agendar o que não tem data.
+ */
+function acoesDaLinha(pagamento: PagamentoListado): AdminRowMenuItem[] {
+  const ehParcela = pagamento.tipo === 'parcela'
+  return [
+    {
+      key: 'editar',
+      label: 'Editar lançamento',
+      icon: 'lucide:pencil',
+      disabled: !ehParcela,
+      title: ehParcela ? undefined : 'Este saldo ainda não tem parcela para editar.',
+    },
+    {
+      key: 'desfazer',
+      label: 'Desfazer pagamento',
+      icon: 'lucide:undo-2',
+      disabled: !pagamento.pago_em,
+      title: pagamento.pago_em ? undefined : 'Este lançamento ainda não foi pago.',
+    },
+    {
+      key: 'remover',
+      label: 'Remover parcela',
+      icon: 'lucide:trash-2',
+      tone: 'danger',
+      separarAntes: true,
+      disabled: !ehParcela,
+      title: ehParcela ? undefined : 'Sem parcela para remover ainda.',
+    },
+  ]
+}
+
+function executarAcao(pagamento: PagamentoListado, acao: string) {
+  if (acao === 'editar') abrirEdicao(pagamento)
+  if (acao === 'desfazer') desfazer(pagamento)
+  if (acao === 'remover') paraExcluir.value = pagamento
+}
+
 const paraExcluir = ref<PagamentoListado | null>(null)
 
 async function confirmarExclusao() {
@@ -238,30 +279,28 @@ const opcoesForma = [
  * muda o que o casal faz hoje. Com os cinco no mesmo tamanho, "Pago" disputava
  * atenção com "Vencidos", e só a cor do número os separava.
  */
-const atencao = computed(() => {
+const atencao = computed<AdminMetric[]>(() => {
   const resumo = data.value?.resumo
   if (!resumo) return []
   return [
     {
-      chave: 'vencidos',
       label: 'Vencidos',
-      bloco: resumo.vencidos,
-      tone: resumo.vencidos.quantidade > 0 ? 'text-danger' : 'text-text',
-      destacado: resumo.vencidos.quantidade > 0,
+      value: formatCentsToBRL(resumo.vencidos.valor),
+      tone: resumo.vencidos.quantidade > 0 ? 'danger' : undefined,
+      destaque: resumo.vencidos.quantidade > 0,
+      apoio: rotuloDeLancamentos(resumo.vencidos.quantidade),
     },
     {
-      chave: 'proximos',
       label: 'Próximos 30 dias',
-      bloco: resumo.proximos30Dias,
-      tone: resumo.proximos30Dias.quantidade > 0 ? 'text-warning' : 'text-text',
-      destacado: false,
+      value: formatCentsToBRL(resumo.proximos30Dias.valor),
+      tone: resumo.proximos30Dias.quantidade > 0 ? 'warning' : undefined,
+      apoio: rotuloDeLancamentos(resumo.proximos30Dias.quantidade),
     },
     {
-      chave: 'sem-data',
       label: 'Sem data',
-      bloco: resumo.semData,
-      tone: resumo.semData.quantidade > 0 ? 'text-warning' : 'text-text',
-      destacado: false,
+      value: formatCentsToBRL(resumo.semData.valor),
+      tone: resumo.semData.quantidade > 0 ? 'warning' : undefined,
+      apoio: rotuloDeLancamentos(resumo.semData.quantidade),
     },
   ]
 })
@@ -310,26 +349,7 @@ function rotuloDeLancamentos(quantidade: number): string {
       <!-- Os números são sempre do conjunto inteiro, nunca do recorte: o total
            de vencidos não pode mudar porque alguém filtrou por "pagos". -->
       <div class="flex flex-col gap-px overflow-clip rounded-lg border border-border bg-border">
-        <dl class="grid grid-cols-1 gap-px bg-border sm:grid-cols-3">
-          <div
-            v-for="indicador in atencao"
-            :key="indicador.chave"
-            class="bg-surface-elevated px-4 py-3.5"
-          >
-            <dt
-              class="text-xs font-semibold uppercase tracking-wide"
-              :class="indicador.destacado ? 'text-danger' : 'text-text'"
-            >
-              {{ indicador.label }}
-            </dt>
-            <dd class="num mt-0.5 text-2xl font-semibold" :class="indicador.tone">
-              {{ formatCentsToBRL(indicador.bloco.valor) }}
-            </dd>
-            <dd class="mt-0.5 text-xs text-text-muted">
-              {{ rotuloDeLancamentos(indicador.bloco.quantidade) }}
-            </dd>
-          </div>
-        </dl>
+        <AdminMetricStrip :metrics="atencao" variant="embutida" :colunas="3" />
 
         <!-- O acumulado é uma linha de rodapé, não mais dois cartões: em cartão
              ele repetia o peso dos de cima e ainda desalinhava as réguas, por
@@ -445,7 +465,7 @@ function rotuloDeLancamentos(quantidade: number): string {
           <!-- Só "Agendar" fica em `outline`: é o furo que esta tela existe
                para fechar. "Marcar pago" em ghost porque aparece em quase toda
                linha — com borda na cor do tema, a coluna de ações virava a
-               coisa mais colorida da página. -->
+               coisa mais colorida da página. O resto vai para o menu. -->
           <template #cell-acoes="{ row }">
             <div class="flex items-center justify-end gap-1">
               <UiButton
@@ -459,23 +479,10 @@ function rotuloDeLancamentos(quantidade: number): string {
               <UiButton v-else-if="!row.pago_em" size="sm" variant="ghost" @click="abrirBaixa(row)">
                 Marcar pago
               </UiButton>
-              <AdminRowAction
-                v-else
-                icon="lucide:undo-2"
-                label="Desfazer pagamento"
-                @click="desfazer(row)"
-              />
-              <!-- Desabilitado, não escondido: a linha sem parcela não tem o
-                   que remover, e sumir com o ícone na ponta deixava a borda
-                   direita da tabela serrilhada, linha a linha. -->
-              <AdminRowAction
-                icon="lucide:trash-2"
-                :label="
-                  row.tipo === 'parcela' ? 'Remover parcela' : 'Sem parcela para remover ainda'
-                "
-                :disabled="row.tipo !== 'parcela'"
-                tone="danger"
-                @click="paraExcluir = row"
+              <AdminRowMenu
+                :items="acoesDaLinha(row)"
+                :label="`Ações de ${row.despesa.descricao}`"
+                @select="executarAcao(row, $event)"
               />
             </div>
           </template>

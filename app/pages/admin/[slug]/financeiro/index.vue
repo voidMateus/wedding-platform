@@ -439,7 +439,12 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
       </UiEmptyState>
 
       <template v-else>
-        <AdminFinanceTotalsHeader :resumo="resumo" :base="base" @editar-teto="tetoAberto = true" />
+        <AdminFinanceTotalsHeader
+          :resumo="resumo"
+          :base="base"
+          :slug="slug"
+          @editar-teto="tetoAberto = true"
+        />
 
         <div
           v-if="recorteEstouro"

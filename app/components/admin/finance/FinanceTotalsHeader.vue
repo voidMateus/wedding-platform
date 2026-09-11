@@ -18,50 +18,57 @@
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
+import type { AdminMetric } from '~/components/admin/AdminMetricStrip.vue'
 import type { ResumoFinanceiro } from '~/types/finance'
 
 interface Props {
   resumo: ResumoFinanceiro
   /** Base do módulo (`/admin/<slug>/financeiro`) — destino do aviso de estouro. */
   base: string
+  /** Slug do casamento ativo — o link para Presentes sai daqui. */
+  slug: string
 }
 
-const { resumo, base } = defineProps<Props>()
+const { resumo, base, slug } = defineProps<Props>()
 
 const emit = defineEmits<{
   editarTeto: []
 }>()
 
-interface Parada {
-  chave: string
-  label: string
-  valor: number
-  apoio: string | null
-}
-
-// As três paradas de apoio, na ordem em que acontecem na vida do gasto.
-// "Orçado" não entra: ele já é o assunto do bloco de cima (o teto e a
-// distribuição por categoria).
-const paradas = computed<Parada[]>(() => [
+// As quatro paradas, na ordem em que acontecem na vida do gasto. "Orçado" não
+// entra: ele já é o assunto do bloco de cima (o teto e a distribuição por
+// categoria). "A pagar" é a única em destaque — é a pergunta que o casal
+// repete toda semana.
+const paradas = computed<AdminMetric[]>(() => [
   {
-    chave: 'estimado',
     label: 'Estimado',
-    valor: resumo.estimado,
+    value: formatCentsToBRL(resumo.estimado),
     apoio:
-      resumo.aContratar > 0 ? `faltam ${formatCentsToBRL(resumo.aContratar)} para fechar` : null,
+      resumo.aContratar > 0
+        ? `faltam ${formatCentsToBRL(resumo.aContratar)} para fechar`
+        : undefined,
   },
   {
-    chave: 'contratado',
     label: 'Contratado',
-    valor: resumo.contratado,
+    value: formatCentsToBRL(resumo.contratado),
     apoio:
-      resumo.percentualContratado === null ? null : `${resumo.percentualContratado}% do estimado`,
+      resumo.percentualContratado === null
+        ? undefined
+        : `${resumo.percentualContratado}% do estimado`,
   },
   {
-    chave: 'pago',
     label: 'Pago',
-    valor: resumo.pago,
-    apoio: resumo.percentualPago === null ? null : `${resumo.percentualPago}% do contratado`,
+    value: formatCentsToBRL(resumo.pago),
+    apoio: resumo.percentualPago === null ? undefined : `${resumo.percentualPago}% do contratado`,
+  },
+  {
+    label: 'A pagar',
+    value: formatCentsToBRL(resumo.aPagar),
+    destaque: true,
+    apoio:
+      resumo.naoParcelado > 0
+        ? `${formatCentsToBRL(resumo.naoParcelado)} sem data marcada`
+        : undefined,
   },
 ])
 
@@ -105,30 +112,28 @@ const estouro = computed(() => resumo.atencao.acimaDoOrcado)
       </UiButton>
     </div>
 
-    <dl class="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
-      <div v-for="parada in paradas" :key="parada.chave" class="bg-surface-elevated px-4 py-3.5">
-        <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">
-          {{ parada.label }}
-        </dt>
-        <dd class="num mt-0.5 text-lg font-semibold text-text">
-          {{ formatCentsToBRL(parada.valor) }}
-        </dd>
-        <dd v-if="parada.apoio" class="mt-0.5 text-xs text-text-muted">{{ parada.apoio }}</dd>
-      </div>
+    <AdminMetricStrip :metrics="paradas" variant="embutida" :colunas="4" />
 
-      <!-- O destaque da faixa: fundo próprio e o número maior da tela. -->
-      <div class="bg-surface-muted/70 px-4 py-3.5">
-        <dt class="text-xs font-semibold uppercase tracking-wide text-text">A pagar</dt>
-        <!-- `text-xl` no celular: em meia largura de 390px, o número em 24px
-             encostava na borda da célula. -->
-        <dd class="num mt-0.5 text-xl font-semibold text-text sm:text-2xl">
-          {{ formatCentsToBRL(resumo.aPagar) }}
-        </dd>
-        <dd v-if="resumo.naoParcelado > 0" class="mt-0.5 text-xs text-text-muted">
-          {{ formatCentsToBRL(resumo.naoParcelado) }} sem data marcada
-        </dd>
-      </div>
-    </dl>
+    <!-- O dinheiro que já ENTROU. Ele fica separado das quatro paradas de
+         propósito: presente recebido não abate o que falta pagar (a conta do
+         fornecedor continua inteira), mas responde "com quanto já contamos?" —
+         e estava sendo calculado pela API sem aparecer em lugar nenhum. -->
+    <NuxtLink
+      v-if="resumo.entradasPresentes.quantidade > 0"
+      :to="`/admin/${slug}/presentes`"
+      class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-surface-elevated px-4 py-2.5 text-sm text-text-muted transition-brand hover:bg-surface-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-5"
+    >
+      <Icon name="lucide:gift" class="h-4 w-4 shrink-0" />
+      <span>
+        <span class="num font-medium text-text">
+          {{ formatCentsToBRL(resumo.entradasPresentes.totalCentavos) }}
+        </span>
+        já recebidos em presentes, de
+        {{ resumo.entradasPresentes.quantidade }}
+        {{ resumo.entradasPresentes.quantidade === 1 ? 'pagamento' : 'pagamentos' }}
+      </span>
+      <span class="ml-auto text-xs">ver em Presentes</span>
+    </NuxtLink>
 
     <!-- O estouro era calculado, entregue pela API e não aparecia em lugar
          nenhum desta tela: o único sinal era uma parcela de string cinza na

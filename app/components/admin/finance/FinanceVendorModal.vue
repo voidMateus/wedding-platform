@@ -30,7 +30,19 @@ const {
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   salvar: [input: VendorInput]
+  /** O gasto que faltava, criado daqui mesmo — ver GASTO_NOVO. */
+  criarGasto: [payload: { descricao: string; valorEstimadoCentavos: number | null }]
 }>()
+
+/**
+ * O caminho para o gasto que ainda não existe.
+ *
+ * Sem ele, quem cadastra um fornecedor cujo gasto ninguém planejou precisa
+ * fechar o modal, ir ao Orçamento, criar o gasto e voltar — perdendo tudo o
+ * que já tinha digitado. O nome do fornecedor costuma ser a primeira coisa que
+ * se sabe; o gasto, a segunda.
+ */
+const GASTO_NOVO = '__novo__'
 
 const nome = ref('')
 const despesaId = ref('')
@@ -64,7 +76,12 @@ const opcoesDespesa = computed(() => [
       ? `${despesa.categoria.nome} · ${despesa.descricao}`
       : despesa.descricao,
   })),
+  { value: GASTO_NOVO, label: '+ Criar um gasto novo' },
 ])
+
+const criandoGasto = computed(() => despesaId.value === GASTO_NOVO)
+const novoGastoDescricao = ref('')
+const novoGastoEstimado = ref<number | null>(null)
 
 const opcoesEstagio = ESTAGIOS_FORNECEDOR.map((valor) => ({
   value: valor,
@@ -92,12 +109,39 @@ watch(
     email.value = fornecedor?.email ?? ''
     siteUrl.value = fornecedor?.site_url ?? ''
     observacao.value = fornecedor?.observacao ?? ''
+    novoGastoDescricao.value = ''
+    novoGastoEstimado.value = null
   },
 )
+
+/**
+ * Cria o gasto e devolve o foco ao cadastro do fornecedor. Quem grava é a
+ * página (o modal não fala com a API), e é ela que devolve o id pelo
+ * `despesaPadrao` — por isso o campo volta para "Ainda não sei" aqui: se a
+ * criação falhar, o formulário não fica apontando para um gasto inexistente.
+ */
+function criarGasto() {
+  if (!novoGastoDescricao.value.trim()) {
+    erro.value = 'Dê um nome ao gasto novo.'
+    return
+  }
+  emit('criarGasto', {
+    descricao: novoGastoDescricao.value.trim(),
+    valorEstimadoCentavos: novoGastoEstimado.value,
+  })
+  novoGastoDescricao.value = ''
+  novoGastoEstimado.value = null
+  despesaId.value = ''
+}
 
 function submeter() {
   if (!nome.value.trim()) {
     erro.value = 'Informe o nome do fornecedor.'
+    return
+  }
+
+  if (criandoGasto.value) {
+    erro.value = 'Crie o gasto novo antes de salvar, ou escolha outro.'
     return
   }
 
@@ -134,6 +178,23 @@ function submeter() {
         />
       </div>
 
+      <!-- O gasto que ainda não existe nasce aqui, sem perder o que já foi
+           digitado do fornecedor. -->
+      <div
+        v-if="criandoGasto"
+        class="flex flex-col gap-3 rounded-lg border border-dashed border-border px-4 py-3"
+      >
+        <p class="text-sm text-text">Qual gasto este fornecedor vai cobrir?</p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiInput v-model="novoGastoDescricao" label="Nome do gasto" placeholder="Refrigerantes" />
+          <UiCurrencyInput v-model="novoGastoEstimado" label="Estimativa (opcional)" />
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UiButton size="sm" variant="outline" @click="criarGasto">Criar gasto</UiButton>
+          <UiButton size="sm" variant="ghost" @click="despesaId = ''">Cancelar</UiButton>
+        </div>
+      </div>
+
       <UiSelect
         v-if="!despesaId"
         v-model="categoriaId"
@@ -143,7 +204,7 @@ function submeter() {
       />
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <UiSelect v-model="estagio" label="Estágio" :options="opcoesEstagio" />
+        <UiSelect v-model="estagio" label="Situação" :options="opcoesEstagio" />
         <UiCurrencyInput v-model="valorProposto" label="Cotação" />
       </div>
 

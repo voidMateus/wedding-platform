@@ -1119,3 +1119,77 @@ Orçamento e Fornecedores usam o filete lateral com o fundo tingido; Pagamentos
 usa o mesmo tom como ponto ao lado do nome da categoria na linha. É a mesma
 função (`corDaCategoria`) nos três — a cor vira linguagem do módulo, e o casal
 aprende "petróleo = buffet" sem ler.
+
+---
+
+## 19. As pontas soltas (2026-09-11, madrugada)
+
+Oito itens que estavam na lista de pendências, fechados de uma vez.
+
+### 19.1 A negociação tem seis etapas, não quatro
+
+`pesquisando → em_negociacao → contratado` escondia as duas que o casal mais
+repete: **contato feito** e **cotação recebida**. Sem elas, o fornecedor de quem
+se espera resposta lia igual ao que ainda nem foi procurado. Nenhum dado foi
+remapeado — os quatro valores antigos continuam válidos e significam o mesmo.
+
+Os tons seguem o mapa da plataforma: "contato feito" é `neutral` (a bola está
+com o fornecedor), "cotação recebida" e "em negociação" são `warning` (a
+providência é do casal), "contratado" é `success`.
+
+### 19.2 `AdminRowMenu`, com dois contextos reais
+
+A fileira de ícones vira o elemento mais pesado da tela quando passa de três
+controles. O menu troca um clique direto por dois — o que só compensa para o
+que **não** é a ação principal da linha. A regra ficou escrita no componente:
+contratar e dar baixa continuam fora, com rótulo; editar, anexar, arquivar e
+remover entram no menu.
+
+Dois contextos de uma vez (Fornecedores e Pagamentos), que é o que a governança
+exige antes de promover um componente.
+
+### 19.3 O gasto que ainda não existe nasce no cadastro do fornecedor
+
+Antes, quem cadastrava um fornecedor cujo gasto ninguém planejou precisava
+fechar o modal, ir ao Orçamento, criar o gasto e voltar — perdendo o que já
+tinha digitado. Agora "+ Criar um gasto novo" é uma opção do próprio seletor, e
+o gasto criado já vem selecionado.
+
+### 19.4 A linha do fornecedor abre o registro
+
+Orçamento e Pagamentos já faziam isso; Fornecedores era a exceção. O nome virou
+`<button>` (o alvo acessível) e a linha ficou clicável (a conveniência de
+mouse).
+
+### 19.5 Uma faixa de métricas, três telas
+
+`AdminMetricStrip` existia e não era usado por nenhuma tela do Financeiro — eram
+quatro `<dl>` artesanais com três tamanhos diferentes para o mesmo tipo de
+número. O componente ganhou o que faltava (`apoio`, `destaque`, `acao`/`ativo`,
+e a variante `embutida`, que vive dentro de outra caixa) e as três telas passaram
+a consumi-lo. O dashboard e Presentes não mudaram: tudo que entrou é opcional.
+
+### 19.6 O dinheiro que já entrou
+
+`entradasPresentes` era calculado pela API e não aparecia em lugar nenhum. Agora
+é uma linha do cabeçalho do Orçamento, **separada das quatro paradas**: presente
+recebido não abate o que falta pagar (a conta do fornecedor continua inteira),
+mas responde "com quanto já contamos?".
+
+### 19.7 Documentos virou tabela
+
+Fileira de chips (com estado em `ref` local) virou filtro de coluna com estado
+na URL; a lista artesanal virou `AdminTable` com colunas de verdade — documento,
+tipo, vínculo, data —, ordenação por data, formato empilhado no celular e a
+linha abrindo o arquivo. `FinanceDocumentList` continua existindo para o caso
+embutido (a lista curta dentro do modal de propostas), onde uma tabela seria
+exagero.
+
+O `<input type="file">` **não** virou `UploadBox`: aquele componente é de imagem
+(prévia, proporção, `alt`), e um contrato em PDF não tem prévia. Trocar teria
+sido reuso pelo nome, não pela função.
+
+### 19.8 `docs/DATABASE.md`
+
+Passou a documentar `cor_indice`/`cor_personalizada`, os dois triggers de cor e
+a progressão de `estagio` — a lacuna que esta rodada tinha aberto.

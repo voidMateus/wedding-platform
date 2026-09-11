@@ -53,6 +53,11 @@ export function situacaoFornecedorPresentation(
  */
 const ESTAGIO_TONES: Record<EstagioFornecedor, StatusTone> = {
   pesquisando: 'neutral',
+  // "Contato feito" é fato sem valência: a bola está com o fornecedor, e não
+  // há providência do casal esperando. Já "cotação recebida" e "em negociação"
+  // são pendências dele — é aí que alguém precisa decidir.
+  contato_feito: 'neutral',
+  cotacao_recebida: 'warning',
   em_negociacao: 'warning',
   contratado: 'success',
   descartado: 'neutral',

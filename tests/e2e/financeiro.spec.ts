@@ -116,12 +116,15 @@ test('Pagamentos registra a baixa na própria linha', async ({ page }) => {
   }).toPass({ timeout: 30_000 })
   await page.getByRole('button', { name: 'Confirmar' }).click()
 
-  const desfazerDaLinha = linha.getByRole('button', { name: 'Desfazer pagamento' })
-  await expect(desfazerDaLinha).toBeVisible({ timeout: 20_000 })
+  // Desfazer vive no menu da linha: fora dele fica só a ação que a linha
+  // existe para oferecer.
+  const menuDaLinha = linha.getByRole('button', { name: /^Ações de/ })
+  await expect(menuDaLinha).toBeVisible({ timeout: 20_000 })
 
   // Devolve a linha ao estado anterior — o casamento de desenvolvimento é
   // compartilhado, e teste que suja dado vira dado de demonstração errado.
-  await desfazerDaLinha.click()
+  await menuDaLinha.click()
+  await page.getByRole('menuitem', { name: 'Desfazer pagamento' }).click()
   await expect(linha.getByRole('button', { name: 'Marcar pago' })).toBeVisible({
     timeout: 20_000,
   })
@@ -143,7 +146,7 @@ test('o lançamento é editável — vencimento, valor e data de pagamento', asy
   await expect(linha).toBeVisible({ timeout: 20_000 })
 
   await expect(async () => {
-    await linha.getByRole('button', { name: 'Alianças' }).click({ timeout: 3_000 })
+    await linha.getByRole('button', { name: 'Alianças', exact: true }).click({ timeout: 3_000 })
     await expect(page.getByRole('heading', { name: 'Editar lançamento' })).toBeVisible({
       timeout: 3_000,
     })
@@ -167,7 +170,7 @@ test('o lançamento é editável — vencimento, valor e data de pagamento', asy
       .getByRole('row')
       .filter({ hasText: 'Alianças' })
       .first()
-      .getByRole('button', { name: 'Alianças' })
+      .getByRole('button', { name: 'Alianças', exact: true })
       .click({ timeout: 3_000 })
     await expect(page.getByRole('heading', { name: 'Editar lançamento' })).toBeVisible({
       timeout: 3_000,
@@ -196,7 +199,8 @@ test('arquivar fornecedor contratado explica o vínculo e oferece a saída', asy
   await expect(linha).toBeVisible({ timeout: 20_000 })
 
   await expect(async () => {
-    await linha.getByRole('button', { name: /Arquivar fornecedor/ }).click({ timeout: 3_000 })
+    await linha.getByRole('button', { name: /^Ações de/ }).click({ timeout: 3_000 })
+    await page.getByRole('menuitem', { name: 'Arquivar' }).click({ timeout: 3_000 })
     await expect(page.getByRole('heading', { name: 'Arquivar fornecedor' })).toBeVisible({
       timeout: 3_000,
     })
@@ -338,7 +342,8 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
   const linha = page.getByRole('row').filter({ hasText: nome }).first()
   await expect(linha).toBeVisible({ timeout: 20_000 })
 
-  await linha.getByRole('button', { name: 'Arquivar' }).click()
+  await linha.getByRole('button', { name: /^Ações de/ }).click()
+  await page.getByRole('menuitem', { name: 'Arquivar' }).click()
   await page.getByRole('button', { name: 'Arquivar', exact: true }).last().click()
   await expect(page.getByRole('row').filter({ hasText: nome })).toHaveCount(0, {
     timeout: 20_000,
@@ -368,8 +373,9 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
     .getByRole('row')
     .filter({ hasText: nome })
     .first()
-    .getByRole('button', { name: 'Arquivar' })
+    .getByRole('button', { name: /^Ações de/ })
     .click()
+  await page.getByRole('menuitem', { name: 'Arquivar' }).click()
   await page.getByRole('button', { name: 'Arquivar', exact: true }).last().click()
   await expect(page.getByRole('row').filter({ hasText: nome })).toHaveCount(0, {
     timeout: 20_000,

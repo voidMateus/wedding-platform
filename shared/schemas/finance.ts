@@ -6,8 +6,15 @@ import { z } from 'zod'
 // esperando acontecer.
 
 /** Enums de negócio como union de string literal, espelhando o CHECK do Postgres. */
+/**
+ * A negociação na ordem em que ela acontece — a lista É a progressão, e é dela
+ * que sai a ordem do seletor e do filtro. "Descartado" fica no fim porque sai
+ * da linha em vez de avançar nela.
+ */
 export const ESTAGIOS_FORNECEDOR = [
   'pesquisando',
+  'contato_feito',
+  'cotacao_recebida',
   'em_negociacao',
   'contratado',
   'descartado',
@@ -29,6 +36,8 @@ export type FormaPagamento = (typeof FORMAS_PAGAMENTO)[number]
 
 export const ROTULOS_ESTAGIO_FORNECEDOR: Record<EstagioFornecedor, string> = {
   pesquisando: 'Pesquisando',
+  contato_feito: 'Contato feito',
+  cotacao_recebida: 'Cotação recebida',
   em_negociacao: 'Em negociação',
   contratado: 'Contratado',
   descartado: 'Descartado',
