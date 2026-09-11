@@ -723,3 +723,104 @@ Quatro apontamentos do uso real, e o que cada um virou:
      compromisso em lugar nenhum. Agora o saldo sem data aparece como uma
      linha `Sem data`, com o botão "Agendar" — e o resumo tem um indicador
      próprio para ele.
+
+---
+
+## 14. Rodada de refino visual (2026-09-11, noite)
+
+Pedido: *"refinar o encaixe dos elementos e botões, bem como nas cores e
+contrastes e tamanhos. Tem que ser uma navegação fluida e não pode ser
+poluída. Atenção àquilo que o casal precisa ver em destaque."*
+
+A auditoria cruzou as quatro telas com `docs/DESIGN-SYSTEM.md` e com a tela de
+referência (Modo Lista de convidados), e a medição foi feita no DOM
+renderizado, não no código — é o único jeito de ver contraste e alvo de toque
+de verdade.
+
+**Contraste não era o problema:** zero violações de 4,5:1 nas quatro telas, nas
+duas larguras. Os tokens de estado (`danger` 6,2:1, `success` 7,4:1, `warning`
+6,9:1) já passavam com folga. O que estava errado era **hierarquia, encaixe e
+repetição**.
+
+### 14.1 Um bug funcional, achado antes do visual
+
+As três telas declaravam `sort` nas colunas e **nenhuma ordenava**: filtravam à
+mão e ignoravam `sortKey`. A `AdminTable` desenhava o menu "Ordenar" — com
+`aria-sort`, ícone aceso e chip na barra de filtros — e clicar em "Maior a
+menor" não movia uma linha. As três passaram a usar `applyTableFilters`
+(`app/utils/table-rows.ts`), como o Modo Lista, com um acessor por coluna. É a
+regra do Design System §2 em vigor: *filtro que não filtra de verdade é pior
+que filtro ausente, já que quem usa confia nele*. Coberto por E2E.
+
+### 14.2 O que o casal precisa ver em destaque
+
+- **"A pagar" virou o número grande do Orçamento** (fundo próprio, `text-2xl`),
+  e Estimado/Contratado/Pago desceram para `text-lg`. Os quatro tinham
+  exatamente o mesmo peso, e o maior número da tela era o teto — uma
+  configuração digitada uma vez.
+- **O estouro de categoria era calculado, entregue pela API e invisível.** O
+  único sinal era um pedaço de string cinza concatenado na faixa da categoria,
+  e o recorte `?recorte=estouro` não tinha nenhum produtor no app. Agora é uma
+  faixa `danger` no cabeçalho (que também é o link que faltava) e um selo na
+  faixa de cada categoria estourada (`AdminTableSection.badge`).
+- **Pagamentos passou a ter dois níveis:** Vencidos, Próximos 30 dias e Sem
+  data em cima, em `text-2xl`; Pago e A pagar viraram uma linha de rodapé. Os
+  cinco disputavam atenção no mesmo tamanho, distinguidos só pela cor do
+  número — "Pago" competindo com "Vencidos".
+- **O vencimento ganhou coluna própria**, com ordenação por data. Numa tela
+  cujo assunto é "o que vence e o que está atrasado", a data era texto de 12px
+  dentro de uma coluna chamada "Detalhes".
+- **As cotações chegam em ordem de preço** dentro do bloco do gasto, e a
+  diferença para a mais barata subiu de 12px cinza para 14px `warning`. É o
+  número que decide a compra.
+
+### 14.3 Botões
+
+A forma canônica do CTA (`Adicionar <entidade>` + `lucide:plus`, com
+`Novo <entidade>` reservado ao título do modal) não era seguida por nenhuma das
+quatro telas, e a mesma ação tinha dois nomes dentro da mesma página ("Novo
+gasto" no cabeçalho, "Adicionar gasto" no rodapé do bloco). Agora é um nome por
+ação, em toda parte — inclusive nos submits dos modais.
+
+Duas ações estavam com o peso trocado:
+
+- **"Registrar valor"** — o gesto que transforma plano em compromisso — era um
+  link sublinhado de 12px em minúscula. Virou botão, o mesmo que o celular já
+  usava.
+- **"Contratar"** era um ícone de 26px sem rótulo no desktop e um botão escrito
+  no celular: as duas larguras discordavam sobre o que ela é. Virou botão nas
+  duas, e some na linha que já foi contratada.
+
+E os rodapés dos modais saíram do corpo rolável para o slot `#footer`: em
+formulário longo (a cotação tem 10 campos), Cancelar e Salvar rolavam para fora
+da vista.
+
+### 14.4 Poluição e encaixe
+
+- Cada categoria repetia três botões de texto no rodapé; agora é
+  "+ Adicionar gasto" mais dois ícones.
+- A linha de Fornecedores tinha até sete controles; caiu para três, e o
+  WhatsApp/e-mail — que é o que se usa **com** o celular na mão — passou a
+  existir no celular, onde não existia.
+- A borda direita de Pagamentos era serrilhada, porque a lixeira sumia nas
+  linhas sem parcela; agora ela fica desabilitada no lugar.
+- O painel de arquivados, duplicado palavra por palavra em duas telas, virou
+  `AdminArchivedList`; a ponte "ver em Pagamentos" saiu do Orçamento (o menu da
+  seção já leva, e o número já está na parada "A pagar" logo acima); e o link
+  "Ir para o orçamento" saiu da posição do CTA primário de Pagamentos.
+- Os filtros ativos entraram no painel da tabela que descrevem, e os slots do
+  celular ganharam o preenchimento que faltava — as linhas encostavam na borda
+  da tela.
+- Em Documentos, a fileira de filtros aparecia durante o carregamento e por
+  cima do estado vazio: seis recortes para recortar nada.
+
+### 14.5 Detalhes que mudaram de cor
+
+`UiBadge tone="primary"` estava sendo usado como estado em "Contratado", contra
+a regra do próprio componente (*primary é identidade/papel, nunca estado*) — e,
+sendo a única variante sem preenchimento, deixava o estado mais importante da
+coluna como o mais apagado. Passou a seguir o mapa da plataforma: "A contratar"
+neutral, "Contratado" warning (ainda há dinheiro a sair — o mesmo tom que
+`a_pagar` do fornecedor já usava), "Quitado" success. E os 11 "Cancelar" em
+`variant="outline"` viraram `ghost`: dentro de um modal branco, `outline` põe um
+segundo botão na cor do tema ao lado do primário.

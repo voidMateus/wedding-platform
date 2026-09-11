@@ -113,46 +113,68 @@ async function confirmarExclusao() {
     :meta="`${documentos.length} ${documentos.length === 1 ? 'documento' : 'documentos'}`"
   >
     <template #actions>
-      <UiButton @click="modalAberto = true">Novo documento</UiButton>
+      <UiButton @click="modalAberto = true">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar documento
+      </UiButton>
     </template>
-
-    <div class="flex flex-wrap gap-2">
-      <UiChip label="Todos" clickable :selected="filtroTipo === ''" @click="filtroTipo = ''" />
-      <UiChip
-        v-for="tipo in TIPOS_DOCUMENTO"
-        :key="tipo"
-        :label="ROTULOS_TIPO_DOCUMENTO[tipo]"
-        clickable
-        :selected="filtroTipo === tipo"
-        @click="filtroTipo = tipo"
-      />
-    </div>
 
     <UiSkeleton v-if="status === 'pending'" class="h-40 w-full" />
 
-    <AdminPanel v-else-if="error">
-      <div class="flex flex-col items-start gap-3 p-5">
-        <p class="text-sm text-danger">Não foi possível carregar os documentos.</p>
-        <UiButton variant="outline" size="sm" @click="refresh()">Tentar de novo</UiButton>
-      </div>
-    </AdminPanel>
+    <UiEmptyState
+      v-else-if="error"
+      icon="lucide:triangle-alert"
+      title="Não foi possível carregar os documentos"
+      description="Tente novamente em alguns instantes."
+    >
+      <UiButton variant="outline" @click="refresh()">Tentar novamente</UiButton>
+    </UiEmptyState>
 
     <UiEmptyState
-      v-else-if="documentos.length === 0"
+      v-else-if="documentos.length === 0 && filtroTipo === ''"
       icon="lucide:folder-open"
       title="Nenhum documento ainda"
       description="Envie o contrato assinado ou cole o link do arquivo que já está no seu Drive."
     >
-      <UiButton @click="modalAberto = true">Novo documento</UiButton>
+      <UiButton @click="modalAberto = true">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar documento
+      </UiButton>
     </UiEmptyState>
 
-    <AdminPanel v-else>
-      <AdminFinanceDocumentList
-        :documentos="documentos"
-        @abrir="abrir"
-        @excluir="paraExcluir = $event"
-      />
-    </AdminPanel>
+    <!-- Os filtros só existem quando há o que filtrar: soltos acima da cadeia
+         de estados, eles apareciam durante o carregamento e por cima do "nenhum
+         documento ainda" — seis recortes para recortar nada. -->
+    <template v-else>
+      <div class="flex flex-wrap gap-2">
+        <UiChip label="Todos" clickable :selected="filtroTipo === ''" @click="filtroTipo = ''" />
+        <UiChip
+          v-for="tipo in TIPOS_DOCUMENTO"
+          :key="tipo"
+          :label="ROTULOS_TIPO_DOCUMENTO[tipo]"
+          clickable
+          :selected="filtroTipo === tipo"
+          @click="filtroTipo = tipo"
+        />
+      </div>
+
+      <AdminPanel v-if="documentos.length > 0">
+        <AdminFinanceDocumentList
+          :documentos="documentos"
+          @abrir="abrir"
+          @excluir="paraExcluir = $event"
+        />
+      </AdminPanel>
+
+      <UiEmptyState
+        v-else
+        icon="lucide:folder-open"
+        title="Nenhum documento desse tipo"
+        description="Troque o filtro acima para ver os outros."
+      >
+        <UiButton variant="ghost" @click="filtroTipo = ''">Ver todos</UiButton>
+      </UiEmptyState>
+    </template>
 
     <AdminFinanceDocumentModal
       v-model="modalAberto"
@@ -168,10 +190,10 @@ async function confirmarExclusao() {
       description="O arquivo é apagado de vez — não fica escondido em lugar nenhum."
       @update:model-value="paraExcluir = null"
     >
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" @click="paraExcluir = null">Cancelar</UiButton>
+      <template #footer>
+        <UiButton variant="ghost" @click="paraExcluir = null">Cancelar</UiButton>
         <UiButton variant="destructive" @click="confirmarExclusao">Excluir</UiButton>
-      </div>
+      </template>
     </UiModal>
   </AdminSection>
 </template>

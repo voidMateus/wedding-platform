@@ -18,6 +18,12 @@ import type {
 } from '#shared/schemas/finance'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
 import type { CategoriaComDespesas, DespesaComParcelas } from '~/types/finance'
+import {
+  applyTableFilters,
+  compareNumber,
+  compareText,
+  type ClientColumn,
+} from '~/utils/table-rows'
 
 definePageMeta({ layout: 'admin' })
 
@@ -75,52 +81,70 @@ const colunas = computed<AdminTableColumn<DespesaComParcelas>[]>(() => [
   },
   { key: 'estimado', label: 'Estimado', align: 'right', sort: 'numeric' },
   { key: 'final', label: 'Valor fechado', align: 'right', sort: 'numeric' },
-  { key: 'pago', label: 'Pago', align: 'right' },
+  { key: 'pago', label: 'Pago', align: 'right', sort: 'numeric' },
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
+
+/**
+ * De onde sai o valor de cada coluna, para filtrar e ordenar.
+ *
+ * Sem isto, declarar `sort` na coluna só desenhava o menu: a tabela nunca
+ * reordena `rows` por conta própria, e quem clicava em "Maior a menor" via a
+ * lista inalterada. Filtro que não filtra é pior que filtro ausente.
+ */
+const acessores: Record<string, ClientColumn<DespesaComParcelas>> = {
+  gasto: {
+    value: (despesa) => despesa.descricao,
+    compare: compareText((despesa) => despesa.descricao),
+  },
+  estagio: { value: (despesa) => despesa.totais.estagio },
+  estimado: { compare: compareNumber((despesa) => despesa.totais.estimado) },
+  // Gasto ainda sem valor fechado ordena como zero — ele fica junto de quem
+  // ainda não tem compromisso, que é onde o casal espera encontrá-lo.
+  final: { compare: compareNumber((despesa) => despesa.totais.contratado ?? 0) },
+  pago: { compare: compareNumber((despesa) => despesa.totais.pago) },
+}
 
 const filters = useTableFilters(colunas)
 
 const recorteEstouro = computed(() => route.query.recorte === 'estouro')
 const categoriaNaUrl = computed(() => route.query.categoria as string | undefined)
 
-function passaNoFiltro(despesa: DespesaComParcelas): boolean {
-  const texto = (filters.values.value.gasto?.[0] ?? '').toLowerCase().trim()
-  const estagios = filters.values.value.estagio ?? []
+const temFiltroAtivo = computed(() => Object.keys(filters.values.value).length > 0)
 
-  if (texto && !despesa.descricao.toLowerCase().includes(texto)) return false
-  if (estagios.length > 0 && !estagios.includes(despesa.totais.estagio)) return false
-  return true
-}
-
+// O recorte acontece DENTRO de cada categoria: a lista é uma árvore, e filtrar
+// a planificação desmontaria os blocos.
 const categoriasVisiveis = computed(() => {
   const base = recorteEstouro.value
     ? categorias.value.filter((categoria) => categoria.acimaDoOrcado > 0)
     : categorias.value
 
   return base
-    .map((categoria) => ({ ...categoria, despesas: categoria.despesas.filter(passaNoFiltro) }))
+    .map((categoria) => ({
+      ...categoria,
+      despesas: applyTableFilters(categoria.despesas, colunas.value, acessores, {
+        values: filters.values.value,
+        sortKey: filters.sortKey.value,
+        sortDirection: filters.sortDirection.value,
+      }),
+    }))
     .filter((categoria) => categoria.despesas.length > 0 || !temFiltroAtivo.value)
 })
-
-const temFiltroAtivo = computed(
-  () =>
-    (filters.values.value.gasto?.length ?? 0) > 0 ||
-    (filters.values.value.estagio?.length ?? 0) > 0,
-)
 
 const linhas = computed(() => categoriasVisiveis.value.flatMap((categoria) => categoria.despesas))
 
 const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
   categoriasVisiveis.value.map((categoria) => {
+    // Dois números, não quatro: o teto e o que já foi comprometido contra ele.
+    // A faixa antiga concatenava orçado, estimado, contratado e o estouro numa
+    // só linha cinza — e a categoria estourada lia igual à saudável.
     const partes: string[] = []
-    if (categoria.orcado > 0) partes.push(`orçado ${formatCentsToBRL(categoria.orcado)}`)
-    partes.push(`estimado ${formatCentsToBRL(categoria.estimado)}`)
-    if (categoria.contratado > 0) {
-      partes.push(`contratado ${formatCentsToBRL(categoria.contratado)}`)
-    }
-    if (categoria.acimaDoOrcado > 0) {
-      partes.push(`${formatCentsToBRL(categoria.acimaDoOrcado)} acima do orçado`)
+    if (categoria.orcado > 0) {
+      partes.push(
+        `${formatCentsToBRL(categoria.estimado)} de ${formatCentsToBRL(categoria.orcado)}`,
+      )
+    } else {
+      partes.push(`estimado ${formatCentsToBRL(categoria.estimado)}`)
     }
 
     return {
@@ -128,6 +152,13 @@ const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
       label: categoria.nome,
       level: 0 as const,
       meta: partes.join(' · '),
+      badge:
+        categoria.acimaDoOrcado > 0
+          ? {
+              label: `${formatCentsToBRL(categoria.acimaDoOrcado)} acima`,
+              tone: 'danger' as const,
+            }
+          : undefined,
       icon: 'lucide:folder',
       rows: categoria.despesas,
     }
@@ -232,9 +263,17 @@ async function arquivarPorId(id: string) {
 }
 
 const arquivadas = computed(() =>
-  (todasCategorias.value?.data ?? []).filter((categoria) => categoria.excluido_em),
+  (todasCategorias.value?.data ?? [])
+    .filter((categoria) => categoria.excluido_em)
+    .map((categoria) => ({
+      id: categoria.id,
+      nome: categoria.nome,
+      detalhe:
+        categoria.valor_previsto_centavos > 0
+          ? `orçado ${formatCentsToBRL(categoria.valor_previsto_centavos)}`
+          : null,
+    })),
 )
-const mostrarArquivadas = ref(false)
 
 async function restaurar(id: string) {
   try {
@@ -345,9 +384,19 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
     title="Orçamento"
     description="Quanto vocês pretendem gastar, e o que já está fechado."
   >
+    <!-- "Adicionar <entidade>" + lucide:plus é a forma canônica do CTA no
+         admin; "Novo <entidade>" fica reservado ao título do modal que ele
+         abre (DESIGN-SYSTEM §2). Categoria é estrutura, gasto é conteúdo —
+         daí só um dos dois ser o botão cheio. -->
     <template #actions>
-      <UiButton variant="outline" @click="novaCategoria">Nova categoria</UiButton>
-      <UiButton @click="novaDespesa()">Novo gasto</UiButton>
+      <UiButton variant="ghost" @click="novaCategoria">
+        <Icon name="lucide:folder-plus" class="h-4 w-4" />
+        Adicionar categoria
+      </UiButton>
+      <UiButton @click="novaDespesa()">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar gasto
+      </UiButton>
     </template>
 
     <UiSkeleton v-if="status === 'pending'" class="h-96 w-full" />
@@ -377,7 +426,7 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
       </UiEmptyState>
 
       <template v-else>
-        <AdminFinanceTotalsHeader :resumo="resumo" @editar-teto="tetoAberto = true" />
+        <AdminFinanceTotalsHeader :resumo="resumo" :base="base" @editar-teto="tetoAberto = true" />
 
         <div
           v-if="recorteEstouro"
@@ -389,14 +438,16 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
           </UiButton>
         </div>
 
-        <AdminTableFilterBar
-          :filters="filters"
-          :columns="colunas"
-          group-label="Filtros do orçamento"
-        />
-
         <AdminPanel title="Categorias e gastos" :meta="`${linhas.length} gastos`">
+          <!-- A barra de filtros ativos mora DENTRO do painel: ela descreve o
+               recorte da tabela logo abaixo, e solta criava uma faixa vazia
+               entre o resumo e o painel sempre que nada estava filtrado. -->
           <template #headerActions>
+            <AdminTableFilterBar
+              :filters="filters"
+              :columns="colunas"
+              group-label="Filtros do orçamento"
+            />
             <UiButton variant="ghost" size="sm" @click="alternarTudo">
               <Icon
                 :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
@@ -412,25 +463,40 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
             :sections="secoes"
             :collapsed-ids="recolhidos"
             :filters="filters"
+            row-clickable
             empty-label="Nenhum gasto com esses filtros."
             @toggle-section="alternarBloco"
+            @row-click="editarDespesa"
           >
             <template #cell-gasto="{ row }">
               <div class="min-w-0">
-                <span class="block truncate text-text">{{ row.descricao }}</span>
+                <button
+                  type="button"
+                  class="block max-w-full truncate text-left text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  @click="editarDespesa(row)"
+                >
+                  {{ row.descricao }}
+                </button>
                 <span v-if="row.fornecedor" class="block truncate text-xs text-text-muted">
                   {{ row.fornecedor.nome }}
                 </span>
               </div>
             </template>
 
+            <!-- Tons pelo mapa da plataforma: "A contratar" é fato sem
+                 valência (neutral), "Contratado" ainda tem dinheiro a sair
+                 (warning, o mesmo de `a_pagar` do fornecedor) e "Quitado" é o
+                 desfecho resolvido. `primary` é canal de identidade, nunca de
+                 estado — e era a única variante sem preenchimento, o que
+                 deixava o estado mais importante da coluna como o mais
+                 apagado dos três. -->
             <template #cell-estagio="{ row }">
               <UiBadge
                 :tone="
                   row.totais.estagio === 'quitado'
                     ? 'success'
                     : row.totais.estagio === 'contratado'
-                      ? 'primary'
+                      ? 'warning'
                       : 'neutral'
                 "
               >
@@ -445,159 +511,120 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
             </template>
 
             <template #cell-estimado="{ row }">
-              <span class="tabular-nums text-text-muted">
+              <span class="num text-text-muted">
                 {{ formatCentsToBRL(row.totais.estimado) }}
               </span>
             </template>
 
             <template #cell-final="{ row }">
               <template v-if="row.totais.contratado !== null">
-                <span class="tabular-nums text-text">
+                <span class="num text-text">
                   {{ formatCentsToBRL(row.totais.contratado) }}
                 </span>
                 <span
                   v-if="desvio(row)"
-                  class="ml-1.5 text-xs"
+                  class="num ml-1.5 text-sm"
                   :class="desvio(row)?.economia ? 'text-success' : 'text-warning'"
                 >
                   {{ desvio(row)?.texto }}
                 </span>
               </template>
-              <button
-                v-else
-                type="button"
-                class="text-xs text-primary underline-offset-2 hover:underline"
-                @click="abrirContratacao(row)"
-              >
-                registrar valor fechado
-              </button>
+              <!-- Preencher o valor fechado é o gesto central do módulo: é ele
+                   que transforma plano em compromisso e manda o gasto para
+                   Pagamentos. Era o menor controle da tela, em 12px. -->
+              <UiButton v-else size="sm" variant="outline" @click="abrirContratacao(row)">
+                Registrar valor
+              </UiButton>
             </template>
 
             <template #cell-pago="{ row }">
-              <span class="tabular-nums text-text-muted">
+              <span class="num text-text-muted">
                 {{ row.totais.pago > 0 ? formatCentsToBRL(row.totais.pago) : '—' }}
               </span>
             </template>
 
+            <!-- Um controle por linha: editar é a própria linha (clicável),
+                 como na lista de convidados. -->
             <template #cell-acoes="{ row }">
               <div class="flex items-center justify-end gap-1">
                 <AdminRowAction
-                  icon="lucide:pencil"
-                  label="Editar gasto"
-                  @click="editarDespesa(row)"
-                />
-                <AdminRowAction
                   icon="lucide:trash-2"
                   label="Excluir gasto"
+                  tone="danger"
                   @click="despesaParaExcluir = row"
                 />
               </div>
             </template>
 
             <template #stacked="{ row }">
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 px-4 py-3">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="font-medium text-text">{{ row.descricao }}</span>
                   <UiBadge v-if="row.totais.contratado === null" tone="neutral">
                     A contratar
                   </UiBadge>
                 </div>
-                <span class="text-sm tabular-nums text-text-muted">
+                <span class="num text-sm text-text-muted">
                   estimado {{ formatCentsToBRL(row.totais.estimado) }}
                   <template v-if="row.totais.contratado !== null">
                     · fechado {{ formatCentsToBRL(row.totais.contratado) }}
                   </template>
                 </span>
-                <div class="mt-1 flex items-center gap-1">
+                <!-- `size="md"` (40px) e não `sm`: no celular estes são o
+                     único caminho para a ação, e `sm` fica abaixo do alvo de
+                     toque confortável. -->
+                <div class="mt-1 flex items-center gap-2">
                   <UiButton
                     v-if="row.totais.contratado === null"
-                    size="sm"
                     variant="outline"
                     @click="abrirContratacao(row)"
                   >
                     Registrar valor
                   </UiButton>
-                  <AdminRowAction
-                    icon="lucide:pencil"
-                    label="Editar gasto"
-                    @click="editarDespesa(row)"
-                  />
+                  <UiButton variant="ghost" @click="editarDespesa(row)">Editar</UiButton>
                   <AdminRowAction
                     icon="lucide:trash-2"
                     label="Excluir gasto"
+                    tone="danger"
                     @click="despesaParaExcluir = row"
                   />
                 </div>
               </div>
             </template>
 
+            <!-- O rodapé do bloco continua a lista de dentro dele. As duas
+                 ações da categoria viram ícones: rotuladas, elas repetiam três
+                 botões de texto em cada categoria e viravam a coisa mais
+                 pesada da tela. -->
             <template #section-footer="{ section }">
-              <div class="flex flex-wrap items-center gap-1">
+              <div class="flex flex-wrap items-center gap-1 px-4 py-2 md:pl-10">
                 <UiButton size="sm" variant="ghost" @click="novaDespesa(section.id)">
                   <Icon name="lucide:plus" class="h-4 w-4" />
                   Adicionar gasto
                 </UiButton>
                 <template v-if="section.id !== 'sem-categoria'">
-                  <UiButton size="sm" variant="ghost" @click="editarCategoriaPorId(section.id)">
-                    Editar categoria
-                  </UiButton>
-                  <UiButton size="sm" variant="ghost" @click="arquivarPorId(section.id)">
-                    Arquivar
-                  </UiButton>
+                  <AdminRowAction
+                    icon="lucide:pencil"
+                    :label="`Editar categoria ${section.label}`"
+                    @click="editarCategoriaPorId(section.id)"
+                  />
+                  <AdminRowAction
+                    icon="lucide:archive"
+                    :label="`Arquivar categoria ${section.label}`"
+                    @click="arquivarPorId(section.id)"
+                  />
                 </template>
               </div>
             </template>
           </AdminTable>
         </AdminPanel>
 
-        <!-- A ponte entre planejar e pagar é explícita, não adivinhada. -->
-        <NuxtLink
-          v-if="resumo.aPagar > 0"
-          :to="`${base}/pagamentos`"
-          class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-muted/60 sm:px-5"
-        >
-          <Icon name="lucide:calendar-clock" class="h-4 w-4 shrink-0 text-text-muted" />
-          <span class="text-sm text-text">
-            {{ formatCentsToBRL(resumo.aPagar) }} a pagar do que já foi contratado
-          </span>
-          <span class="ml-auto text-xs text-text-muted">ver em Pagamentos</span>
-        </NuxtLink>
-
-        <AdminPanel v-if="arquivadas.length > 0">
-          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-            <button
-              type="button"
-              class="flex items-center gap-2 text-sm text-text-muted hover:text-text"
-              :aria-expanded="mostrarArquivadas"
-              @click="mostrarArquivadas = !mostrarArquivadas"
-            >
-              <Icon
-                :name="mostrarArquivadas ? 'lucide:chevron-down' : 'lucide:chevron-right'"
-                class="h-4 w-4"
-              />
-              {{ arquivadas.length }}
-              {{ arquivadas.length === 1 ? 'categoria arquivada' : 'categorias arquivadas' }}
-            </button>
-          </div>
-
-          <ul v-if="mostrarArquivadas" class="divide-y divide-border border-t border-border">
-            <li
-              v-for="categoria in arquivadas"
-              :key="categoria.id"
-              class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
-            >
-              <span class="min-w-0 flex-1 truncate text-sm text-text-muted">
-                {{ categoria.nome }}
-              </span>
-              <span v-if="categoria.valor_previsto_centavos > 0" class="text-xs text-text-muted">
-                orçado {{ formatCentsToBRL(categoria.valor_previsto_centavos) }}
-              </span>
-              <UiButton size="sm" variant="ghost" @click="restaurar(categoria.id)">
-                Restaurar
-              </UiButton>
-            </li>
-          </ul>
-        </AdminPanel>
+        <AdminArchivedList
+          :itens="arquivadas"
+          singular="categoria arquivada"
+          plural="categorias arquivadas"
+          @restaurar="restaurar"
+        />
       </template>
 
       <AdminFinanceBudgetTotalModal
@@ -646,10 +673,10 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
       :description="`“${despesaParaExcluir?.descricao}” sai do orçamento, junto com as parcelas dele.`"
       @update:model-value="despesaParaExcluir = null"
     >
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" @click="despesaParaExcluir = null">Cancelar</UiButton>
+      <template #footer>
+        <UiButton variant="ghost" @click="despesaParaExcluir = null">Cancelar</UiButton>
         <UiButton variant="destructive" @click="confirmarExclusao">Excluir</UiButton>
-      </div>
+      </template>
     </UiModal>
   </AdminSection>
 </template>

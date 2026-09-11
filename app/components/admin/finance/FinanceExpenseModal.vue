@@ -197,15 +197,15 @@ async function submeter() {
       <UiTextarea v-model="observacao" label="Observação" :rows="2" />
 
       <p v-if="erro" class="text-sm text-danger">{{ erro }}</p>
-
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" :disabled="salvando" @click="emit('update:modelValue', false)">
-          Cancelar
-        </UiButton>
-        <UiButton type="submit" :disabled="salvando">
-          {{ editando ? 'Salvar' : 'Adicionar gasto' }}
-        </UiButton>
-      </div>
     </form>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="salvando" @click="emit('update:modelValue', false)">
+        Cancelar
+      </UiButton>
+      <UiButton :disabled="salvando" @click="submeter">
+        {{ editando ? 'Salvar' : 'Adicionar gasto' }}
+      </UiButton>
+    </template>
   </UiModal>
 </template>

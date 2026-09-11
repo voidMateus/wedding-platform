@@ -57,7 +57,7 @@ test('gasto planejado fica "a contratar" e não aparece em Pagamentos', async ({
   await expect(page.getByRole('row').filter({ hasText: planejado }).first()).toBeVisible({
     timeout: 20_000,
   })
-  await expect(page.getByRole('button', { name: 'registrar valor fechado' }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Registrar valor' }).first()).toBeVisible()
 
   await page.goto(`/admin/${slug}/financeiro/pagamentos`)
   await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
@@ -79,7 +79,10 @@ test('contratado sem parcela aparece em Pagamentos como "Sem data"', async ({ pa
   // estar aqui, senão vira uma conta que só reaparece quando alguém lembra.
   const linha = page.getByRole('row').filter({ hasText: 'Celebrante' }).first()
   await expect(linha).toBeVisible({ timeout: 20_000 })
-  await expect(linha.getByText('Sem data', { exact: true })).toBeVisible()
+  // "Sem data" aparece duas vezes na linha de propósito: na coluna de
+  // vencimento (é o que falta) e no selo de estado.
+  await expect(linha.getByText('Sem data', { exact: true }).first()).toBeVisible()
+  await expect(linha.getByText('contratado, falta definir')).toBeVisible()
   await expect(linha.getByRole('button', { name: 'Agendar' })).toBeVisible()
 })
 
@@ -135,6 +138,52 @@ test('as cotações do mesmo gasto ficam juntas, com a menor destacada', async (
 
   const maisBarato = page.getByRole('row').filter({ hasText: 'Atacado do Zé' }).first()
   await expect(maisBarato.getByText('menor preço')).toBeVisible()
+
+  // E elas chegam em ordem de preço, sem ninguém pedir: comparar propostas com
+  // a mais cara no topo é olhar a lista errada.
+  const nomes = await page.getByRole('row').locator('td:first-child').allInnerTexts()
+  const refrigerantes = nomes
+    .map((texto) => texto.trim())
+    .filter((texto) =>
+      ['Atacado do Zé', 'Distribuidora Sul', 'Bebidas Express'].some((nome) =>
+        texto.startsWith(nome),
+      ),
+    )
+  expect(refrigerantes[0]).toContain('Atacado do Zé')
+  expect(refrigerantes[2]).toContain('Bebidas Express')
+})
+
+test('a ordenação da coluna ordena de verdade', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  // O menu de ordenação existia em três telas e não mexia uma linha de lugar:
+  // as páginas filtravam à mão e nunca ordenavam. Filtro que não filtra é pior
+  // que filtro ausente, porque quem usa confia nele.
+  await page.goto(`/admin/${slug}/financeiro/pagamentos?ordenar=valor&direcao=desc`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  const valorDaLinha = async (indice: number) => {
+    const texto = await page.getByRole('row').nth(indice).locator('td').nth(2).innerText()
+    return Number(texto.replace(/[^\d]/g, ''))
+  }
+
+  // nth(0) é o cabeçalho; as duas primeiras linhas de dados vêm depois.
+  await expect(async () => {
+    const primeiro = await valorDaLinha(1)
+    const segundo = await valorDaLinha(2)
+    expect(primeiro).toBeGreaterThanOrEqual(segundo)
+    expect(primeiro).toBeGreaterThan(0)
+  }).toPass({ timeout: 20_000 })
+
+  await page.goto(`/admin/${slug}/financeiro/pagamentos?ordenar=valor&direcao=asc`)
+  await expect(async () => {
+    const primeiro = await valorDaLinha(1)
+    const segundo = await valorDaLinha(2)
+    expect(primeiro).toBeLessThanOrEqual(segundo)
+  }).toPass({ timeout: 20_000 })
 })
 
 test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
@@ -148,12 +197,14 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
   })
 
   await expect(async () => {
-    await page.getByRole('button', { name: 'Nova cotação' }).first().click()
+    await page.getByRole('button', { name: 'Adicionar cotação' }).first().click()
     await expect(page.getByLabel('Nome', { exact: true })).toBeVisible({ timeout: 2_000 })
   }).toPass({ timeout: 20_000 })
 
   await page.getByLabel('Nome', { exact: true }).fill(nome)
-  await page.getByRole('button', { name: 'Adicionar fornecedor' }).click()
+  // Dentro do modal: "Adicionar cotação" também é o CTA do cabeçalho e o
+  // rodapé de cada bloco.
+  await page.getByRole('dialog').getByRole('button', { name: 'Adicionar cotação' }).click()
 
   const linha = page.getByRole('row').filter({ hasText: nome }).first()
   await expect(linha).toBeVisible({ timeout: 20_000 })
@@ -165,7 +216,7 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
   })
 
   // O caminho de volta: a seção de arquivados, com Restaurar.
-  const arquivados = page.getByRole('button', { name: /fornecedores? arquivados?$/ })
+  const arquivados = page.getByRole('button', { name: /cotaç(ão|ões) arquivadas?$/ })
   await expect(arquivados).toBeVisible({ timeout: 20_000 })
   await arquivados.click()
 

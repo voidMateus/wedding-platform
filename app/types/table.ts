@@ -7,6 +7,8 @@
  * composable `useTableFilters` — e um deles não é componente.
  */
 
+import type { StatusTone } from '~/utils/status-presentation'
+
 export type TableSortDirection = 'asc' | 'desc'
 
 /**
@@ -76,6 +78,13 @@ export interface AdminTableSection<T> {
   level: 0 | 1
   /** Texto à direita do rótulo — normalmente a contagem ("32 pessoas"). */
   meta?: string
+  /**
+   * Um único selo de estado ao lado do rótulo, para o que o bloco precisa
+   * gritar (uma categoria acima do orçado). Separado de `meta` porque texto
+   * concatenado em `text-xs text-text-muted` faz o bloco anômalo ler igual ao
+   * saudável — que é exatamente o desfecho que o selo evita.
+   */
+  badge?: { label: string; tone: StatusTone }
   /** Ícone lucide à esquerda do rótulo. */
   icon?: string
   /**

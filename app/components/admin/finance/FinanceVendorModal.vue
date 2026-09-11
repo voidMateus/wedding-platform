@@ -119,7 +119,7 @@ function submeter() {
 <template>
   <UiModal
     :model-value="modelValue"
-    :title="editando ? 'Editar fornecedor' : 'Novo fornecedor'"
+    :title="editando ? 'Editar cotação' : 'Nova cotação'"
     size="lg"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -162,11 +162,11 @@ function submeter() {
       <UiTextarea v-model="observacao" label="Observação" :rows="2" />
 
       <p v-if="erro" class="text-sm text-danger">{{ erro }}</p>
-
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" @click="emit('update:modelValue', false)">Cancelar</UiButton>
-        <UiButton type="submit">{{ editando ? 'Salvar' : 'Adicionar fornecedor' }}</UiButton>
-      </div>
     </form>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="emit('update:modelValue', false)">Cancelar</UiButton>
+      <UiButton @click="submeter">{{ editando ? 'Salvar' : 'Adicionar cotação' }}</UiButton>
+    </template>
   </UiModal>
 </template>

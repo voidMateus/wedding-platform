@@ -19,7 +19,13 @@ import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { ESTAGIOS_FORNECEDOR, ROTULOS_ESTAGIO_FORNECEDOR } from '#shared/schemas/finance'
 import type { VendorContractInput, VendorInput } from '#shared/schemas/finance'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
-import type { FornecedorComSituacao } from '~/types/finance'
+import type { DocumentoComVinculos, FornecedorComSituacao } from '~/types/finance'
+import {
+  applyTableFilters,
+  compareNumber,
+  compareText,
+  type ClientColumn,
+} from '~/utils/table-rows'
 
 definePageMeta({ layout: 'admin' })
 
@@ -38,7 +44,7 @@ const categorias = computed(() => ({
 }))
 const { data: orcamento } = getOrcamento()
 
-const { listDocuments } = useFinanceDocuments()
+const { listDocuments, obterUrlDoDocumento, excluirDocumento } = useFinanceDocuments()
 
 /** Os gastos do orçamento — é um deles que cada cotação disputa. */
 const despesas = computed(() =>
@@ -79,18 +85,24 @@ const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
 
+const acessores: Record<string, ClientColumn<FornecedorComSituacao>> = {
+  nome: {
+    value: (fornecedor) => fornecedor.nome,
+    compare: compareText((fornecedor) => fornecedor.nome),
+  },
+  estagio: { value: (fornecedor) => fornecedor.estagio },
+  cotacao: { compare: compareNumber((fornecedor) => fornecedor.valor_proposto_centavos ?? 0) },
+}
+
 const filters = useTableFilters(colunas)
 
-const linhasFiltradas = computed(() => {
-  const texto = (filters.values.value.nome?.[0] ?? '').toLowerCase().trim()
-  const estagios = filters.values.value.estagio ?? []
-
-  return fornecedores.value.filter((fornecedor) => {
-    if (texto && !fornecedor.nome.toLowerCase().includes(texto)) return false
-    if (estagios.length > 0 && !estagios.includes(fornecedor.estagio)) return false
-    return true
-  })
-})
+const linhasFiltradas = computed(() =>
+  applyTableFilters(fornecedores.value, colunas.value, acessores, {
+    values: filters.values.value,
+    sortKey: filters.sortKey.value,
+    sortDirection: filters.sortDirection.value,
+  }),
+)
 
 const SEM_GASTO = 'sem-gasto'
 
@@ -121,18 +133,27 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
 
   return [...blocos.values()]
     .map((bloco) => {
+      // Sem ordenação escolhida, a mais barata vem primeiro: a tela existe
+      // para comparar, e comparar com a mais cara no topo é olhar a lista
+      // errada. Quem escolhe uma ordem no cabeçalho manda, e aí `rows` já
+      // chegou ordenada de applyTableFilters.
+      if (filters.sortKey.value === null) {
+        ;(bloco.rows as FornecedorComSituacao[]).sort(
+          (a, b) =>
+            (a.valor_proposto_centavos ?? Infinity) - (b.valor_proposto_centavos ?? Infinity),
+        )
+      }
       const cotacoes = bloco.rows
         .map((f) => f.valor_proposto_centavos)
         .filter((valor): valor is number => typeof valor === 'number' && valor > 0)
-      const menor = cotacoes.length > 0 ? Math.min(...cotacoes) : null
       const gasto = despesas.value.find((despesa) => despesa.id === bloco.id)
       const partes: string[] = []
       if (bloco.meta) partes.push(bloco.meta)
       if (gasto && gasto.totais.estimado > 0) {
         partes.push(`estimado ${formatCentsToBRL(gasto.totais.estimado)}`)
       }
-      if (cotacoes.length > 1 && menor !== null) {
-        partes.push(`${cotacoes.length} cotações · menor ${formatCentsToBRL(menor)}`)
+      if (cotacoes.length > 1) {
+        partes.push(`${cotacoes.length} cotações`)
       }
       return { ...bloco, meta: partes.join(' · ') || undefined }
     })
@@ -149,6 +170,12 @@ function alternarBloco(id: string) {
   recolhidos.value = recolhidos.value.includes(id)
     ? recolhidos.value.filter((atual) => atual !== id)
     : [...recolhidos.value, id]
+}
+
+const tudoRecolhido = computed(() => recolhidos.value.length >= secoes.value.length)
+
+function alternarTudo() {
+  recolhidos.value = tudoRecolhido.value ? [] : secoes.value.map((secao) => secao.id)
 }
 
 /** Menor cotação do bloco a que este fornecedor pertence. */
@@ -205,9 +232,9 @@ async function salvar(input: VendorInput) {
       await criarFornecedor(input)
     }
     modalAberto.value = false
-    toast.success('Fornecedor salvo.')
+    toast.success('Cotação salva.')
   } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar a cotação.'))
   }
 }
 
@@ -238,9 +265,29 @@ const propostasAbertas = ref<FornecedorComSituacao | null>(null)
 const filtroDeDocumentos = computed(() => ({ fornecedorId: propostasAbertas.value?.id }))
 const { data: propostas } = listDocuments(filtroDeDocumentos)
 
+// Abrir e excluir precisam funcionar aqui como funcionam em Documentos: a
+// lista desenha os controles, e handler vazio é controle que não responde.
+async function abrirProposta(documento: DocumentoComVinculos) {
+  try {
+    const { url } = await obterUrlDoDocumento(documento.id)
+    window.open(url, '_blank', 'noopener')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível abrir a proposta.'))
+  }
+}
+
+async function excluirProposta(documento: DocumentoComVinculos) {
+  try {
+    await excluirDocumento(documento.id)
+    await refresh()
+    toast.success('Proposta excluída.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível excluir a proposta.'))
+  }
+}
+
 // --- arquivar / restaurar ---
 const paraArquivar = ref<FornecedorComSituacao | null>(null)
-const mostrarArquivados = ref(false)
 
 async function confirmarArquivamento() {
   const fornecedor = paraArquivar.value
@@ -276,10 +323,12 @@ function linkWhatsApp(telefone: string | null): string | null {
   <AdminSection
     title="Fornecedores"
     description="Cote quantos quiser por gasto, compare e contrate."
-    :meta="`${linhasFiltradas.length} ${linhasFiltradas.length === 1 ? 'cotação' : 'cotações'}`"
   >
     <template #actions>
-      <UiButton @click="novoFornecedor()">Nova cotação</UiButton>
+      <UiButton @click="novoFornecedor()">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar cotação
+      </UiButton>
     </template>
 
     <UiSkeleton v-if="status === 'pending'" class="h-96 w-full" />
@@ -299,17 +348,32 @@ function linkWhatsApp(telefone: string | null): string | null {
       title="Nenhuma cotação ainda"
       description="Cadastre as propostas que você recebeu para cada gasto do orçamento — elas ficam lado a lado para comparar, sem entrar na conta do orçamento."
     >
-      <UiButton @click="novoFornecedor()">Nova cotação</UiButton>
+      <UiButton @click="novoFornecedor()">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar cotação
+      </UiButton>
     </UiEmptyState>
 
     <template v-else>
-      <AdminTableFilterBar
-        :filters="filters"
-        :columns="colunas"
-        group-label="Filtros de fornecedores"
-      />
+      <AdminPanel
+        title="Cotações por gasto"
+        :meta="`${linhasFiltradas.length} ${linhasFiltradas.length === 1 ? 'cotação' : 'cotações'}`"
+      >
+        <template #headerActions>
+          <AdminTableFilterBar
+            :filters="filters"
+            :columns="colunas"
+            group-label="Filtros de fornecedores"
+          />
+          <UiButton variant="ghost" size="sm" @click="alternarTudo">
+            <Icon
+              :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
+              class="h-4 w-4"
+            />
+            {{ tudoRecolhido ? 'Expandir tudo' : 'Recolher tudo' }}
+          </UiButton>
+        </template>
 
-      <AdminPanel title="Cotações por gasto">
         <AdminTable
           :columns="colunas"
           :rows="linhasFiltradas"
@@ -328,14 +392,9 @@ function linkWhatsApp(telefone: string | null): string | null {
               <span v-if="row.nome_contato" class="block truncate text-xs text-text-muted">
                 {{ row.nome_contato }}
               </span>
-              <button
-                v-if="faltaLevarAoOrcamento(row)"
-                type="button"
-                class="mt-0.5 text-xs text-warning underline-offset-2 hover:underline"
-                @click="abrirContratacao(row)"
-              >
-                Contratado sem valor no orçamento — registrar
-              </button>
+              <UiBadge v-if="faltaLevarAoOrcamento(row)" tone="warning" class="mt-1">
+                falta registrar no orçamento
+              </UiBadge>
             </div>
           </template>
 
@@ -345,23 +404,25 @@ function linkWhatsApp(telefone: string | null): string | null {
             </UiBadge>
           </template>
 
+          <!-- A diferença para a mais barata é o número que decide a compra,
+               e estava em 12px cinza — o mais apagado da célula. -->
           <template #cell-cotacao="{ row }">
             <div class="text-right">
-              <span v-if="row.valor_proposto_centavos" class="tabular-nums text-text">
+              <span v-if="row.valor_proposto_centavos" class="num text-text">
                 {{ formatCentsToBRL(row.valor_proposto_centavos) }}
               </span>
               <span v-else class="text-text-muted">—</span>
-              <span v-if="diferencaParaMenor(row)" class="block text-xs text-text-muted">
-                +{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }} que a menor
+              <span v-if="diferencaParaMenor(row)" class="num block text-sm text-warning">
+                +{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }}
               </span>
-              <span v-if="row.contratadoCentavos > 0" class="block text-xs text-success">
+              <span v-if="row.contratadoCentavos > 0" class="num block text-xs text-success">
                 fechado por {{ formatCentsToBRL(row.contratadoCentavos) }}
               </span>
             </div>
           </template>
 
           <template #cell-contato="{ row }">
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-0.5">
               <AdminRowAction
                 v-if="linkWhatsApp(row.telefone)"
                 icon="lucide:message-circle"
@@ -380,30 +441,40 @@ function linkWhatsApp(telefone: string | null): string | null {
                 label="Abrir site"
                 :to="row.site_url"
               />
-              <button
-                type="button"
-                class="text-xs text-text-muted underline-offset-2 hover:text-primary hover:underline"
+              <AdminRowAction
+                icon="lucide:paperclip"
+                :count="row.totalDocumentos"
+                :label="`Propostas anexadas de ${row.nome}`"
                 @click="propostasAbertas = row"
-              >
-                {{ row.totalDocumentos > 0 ? `${row.totalDocumentos} proposta(s)` : 'anexar' }}
-              </button>
+              />
             </div>
           </template>
 
+          <!-- "Contratar" com rótulo: é a ação mais consequente do módulo
+               (fecha o valor, cria as parcelas, muda as três telas) e estava
+               atrás de um ícone que ninguém reconhece — enquanto no celular a
+               mesma ação já era um botão escrito. -->
           <template #cell-acoes="{ row }">
             <div class="flex items-center justify-end gap-1">
-              <AdminRowAction
-                icon="lucide:file-signature"
-                label="Contratar este fornecedor"
+              <UiButton
+                v-if="row.estagio !== 'descartado' && row.contratadoCentavos === 0"
+                size="sm"
+                variant="outline"
                 @click="abrirContratacao(row)"
+              >
+                Contratar
+              </UiButton>
+              <AdminRowAction icon="lucide:pencil" label="Editar cotação" @click="editar(row)" />
+              <AdminRowAction
+                icon="lucide:archive"
+                label="Arquivar cotação"
+                @click="paraArquivar = row"
               />
-              <AdminRowAction icon="lucide:pencil" label="Editar" @click="editar(row)" />
-              <AdminRowAction icon="lucide:archive" label="Arquivar" @click="paraArquivar = row" />
             </div>
           </template>
 
           <template #stacked="{ row }">
-            <div class="flex flex-col gap-1">
+            <div class="flex flex-col gap-1 px-4 py-3">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium text-text">{{ row.nome }}</span>
                 <UiBadge v-if="ehMaisBarato(row)" tone="success">menor preço</UiBadge>
@@ -411,20 +482,45 @@ function linkWhatsApp(telefone: string | null): string | null {
                   {{ estagioFornecedorPresentation(row.estagio as never).label }}
                 </UiBadge>
               </div>
-              <span v-if="row.valor_proposto_centavos" class="text-sm tabular-nums text-text">
+              <span v-if="row.valor_proposto_centavos" class="num text-sm text-text">
                 {{ formatCentsToBRL(row.valor_proposto_centavos) }}
-                <span v-if="diferencaParaMenor(row)" class="text-xs text-text-muted">
+                <span v-if="diferencaParaMenor(row)" class="text-warning">
                   (+{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }})
                 </span>
               </span>
-              <div class="mt-1 flex items-center gap-1">
-                <UiButton size="sm" variant="outline" @click="abrirContratacao(row)">
+              <!-- Falar com o fornecedor é exatamente o que se faz COM o
+                   celular na mão, e esta era a única largura em que WhatsApp,
+                   e-mail e propostas não existiam. -->
+              <div class="mt-1 flex flex-wrap items-center gap-2">
+                <UiButton
+                  v-if="row.estagio !== 'descartado' && row.contratadoCentavos === 0"
+                  variant="outline"
+                  @click="abrirContratacao(row)"
+                >
                   Contratar
                 </UiButton>
-                <AdminRowAction icon="lucide:pencil" label="Editar" @click="editar(row)" />
+                <UiButton variant="ghost" @click="editar(row)">Editar</UiButton>
+                <AdminRowAction
+                  v-if="linkWhatsApp(row.telefone)"
+                  icon="lucide:message-circle"
+                  label="Abrir conversa no WhatsApp"
+                  :to="linkWhatsApp(row.telefone) ?? undefined"
+                />
+                <AdminRowAction
+                  v-if="row.email"
+                  icon="lucide:mail"
+                  label="Enviar e-mail"
+                  :to="`mailto:${row.email}`"
+                />
+                <AdminRowAction
+                  icon="lucide:paperclip"
+                  :count="row.totalDocumentos"
+                  :label="`Propostas anexadas de ${row.nome}`"
+                  @click="propostasAbertas = row"
+                />
                 <AdminRowAction
                   icon="lucide:archive"
-                  label="Arquivar"
+                  label="Arquivar cotação"
                   @click="paraArquivar = row"
                 />
               </div>
@@ -432,53 +528,26 @@ function linkWhatsApp(telefone: string | null): string | null {
           </template>
 
           <template #section-footer="{ section }">
-            <UiButton
-              size="sm"
-              variant="ghost"
-              @click="novoFornecedor(section.id === SEM_GASTO ? undefined : section.id)"
-            >
-              <Icon name="lucide:plus" class="h-4 w-4" />
-              Adicionar cotação
-            </UiButton>
+            <div class="px-4 py-2 md:pl-10">
+              <UiButton
+                size="sm"
+                variant="ghost"
+                @click="novoFornecedor(section.id === SEM_GASTO ? undefined : section.id)"
+              >
+                <Icon name="lucide:plus" class="h-4 w-4" />
+                Adicionar cotação
+              </UiButton>
+            </div>
           </template>
         </AdminTable>
       </AdminPanel>
 
-      <AdminPanel v-if="arquivados.length > 0">
-        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-          <button
-            type="button"
-            class="flex items-center gap-2 text-sm text-text-muted hover:text-text"
-            :aria-expanded="mostrarArquivados"
-            @click="mostrarArquivados = !mostrarArquivados"
-          >
-            <Icon
-              :name="mostrarArquivados ? 'lucide:chevron-down' : 'lucide:chevron-right'"
-              class="h-4 w-4"
-            />
-            {{ arquivados.length }}
-            {{ arquivados.length === 1 ? 'fornecedor arquivado' : 'fornecedores arquivados' }}
-          </button>
-        </div>
-
-        <ul v-if="mostrarArquivados" class="divide-y divide-border border-t border-border">
-          <li
-            v-for="fornecedor in arquivados"
-            :key="fornecedor.id"
-            class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
-          >
-            <span class="min-w-0 flex-1 truncate text-sm text-text-muted">
-              {{ fornecedor.nome }}
-            </span>
-            <span v-if="fornecedor.valor_proposto_centavos" class="text-xs text-text-muted">
-              cotado {{ formatCentsToBRL(fornecedor.valor_proposto_centavos) }}
-            </span>
-            <UiButton size="sm" variant="ghost" @click="restaurar(fornecedor.id)">
-              Restaurar
-            </UiButton>
-          </li>
-        </ul>
-      </AdminPanel>
+      <AdminArchivedList
+        :itens="arquivados"
+        singular="cotação arquivada"
+        plural="cotações arquivadas"
+        @restaurar="restaurar"
+      />
     </template>
 
     <AdminFinanceVendorModal
@@ -510,15 +579,16 @@ function linkWhatsApp(telefone: string | null): string | null {
           v-if="(propostas?.data ?? []).length > 0"
           :documentos="propostas?.data ?? []"
           compacta
-          @abrir="() => {}"
-          @excluir="() => {}"
+          @abrir="abrirProposta"
+          @excluir="excluirProposta"
         />
         <p v-else class="text-sm text-text-muted">Nenhuma proposta anexada ainda.</p>
-
+      </div>
+      <template #footer>
         <UiButton variant="outline" :to="`/admin/${slug}/financeiro/documentos`">
           Anexar em Documentos
         </UiButton>
-      </div>
+      </template>
     </UiModal>
 
     <UiModal
@@ -527,10 +597,10 @@ function linkWhatsApp(telefone: string | null): string | null {
       :description="`“${paraArquivar?.nome}” sai da lista. Dá para restaurar depois, e o histórico das despesas continua.`"
       @update:model-value="paraArquivar = null"
     >
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" @click="paraArquivar = null">Cancelar</UiButton>
+      <template #footer>
+        <UiButton variant="ghost" @click="paraArquivar = null">Cancelar</UiButton>
         <UiButton variant="destructive" @click="confirmarArquivamento">Arquivar</UiButton>
-      </div>
+      </template>
     </UiModal>
   </AdminSection>
 </template>

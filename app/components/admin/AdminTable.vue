@@ -314,10 +314,25 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                   <!-- Ao lado do rótulo, não empurrado para a direita: numa
                        tabela larga o `ml-auto` jogaria a contagem para a borda
                        da largura ROLÁVEL, fora da área visível — o cabeçalho
-                       do bloco atravessa todas as colunas. -->
-                  <span v-if="block.section.meta" class="num shrink-0 text-xs text-text-muted">
+                       do bloco atravessa todas as colunas.
+
+                       E quem cede espaço primeiro é a meta, não o nome: com
+                       `shrink-0` aqui, uma meta longa espremia o rótulo do
+                       bloco até "F…" no celular — o dado mais importante da
+                       linha desaparecendo para caber o de apoio. -->
+                  <span
+                    v-if="block.section.meta"
+                    class="num min-w-0 truncate text-xs text-text-muted"
+                  >
                     {{ block.section.meta }}
                   </span>
+                  <UiBadge
+                    v-if="block.section.badge"
+                    :tone="block.section.badge.tone"
+                    class="shrink-0"
+                  >
+                    {{ block.section.badge.label }}
+                  </UiBadge>
                 </button>
               </td>
             </tr>

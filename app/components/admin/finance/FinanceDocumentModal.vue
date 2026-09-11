@@ -191,11 +191,11 @@ function submeter() {
       </div>
 
       <p v-if="erro" class="text-sm text-danger">{{ erro }}</p>
-
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" @click="emit('update:modelValue', false)">Cancelar</UiButton>
-        <UiButton type="submit">Salvar documento</UiButton>
-      </div>
     </form>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="emit('update:modelValue', false)">Cancelar</UiButton>
+      <UiButton @click="submeter">Adicionar documento</UiButton>
+    </template>
   </UiModal>
 </template>

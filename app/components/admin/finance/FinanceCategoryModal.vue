@@ -55,7 +55,7 @@ function submeter() {
       <UiCurrencyInput
         v-model="valorPrevisto"
         label="Quanto pretendem gastar"
-        :error="erro ? undefined : undefined"
+        :error="erro ?? undefined"
       />
       <p class="text-xs text-text-muted">
         O planejado é o teto que vocês imaginam para esta categoria — não precisa ser exato, e pode
@@ -63,11 +63,11 @@ function submeter() {
       </p>
 
       <p v-if="erro" class="text-sm text-danger">{{ erro }}</p>
-
-      <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="outline" @click="emit('update:modelValue', false)">Cancelar</UiButton>
-        <UiButton type="submit">{{ editando ? 'Salvar' : 'Criar categoria' }}</UiButton>
-      </div>
     </form>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="emit('update:modelValue', false)">Cancelar</UiButton>
+      <UiButton @click="submeter">{{ editando ? 'Salvar' : 'Adicionar categoria' }}</UiButton>
+    </template>
   </UiModal>
 </template>
