@@ -42,7 +42,12 @@ export async function carregarOrcamento(
       .order('ordem_exibicao', { ascending: true }),
     client
       .from('despesas')
-      .select('*, categoria:categorias_orcamento (id, nome), fornecedor:fornecedores (id, nome)')
+      // A FK precisa ser explícita: desde que o fornecedor passou a apontar para
+      // o gasto que ele cota, existem DUAS relações entre despesas e
+      // fornecedores, e o PostgREST recusa o embed ambíguo com 400.
+      .select(
+        '*, categoria:categorias_orcamento (id, nome), fornecedor:fornecedores!despesas_fornecedor_id_fkey (id, nome)',
+      )
       .eq('casamento_id', weddingId)
       .is('excluido_em', null)
       .order('created_at', { ascending: true }),

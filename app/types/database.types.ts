@@ -982,6 +982,7 @@ export type Database = {
           casamento_id: string
           categoria_id: string | null
           created_at: string
+          despesa_id: string | null
           email: string | null
           estagio: string
           excluido_em: string | null
@@ -998,6 +999,7 @@ export type Database = {
           casamento_id: string
           categoria_id?: string | null
           created_at?: string
+          despesa_id?: string | null
           email?: string | null
           estagio?: string
           excluido_em?: string | null
@@ -1014,6 +1016,7 @@ export type Database = {
           casamento_id?: string
           categoria_id?: string | null
           created_at?: string
+          despesa_id?: string | null
           email?: string | null
           estagio?: string
           excluido_em?: string | null
@@ -1039,6 +1042,13 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias_orcamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fornecedores_despesa_id_fkey"
+            columns: ["despesa_id"]
+            isOneToOne: false
+            referencedRelation: "despesas"
             referencedColumns: ["id"]
           },
         ]

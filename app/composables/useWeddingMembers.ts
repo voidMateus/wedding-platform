@@ -9,7 +9,9 @@ import type { WeddingMemberEntry } from '~/types/wedding-member'
  */
 export function useWeddingMembers() {
   function listWeddingMembers() {
-    return useFetch<{ data: WeddingMemberEntry[] }>('/api/wedding/members', { key: 'wedding-members' })
+    return useFetch<{ data: WeddingMemberEntry[] }>('/api/wedding/members', {
+      key: 'wedding-members',
+    })
   }
 
   async function inviteWeddingMember(input: WeddingMemberInviteInput): Promise<WeddingMemberEntry> {

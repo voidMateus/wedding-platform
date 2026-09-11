@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
   const atualizacao: Record<string, unknown> = {}
   if (input.nome !== undefined) atualizacao.nome = input.nome
   if (input.categoriaId !== undefined) atualizacao.categoria_id = input.categoriaId ?? null
+  if (input.despesaId !== undefined) atualizacao.despesa_id = input.despesaId ?? null
   if (input.estagio !== undefined) atualizacao.estagio = input.estagio
   if (input.valorPropostoCentavos !== undefined) {
     atualizacao.valor_proposto_centavos = input.valorPropostoCentavos ?? null

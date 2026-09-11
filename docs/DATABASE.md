@@ -59,7 +59,7 @@
 | `categorias_orcamento` | Categoria do orçamento (Buffet, Espaço...) com o valor **planejado**. Taxonomia única do módulo: usada por `despesas` e por `fornecedores` |
 | `despesas` | Um gasto do casamento, com **custo estimado** (planejamento) e **custo final** (contrato, nulo até fechar). Categoria e fornecedor opcionais |
 | `parcelas_despesa` | Parcela de uma despesa: `vence_em`, `valor_centavos` e `pago_em` — a única fonte do estado de pagamento |
-| `fornecedores` | Contato, estágio da negociação e cotação. O valor do contrato **nunca** mora aqui, mora em `despesas` |
+| `fornecedores` | Contato, estágio da negociação e cotação para **um gasto** (`despesa_id`) — é o que agrupa as propostas concorrentes. O valor do contrato **nunca** mora aqui, mora em `despesas` |
 | `documentos` | Contrato/comprovante/referência — entidade única compartilhada, com arquivo no bucket privado **ou** link externo (XOR) |
 
 **Mídia e operação**

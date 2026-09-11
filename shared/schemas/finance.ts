@@ -187,6 +187,8 @@ export type InstallmentsGenerateInput = z.infer<typeof installmentsGenerateSchem
 export const vendorInputSchema = z.object({
   nome: z.string().trim().min(1, 'Informe o nome do fornecedor.').max(160),
   categoriaId: uuidOpcional,
+  /** O gasto que este fornecedor cota — é o que põe as propostas concorrentes lado a lado. */
+  despesaId: uuidOpcional,
   estagio: z.enum(ESTAGIOS_FORNECEDOR).default('pesquisando'),
   valorPropostoCentavos: valorCentavosSchema.nullish(),
   nomeContato: z.string().trim().max(160).nullish(),

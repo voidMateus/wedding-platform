@@ -44,6 +44,13 @@ export const FUSO_DO_EVENTO = 'America/Sao_Paulo'
 
 export type SituacaoParcela = 'paga' | 'a_vencer' | 'vencida'
 
+/**
+ * O que a tela de Pagamentos mostra por linha. `a_definir` é o compromisso
+ * contratado cujo saldo ainda não tem data — ele existe em Pagamentos desde a
+ * contratação, e não a partir do dia em que alguém lembrar de parcelar.
+ */
+export type SituacaoPagamento = SituacaoParcela | 'a_definir'
+
 export type SituacaoFinanceiraFornecedor = 'sem_despesa' | 'a_pagar' | 'quitado'
 
 /** Onde o gasto está entre planejar e pagar — o que a tela de Orçamento mostra por linha. */

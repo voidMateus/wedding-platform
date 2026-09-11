@@ -1,72 +1,124 @@
-import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
 import {
   hojeNoFusoDoEvento,
   situacaoDaParcela,
   somarDias,
+  totaisDaDespesa,
   DIAS_HORIZONTE_VENCIMENTO,
 } from '#shared/utils/orcamento'
 import type { PagamentoListado, ResumoDePagamentos } from '~/types/finance'
 
-const querySchema = z.object({
-  /** `todos` (default), `pagos`, `pendentes` ou `vencidos` — o recorte da tela. */
-  filtro: z.enum(['todos', 'pagos', 'pendentes', 'vencidos']).default('todos'),
-})
-
 /**
- * A vida financeira do casamento: cada parcela de cada gasto CONTRATADO, com o
- * contexto que a torna reconhecível (o gasto, a categoria, o fornecedor).
+ * A vida financeira do casamento: tudo que já virou compromisso.
  *
- * Gasto ainda em planejamento não aparece aqui — não há o que pagar num valor
- * que ninguém fechou. É a separação que esta tela existe para manter: Orçamento
- * responde "quanto vai custar", Pagamentos responde "quanto sai, e quando".
+ * **Contratar é o que põe o gasto aqui — não ter parcela definida não o
+ * esconde.** Quem fechou com o buffet e escolheu "defino o pagamento depois"
+ * precisa encontrar esse compromisso nesta tela, com o saldo pendente e o
+ * caminho para agendar; sumir daqui até alguém lembrar de criar parcelas era o
+ * furo mais fácil de virar uma conta esquecida.
  *
- * A situação de cada parcela é derivada de `pago_em` e `vence_em` contra hoje
- * no fuso do evento — nunca uma coluna de status.
+ * Por isso a lista tem dois tipos de linha:
+ *   - a parcela de verdade, com vencimento e estado derivado de `pago_em`;
+ *   - o compromisso **sem parcelas**, uma linha por gasto contratado, com a
+ *     situação `a_definir` e o saldo inteiro em aberto.
+ *
+ * Gasto ainda em planejamento (sem custo final) não aparece de jeito nenhum:
+ * não há o que pagar num valor que ninguém fechou.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)
-  const { filtro } = validateQuery(event, querySchema)
   const client = await serverSupabaseClient(event)
 
-  const { data, error } = await client
-    .from('parcelas_despesa')
-    .select(
-      `*, despesa:despesas!inner (
-        id, descricao, valor_centavos, excluido_em,
-        categoria:categorias_orcamento (id, nome),
-        fornecedor:fornecedores (id, nome)
-      )`,
-    )
-    .eq('casamento_id', weddingId)
-    .is('despesa.excluido_em', null)
-    .order('vence_em', { ascending: true })
+  const [despesasResult, parcelasResult] = await Promise.all([
+    client
+      .from('despesas')
+      .select(
+        '*, categoria:categorias_orcamento (id, nome), fornecedor:fornecedores!despesas_fornecedor_id_fkey (id, nome)',
+      )
+      .eq('casamento_id', weddingId)
+      .is('excluido_em', null)
+      .not('valor_centavos', 'is', null),
+    client
+      .from('parcelas_despesa')
+      .select('*')
+      .eq('casamento_id', weddingId)
+      .order('vence_em', { ascending: true }),
+  ])
 
-  if (error) {
-    throw badRequestError(error.message)
-  }
+  if (despesasResult.error) throw badRequestError(despesasResult.error.message)
+  if (parcelasResult.error) throw badRequestError(parcelasResult.error.message)
 
   const hoje = hojeNoFusoDoEvento()
   const limite = somarDias(hoje, DIAS_HORIZONTE_VENCIMENTO)
 
-  const pagamentos: PagamentoListado[] = (data ?? []).map((linha) => {
-    const { despesa, ...parcela } = linha
-    return {
-      ...parcela,
-      situacao: situacaoDaParcela(parcela, hoje),
-      despesa: { id: despesa.id, descricao: despesa.descricao },
-      categoria: despesa.categoria ?? null,
-      fornecedor: despesa.fornecedor ?? null,
-    }
-  })
+  const parcelas = parcelasResult.data ?? []
+  const parcelasPorDespesa = new Map<string, typeof parcelas>()
+  for (const parcela of parcelas) {
+    const lista = parcelasPorDespesa.get(parcela.despesa_id) ?? []
+    lista.push(parcela)
+    parcelasPorDespesa.set(parcela.despesa_id, lista)
+  }
 
-  // O resumo é sempre do conjunto INTEIRO, não do recorte: o número de
-  // vencidos não pode mudar porque o casal filtrou por "pagos".
+  const pagamentos: PagamentoListado[] = []
+
+  for (const linha of despesasResult.data ?? []) {
+    const { categoria, fornecedor, ...despesa } = linha
+    const doGasto = parcelasPorDespesa.get(despesa.id) ?? []
+    const contexto = {
+      despesa: { id: despesa.id, descricao: despesa.descricao },
+      categoria: categoria ?? null,
+      fornecedor: fornecedor ?? null,
+    }
+
+    for (const parcela of doGasto) {
+      pagamentos.push({
+        ...parcela,
+        tipo: 'parcela',
+        situacao: situacaoDaParcela(parcela, hoje),
+        totalDeParcelas: doGasto.length,
+        ...contexto,
+      })
+    }
+
+    // O saldo que sobra do contrato sem estar em nenhuma parcela vira UMA
+    // linha "a definir" — inclusive quando não há parcela alguma.
+    const totais = totaisDaDespesa({
+      valor_estimado_centavos: despesa.valor_estimado_centavos,
+      valor_centavos: despesa.valor_centavos,
+      parcelas: doGasto,
+    })
+
+    if (totais.naoParcelado > 0) {
+      pagamentos.push({
+        id: `despesa:${despesa.id}`,
+        casamento_id: despesa.casamento_id,
+        despesa_id: despesa.id,
+        numero: doGasto.length + 1,
+        vence_em: null,
+        valor_centavos: totais.naoParcelado,
+        pago_em: null,
+        forma_pagamento: null,
+        observacao: null,
+        created_at: despesa.created_at,
+        updated_at: despesa.updated_at,
+        tipo: 'a_definir',
+        situacao: 'a_definir',
+        totalDeParcelas: doGasto.length,
+        ...contexto,
+      })
+    }
+  }
+
+  // Sem vencimento definido, o compromisso vai para o fim: ele não disputa
+  // urgência com quem tem data marcada.
+  pagamentos.sort((a, b) => (a.vence_em ?? '9999-12-31').localeCompare(b.vence_em ?? '9999-12-31'))
+
   const resumo: ResumoDePagamentos = {
     pago: { valor: 0, quantidade: 0 },
     vencidos: { valor: 0, quantidade: 0 },
     proximos30Dias: { valor: 0, quantidade: 0 },
     aPagar: { valor: 0, quantidade: 0 },
+    semData: { valor: 0, quantidade: 0 },
   }
 
   for (const pagamento of pagamentos) {
@@ -79,21 +131,17 @@ export default defineEventHandler(async (event) => {
     resumo.aPagar.valor += pagamento.valor_centavos
     resumo.aPagar.quantidade += 1
 
-    if (pagamento.situacao === 'vencida') {
+    if (pagamento.situacao === 'a_definir') {
+      resumo.semData.valor += pagamento.valor_centavos
+      resumo.semData.quantidade += 1
+    } else if (pagamento.situacao === 'vencida') {
       resumo.vencidos.valor += pagamento.valor_centavos
       resumo.vencidos.quantidade += 1
-    } else if (pagamento.vence_em <= limite) {
+    } else if (pagamento.vence_em && pagamento.vence_em <= limite) {
       resumo.proximos30Dias.valor += pagamento.valor_centavos
       resumo.proximos30Dias.quantidade += 1
     }
   }
 
-  const recortados = pagamentos.filter((pagamento) => {
-    if (filtro === 'pagos') return pagamento.situacao === 'paga'
-    if (filtro === 'pendentes') return pagamento.situacao !== 'paga'
-    if (filtro === 'vencidos') return pagamento.situacao === 'vencida'
-    return true
-  })
-
-  return { data: recortados, resumo, hoje }
+  return { data: pagamentos, resumo, hoje }
 })

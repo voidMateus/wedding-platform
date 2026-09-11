@@ -3,16 +3,33 @@ import type { Fornecedor, FornecedorComSituacao } from '~/types/finance'
 
 const CHAVE_FORNECEDORES = 'finance-vendors'
 
-/** Fornecedores: pipeline, contatos e a situação financeira derivada. */
+/**
+ * Fornecedores: pipeline, contatos e a situação financeira derivada.
+ *
+ * A listagem traz ATIVOS E ARQUIVADOS numa requisição só, e quem consome
+ * separa os dois — duas chamadas para a mesma rota, distinguidas só por uma
+ * query, davam empate de cache e a lista de arquivados chegava vazia sem
+ * nenhum erro para acusar.
+ */
 export function useVendors() {
   function listVendors() {
-    return useFetch<{ data: FornecedorComSituacao[] }>('/api/finance/vendors', {
+    return useFetch<{ data: FornecedorComSituacao[] }>('/api/finance/vendors?incluirArquivados=1', {
       key: CHAVE_FORNECEDORES,
     })
   }
 
   async function atualizarLista() {
     await refreshNuxtData(CHAVE_FORNECEDORES)
+  }
+
+  /** Arquivar e restaurar são a mesma rota — só ela sabe voltar atrás. */
+  async function arquivarFornecedor(id: string, arquivado: boolean) {
+    const fornecedor = await $fetch<Fornecedor>(`/api/finance/vendors/${id}/archive`, {
+      method: 'POST',
+      body: { arquivado },
+    })
+    await atualizarLista()
+    return fornecedor
   }
 
   async function criarFornecedor(input: VendorInput) {
@@ -41,5 +58,12 @@ export function useVendors() {
     return resposta
   }
 
-  return { listVendors, atualizarLista, criarFornecedor, atualizarFornecedor, excluirFornecedor }
+  return {
+    listVendors,
+    atualizarLista,
+    arquivarFornecedor,
+    criarFornecedor,
+    atualizarFornecedor,
+    excluirFornecedor,
+  }
 }

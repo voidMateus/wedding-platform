@@ -4,7 +4,7 @@ import {
   type TipoDocumento,
   ROTULOS_TIPO_DOCUMENTO,
 } from '#shared/schemas/finance'
-import type { SituacaoFinanceiraFornecedor, SituacaoParcela } from '#shared/utils/orcamento'
+import type { SituacaoFinanceiraFornecedor, SituacaoPagamento } from '#shared/utils/orcamento'
 import type { StatusPresentation, StatusTone } from './status-presentation'
 
 /**
@@ -18,13 +18,16 @@ import type { StatusPresentation, StatusTone } from './status-presentation'
  * hoje. Vencida é danger — é a única coisa aqui que já deu errado.
  */
 
-const SITUACAO_PARCELA: Record<SituacaoParcela, StatusPresentation> = {
-  paga: { label: 'Paga', tone: 'success' },
+const SITUACAO_PARCELA: Record<SituacaoPagamento, StatusPresentation> = {
+  paga: { label: 'Pago', tone: 'success' },
   a_vencer: { label: 'A vencer', tone: 'neutral' },
-  vencida: { label: 'Vencida', tone: 'danger' },
+  vencida: { label: 'Vencido', tone: 'danger' },
+  // `warning` porque há providência esperada, e ela não é pagar: é decidir
+  // quando pagar. Sem data, esse valor não aparece em nenhum vencimento.
+  a_definir: { label: 'Sem data', tone: 'warning' },
 }
 
-export function situacaoParcelaPresentation(situacao: SituacaoParcela): StatusPresentation {
+export function situacaoParcelaPresentation(situacao: SituacaoPagamento): StatusPresentation {
   return SITUACAO_PARCELA[situacao]
 }
 

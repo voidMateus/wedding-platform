@@ -8,15 +8,24 @@
 <script setup lang="ts">
 import { ESTAGIOS_FORNECEDOR, ROTULOS_ESTAGIO_FORNECEDOR } from '#shared/schemas/finance'
 import type { EstagioFornecedor, VendorInput } from '#shared/schemas/finance'
-import type { CategoriaOrcamento, FornecedorComSituacao } from '~/types/finance'
+import type { CategoriaOrcamento, DespesaComParcelas, FornecedorComSituacao } from '~/types/finance'
 
 interface Props {
   modelValue: boolean
   fornecedor?: FornecedorComSituacao | null
   categorias: CategoriaOrcamento[]
+  /** Os gastos do orçamento — a cotação existe para um deles. */
+  despesas: DespesaComParcelas[]
+  despesaPadrao?: string | null
 }
 
-const { modelValue, fornecedor = null, categorias } = defineProps<Props>()
+const {
+  modelValue,
+  fornecedor = null,
+  categorias,
+  despesas,
+  despesaPadrao = null,
+} = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -24,6 +33,7 @@ const emit = defineEmits<{
 }>()
 
 const nome = ref('')
+const despesaId = ref('')
 const categoriaId = ref('')
 const estagio = ref<EstagioFornecedor>('pesquisando')
 const valorProposto = ref<number | null>(null)
@@ -41,6 +51,21 @@ const opcoesCategoria = computed(() => [
   ...categorias.map((categoria) => ({ value: categoria.id, label: categoria.nome })),
 ])
 
+/**
+ * O gasto que esta cotação disputa. É ele que põe as propostas concorrentes
+ * lado a lado na tela — sem isso, três fornecedores de refrigerante ficam
+ * perdidos entre buffets e bandas.
+ */
+const opcoesDespesa = computed(() => [
+  { value: '', label: 'Ainda não sei' },
+  ...despesas.map((despesa) => ({
+    value: despesa.id,
+    label: despesa.categoria
+      ? `${despesa.categoria.nome} · ${despesa.descricao}`
+      : despesa.descricao,
+  })),
+])
+
 const opcoesEstagio = ESTAGIOS_FORNECEDOR.map((valor) => ({
   value: valor,
   label: ROTULOS_ESTAGIO_FORNECEDOR[valor],
@@ -52,7 +77,14 @@ watch(
     if (!aberto) return
     erro.value = ''
     nome.value = fornecedor?.nome ?? ''
-    categoriaId.value = fornecedor?.categoria_id ?? ''
+    despesaId.value = fornecedor?.despesa_id ?? despesaPadrao ?? ''
+    // A categoria vem do gasto quando há um: classificar duas vezes a mesma
+    // coisa é como as duas acabam discordando.
+    categoriaId.value =
+      fornecedor?.categoria_id ??
+      despesas.find((despesa) => despesa.id === (fornecedor?.despesa_id ?? despesaPadrao))
+        ?.categoria_id ??
+      ''
     estagio.value = (fornecedor?.estagio as EstagioFornecedor) ?? 'pesquisando'
     valorProposto.value = fornecedor?.valor_proposto_centavos ?? null
     nomeContato.value = fornecedor?.nome_contato ?? ''
@@ -71,6 +103,7 @@ function submeter() {
 
   emit('salvar', {
     nome: nome.value.trim(),
+    despesaId: despesaId.value || null,
     categoriaId: categoriaId.value || null,
     estagio: estagio.value,
     valorPropostoCentavos: valorProposto.value,
@@ -93,8 +126,21 @@ function submeter() {
     <form class="flex flex-col gap-4" @submit.prevent="submeter">
       <div class="grid gap-4 sm:grid-cols-2">
         <UiInput v-model="nome" label="Nome" placeholder="Buffet Recanto" />
-        <UiSelect v-model="categoriaId" label="Categoria" :options="opcoesCategoria" />
+        <UiSelect
+          v-model="despesaId"
+          label="Cotação para"
+          :options="opcoesDespesa"
+          hint="O gasto que você está cotando — é o que agrupa as propostas."
+        />
       </div>
+
+      <UiSelect
+        v-if="!despesaId"
+        v-model="categoriaId"
+        label="Categoria"
+        :options="opcoesCategoria"
+        hint="Só enquanto a cotação não tem gasto definido."
+      />
 
       <div class="grid gap-4 sm:grid-cols-2">
         <UiSelect v-model="estagio" label="Estágio" :options="opcoesEstagio" />

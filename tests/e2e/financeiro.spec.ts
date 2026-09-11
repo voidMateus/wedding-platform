@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test'
 
-// O Financeiro contra o Supabase de desenvolvimento real, no desenho de
-// 2026-09-11: três telas para três momentos — planejar (Orçamento), contratar
-// (Fornecedores) e pagar (Pagamentos).
+// O Financeiro contra o Supabase de desenvolvimento real: três telas para três
+// momentos — planejar (Orçamento), cotar e contratar (Fornecedores) e pagar
+// (Pagamentos).
 //
-// O que estes testes protegem é justamente a separação: gasto só planejado não
-// pode aparecer em Pagamentos, e valor fechado precisa atravessar as três telas
-// sem alguém redigitar nada.
+// O que estes testes protegem é a CONEXÃO entre elas: um gasto planejado
+// aparece para cotação, as propostas do mesmo gasto ficam lado a lado, e o que
+// é contratado chega a Pagamentos — inclusive sem parcela definida, que era o
+// furo mais fácil de virar conta esquecida.
 const email = process.env.E2E_ADMIN_EMAIL
 const password = process.env.E2E_ADMIN_PASSWORD
 
@@ -25,7 +26,7 @@ async function entrar(page: import('@playwright/test').Page): Promise<string> {
   return slug
 }
 
-test('o Orçamento mostra a viagem do dinheiro, do orçado ao pago', async ({ page }) => {
+test('o Orçamento mostra os quatro números, com "a pagar" entre eles', async ({ page }) => {
   test.setTimeout(90_000)
   const slug = await entrar(page)
 
@@ -34,14 +35,16 @@ test('o Orçamento mostra a viagem do dinheiro, do orçado ao pago', async ({ pa
     timeout: 20_000,
   })
 
-  for (const parada of ['Estimado', 'Contratado', 'Pago']) {
+  // "A pagar" é cartão próprio, não nota de rodapé do Pago: é uma das
+  // perguntas que o casal mais repete.
+  for (const parada of ['Estimado', 'Contratado', 'Pago', 'A pagar']) {
     await expect(page.getByText(parada, { exact: true }).first()).toBeVisible({ timeout: 20_000 })
   }
 
   await expect(page.getByText('Orçamento do casamento')).toBeVisible()
 })
 
-test('gasto sem valor fechado fica "a contratar" e não aparece em Pagamentos', async ({ page }) => {
+test('gasto planejado fica "a contratar" e não aparece em Pagamentos', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)
 
@@ -50,33 +53,20 @@ test('gasto sem valor fechado fica "a contratar" e não aparece em Pagamentos', 
     timeout: 20_000,
   })
 
-  // Abre a árvore inteira para alcançar as linhas de gasto.
-  const fechados = page.getByRole('button', { expanded: false })
-  for (let passo = 0; passo < 30; passo += 1) {
-    if ((await fechados.count()) === 0) break
-    await fechados.first().click()
-    await page.waitForTimeout(120)
-  }
+  const planejado = 'Flores da cerimônia'
+  await expect(page.getByRole('row').filter({ hasText: planejado }).first()).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.getByRole('button', { name: 'registrar valor fechado' }).first()).toBeVisible()
 
-  // O convite para fechar o valor é a porta da contratação, dentro da linha.
-  const aContratar = page.getByRole('button', { name: 'registrar valor fechado' })
-  await expect(aContratar.first()).toBeVisible({ timeout: 20_000 })
-
-  // O gasto planejado precisa ter um nome visível no Orçamento...
-  const nomeDoGastoPlanejado = 'Flores da cerimônia'
-  await expect(page.getByText(nomeDoGastoPlanejado).first()).toBeVisible()
-
-  // ...e NÃO pode existir em Pagamentos, onde só entra o que foi contratado.
   await page.goto(`/admin/${slug}/financeiro/pagamentos`)
   await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
     timeout: 20_000,
   })
-  await expect(page.getByText(nomeDoGastoPlanejado)).toHaveCount(0)
+  await expect(page.getByRole('row').filter({ hasText: planejado })).toHaveCount(0)
 })
 
-test('Pagamentos separa pago, a vencer e vencido, e a baixa acontece na linha', async ({
-  page,
-}) => {
+test('contratado sem parcela aparece em Pagamentos como "Sem data"', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)
 
@@ -85,38 +75,36 @@ test('Pagamentos separa pago, a vencer e vencido, e a baixa acontece na linha', 
     timeout: 20_000,
   })
 
-  for (const indicador of ['Pago', 'A pagar', 'Vencidos', 'Próximos 30 dias']) {
-    await expect(page.getByText(indicador, { exact: true }).first()).toBeVisible({
-      timeout: 20_000,
-    })
-  }
+  // "Celebrante" foi contratado e ninguém definiu como pagar — ele PRECISA
+  // estar aqui, senão vira uma conta que só reaparece quando alguém lembra.
+  const linha = page.getByRole('row').filter({ hasText: 'Celebrante' }).first()
+  await expect(linha).toBeVisible({ timeout: 20_000 })
+  await expect(linha.getByText('Sem data', { exact: true })).toBeVisible()
+  await expect(linha.getByRole('button', { name: 'Agendar' })).toBeVisible()
+})
 
-  // O filtro entra na URL — é o que permite a Visão do Orçamento apontar para
-  // um recorte específico.
-  // `toPass` porque a página admin renderiza no servidor: clique que chega
-  // antes da hidratação é descartado em silêncio.
-  await expect(async () => {
-    await page.getByRole('button', { name: 'Vencidos' }).click({ timeout: 3_000 })
-    await expect(page).toHaveURL(/filtro=vencidos/, { timeout: 3_000 })
-  }).toPass({ timeout: 30_000 })
+test('Pagamentos registra a baixa na própria linha', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
 
-  await page.getByRole('button', { name: 'Todos' }).click()
-  await expect(page).not.toHaveURL(/filtro=/)
+  await page.goto(`/admin/${slug}/financeiro/pagamentos`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
+    timeout: 20_000,
+  })
 
-  // Esperar a lista completa voltar antes de contar: logo depois de trocar o
-  // filtro, a tabela ainda é a do recorte anterior, e contar aí faria o teste
-  // se declarar "sem parcelas em aberto" sem ter olhado a lista certa.
   const marcarPago = page.getByRole('button', { name: 'Marcar pago' })
   await expect(marcarPago.first()).toBeVisible({ timeout: 20_000 })
 
-  await marcarPago.first().click()
-  await expect(page.getByRole('heading', { name: 'Registrar pagamento' })).toBeVisible({
-    timeout: 10_000,
-  })
+  // `toPass` porque a página admin renderiza no servidor: clique que chega
+  // antes da hidratação é descartado em silêncio.
+  await expect(async () => {
+    await marcarPago.first().click({ timeout: 3_000 })
+    await expect(page.getByRole('heading', { name: 'Registrar pagamento' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
   await page.getByRole('button', { name: 'Confirmar' }).click()
 
-  // A ação volta como "Desfazer" na mesma linha: o estado é a data gravada,
-  // não um destaque local.
   const desfazer = page.getByRole('button', { name: 'Desfazer' })
   await expect(desfazer.first()).toBeVisible({ timeout: 20_000 })
 
@@ -127,8 +115,8 @@ test('Pagamentos separa pago, a vencer e vencido, e a baixa acontece na linha', 
   })
 })
 
-test('contratar um fornecedor preenche o gasto planejado e cria o pagamento', async ({ page }) => {
-  test.setTimeout(150_000)
+test('as cotações do mesmo gasto ficam juntas, com a menor destacada', async ({ page }) => {
+  test.setTimeout(120_000)
   const slug = await entrar(page)
 
   await page.goto(`/admin/${slug}/financeiro/fornecedores`)
@@ -136,26 +124,68 @@ test('contratar um fornecedor preenche o gasto planejado e cria o pagamento', as
     timeout: 20_000,
   })
 
-  // "Estúdio Luz" está em negociação para Fotografia, que tem um gasto
-  // planejado sem valor fechado — exatamente o caso que a contratação resolve.
-  const linha = page.locator('li').filter({ hasText: 'Estúdio Luz' }).last()
-  await expect(linha).toBeVisible({ timeout: 20_000 })
+  // Três propostas de refrigerante, agrupadas sob o gasto que elas disputam —
+  // é isso que torna a comparação possível.
+  await expect(page.getByText('Refrigerantes').first()).toBeVisible({ timeout: 20_000 })
+  for (const cotacao of ['Distribuidora Sul', 'Bebidas Express', 'Atacado do Zé']) {
+    await expect(page.getByRole('row').filter({ hasText: cotacao }).first()).toBeVisible({
+      timeout: 20_000,
+    })
+  }
 
-  await expect(async () => {
-    await linha.getByRole('button', { name: 'Registrar contratação' }).click()
-    await expect(page.getByRole('heading', { name: /Contratar/ })).toBeVisible({ timeout: 2_000 })
-  }).toPass({ timeout: 20_000 })
+  const maisBarato = page.getByRole('row').filter({ hasText: 'Atacado do Zé' }).first()
+  await expect(maisBarato.getByText('menor preço')).toBeVisible()
+})
 
-  // O gasto é escolhido entre os planejados; a cotação já vem como sugestão.
-  await page.getByRole('combobox', { name: 'Qual gasto?' }).click()
-  await page.getByRole('option', { name: /Fotografia e making of/ }).click()
+test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
+  test.setTimeout(150_000)
+  const nome = `ZForn ${Date.now().toString().slice(-8)}`
+  const slug = await entrar(page)
 
-  await page.getByRole('button', { name: 'Confirmar contratação' }).click()
-
-  // De volta ao Orçamento, o gasto deixou de ser "a contratar".
-  await page.goto(`/admin/${slug}/financeiro`)
-  await expect(page.getByRole('heading', { level: 1, name: 'Orçamento' })).toBeVisible({
+  await page.goto(`/admin/${slug}/financeiro/fornecedores`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Fornecedores' })).toBeVisible({
     timeout: 20_000,
   })
-  await expect(page.getByText('Fotografia e vídeo').first()).toBeVisible({ timeout: 20_000 })
+
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Nova cotação' }).first().click()
+    await expect(page.getByLabel('Nome', { exact: true })).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+
+  await page.getByLabel('Nome', { exact: true }).fill(nome)
+  await page.getByRole('button', { name: 'Adicionar fornecedor' }).click()
+
+  const linha = page.getByRole('row').filter({ hasText: nome }).first()
+  await expect(linha).toBeVisible({ timeout: 20_000 })
+
+  await linha.getByRole('button', { name: 'Arquivar' }).click()
+  await page.getByRole('button', { name: 'Arquivar', exact: true }).last().click()
+  await expect(page.getByRole('row').filter({ hasText: nome })).toHaveCount(0, {
+    timeout: 20_000,
+  })
+
+  // O caminho de volta: a seção de arquivados, com Restaurar.
+  const arquivados = page.getByRole('button', { name: /fornecedores? arquivados?$/ })
+  await expect(arquivados).toBeVisible({ timeout: 20_000 })
+  await arquivados.click()
+
+  const linhaArquivada = page.locator('li').filter({ hasText: nome }).last()
+  await expect(linhaArquivada).toBeVisible({ timeout: 10_000 })
+  await linhaArquivada.getByRole('button', { name: 'Restaurar' }).click()
+
+  await expect(page.getByRole('row').filter({ hasText: nome }).first()).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // Limpeza.
+  await page
+    .getByRole('row')
+    .filter({ hasText: nome })
+    .first()
+    .getByRole('button', { name: 'Arquivar' })
+    .click()
+  await page.getByRole('button', { name: 'Arquivar', exact: true }).last().click()
+  await expect(page.getByRole('row').filter({ hasText: nome })).toHaveCount(0, {
+    timeout: 20_000,
+  })
 })

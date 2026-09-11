@@ -55,5 +55,13 @@ export function useImageUploader({ upload, remove }: ImageUploaderHandlers) {
     }
   }
 
-  return { fileInput, isUploading, isRemoving, errorMessage, openFilePicker, handleFileChange, handleRemove }
+  return {
+    fileInput,
+    isUploading,
+    isRemoving,
+    errorMessage,
+    openFilePicker,
+    handleFileChange,
+    handleRemove,
+  }
 }

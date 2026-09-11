@@ -36,15 +36,9 @@ interface Parada {
 const paradas = computed<Parada[]>(() => {
   const lista: Parada[] = []
 
-  if (resumo.orcado > 0) {
-    lista.push({
-      chave: 'orcado',
-      label: 'Orçado',
-      valor: resumo.orcado,
-      apoio: resumo.aPlanejar > 0 ? `${formatCentsToBRL(resumo.aPlanejar)} sem destino` : null,
-    })
-  }
-
+  // "Orçado" não vira cartão: ele já é o assunto do bloco de cima (o teto e a
+  // distribuição por categoria). Os quatro cartões são a vida do gasto —
+  // estimar, fechar, pagar e o que ainda falta pagar.
   lista.push({
     chave: 'estimado',
     label: 'Estimado',
@@ -65,7 +59,18 @@ const paradas = computed<Parada[]>(() => {
     chave: 'pago',
     label: 'Pago',
     valor: resumo.pago,
-    apoio: resumo.aPagar > 0 ? `${formatCentsToBRL(resumo.aPagar)} ainda a pagar` : null,
+    apoio: resumo.percentualPago === null ? null : `${resumo.percentualPago}% do contratado`,
+  })
+
+  // Cartão próprio, e não uma frase embaixo do Pago: "quanto ainda sai" é uma
+  // das perguntas que o casal mais repete, e ela estava escondida como nota de
+  // rodapé de outro número.
+  lista.push({
+    chave: 'a-pagar',
+    label: 'A pagar',
+    valor: resumo.aPagar,
+    apoio:
+      resumo.naoParcelado > 0 ? `${formatCentsToBRL(resumo.naoParcelado)} sem data marcada` : null,
   })
 
   return lista

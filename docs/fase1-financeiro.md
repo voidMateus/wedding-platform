@@ -682,3 +682,44 @@ total (três concorrentes somariam três vezes o mesmo gasto); "pago" continua
 não sendo estágio de fornecedor; `pago_em` continua sendo a única fonte do
 estado de pagamento; e todo cálculo continua em `shared/utils/orcamento.ts`,
 agora com `contratado` podendo ser nulo.
+
+## 13. Rodada de conexão (2026-09-11, tarde)
+
+Quatro apontamentos do uso real, e o que cada um virou:
+
+1. **Fornecedor arquivado não ia para lugar nenhum** — mesmo furo que as
+   categorias tinham. Ganhou `POST /api/finance/vendors/[id]/archive` e a
+   seção de restauração no fim da tela.
+
+   No caminho apareceu a causa raiz do sintoma que já tinha aparecido nas
+   categorias: **duas chamadas `useFetch` para a mesma rota, distinguidas só
+   por uma query, empatavam no cache e a lista de arquivados chegava vazia —
+   sem erro nenhum para acusar**. A correção é estrutural: a listagem traz
+   ativos E arquivados numa requisição só, e a tela separa os dois. Uma
+   requisição a menos, e o estado deixa de depender de qual das duas respondeu
+   por último.
+
+2. **Padrões do Modo Lista aplicados às três telas.** As tabelas artesanais
+   (`<table>` escrito à mão, que a governança do Design System não admite)
+   viraram `AdminTable`: blocos recolhíveis por categoria/gasto, filtro e
+   ordenação no cabeçalho de cada coluna com o estado na URL, barra de filtros
+   ativos, cabeçalho fixo, "Recolher tudo" e o formato empilhado do celular —
+   tudo de graça, e igual ao resto do painel.
+
+3. **O quadrado vazio do cabeçalho virou "A pagar".** Ele estava escondido
+   como nota de rodapé do Pago, e é uma das perguntas que o casal mais repete.
+   O "Orçado" saiu dos cartões (já é o assunto do bloco de cima), deixando a
+   linha com os quatro momentos do gasto: Estimado, Contratado, Pago, A pagar.
+
+4. **A conexão entre as três telas**, que era o pedido de fundo:
+   - o fornecedor passou a cotar **um gasto** (`fornecedores.despesa_id`), e a
+     tela de Fornecedores se organiza por gasto — as propostas concorrentes
+     ficam lado a lado, com a menor destacada e a diferença para ela em cada
+     linha. É o que torna a comparação possível;
+   - a proposta em PDF fica visível na linha da cotação (contagem de
+     documentos anexados ao fornecedor);
+   - **contratar leva o gasto para Pagamentos mesmo sem parcela definida.**
+     Era o furo mais grave: quem escolhia "defino depois" não via o
+     compromisso em lugar nenhum. Agora o saldo sem data aparece como uma
+     linha `Sem data`, com o botão "Agendar" — e o resumo tem um indicador
+     próprio para ele.

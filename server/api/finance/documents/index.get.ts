@@ -20,7 +20,9 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
   let query = client
     .from('documentos')
-    .select('*, fornecedor:fornecedores (id, nome), despesa:despesas (id, descricao)')
+    .select(
+      '*, fornecedor:fornecedores!documentos_fornecedor_id_fkey (id, nome), despesa:despesas!documentos_despesa_id_fkey (id, descricao)',
+    )
     .eq('casamento_id', weddingId)
     .order('created_at', { ascending: false })
 

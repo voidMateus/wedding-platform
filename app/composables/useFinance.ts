@@ -35,7 +35,6 @@ interface OrcamentoResponse {
 export const CHAVE_RESUMO_FINANCEIRO = 'finance-summary'
 export const CHAVE_ORCAMENTO = 'finance-budget'
 export const CHAVE_CATEGORIAS = 'finance-categories'
-export const CHAVE_CATEGORIAS_ARQUIVADAS = 'finance-categories-arquivadas'
 export const CHAVE_PAGAMENTOS = 'finance-payments'
 
 export function useFinance() {
@@ -47,34 +46,28 @@ export function useFinance() {
     return useFetch<OrcamentoResponse>('/api/finance/expenses', { key: CHAVE_ORCAMENTO })
   }
 
+  /**
+   * Categorias, ATIVAS E ARQUIVADAS numa requisição só — quem consome separa
+   * as duas. Duas chamadas para a mesma rota, distinguidas só por uma query,
+   * davam empate de cache e a lista de arquivadas chegava vazia sem nenhum
+   * erro para acusar.
+   */
   function listCategorias() {
-    return useFetch<{ data: CategoriaOrcamento[] }>('/api/finance/categories', {
+    return useFetch<{ data: CategoriaOrcamento[] }>('/api/finance/categories?incluirArquivadas=1', {
       key: CHAVE_CATEGORIAS,
     })
   }
 
   /**
-   * Todas as categorias, arquivadas inclusive — a lista de onde se restaura.
-   * Chave própria: se dividisse com `listCategorias`, o seletor de categoria
-   * de uma despesa passaria a oferecer categoria arquivada.
+   * Pagamentos: tudo que já virou compromisso — as parcelas e também o saldo
+   * contratado que ainda não tem data. O recorte é feito na tela, pelo filtro
+   * de coluna: a lista é de dezenas de linhas, e um ir-e-voltar por clique de
+   * filtro só somaria espera.
    */
-  function listCategoriasComArquivadas() {
-    // Query na própria URL, e não em `query`: as duas chamadas apontam para o
-    // mesmo endpoint, e a URL diferente é o que garante que uma não sirva a
-    // resposta em cache da outra.
-    return useFetch<{ data: CategoriaOrcamento[] }>('/api/finance/categories?incluirArquivadas=1', {
-      key: CHAVE_CATEGORIAS_ARQUIVADAS,
-    })
-  }
-
-  /**
-   * Pagamentos: as parcelas do que já foi contratado. O filtro entra na chave
-   * da URL para a tela trocar de recorte sem inventar cache próprio.
-   */
-  function getPagamentos(filtro: MaybeRefOrGetter<string> = 'todos') {
+  function getPagamentos() {
     return useFetch<{ data: PagamentoListado[]; resumo: ResumoDePagamentos; hoje: string }>(
-      () => `/api/finance/payments?filtro=${toValue(filtro)}`,
-      { key: CHAVE_PAGAMENTOS, watch: [computed(() => toValue(filtro))] },
+      '/api/finance/payments',
+      { key: CHAVE_PAGAMENTOS },
     )
   }
 
@@ -88,7 +81,6 @@ export function useFinance() {
       refreshNuxtData(CHAVE_RESUMO_FINANCEIRO),
       refreshNuxtData(CHAVE_ORCAMENTO),
       refreshNuxtData(CHAVE_CATEGORIAS),
-      refreshNuxtData(CHAVE_CATEGORIAS_ARQUIVADAS),
       refreshNuxtData(CHAVE_PAGAMENTOS),
     ])
   }
@@ -212,7 +204,6 @@ export function useFinance() {
     getPagamentos,
     contratarFornecedor,
     listCategorias,
-    listCategoriasComArquivadas,
     atualizarFinanceiro,
     definirTetoDoOrcamento,
     criarCategoria,

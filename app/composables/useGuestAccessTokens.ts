@@ -9,9 +9,7 @@ import type { GuestAccessTokenGenerated, GuestAccessTokenStatus } from '~/types/
 export function useGuestAccessTokens() {
   // Ação sob demanda (disparada por clique, não no load da página) — $fetch
   // direto, como as demais mutações dos composables administrativos.
-  async function getStatus(
-    query: GuestAccessTokenGenerateInput,
-  ): Promise<GuestAccessTokenStatus> {
+  async function getStatus(query: GuestAccessTokenGenerateInput): Promise<GuestAccessTokenStatus> {
     return $fetch<GuestAccessTokenStatus>('/api/guest-access-tokens', { query })
   }
 

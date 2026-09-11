@@ -1,115 +1,217 @@
 <!--
-  Fornecedores: contato, estágio da negociação e a situação financeira
-  DERIVADA das despesas ligadas a cada um.
+  Fornecedores — onde o casal COTA e decide.
 
-  São duas colunas de estado diferentes de propósito. O estágio é escolha do
-  casal ("estamos negociando"); a situação financeira é consequência dos fatos
-  ("ainda devemos R$ 12.000"). Fundir as duas obrigaria alguém a lembrar de
-  marcar "pago" — e a lista mentiria no dia em que esquecessem.
+  A tela é organizada pelo GASTO que está sendo cotado, não por uma lista
+  alfabética: "quanto custa refrigerante" é uma pergunta sobre o gasto
+  Refrigerantes, e com as três propostas espalhadas entre buffet e banda a
+  comparação — que é o motivo da tela existir — não acontece.
 
-  A COTAÇÃO CONTINUA FORA DO ORÇAMENTO (três buffets concorrentes somariam três
-  vezes o mesmo gasto), mas contratar não pode ser um beco sem saída: quem
-  marca um fornecedor como contratado é levado direto a criar a despesa, com
-  descrição, categoria e valor já preenchidos a partir da cotação.
+  Dentro de cada gasto, a proposta mais barata é destacada e cada linha mostra
+  quanto ela difere da menor. Escolhida uma, "Contratar" leva o valor fechado
+  para o Orçamento e o pagamento para Pagamentos.
+
+  Mesma mecânica de tabela do Modo Lista de convidados (AdminTable com blocos
+  recolhíveis, filtro por coluna e formato empilhado no celular): a governança
+  do Design System não admite <table> escrito à mão.
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
-import type { EstagioFornecedor, VendorContractInput, VendorInput } from '#shared/schemas/finance'
 import { ESTAGIOS_FORNECEDOR, ROTULOS_ESTAGIO_FORNECEDOR } from '#shared/schemas/finance'
+import type { VendorContractInput, VendorInput } from '#shared/schemas/finance'
+import type { AdminTableColumn, AdminTableSection } from '~/types/table'
 import type { FornecedorComSituacao } from '~/types/finance'
 
 definePageMeta({ layout: 'admin' })
 
 const slug = useActiveWeddingSlug()
 const toast = useToast()
-const { listVendors, criarFornecedor, atualizarFornecedor, excluirFornecedor } = useVendors()
+
+const { listVendors, criarFornecedor, atualizarFornecedor, arquivarFornecedor } = useVendors()
 const { data, status, error, refresh } = listVendors()
-const { listCategorias, getOrcamento, contratarFornecedor, atualizarFinanceiro } = useFinance()
-const { data: categorias } = listCategorias()
+
+const { listCategorias, getOrcamento, contratarFornecedor } = useFinance()
+const { data: todasCategorias } = listCategorias()
+
+// Arquivada não é opção de cadastro — só as ativas vão para o seletor.
+const categorias = computed(() => ({
+  data: (todasCategorias.value?.data ?? []).filter((categoria) => !categoria.excluido_em),
+}))
 const { data: orcamento } = getOrcamento()
 
-/** Os gastos do orçamento — é um deles que a contratação preenche. */
+const { listDocuments } = useFinanceDocuments()
+
+/** Os gastos do orçamento — é um deles que cada cotação disputa. */
 const despesas = computed(() =>
   (orcamento.value?.categorias ?? []).flatMap((categoria) => categoria.despesas),
 )
 
-const filtroEstagio = ref<EstagioFornecedor | ''>('')
-const filtroCategoria = ref('')
+// A listagem traz os dois estados; a tela é que separa quem está em uso de
+// quem saiu de cena.
+const fornecedores = computed(() =>
+  (data.value?.data ?? []).filter((fornecedor) => !fornecedor.excluido_em),
+)
+const arquivados = computed(() =>
+  (data.value?.data ?? []).filter((fornecedor) => fornecedor.excluido_em),
+)
 
-const SEM_CATEGORIA = 'sem-categoria'
-
-const opcoesCategoria = computed(() => [
-  { value: '', label: 'Todas as categorias' },
-  ...(categorias.value?.data ?? []).map((categoria) => ({
-    value: categoria.id,
-    label: categoria.nome,
-  })),
-  { value: SEM_CATEGORIA, label: 'Sem categoria' },
+// --- tabela ---
+const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
+  {
+    key: 'nome',
+    label: 'Fornecedor',
+    filter: { type: 'text', placeholder: 'Buscar' },
+    sort: 'alpha',
+  },
+  {
+    key: 'estagio',
+    label: 'Estágio',
+    filter: {
+      type: 'select',
+      multiple: true,
+      options: ESTAGIOS_FORNECEDOR.map((valor) => ({
+        value: valor,
+        label: ROTULOS_ESTAGIO_FORNECEDOR[valor],
+      })),
+    },
+  },
+  { key: 'cotacao', label: 'Cotação', align: 'right', sort: 'numeric' },
+  { key: 'contato', label: 'Contato' },
+  { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
 
-const fornecedoresFiltrados = computed(() => {
-  let lista = data.value?.data ?? []
+const filters = useTableFilters(colunas)
 
-  if (filtroEstagio.value) {
-    lista = lista.filter((fornecedor) => fornecedor.estagio === filtroEstagio.value)
-  }
+const linhasFiltradas = computed(() => {
+  const texto = (filters.values.value.nome?.[0] ?? '').toLowerCase().trim()
+  const estagios = filters.values.value.estagio ?? []
 
-  if (filtroCategoria.value === SEM_CATEGORIA) {
-    lista = lista.filter((fornecedor) => !fornecedor.categoria_id)
-  } else if (filtroCategoria.value) {
-    lista = lista.filter((fornecedor) => fornecedor.categoria_id === filtroCategoria.value)
-  }
-
-  return lista
+  return fornecedores.value.filter((fornecedor) => {
+    if (texto && !fornecedor.nome.toLowerCase().includes(texto)) return false
+    if (estagios.length > 0 && !estagios.includes(fornecedor.estagio)) return false
+    return true
+  })
 })
+
+const SEM_GASTO = 'sem-gasto'
 
 /**
- * A lista é agrupada por categoria, não uma fileira única: é assim que o casal
- * compara propostas — "quanto custa um buffet" é uma pergunta dentro de uma
- * categoria, e com os três concorrentes espalhados entre fotógrafos e bandas
- * ninguém compara nada.
+ * Um bloco por gasto cotado, com a categoria no rótulo. Quem ainda não cota
+ * gasto nenhum cai num bloco próprio no fim — é onde ficam os contatos que o
+ * casal guardou antes de decidir o que vai precisar.
  */
-const grupos = computed(() => {
-  const porCategoria = new Map<string, { nome: string; fornecedores: FornecedorComSituacao[] }>()
+const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
+  const blocos = new Map<string, AdminTableSection<FornecedorComSituacao>>()
 
-  for (const fornecedor of fornecedoresFiltrados.value) {
-    const chave = fornecedor.categoria_id ?? SEM_CATEGORIA
-    const grupo = porCategoria.get(chave) ?? {
-      nome: fornecedor.categoria?.nome ?? 'Sem categoria',
-      fornecedores: [],
+  for (const fornecedor of linhasFiltradas.value) {
+    const chave = fornecedor.gasto?.id ?? SEM_GASTO
+    const gasto = despesas.value.find((despesa) => despesa.id === fornecedor.gasto?.id)
+    const categoria = gasto?.categoria?.nome ?? fornecedor.categoria?.nome
+
+    const bloco = blocos.get(chave) ?? {
+      id: chave,
+      label: fornecedor.gasto?.descricao ?? 'Sem gasto definido',
+      level: 0 as const,
+      meta: categoria ?? undefined,
+      icon: chave === SEM_GASTO ? 'lucide:help-circle' : 'lucide:receipt',
+      rows: [] as FornecedorComSituacao[],
     }
-    grupo.fornecedores.push(fornecedor)
-    porCategoria.set(chave, grupo)
+    ;(bloco.rows as FornecedorComSituacao[]).push(fornecedor)
+    blocos.set(chave, bloco)
   }
 
-  // "Sem categoria" sempre por último: é o resto, não uma categoria de verdade.
-  return [...porCategoria.entries()]
-    .sort(([a, grupoA], [b, grupoB]) => {
-      if (a === SEM_CATEGORIA) return 1
-      if (b === SEM_CATEGORIA) return -1
-      return grupoA.nome.localeCompare(grupoB.nome, 'pt-BR')
+  return [...blocos.values()]
+    .map((bloco) => {
+      const cotacoes = bloco.rows
+        .map((f) => f.valor_proposto_centavos)
+        .filter((valor): valor is number => typeof valor === 'number' && valor > 0)
+      const menor = cotacoes.length > 0 ? Math.min(...cotacoes) : null
+      const gasto = despesas.value.find((despesa) => despesa.id === bloco.id)
+      const partes: string[] = []
+      if (bloco.meta) partes.push(bloco.meta)
+      if (gasto && gasto.totais.estimado > 0) {
+        partes.push(`estimado ${formatCentsToBRL(gasto.totais.estimado)}`)
+      }
+      if (cotacoes.length > 1 && menor !== null) {
+        partes.push(`${cotacoes.length} cotações · menor ${formatCentsToBRL(menor)}`)
+      }
+      return { ...bloco, meta: partes.join(' · ') || undefined }
     })
-    .map(([chave, grupo]) => ({ chave, ...grupo }))
+    .sort((a, b) => {
+      if (a.id === SEM_GASTO) return 1
+      if (b.id === SEM_GASTO) return -1
+      return a.label.localeCompare(b.label, 'pt-BR')
+    })
 })
 
-/** Soma das cotações do grupo — comparação, nunca compromisso. */
-function totalCotado(fornecedores: FornecedorComSituacao[]): number {
-  return fornecedores.reduce(
-    (total, fornecedor) => total + (fornecedor.valor_proposto_centavos ?? 0),
-    0,
+const recolhidos = ref<string[]>([])
+
+function alternarBloco(id: string) {
+  recolhidos.value = recolhidos.value.includes(id)
+    ? recolhidos.value.filter((atual) => atual !== id)
+    : [...recolhidos.value, id]
+}
+
+/** Menor cotação do bloco a que este fornecedor pertence. */
+function menorCotacaoDoGasto(fornecedor: FornecedorComSituacao): number | null {
+  const irmaos = fornecedores.value.filter(
+    (outro) => (outro.gasto?.id ?? SEM_GASTO) === (fornecedor.gasto?.id ?? SEM_GASTO),
   )
+  const valores = irmaos
+    .map((f) => f.valor_proposto_centavos)
+    .filter((valor): valor is number => typeof valor === 'number' && valor > 0)
+  return valores.length > 1 ? Math.min(...valores) : null
 }
 
-/** Contratado sem despesa: o dinheiro dele ainda não existe no orçamento. */
+/** Quanto esta proposta custa a mais que a mais barata do mesmo gasto. */
+function diferencaParaMenor(fornecedor: FornecedorComSituacao): number | null {
+  const menor = menorCotacaoDoGasto(fornecedor)
+  if (menor === null || !fornecedor.valor_proposto_centavos) return null
+  const diferenca = fornecedor.valor_proposto_centavos - menor
+  return diferenca > 0 ? diferenca : null
+}
+
+function ehMaisBarato(fornecedor: FornecedorComSituacao): boolean {
+  const menor = menorCotacaoDoGasto(fornecedor)
+  return menor !== null && fornecedor.valor_proposto_centavos === menor
+}
+
+/** Contratado sem valor no orçamento: o dinheiro dele ainda não existe lá. */
 function faltaLevarAoOrcamento(fornecedor: FornecedorComSituacao): boolean {
-  return fornecedor.estagio === 'contratado' && fornecedor.totalDespesas === 0
+  return fornecedor.estagio === 'contratado' && fornecedor.contratadoCentavos === 0
 }
 
+// --- cadastro ---
 const modalAberto = ref(false)
 const emEdicao = ref<FornecedorComSituacao | null>(null)
-const paraArquivar = ref<FornecedorComSituacao | null>(null)
+const despesaPadrao = ref<string | null>(null)
 
-// --- contratar: a ponte entre cotar e pagar ---
+function novoFornecedor(despesaId?: string) {
+  emEdicao.value = null
+  despesaPadrao.value = despesaId ?? null
+  modalAberto.value = true
+}
+
+function editar(fornecedor: FornecedorComSituacao) {
+  emEdicao.value = fornecedor
+  despesaPadrao.value = null
+  modalAberto.value = true
+}
+
+async function salvar(input: VendorInput) {
+  try {
+    if (emEdicao.value) {
+      await atualizarFornecedor(emEdicao.value.id, input)
+    } else {
+      await criarFornecedor(input)
+    }
+    modalAberto.value = false
+    toast.success('Fornecedor salvo.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
+  }
+}
+
+// --- contratar ---
 const contratoAberto = ref(false)
 const fornecedorDoContrato = ref<FornecedorComSituacao | null>(null)
 
@@ -131,65 +233,34 @@ async function confirmarContratacao(input: VendorContractInput) {
   }
 }
 
-function novoFornecedor() {
-  emEdicao.value = null
-  modalAberto.value = true
-}
+// --- propostas anexadas ---
+const propostasAbertas = ref<FornecedorComSituacao | null>(null)
+const filtroDeDocumentos = computed(() => ({ fornecedorId: propostasAbertas.value?.id }))
+const { data: propostas } = listDocuments(filtroDeDocumentos)
 
-function editar(fornecedor: FornecedorComSituacao) {
-  emEdicao.value = fornecedor
-  modalAberto.value = true
-}
-
-async function salvar(input: VendorInput) {
-  try {
-    const salvo = emEdicao.value
-      ? await atualizarFornecedor(emEdicao.value.id, input)
-      : await criarFornecedor(input)
-    modalAberto.value = false
-    await Promise.all([refresh(), atualizarFinanceiro()])
-    toast.success('Fornecedor salvo.')
-
-    // Contratou? O passo seguinte é sempre o mesmo — e deixar o casal
-    // descobrir sozinho que precisa ir até o Orçamento criar a despesa é como
-    // um fornecedor contratado fica meses fora da conta.
-    const jaTemDespesa = emEdicao.value ? emEdicao.value.totalDespesas > 0 : false
-    if (input.estagio === 'contratado' && !jaTemDespesa) {
-      // A lista recarregada já traz os campos derivados; se a ida e volta ainda
-      // não chegou, o recém-salvo basta — o modal só usa id, nome, categoria e
-      // cotação, e todos vêm da própria resposta da gravação.
-      const atualizado = (data.value?.data ?? []).find((f) => f.id === salvo.id)
-      abrirContratacao(
-        atualizado ?? {
-          ...salvo,
-          categoria: null,
-          situacaoFinanceira: 'sem_despesa',
-          contratadoCentavos: 0,
-          aPagarCentavos: 0,
-          totalDespesas: 0,
-        },
-      )
-    }
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
-  }
-}
+// --- arquivar / restaurar ---
+const paraArquivar = ref<FornecedorComSituacao | null>(null)
+const mostrarArquivados = ref(false)
 
 async function confirmarArquivamento() {
   const fornecedor = paraArquivar.value
   if (!fornecedor) return
   try {
-    await excluirFornecedor(fornecedor.id)
+    await arquivarFornecedor(fornecedor.id, true)
     paraArquivar.value = null
-    toast.success('Fornecedor arquivado.')
+    toast.success('Fornecedor arquivado. Dá para restaurar no fim desta página.')
   } catch (erro) {
     toast.error(getApiErrorMessage(erro, 'Não foi possível arquivar o fornecedor.'))
   }
 }
 
-function limparFiltros() {
-  filtroEstagio.value = ''
-  filtroCategoria.value = ''
+async function restaurar(id: string) {
+  try {
+    await arquivarFornecedor(id, false)
+    toast.success('Fornecedor restaurado.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível restaurar o fornecedor.'))
+  }
 }
 
 /** Link de WhatsApp: só dígitos, com o 55 quando o casal digitou só o DDD. */
@@ -204,158 +275,218 @@ function linkWhatsApp(telefone: string | null): string | null {
 <template>
   <AdminSection
     title="Fornecedores"
-    description="Quem você está pesquisando, negociando e já contratou."
-    :meta="`${fornecedoresFiltrados.length} ${fornecedoresFiltrados.length === 1 ? 'fornecedor' : 'fornecedores'}`"
+    description="Cote quantos quiser por gasto, compare e contrate."
+    :meta="`${linhasFiltradas.length} ${linhasFiltradas.length === 1 ? 'cotação' : 'cotações'}`"
   >
     <template #actions>
-      <UiButton @click="novoFornecedor">Novo fornecedor</UiButton>
+      <UiButton @click="novoFornecedor()">Nova cotação</UiButton>
     </template>
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex flex-wrap gap-2">
-        <UiChip
-          label="Todos"
-          clickable
-          :selected="filtroEstagio === ''"
-          @click="filtroEstagio = ''"
-        />
-        <UiChip
-          v-for="estagio in ESTAGIOS_FORNECEDOR"
-          :key="estagio"
-          :label="ROTULOS_ESTAGIO_FORNECEDOR[estagio]"
-          clickable
-          :selected="filtroEstagio === estagio"
-          @click="filtroEstagio = estagio"
-        />
-      </div>
-
-      <div class="sm:w-56">
-        <UiSelect
-          v-model="filtroCategoria"
-          :options="opcoesCategoria"
-          aria-label="Filtrar por categoria"
-        />
-      </div>
-    </div>
-
-    <UiSkeleton v-if="status === 'pending'" class="h-40 w-full" />
-
-    <AdminPanel v-else-if="error">
-      <div class="flex flex-col items-start gap-3 p-5">
-        <p class="text-sm text-danger">Não foi possível carregar os fornecedores.</p>
-        <UiButton variant="outline" size="sm" @click="refresh()">Tentar de novo</UiButton>
-      </div>
-    </AdminPanel>
+    <UiSkeleton v-if="status === 'pending'" class="h-96 w-full" />
 
     <UiEmptyState
-      v-else-if="fornecedoresFiltrados.length === 0"
-      icon="lucide:store"
-      :title="
-        (data?.data ?? []).length === 0 ? 'Nenhum fornecedor por aqui' : 'Nada com esses filtros'
-      "
-      :description="
-        (data?.data ?? []).length === 0
-          ? 'Cadastre quem você está cotando — a proposta fica registrada sem virar despesa.'
-          : 'Nenhum fornecedor corresponde ao estágio e à categoria escolhidos.'
-      "
+      v-else-if="error"
+      icon="lucide:triangle-alert"
+      title="Não foi possível carregar os fornecedores"
+      description="Tente novamente em alguns instantes."
     >
-      <UiButton v-if="(data?.data ?? []).length === 0" @click="novoFornecedor">
-        Novo fornecedor
-      </UiButton>
-      <UiButton v-else variant="outline" @click="limparFiltros">Limpar filtros</UiButton>
+      <UiButton variant="outline" @click="refresh()">Tentar novamente</UiButton>
     </UiEmptyState>
 
-    <div v-else class="flex flex-col gap-4">
-      <AdminPanel
-        v-for="grupo in grupos"
-        :key="grupo.chave"
-        :title="grupo.nome"
-        :meta="
-          totalCotado(grupo.fornecedores) > 0
-            ? `${grupo.fornecedores.length} · ${formatCentsToBRL(totalCotado(grupo.fornecedores))} em cotações`
-            : `${grupo.fornecedores.length}`
-        "
-      >
-        <ul class="divide-y divide-border">
-          <li
-            v-for="fornecedor in grupo.fornecedores"
-            :key="fornecedor.id"
-            class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
-          >
-            <div class="min-w-0 flex-1">
-              <span class="truncate text-sm font-medium text-text">{{ fornecedor.nome }}</span>
-              <p v-if="fornecedor.nome_contato" class="truncate text-xs text-text-muted">
-                {{ fornecedor.nome_contato }}
-              </p>
-              <!--
-                O aviso só existe para o estado que o produto considera
-                incompleto: contratado é compromisso, e compromisso mora no
-                orçamento.
-              -->
+    <UiEmptyState
+      v-else-if="fornecedores.length === 0"
+      icon="lucide:store"
+      title="Nenhuma cotação ainda"
+      description="Cadastre as propostas que você recebeu para cada gasto do orçamento — elas ficam lado a lado para comparar, sem entrar na conta do orçamento."
+    >
+      <UiButton @click="novoFornecedor()">Nova cotação</UiButton>
+    </UiEmptyState>
+
+    <template v-else>
+      <AdminTableFilterBar
+        :filters="filters"
+        :columns="colunas"
+        group-label="Filtros de fornecedores"
+      />
+
+      <AdminPanel title="Cotações por gasto">
+        <AdminTable
+          :columns="colunas"
+          :rows="linhasFiltradas"
+          :sections="secoes"
+          :collapsed-ids="recolhidos"
+          :filters="filters"
+          empty-label="Nenhum fornecedor com esses filtros."
+          @toggle-section="alternarBloco"
+        >
+          <template #cell-nome="{ row }">
+            <div class="min-w-0">
+              <span class="flex items-center gap-1.5">
+                <span class="truncate text-text">{{ row.nome }}</span>
+                <UiBadge v-if="ehMaisBarato(row)" tone="success">menor preço</UiBadge>
+              </span>
+              <span v-if="row.nome_contato" class="block truncate text-xs text-text-muted">
+                {{ row.nome_contato }}
+              </span>
               <button
-                v-if="faltaLevarAoOrcamento(fornecedor)"
+                v-if="faltaLevarAoOrcamento(row)"
                 type="button"
                 class="mt-0.5 text-xs text-warning underline-offset-2 hover:underline"
-                @click="abrirContratacao(fornecedor)"
+                @click="abrirContratacao(row)"
               >
-                Contratado, mas ainda não está no orçamento — registrar valor
+                Contratado sem valor no orçamento — registrar
               </button>
             </div>
+          </template>
 
-            <UiBadge :tone="estagioFornecedorPresentation(fornecedor.estagio as never).tone">
-              {{ estagioFornecedorPresentation(fornecedor.estagio as never).label }}
+          <template #cell-estagio="{ row }">
+            <UiBadge :tone="estagioFornecedorPresentation(row.estagio as never).tone">
+              {{ estagioFornecedorPresentation(row.estagio as never).label }}
             </UiBadge>
+          </template>
 
-            <div class="text-right text-sm tabular-nums">
-              <p v-if="fornecedor.contratadoCentavos > 0" class="text-text">
-                {{ formatCentsToBRL(fornecedor.contratadoCentavos) }}
-              </p>
-              <p v-else-if="fornecedor.valor_proposto_centavos" class="text-text-muted">
-                {{ formatCentsToBRL(fornecedor.valor_proposto_centavos) }}
-                <span class="text-xs">cotado</span>
-              </p>
-              <p class="text-xs text-text-muted">
-                {{ situacaoFornecedorPresentation(fornecedor.situacaoFinanceira).label }}
-                <template v-if="fornecedor.aPagarCentavos > 0">
-                  · {{ formatCentsToBRL(fornecedor.aPagarCentavos) }}
-                </template>
-              </p>
+          <template #cell-cotacao="{ row }">
+            <div class="text-right">
+              <span v-if="row.valor_proposto_centavos" class="tabular-nums text-text">
+                {{ formatCentsToBRL(row.valor_proposto_centavos) }}
+              </span>
+              <span v-else class="text-text-muted">—</span>
+              <span v-if="diferencaParaMenor(row)" class="block text-xs text-text-muted">
+                +{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }} que a menor
+              </span>
+              <span v-if="row.contratadoCentavos > 0" class="block text-xs text-success">
+                fechado por {{ formatCentsToBRL(row.contratadoCentavos) }}
+              </span>
             </div>
+          </template>
 
+          <template #cell-contato="{ row }">
             <div class="flex items-center gap-1">
               <AdminRowAction
-                icon="lucide:file-signature"
-                label="Registrar contratação"
-                @click="abrirContratacao(fornecedor)"
-              />
-              <AdminRowAction
-                v-if="linkWhatsApp(fornecedor.telefone)"
+                v-if="linkWhatsApp(row.telefone)"
                 icon="lucide:message-circle"
                 label="Abrir conversa no WhatsApp"
-                :to="linkWhatsApp(fornecedor.telefone) ?? undefined"
+                :to="linkWhatsApp(row.telefone) ?? undefined"
               />
               <AdminRowAction
-                v-if="fornecedor.email"
+                v-if="row.email"
                 icon="lucide:mail"
                 label="Enviar e-mail"
-                :to="`mailto:${fornecedor.email}`"
+                :to="`mailto:${row.email}`"
               />
-              <AdminRowAction icon="lucide:pencil" label="Editar" @click="editar(fornecedor)" />
               <AdminRowAction
-                icon="lucide:archive"
-                label="Arquivar"
-                @click="paraArquivar = fornecedor"
+                v-if="row.site_url"
+                icon="lucide:external-link"
+                label="Abrir site"
+                :to="row.site_url"
               />
+              <button
+                type="button"
+                class="text-xs text-text-muted underline-offset-2 hover:text-primary hover:underline"
+                @click="propostasAbertas = row"
+              >
+                {{ row.totalDocumentos > 0 ? `${row.totalDocumentos} proposta(s)` : 'anexar' }}
+              </button>
             </div>
+          </template>
+
+          <template #cell-acoes="{ row }">
+            <div class="flex items-center justify-end gap-1">
+              <AdminRowAction
+                icon="lucide:file-signature"
+                label="Contratar este fornecedor"
+                @click="abrirContratacao(row)"
+              />
+              <AdminRowAction icon="lucide:pencil" label="Editar" @click="editar(row)" />
+              <AdminRowAction icon="lucide:archive" label="Arquivar" @click="paraArquivar = row" />
+            </div>
+          </template>
+
+          <template #stacked="{ row }">
+            <div class="flex flex-col gap-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-medium text-text">{{ row.nome }}</span>
+                <UiBadge v-if="ehMaisBarato(row)" tone="success">menor preço</UiBadge>
+                <UiBadge :tone="estagioFornecedorPresentation(row.estagio as never).tone">
+                  {{ estagioFornecedorPresentation(row.estagio as never).label }}
+                </UiBadge>
+              </div>
+              <span v-if="row.valor_proposto_centavos" class="text-sm tabular-nums text-text">
+                {{ formatCentsToBRL(row.valor_proposto_centavos) }}
+                <span v-if="diferencaParaMenor(row)" class="text-xs text-text-muted">
+                  (+{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }})
+                </span>
+              </span>
+              <div class="mt-1 flex items-center gap-1">
+                <UiButton size="sm" variant="outline" @click="abrirContratacao(row)">
+                  Contratar
+                </UiButton>
+                <AdminRowAction icon="lucide:pencil" label="Editar" @click="editar(row)" />
+                <AdminRowAction
+                  icon="lucide:archive"
+                  label="Arquivar"
+                  @click="paraArquivar = row"
+                />
+              </div>
+            </div>
+          </template>
+
+          <template #section-footer="{ section }">
+            <UiButton
+              size="sm"
+              variant="ghost"
+              @click="novoFornecedor(section.id === SEM_GASTO ? undefined : section.id)"
+            >
+              <Icon name="lucide:plus" class="h-4 w-4" />
+              Adicionar cotação
+            </UiButton>
+          </template>
+        </AdminTable>
+      </AdminPanel>
+
+      <AdminPanel v-if="arquivados.length > 0">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+          <button
+            type="button"
+            class="flex items-center gap-2 text-sm text-text-muted hover:text-text"
+            :aria-expanded="mostrarArquivados"
+            @click="mostrarArquivados = !mostrarArquivados"
+          >
+            <Icon
+              :name="mostrarArquivados ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+              class="h-4 w-4"
+            />
+            {{ arquivados.length }}
+            {{ arquivados.length === 1 ? 'fornecedor arquivado' : 'fornecedores arquivados' }}
+          </button>
+        </div>
+
+        <ul v-if="mostrarArquivados" class="divide-y divide-border border-t border-border">
+          <li
+            v-for="fornecedor in arquivados"
+            :key="fornecedor.id"
+            class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
+          >
+            <span class="min-w-0 flex-1 truncate text-sm text-text-muted">
+              {{ fornecedor.nome }}
+            </span>
+            <span v-if="fornecedor.valor_proposto_centavos" class="text-xs text-text-muted">
+              cotado {{ formatCentsToBRL(fornecedor.valor_proposto_centavos) }}
+            </span>
+            <UiButton size="sm" variant="ghost" @click="restaurar(fornecedor.id)">
+              Restaurar
+            </UiButton>
           </li>
         </ul>
       </AdminPanel>
-    </div>
+    </template>
 
     <AdminFinanceVendorModal
       v-model="modalAberto"
       :fornecedor="emEdicao"
       :categorias="categorias?.data ?? []"
+      :despesas="despesas"
+      :despesa-padrao="despesaPadrao"
       @salvar="salvar"
     />
 
@@ -363,14 +494,37 @@ function linkWhatsApp(telefone: string | null): string | null {
       v-model="contratoAberto"
       :fornecedor="fornecedorDoContrato"
       :despesas="despesas"
+      :despesa-padrao="fornecedorDoContrato?.gasto?.id ?? null"
       @contratar="confirmarContratacao"
       @criar-gasto="navigateTo(`/admin/${slug}/financeiro`)"
     />
 
     <UiModal
+      :model-value="Boolean(propostasAbertas)"
+      :title="`Propostas de ${propostasAbertas?.nome ?? ''}`"
+      description="O PDF que o fornecedor mandou fica junto da cotação — e continua acessível em Documentos."
+      @update:model-value="propostasAbertas = null"
+    >
+      <div class="flex flex-col gap-3">
+        <AdminFinanceDocumentList
+          v-if="(propostas?.data ?? []).length > 0"
+          :documentos="propostas?.data ?? []"
+          compacta
+          @abrir="() => {}"
+          @excluir="() => {}"
+        />
+        <p v-else class="text-sm text-text-muted">Nenhuma proposta anexada ainda.</p>
+
+        <UiButton variant="outline" :to="`/admin/${slug}/financeiro/documentos`">
+          Anexar em Documentos
+        </UiButton>
+      </div>
+    </UiModal>
+
+    <UiModal
       :model-value="Boolean(paraArquivar)"
       title="Arquivar fornecedor"
-      :description="`“${paraArquivar?.nome}” sai da lista. O histórico das despesas continua.`"
+      :description="`“${paraArquivar?.nome}” sai da lista. Dá para restaurar depois, e o histórico das despesas continua.`"
       @update:model-value="paraArquivar = null"
     >
       <div class="flex flex-wrap justify-end gap-2">

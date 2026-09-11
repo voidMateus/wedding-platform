@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
     .insert({
       casamento_id: weddingId,
       categoria_id: input.categoriaId ?? null,
+      despesa_id: input.despesaId ?? null,
       nome: input.nome,
       estagio: input.estagio,
       valor_proposto_centavos: input.valorPropostoCentavos ?? null,

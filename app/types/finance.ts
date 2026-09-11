@@ -5,6 +5,7 @@ import type {
   LinhaDeCategoria,
   ResumoDoOrcamento,
   SituacaoFinanceiraFornecedor,
+  SituacaoPagamento,
   SituacaoParcela,
   TotaisDaDespesa,
 } from '#shared/utils/orcamento'
@@ -21,6 +22,7 @@ export type Documento = Database['public']['Tables']['documentos']['Row']
 
 export type {
   SituacaoParcela,
+  SituacaoPagamento,
   SituacaoFinanceiraFornecedor,
   LinhaDeCategoria,
   BlocoDeAtencao,
@@ -43,10 +45,14 @@ export interface CategoriaComDespesas extends LinhaDeCategoria {
 
 export interface FornecedorComSituacao extends Fornecedor {
   categoria: Pick<CategoriaOrcamento, 'id' | 'nome'> | null
+  /** O gasto que este fornecedor cota — é o que agrupa as propostas concorrentes. */
+  gasto: Pick<Despesa, 'id' | 'descricao'> | null
   situacaoFinanceira: SituacaoFinanceiraFornecedor
   contratadoCentavos: number
   aPagarCentavos: number
   totalDespesas: number
+  /** Propostas anexadas (PDF do fornecedor) — separa quem mandou documento de quem só falou um preço. */
+  totalDocumentos: number
 }
 
 export interface DocumentoComVinculos extends Documento {
@@ -66,18 +72,29 @@ export interface ResumoFinanceiro extends ResumoDoOrcamento {
   vazio: boolean
 }
 
-/** Uma linha da tela de Pagamentos: a parcela mais o contexto que a torna reconhecível. */
-export interface PagamentoListado extends ParcelaDespesa {
-  situacao: SituacaoParcela
+/**
+ * Uma linha da tela de Pagamentos. Dois tipos convivem: a parcela de verdade e
+ * o compromisso contratado cujo saldo ainda não tem data (`a_definir`) — este
+ * existe desde a contratação, para nenhum contrato ficar invisível esperando
+ * alguém lembrar de parcelá-lo.
+ */
+export interface PagamentoListado extends Omit<ParcelaDespesa, 'vence_em'> {
+  tipo: 'parcela' | 'a_definir'
+  situacao: SituacaoPagamento
+  /** Nulo na linha `a_definir`: é exatamente o que falta nela. */
+  vence_em: string | null
+  totalDeParcelas: number
   despesa: Pick<Despesa, 'id' | 'descricao'>
   categoria: Pick<CategoriaOrcamento, 'id' | 'nome'> | null
   fornecedor: Pick<Fornecedor, 'id' | 'nome'> | null
 }
 
-/** Os quatro números do topo de Pagamentos — sempre do conjunto todo, nunca do recorte. */
+/** Os números do topo de Pagamentos — sempre do conjunto todo, nunca do recorte. */
 export interface ResumoDePagamentos {
   pago: BlocoDeAtencao
   vencidos: BlocoDeAtencao
   proximos30Dias: BlocoDeAtencao
   aPagar: BlocoDeAtencao
+  /** Contratado sem data marcada — o que precisa de uma decisão, não de um pagamento. */
+  semData: BlocoDeAtencao
 }
