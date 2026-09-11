@@ -328,6 +328,9 @@ describe('resumoDeCotacoes', () => {
 
     expect(resumo.emCotacao).toBe(162_000)
     expect(resumo.gastosEmCotacao).toBe(1)
+    // O valor não soma as três, mas a CONTAGEM sim: são três propostas em
+    // avaliação, e é isso que o casal ainda precisa decidir.
+    expect(resumo.propostasEmAvaliacao).toBe(3)
   })
 
   it('gasto fechado sai da cotação e entra no contratado', () => {
@@ -339,6 +342,8 @@ describe('resumoDeCotacoes', () => {
     expect(resumo.contratado).toBe(2_300_000)
     expect(resumo.emCotacao).toBe(162_000)
     expect(resumo.gastosEmCotacao).toBe(1)
+    // As duas propostas do buffet saíram da avaliação quando ele fechou.
+    expect(resumo.propostasEmAvaliacao).toBe(1)
   })
 
   it('conta como "sem fornecedor" só o que está em aberto e sem proposta', () => {
@@ -375,6 +380,7 @@ describe('resumoDeCotacoes', () => {
       contratado: 0,
       gastosEmCotacao: 0,
       gastosSemFornecedor: 0,
+      propostasEmAvaliacao: 0,
     })
   })
 })

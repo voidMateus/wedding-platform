@@ -77,6 +77,21 @@ interface Props {
   sections?: readonly AdminTableSection<Row>[]
   /** Ids dos blocos recolhidos. O estado é da página, nunca da tabela. */
   collapsedIds?: readonly string[]
+  /**
+   * Onde moram os rótulos de coluna.
+   *
+   * `'table'` (padrão) é um `<thead>` fixo no topo — certo quando a tabela é
+   * uma lista só. `'section'` põe os rótulos dentro de cada bloco, logo acima
+   * das linhas dele, e serve à tabela fragmentada em muitos blocos pequenos:
+   * lá em cima, o cabeçalho descreve linhas que estão a três blocos de
+   * distância e, pior, faz o próprio cabeçalho do bloco parecer a primeira
+   * linha de dados — "Casa das Pedras" lido como se fosse um fornecedor.
+   *
+   * Sem `<thead>` não há menu de filtro no cabeçalho: em `'section'` a página
+   * precisa oferecer a entrada de filtro por fora (busca no painel e o botão
+   * da `AdminTableFilterBar`).
+   */
+  columnHeader?: 'table' | 'section'
 }
 
 const {
@@ -89,6 +104,7 @@ const {
   filters,
   sections,
   collapsedIds,
+  columnHeader = 'table',
 } = defineProps<Props>()
 
 const emit = defineEmits<{
@@ -224,7 +240,10 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
              virarem uma massa cinza só, sem dizer onde um acabava. Agora o
              cabeçalho recua para o branco do cartão e quem carrega o tom é a
              faixa. -->
-        <thead class="sticky top-0 z-10 hidden md:table-header-group">
+        <thead
+          v-if="columnHeader === 'table'"
+          class="sticky top-0 z-10 hidden md:table-header-group"
+        >
           <tr>
             <th
               v-for="column in columns"
@@ -354,6 +373,28 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                 </button>
               </td>
             </tr>
+
+            <!-- Os rótulos de coluna dentro do bloco, imediatamente acima das
+                 linhas que eles descrevem. `<th scope="col">` de verdade, e um
+                 por bloco: numa tabela fragmentada é isso que diz ao leitor de
+                 tela (e ao olho) que as colunas pertencem a ESTE trecho. Some
+                 junto com as linhas quando o bloco não tem nenhuma. -->
+            <tr
+              v-if="columnHeader === 'section' && block.section && block.rows.length > 0"
+              class="hidden md:table-row"
+            >
+              <th
+                v-for="column in columns"
+                :key="column.key"
+                scope="col"
+                class="border-b border-border bg-surface px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-text-muted"
+                :class="headClass(column)"
+              >
+                <span v-if="column.labelHidden" class="sr-only">{{ column.label }}</span>
+                <span v-else>{{ column.label }}</span>
+              </th>
+            </tr>
+
             <template v-for="row in block.rows" :key="row.id">
               <!-- Linha do celular desenhada pela página. Só existe abaixo de
                    `md`; do `md` pra cima quem manda é a grade de colunas. -->

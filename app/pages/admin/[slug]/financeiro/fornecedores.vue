@@ -16,7 +16,7 @@
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
-import { resumoDeCotacoes } from '#shared/utils/orcamento'
+import { percentual, resumoDeCotacoes } from '#shared/utils/orcamento'
 import { ESTAGIOS_FORNECEDOR, ROTULOS_ESTAGIO_FORNECEDOR } from '#shared/schemas/finance'
 import type { VendorContractInput, VendorInput } from '#shared/schemas/finance'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
@@ -35,6 +35,8 @@ import {
 definePageMeta({ layout: 'admin' })
 
 const slug = useActiveWeddingSlug()
+const route = useRoute()
+const router = useRouter()
 const toast = useToast()
 
 const { listVendors, criarFornecedor, atualizarFornecedor, arquivarFornecedor } = useVendors()
@@ -106,7 +108,10 @@ const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
       })),
     },
   },
-  { key: 'cotacao', label: 'Cotação', align: 'right', sort: 'numeric' },
+  // "Valor" e não "Cotação": a coluna mostra quanto este fornecedor cobra. Se
+  // um dia ele tiver histórico de propostas, elas vivem dentro dele — e o
+  // rótulo da coluna continua valendo.
+  { key: 'cotacao', label: 'Valor', align: 'right', sort: 'numeric' },
   { key: 'contato', label: 'Contato' },
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
@@ -121,6 +126,13 @@ const acessores: Record<string, ClientColumn<FornecedorComSituacao>> = {
 }
 
 const filters = useTableFilters(colunas)
+
+// A busca do painel e o filtro de texto da coluna "Fornecedor" são o mesmo
+// estado, com duas portas de entrada — nunca dois recortes que podem divergir.
+const buscaDraft = useDebouncedText(
+  () => filters.valuesOf('nome')[0] ?? '',
+  (valor) => filters.setText('nome', valor),
+)
 
 const linhasFiltradas = computed(() =>
   applyTableFilters(fornecedores.value, colunas.value, acessores, {
@@ -147,6 +159,20 @@ const resumo = computed(() =>
 function cotacoesDoGasto(despesaId: string): FornecedorComSituacao[] {
   return fornecedores.value.filter((fornecedor) => fornecedor.gasto?.id === despesaId)
 }
+
+const percentualContratado = computed(() =>
+  percentual(resumo.value.contratado, resumo.value.estimado),
+)
+
+/** "R$ 1.100,00 abaixo" — a leitura que o casal faz do par estimado/contratado. */
+const diferencaDoEstimado = computed(() => {
+  if (resumo.value.contratado === 0 || resumo.value.estimado === 0) return null
+  const diferenca = resumo.value.estimado - resumo.value.contratado
+  if (diferenca === 0) return { texto: 'exatamente o estimado', abaixo: true }
+  return diferenca > 0
+    ? { texto: `${formatCentsToBRL(diferenca)} abaixo`, abaixo: true }
+    : { texto: `${formatCentsToBRL(Math.abs(diferenca))} acima`, abaixo: false }
+})
 
 const SEM_GASTO = 'sem-gasto'
 const PREFIXO_CATEGORIA = 'cat:'
@@ -192,9 +218,15 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
 
     const gastos = categoria.despesas
       .map((despesa) => ({ despesa, cotacoes: porGasto.get(despesa.id) ?? [] }))
-      // Com filtro ativo, gasto sem nenhuma cotação correspondente sai: quem
+      // Com filtro ativo, gasto sem nenhum fornecedor correspondente sai: quem
       // filtrou está procurando uma proposta, não planejando.
       .filter(({ cotacoes }) => cotacoes.length > 0 || !temFiltroAtivo.value)
+      // O recorte inverte a pergunta: mostra só o que ainda não tem ninguém.
+      .filter(
+        ({ despesa, cotacoes }) =>
+          !recorteSemFornecedor.value ||
+          (cotacoes.length === 0 && despesa.totais.contratado === null),
+      )
 
     if (gastos.length === 0) continue
 
@@ -222,7 +254,8 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
         level: 1,
         // O gasto é a entidade desta tela, não um subtítulo do agrupamento.
         emphasis: 'strong',
-        description: resumoDoGasto(despesa, cotacoes.length),
+        description: resumoDoGasto(despesa),
+        badge: seloDaDiferenca(despesa),
         rows: cotacoes,
       })
     }
@@ -250,35 +283,34 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
 /**
  * A linha de resumo do gasto — é ela que liga esta tela ao Orçamento.
  *
- * Fechado, o que importa é quanto ele ficou contra o que se esperava (a
- * economia, ou o excedente). Em aberto, é quantas propostas já chegaram.
+ * Só dinheiro: o que se planejou e, se já fechou, por quanto. A contagem de
+ * fornecedores saiu daqui porque a própria tabela abaixo já responde isso — e
+ * quando não há nenhum, quem responde é o estado vazio do bloco.
  */
-function resumoDoGasto(despesa: DespesaComParcelas, quantasCotacoes: number): string {
+function resumoDoGasto(despesa: DespesaComParcelas): string {
   const partes: string[] = []
   if (despesa.totais.estimado > 0) {
     partes.push(`Estimativa ${formatCentsToBRL(despesa.totais.estimado)}`)
   }
-
-  const contratado = despesa.totais.contratado
-  if (contratado !== null) {
-    partes.push(`contratado ${formatCentsToBRL(contratado)}`)
-    const diferenca = despesa.totais.desvioDoEstimado
-    if (diferenca !== null && diferenca !== 0) {
-      partes.push(
-        diferenca < 0
-          ? `${formatCentsToBRL(Math.abs(diferenca))} de economia`
-          : `${formatCentsToBRL(diferenca)} acima do estimado`,
-      )
-    }
-    return partes.join(' · ')
+  if (despesa.totais.contratado !== null) {
+    partes.push(`contratado ${formatCentsToBRL(despesa.totais.contratado)}`)
   }
-
-  partes.push(
-    quantasCotacoes === 0
-      ? 'nenhum fornecedor ainda'
-      : `${quantasCotacoes} ${quantasCotacoes === 1 ? 'fornecedor' : 'fornecedores'}`,
-  )
   return partes.join(' · ')
+}
+
+/**
+ * A diferença entre estimado e fechado vira selo, não mais um pedaço de texto
+ * cinza: é a informação que conecta esta tela ao Orçamento, e ela tem valência
+ * — economizar é bom, estourar não.
+ */
+function seloDaDiferenca(
+  despesa: DespesaComParcelas,
+): { label: string; tone: 'success' | 'warning' } | undefined {
+  const diferenca = despesa.totais.desvioDoEstimado
+  if (despesa.totais.contratado === null || diferenca === null || diferenca === 0) return undefined
+  return diferenca < 0
+    ? { label: `−${formatCentsToBRL(Math.abs(diferenca))}`, tone: 'success' }
+    : { label: `+${formatCentsToBRL(diferenca)}`, tone: 'warning' }
 }
 
 /** Categorias do orçamento, só as que têm gasto — é delas que saem os blocos. */
@@ -287,6 +319,15 @@ const categoriasDoOrcamento = computed(() =>
 )
 
 const temFiltroAtivo = computed(() => Object.keys(filters.values.value).length > 0)
+
+/** O indicador "Aguardando fornecedor" é o produtor deste recorte. */
+const recorteSemFornecedor = computed(() => route.query.recorte === 'sem-fornecedor')
+
+function alternarRecorteSemFornecedor() {
+  router.replace({
+    query: recorteSemFornecedor.value ? {} : { recorte: 'sem-fornecedor' },
+  })
+}
 
 const recolhidos = ref<string[]>([])
 
@@ -546,21 +587,35 @@ function linkWhatsApp(telefone: string | null): string | null {
         class="grid grid-cols-2 gap-px overflow-clip rounded-lg border border-border bg-border lg:grid-cols-4"
       >
         <div class="bg-surface-elevated px-4 py-3.5">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Estimado</dt>
+          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">
+            Orçamento estimado
+          </dt>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(resumo.estimado) }}
           </dd>
-          <dd class="mt-0.5 text-xs text-text-muted">o que o orçamento prevê</dd>
+          <!-- A diferença entre o que se planejou e o que já se fechou é a
+               leitura que o casal quer de imediato ("estamos abaixo do que
+               planejamos"), e ela mora aqui porque é aqui que o estimado está. -->
+          <dd v-if="diferencaDoEstimado" class="mt-0.5 text-xs text-text-muted">
+            {{ formatCentsToBRL(resumo.contratado) }} contratado ·
+            <span :class="diferencaDoEstimado.abaixo ? 'text-success' : 'text-warning'">
+              {{ diferencaDoEstimado.texto }}
+            </span>
+          </dd>
+          <dd v-else class="mt-0.5 text-xs text-text-muted">o que o orçamento prevê</dd>
         </div>
 
         <div class="bg-surface-elevated px-4 py-3.5">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Em cotação</dt>
+          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Em negociação</dt>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(resumo.emCotacao) }}
           </dd>
           <dd class="mt-0.5 text-xs text-text-muted">
-            melhor proposta de {{ resumo.gastosEmCotacao }}
-            {{ resumo.gastosEmCotacao === 1 ? 'gasto' : 'gastos' }}
+            <template v-if="resumo.propostasEmAvaliacao > 0">
+              {{ resumo.propostasEmAvaliacao }}
+              {{ resumo.propostasEmAvaliacao === 1 ? 'proposta' : 'propostas' }} em avaliação
+            </template>
+            <template v-else>nenhuma proposta em avaliação</template>
           </dd>
         </div>
 
@@ -569,33 +624,57 @@ function linkWhatsApp(telefone: string | null): string | null {
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(resumo.contratado) }}
           </dd>
-          <dd class="mt-0.5 text-xs text-text-muted">já fechado</dd>
+          <dd class="mt-0.5 text-xs text-text-muted">
+            <template v-if="percentualContratado !== null">
+              {{ percentualContratado }}% do estimado
+            </template>
+            <template v-else>já fechado</template>
+          </dd>
         </div>
 
-        <div class="bg-surface-muted/70 px-4 py-3.5">
-          <dt class="text-xs font-semibold uppercase tracking-wide text-text">Sem fornecedor</dt>
-          <dd
-            class="num mt-0.5 text-2xl font-semibold"
+        <!-- Clicável: o indicador que gera ação vira o filtro dessa ação. -->
+        <button
+          type="button"
+          class="bg-surface-muted/70 px-4 py-3.5 text-left transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :aria-pressed="recorteSemFornecedor"
+          @click="alternarRecorteSemFornecedor"
+        >
+          <span class="block text-xs font-semibold uppercase tracking-wide text-text">
+            Aguardando fornecedor
+          </span>
+          <span
+            class="num mt-0.5 block text-2xl font-semibold"
             :class="resumo.gastosSemFornecedor > 0 ? 'text-warning' : 'text-text'"
           >
             {{ resumo.gastosSemFornecedor }}
-          </dd>
-          <dd class="mt-0.5 text-xs text-text-muted">
-            {{ resumo.gastosSemFornecedor === 1 ? 'gasto esperando' : 'gastos esperando' }} a
-            primeira proposta
-          </dd>
-        </div>
+            {{ resumo.gastosSemFornecedor === 1 ? 'gasto' : 'gastos' }}
+          </span>
+          <span class="mt-0.5 block text-xs text-text-muted">
+            {{ recorteSemFornecedor ? 'mostrando só eles · voltar' : 'nenhuma proposta recebida' }}
+          </span>
+        </button>
       </dl>
 
+      <!-- "Fornecedores por gasto" explica, no próprio título, por que uma
+           tela de fornecedores está listando gastos. -->
       <AdminPanel
-        title="Seus gastos"
+        title="Fornecedores por gasto"
         :meta="`${despesas.length} ${despesas.length === 1 ? 'gasto' : 'gastos'} · ${fornecedores.length} ${fornecedores.length === 1 ? 'fornecedor' : 'fornecedores'}`"
       >
         <template #headerActions>
+          <UiInput
+            v-model="buscaDraft"
+            icon="lucide:search"
+            tone="muted"
+            placeholder="Buscar fornecedor..."
+            aria-label="Buscar fornecedor"
+            class="w-full sm:w-56"
+          />
           <AdminTableFilterBar
             :filters="filters"
             :columns="colunas"
             group-label="Filtros de fornecedores"
+            always-show-button
           />
           <UiButton variant="ghost" size="sm" @click="alternarTudo">
             <Icon
@@ -606,12 +685,16 @@ function linkWhatsApp(telefone: string | null): string | null {
           </UiButton>
         </template>
 
+        <!-- Os rótulos de coluna moram dentro de cada bloco: no topo, eles
+             descreviam linhas a três blocos de distância e faziam o nome do
+             GASTO parecer o de um fornecedor. -->
         <AdminTable
           :columns="colunas"
           :rows="linhasFiltradas"
           :sections="secoes"
           :collapsed-ids="recolhidos"
           :filters="filters"
+          column-header="section"
           empty-label="Nenhum fornecedor com esses filtros."
           @toggle-section="alternarBloco"
         >
@@ -773,10 +856,15 @@ function linkWhatsApp(telefone: string | null): string | null {
             </div>
           </template>
 
-          <!-- Só o bloco do gasto convida a cotar: a categoria é agrupamento,
-               e cotação pertence a um gasto. -->
+          <!-- Só o bloco do gasto convida a cadastrar: a categoria é
+               agrupamento, e fornecedor pertence a um gasto. Gasto sem ninguém
+               ganha um estado vazio de verdade, em vez de uma frase pendurada
+               no cabeçalho parecendo dado de tabela. -->
           <template #section-footer="{ section }">
             <div v-if="section.level === 1 || section.id === SEM_GASTO" class="px-4 py-2 md:pl-14">
+              <p v-if="section.rows.length === 0" class="mb-1.5 text-sm text-text-muted">
+                Ainda não há fornecedores cadastrados.
+              </p>
               <UiButton
                 size="sm"
                 variant="ghost"

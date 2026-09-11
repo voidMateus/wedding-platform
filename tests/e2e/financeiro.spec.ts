@@ -229,7 +229,7 @@ test('os fornecedores do mesmo gasto ficam juntos, com o mais barato destacado',
   // E o gasto planejado que ninguém cotou ainda aparece igual, com o convite
   // para a primeira proposta: é o Orçamento que manda nesta tela, não a lista
   // de cotações já cadastradas.
-  await expect(page.getByText('nenhum fornecedor ainda').first()).toBeVisible()
+  await expect(page.getByText('Ainda não há fornecedores cadastrados.').first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Adicionar fornecedor' }).nth(1)).toBeVisible()
 
   // E elas chegam em ordem de preço, sem ninguém pedir: comparar propostas com
@@ -310,20 +310,13 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
 
   // O caminho de volta: a gaveta de arquivados, com Restaurar.
   //
-  // Com recarga no meio do `toPass` porque este teste falhou uma vez aqui e
-  // passou nas seguintes: a gaveta depende do refetch da listagem, e o que
-  // importa provar é que o fornecedor arquivado TEM caminho de volta — não que
-  // o cache do cliente acertou o instante. Se só aparece depois de recarregar,
-  // o caminho existe e o teste segue; se não aparece nem assim, falha de
-  // verdade.
-  const arquivados = page.getByRole('button', { name: /fornecedores? arquivados?$/ })
-  await expect(async () => {
-    if (!(await arquivados.isVisible())) {
-      await page.reload()
-      await page.waitForLoadState('networkidle')
-    }
-    await expect(arquivados).toBeVisible({ timeout: 5_000 })
-  }).toPass({ timeout: 45_000 })
+  // `fornecedor(es)?` e não `fornecedores?`: o `?` vale só para o caractere
+  // anterior, então `fornecedores?` casa com "fornecedore"/"fornecedores" e
+  // NUNCA com o singular "fornecedor". O teste passava enquanto havia resíduo
+  // de execuções anteriores (plural) e falhava com o banco limpo — parecia
+  // intermitência, era o regex.
+  const arquivados = page.getByRole('button', { name: /fornecedor(es)? arquivado(s)?$/ })
+  await expect(arquivados).toBeVisible({ timeout: 20_000 })
   await arquivados.click()
 
   const linhaArquivada = page.locator('li').filter({ hasText: nome }).last()

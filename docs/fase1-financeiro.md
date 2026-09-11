@@ -976,3 +976,49 @@ nesta rodada. Fica como próximo passo, e é barato quando for a hora.
 Também não virou menu "···" a fileira de ações: com três itens, o menu troca um
 clique direto por dois sem tirar peso real da linha, e um componente de menu
 novo pede um segundo contexto antes de virar Design System (§4.2).
+
+---
+
+## 17. As colunas pertencem ao nível do fornecedor (2026-09-11, noite)
+
+Terceira rodada de crítica, e o achado central foi de ambiguidade: com o
+`<thead>` no topo da tabela, o nome do **gasto** ("Casa das Pedras") aparecia
+logo abaixo de uma coluna chamada FORNECEDOR — e lia como se fosse um.
+
+`AdminTable` ganhou `column-header="section"`: sem `<thead>`, com os rótulos de
+coluna (`<th scope="col">` de verdade) dentro de **cada bloco**, imediatamente
+acima das linhas que descrevem, e só quando o bloco tem linhas. Gasto sem
+fornecedor não mostra cabeçalho nenhum — mostra um estado vazio ("Ainda não há
+fornecedores cadastrados.") com o convite para cadastrar.
+
+Sem `<thead>` não existe o menu de filtro do cabeçalho, então a entrada de
+filtro passou a viver no painel: busca por nome (mesmo estado do filtro de
+texto da coluna, duas portas) e o botão "Filtros" da `AdminTableFilterBar`,
+agora visível em qualquer largura (`always-show-button`).
+
+Os indicadores foram reescritos para enfatizar o par estimado/contratado, que é
+a ligação com o Orçamento:
+
+- **Orçamento estimado** com "R$ X contratado · R$ Y abaixo/acima" embaixo;
+- **Em negociação** (era "Em cotação"), com "N propostas em avaliação" — o
+  valor continua sendo a soma da menor proposta por gasto, porque somar três
+  concorrentes do mesmo refrigerante descreveria um casamento que ninguém vai
+  fazer, mas a CONTAGEM fala de todas, que é o que ainda está para decidir;
+- **Contratado** com "N% do estimado";
+- **Aguardando fornecedor** virou um botão: clicar recorta a lista para os
+  gastos sem nenhuma proposta (`?recorte=sem-fornecedor`). Indicador que gera
+  ação vira o filtro dessa ação.
+
+A diferença entre estimado e fechado saiu do texto cinza e virou selo no
+cabeçalho do gasto (`−R$ 1.000,00` em verde, `+` em âmbar). E a coluna "Cotação"
+virou **"Valor"**: se um dia o fornecedor tiver histórico de propostas, elas
+vivem dentro dele e o rótulo continua valendo.
+
+### 17.1 Um "teste intermitente" que não era
+
+O E2E da gaveta de arquivados falhou, passou duas vezes, e eu o endureci com
+recarga — tratando sintoma. A causa real era o regex: `/fornecedores? arquivados?$/`
+tem o `?` valendo só para o caractere anterior, então casa com
+"fornecedore"/"fornecedores" e **nunca** com o singular "fornecedor". Ele
+passava enquanto havia resíduo de execuções anteriores (plural) e falhava com o
+banco limpo. Corrigido para `/fornecedor(es)? arquivado(s)?$/`, e a recarga saiu.

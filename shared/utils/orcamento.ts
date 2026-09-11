@@ -428,6 +428,8 @@ export interface ResumoDeCotacoes {
   contratado: number
   gastosEmCotacao: number
   gastosSemFornecedor: number
+  /** Quantas propostas ainda estão em avaliação (todas as de gasto em aberto). */
+  propostasEmAvaliacao: number
 }
 
 export function resumoDeCotacoes(gastos: readonly GastoEmCotacao[]): ResumoDeCotacoes {
@@ -436,6 +438,7 @@ export function resumoDeCotacoes(gastos: readonly GastoEmCotacao[]): ResumoDeCot
   let contratado = 0
   let gastosEmCotacao = 0
   let gastosSemFornecedor = 0
+  let propostasEmAvaliacao = 0
 
   for (const gasto of gastos) {
     estimado += gasto.estimado
@@ -453,7 +456,15 @@ export function resumoDeCotacoes(gastos: readonly GastoEmCotacao[]): ResumoDeCot
 
     emCotacao += Math.min(...propostas)
     gastosEmCotacao += 1
+    propostasEmAvaliacao += propostas.length
   }
 
-  return { estimado, emCotacao, contratado, gastosEmCotacao, gastosSemFornecedor }
+  return {
+    estimado,
+    emCotacao,
+    contratado,
+    gastosEmCotacao,
+    gastosSemFornecedor,
+    propostasEmAvaliacao,
+  }
 }
