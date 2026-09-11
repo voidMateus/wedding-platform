@@ -400,3 +400,60 @@ export function gerarParcelas(
     }
   })
 }
+
+/** Um gasto visto pela tela de Fornecedores: o que se planejou, o que se cotou. */
+export interface GastoEmCotacao {
+  estimado: number
+  /** Valor fechado, ou `null` enquanto o gasto não virou compromisso. */
+  contratado: number | null
+  /** Propostas recebidas para ESTE gasto, em centavos. */
+  cotacoes: readonly number[]
+}
+
+/**
+ * O resumo do topo de Fornecedores.
+ *
+ * "Em cotação" é a soma da MENOR proposta de cada gasto ainda não fechado — o
+ * melhor cenário se o casal fechasse hoje com quem já respondeu. Somar todas as
+ * propostas daria um número que não significa nada: três fornecedores do mesmo
+ * refrigerante não são três compras.
+ *
+ * "Sem fornecedor" conta o que ainda não tem nem uma proposta, e só entre os
+ * gastos em aberto: gasto já contratado direto no Orçamento não está esperando
+ * ninguém.
+ */
+export interface ResumoDeCotacoes {
+  estimado: number
+  emCotacao: number
+  contratado: number
+  gastosEmCotacao: number
+  gastosSemFornecedor: number
+}
+
+export function resumoDeCotacoes(gastos: readonly GastoEmCotacao[]): ResumoDeCotacoes {
+  let estimado = 0
+  let emCotacao = 0
+  let contratado = 0
+  let gastosEmCotacao = 0
+  let gastosSemFornecedor = 0
+
+  for (const gasto of gastos) {
+    estimado += gasto.estimado
+
+    if (gasto.contratado !== null) {
+      contratado += gasto.contratado
+      continue
+    }
+
+    const propostas = gasto.cotacoes.filter((valor) => valor > 0)
+    if (propostas.length === 0) {
+      gastosSemFornecedor += 1
+      continue
+    }
+
+    emCotacao += Math.min(...propostas)
+    gastosEmCotacao += 1
+  }
+
+  return { estimado, emCotacao, contratado, gastosEmCotacao, gastosSemFornecedor }
+}

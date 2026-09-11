@@ -119,7 +119,7 @@ function submeter() {
 <template>
   <UiModal
     :model-value="modelValue"
-    :title="editando ? 'Editar cotação' : 'Nova cotação'"
+    :title="editando ? 'Editar fornecedor' : 'Novo fornecedor'"
     size="lg"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -139,7 +139,7 @@ function submeter() {
         v-model="categoriaId"
         label="Categoria"
         :options="opcoesCategoria"
-        hint="Só enquanto a cotação não tem gasto definido."
+        hint="Só enquanto o fornecedor não tem gasto definido."
       />
 
       <div class="grid gap-4 sm:grid-cols-2">
@@ -166,7 +166,7 @@ function submeter() {
 
     <template #footer>
       <UiButton variant="ghost" @click="emit('update:modelValue', false)">Cancelar</UiButton>
-      <UiButton @click="submeter">{{ editando ? 'Salvar' : 'Adicionar cotação' }}</UiButton>
+      <UiButton @click="submeter">{{ editando ? 'Salvar' : 'Adicionar fornecedor' }}</UiButton>
     </template>
   </UiModal>
 </template>

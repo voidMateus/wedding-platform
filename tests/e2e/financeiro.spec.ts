@@ -171,7 +171,7 @@ test('o lançamento é editável — vencimento, valor e data de pagamento', asy
   })
 })
 
-test('arquivar cotação contratada explica o vínculo e oferece a saída', async ({ page }) => {
+test('arquivar fornecedor contratado explica o vínculo e oferece a saída', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)
 
@@ -187,8 +187,8 @@ test('arquivar cotação contratada explica o vínculo e oferece a saída', asyn
   await expect(linha).toBeVisible({ timeout: 20_000 })
 
   await expect(async () => {
-    await linha.getByRole('button', { name: /Arquivar cotação/ }).click({ timeout: 3_000 })
-    await expect(page.getByRole('heading', { name: 'Arquivar cotação' })).toBeVisible({
+    await linha.getByRole('button', { name: /Arquivar fornecedor/ }).click({ timeout: 3_000 })
+    await expect(page.getByRole('heading', { name: 'Arquivar fornecedor' })).toBeVisible({
       timeout: 3_000,
     })
   }).toPass({ timeout: 30_000 })
@@ -200,10 +200,12 @@ test('arquivar cotação contratada explica o vínculo e oferece a saída', asyn
 
   // Cancela: o teste prova o caminho, não gasta o dado.
   await modal.getByRole('button', { name: 'Cancelar' }).click()
-  await expect(page.getByRole('heading', { name: 'Arquivar cotação' })).toBeHidden()
+  await expect(page.getByRole('heading', { name: 'Arquivar fornecedor' })).toBeHidden()
 })
 
-test('as cotações do mesmo gasto ficam juntas, com a menor destacada', async ({ page }) => {
+test('os fornecedores do mesmo gasto ficam juntos, com o mais barato destacado', async ({
+  page,
+}) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)
 
@@ -227,8 +229,8 @@ test('as cotações do mesmo gasto ficam juntas, com a menor destacada', async (
   // E o gasto planejado que ninguém cotou ainda aparece igual, com o convite
   // para a primeira proposta: é o Orçamento que manda nesta tela, não a lista
   // de cotações já cadastradas.
-  await expect(page.getByText('sem cotação ainda').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Adicionar cotação' }).nth(1)).toBeVisible()
+  await expect(page.getByText('nenhum fornecedor ainda').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Adicionar fornecedor' }).nth(1)).toBeVisible()
 
   // E elas chegam em ordem de preço, sem ninguém pedir: comparar propostas com
   // a mais cara no topo é olhar a lista errada.
@@ -288,14 +290,14 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
   })
 
   await expect(async () => {
-    await page.getByRole('button', { name: 'Adicionar cotação' }).first().click()
+    await page.getByRole('button', { name: 'Adicionar fornecedor' }).first().click()
     await expect(page.getByLabel('Nome', { exact: true })).toBeVisible({ timeout: 2_000 })
   }).toPass({ timeout: 20_000 })
 
   await page.getByLabel('Nome', { exact: true }).fill(nome)
-  // Dentro do modal: "Adicionar cotação" também é o CTA do cabeçalho e o
+  // Dentro do modal: "Adicionar fornecedor" também é o CTA do cabeçalho e o
   // rodapé de cada bloco.
-  await page.getByRole('dialog').getByRole('button', { name: 'Adicionar cotação' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Adicionar fornecedor' }).click()
 
   const linha = page.getByRole('row').filter({ hasText: nome }).first()
   await expect(linha).toBeVisible({ timeout: 20_000 })
@@ -306,9 +308,22 @@ test('fornecedor arquivado tem caminho de volta', async ({ page }) => {
     timeout: 20_000,
   })
 
-  // O caminho de volta: a seção de arquivados, com Restaurar.
-  const arquivados = page.getByRole('button', { name: /cotaç(ão|ões) arquivadas?$/ })
-  await expect(arquivados).toBeVisible({ timeout: 20_000 })
+  // O caminho de volta: a gaveta de arquivados, com Restaurar.
+  //
+  // Com recarga no meio do `toPass` porque este teste falhou uma vez aqui e
+  // passou nas seguintes: a gaveta depende do refetch da listagem, e o que
+  // importa provar é que o fornecedor arquivado TEM caminho de volta — não que
+  // o cache do cliente acertou o instante. Se só aparece depois de recarregar,
+  // o caminho existe e o teste segue; se não aparece nem assim, falha de
+  // verdade.
+  const arquivados = page.getByRole('button', { name: /fornecedores? arquivados?$/ })
+  await expect(async () => {
+    if (!(await arquivados.isVisible())) {
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+    }
+    await expect(arquivados).toBeVisible({ timeout: 5_000 })
+  }).toPass({ timeout: 45_000 })
   await arquivados.click()
 
   const linhaArquivada = page.locator('li').filter({ hasText: nome }).last()

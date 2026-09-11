@@ -155,6 +155,19 @@ function headClass(column: AdminTableColumn<Row>): string {
   return column.align === 'right' ? 'text-right' : ''
 }
 
+/**
+ * O peso do cabeçalho do bloco. Por padrão vem do nível (0 forte, 1 discreto);
+ * `emphasis` inverte onde a relação é outra — em Fornecedores a categoria só
+ * agrupa e o gasto é a entidade que o casal procura.
+ */
+function sectionLabelClass(section: AdminTableSection<Row>): string {
+  if (section.emphasis === 'quiet') {
+    return 'text-xs font-semibold uppercase tracking-wide text-text-muted'
+  }
+  if (section.emphasis === 'strong') return 'text-base font-semibold text-text'
+  return section.level === 0 ? 'text-base font-medium text-text' : 'text-sm text-text-muted'
+}
+
 // Coluna sem `filter` nem `sort` declarados não abre menu nenhum — é assim que
 // a tabela evita oferecer um recorte que o endpoint não sabe fazer.
 function isFilterable(column: AdminTableColumn<Row>): boolean {
@@ -296,43 +309,48 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                     class="h-2 w-2 shrink-0 rounded-full"
                     :style="{ backgroundColor: block.section.cor }"
                   />
-                  <!-- 16px no bloco-raiz (a tabela herda 14px): o nome do
-                       grupo é o título de um trecho da lista, não uma célula, e
-                       no tamanho do corpo ele não se distinguia das linhas que
-                       encabeça. A subdivisão fica em 14px de propósito — os dois
-                       níveis precisam ser diferentes entre si. -->
-                  <span
-                    class="min-w-0 truncate"
-                    :class="
-                      block.section.level === 0
-                        ? 'text-base font-medium text-text'
-                        : 'text-sm text-text-muted'
-                    "
-                  >
-                    {{ block.section.label }}
-                  </span>
-                  <!-- Ao lado do rótulo, não empurrado para a direita: numa
-                       tabela larga o `ml-auto` jogaria a contagem para a borda
-                       da largura ROLÁVEL, fora da área visível — o cabeçalho
-                       do bloco atravessa todas as colunas.
+                  <span class="flex min-w-0 flex-1 flex-col items-start">
+                    <span class="flex min-w-0 max-w-full items-center gap-2">
+                      <!-- 16px no bloco-raiz (a tabela herda 14px): o nome do
+                           grupo é o título de um trecho da lista, não uma
+                           célula, e no tamanho do corpo ele não se distinguia
+                           das linhas que encabeça. A subdivisão fica em 14px de
+                           propósito — os dois níveis precisam ser diferentes
+                           entre si. `emphasis` inverte essa relação quando é o
+                           nível de baixo que carrega a entidade. -->
+                      <span class="min-w-0 truncate" :class="sectionLabelClass(block.section)">
+                        {{ block.section.label }}
+                      </span>
+                      <!-- Ao lado do rótulo, não empurrado para a direita: numa
+                           tabela larga o `ml-auto` jogaria a contagem para a
+                           borda da largura ROLÁVEL, fora da área visível — o
+                           cabeçalho do bloco atravessa todas as colunas.
 
-                       E quem cede espaço primeiro é a meta, não o nome: com
-                       `shrink-0` aqui, uma meta longa espremia o rótulo do
-                       bloco até "F…" no celular — o dado mais importante da
-                       linha desaparecendo para caber o de apoio. -->
-                  <span
-                    v-if="block.section.meta"
-                    class="num min-w-0 truncate text-xs text-text-muted"
-                  >
-                    {{ block.section.meta }}
+                           E quem cede espaço primeiro é a meta, não o nome: com
+                           `shrink-0` aqui, uma meta longa espremia o rótulo do
+                           bloco até "F…" no celular — o dado mais importante da
+                           linha desaparecendo para caber o de apoio. -->
+                      <span
+                        v-if="block.section.meta"
+                        class="num min-w-0 truncate text-xs text-text-muted"
+                      >
+                        {{ block.section.meta }}
+                      </span>
+                      <UiBadge
+                        v-if="block.section.badge"
+                        :tone="block.section.badge.tone"
+                        class="shrink-0"
+                      >
+                        {{ block.section.badge.label }}
+                      </UiBadge>
+                    </span>
+                    <span
+                      v-if="block.section.description"
+                      class="num max-w-full truncate text-xs text-text-muted"
+                    >
+                      {{ block.section.description }}
+                    </span>
                   </span>
-                  <UiBadge
-                    v-if="block.section.badge"
-                    :tone="block.section.badge.tone"
-                    class="shrink-0"
-                  >
-                    {{ block.section.badge.label }}
-                  </UiBadge>
                 </button>
               </td>
             </tr>

@@ -79,6 +79,22 @@ export interface AdminTableSection<T> {
   /** Texto à direita do rótulo — normalmente a contagem ("32 pessoas"). */
   meta?: string
   /**
+   * Segunda linha, abaixo do rótulo — o resumo do bloco ("Estimativa R$ 100,00
+   * · 1 fornecedor"). Existe porque nem todo bloco é só um agrupamento: quando
+   * ele É uma entidade (o gasto que está sendo cotado), o cabeçalho precisa
+   * dizer em que pé ela está, e isso não cabe ao lado do nome.
+   */
+  description?: string
+  /**
+   * Peso visual do cabeçalho, quando o nível não basta para decidi-lo.
+   *
+   * Por padrão o nível 0 é o forte e o 1 é o discreto — certo para grupo e
+   * subdivisão de convidados. Em Fornecedores a relação se inverte: a
+   * categoria é só agrupamento (`quiet`) e o **gasto** é a entidade que o
+   * casal procura (`strong`).
+   */
+  emphasis?: 'quiet' | 'strong'
+  /**
    * Um único selo de estado ao lado do rótulo, para o que o bloco precisa
    * gritar (uma categoria acima do orçado). Separado de `meta` porque texto
    * concatenado em `text-xs text-text-muted` faz o bloco anômalo ler igual ao

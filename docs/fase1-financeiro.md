@@ -894,3 +894,85 @@ pagamento — e desmarcar "já foi pago" manda `pagoEm: null`, porque `pago_em`
 continua sendo a única fonte do estado de pagamento. A linha `a_definir` não
 abre edição: ela não é uma parcela, e o que ela pede é a data que falta, então o
 clique leva direto para "Agendar".
+
+---
+
+## 16. Hierarquia de Fornecedores (2026-09-11, noite)
+
+Crítica de produto do usuário: *"o principal problema não é estética, é
+hierarquia de informação — hoje você precisa decifrar o que é gasto,
+fornecedor, cotação e contratação"*. A orientação junto: refinar hierarquia
+visual e semântica **sem mexer na lógica de dados**.
+
+### 16.1 Três níveis que pareciam um só
+
+A cadeia real é `categoria → gasto → fornecedor → cotação → contratação`, e a
+tela achatava tudo em faixas cinzas parecidas. Pior: a `AdminTable` dá peso
+forte ao nível 0 e discreto ao 1 — certo para grupo e subdivisão de convidados,
+**invertido** aqui, onde a categoria só agrupa e o gasto é o que o casal
+procura.
+
+`AdminTableSection` ganhou dois campos (o componente é compartilhado, então a
+capacidade entra nele, não numa tabela paralela):
+
+- `emphasis: 'quiet' | 'strong'` — inverte o peso quando o nível não basta;
+- `description` — a segunda linha do cabeçalho, para o bloco que **é** uma
+  entidade e precisa dizer em que pé ela está.
+
+Resultado: categoria em caixa-alta discreta com "1 gasto · 2 fornecedores"; o
+gasto em 16px forte com "Estimativa R$ 24.000,00 · contratado R$ 23.000,00 ·
+R$ 1.000,00 de economia"; e só então a tabela de fornecedores. A linha de
+economia é a ponte com o Orçamento que a crítica pedia — ela aparece no
+cabeçalho do gasto, onde a comparação acontece.
+
+### 16.2 A entidade da tela é o fornecedor, não a cotação
+
+A rodada anterior tinha padronizado tudo em "cotação" por consistência interna.
+O usuário corrigiu, e a correção é melhor: *"eu não penso 'vou adicionar uma
+cotação', eu penso 'vou adicionar um fornecedor'"*. Como cada linha É um
+fornecedor (com uma proposta), "Adicionar fornecedor" descreve o gesto real.
+Voltaram a ser fornecedor: o CTA, o rodapé de cada bloco, o título e o submit do
+modal, os rótulos das ações, os toasts e a gaveta de arquivados — onde
+"fornecedor arquivado" também é mais correto que "cotação arquivada": a proposta
+recusada continua sendo história útil daquele fornecedor, e a gaveta agora
+guarda o desfecho ("R$ 5.500,00 · Descartado").
+
+A palavra "cotação" ficou só onde significa **a proposta**: o rótulo da coluna
+de valor e o indicador "Em cotação".
+
+### 16.3 Quatro números no topo
+
+Do mesmo cálculo puro das outras telas (`resumoDeCotacoes` em
+`shared/utils/orcamento.ts`, seis testes): **Estimado** (o que o orçamento
+prevê), **Em cotação**, **Contratado** e **Sem fornecedor** (contagem, em
+destaque).
+
+"Em cotação" é a soma da **menor** proposta de cada gasto ainda em aberto, nunca
+a soma de todas: três fornecedores do mesmo refrigerante não são três compras, e
+somá-los descreveria um casamento que ninguém vai fazer. "Sem fornecedor" conta
+só o que está em aberto — gasto contratado direto no Orçamento não espera
+ninguém.
+
+### 16.4 Menos redundância, mais ação
+
+- O valor deixou de aparecer duas vezes: "fechado por X" só quando o contrato
+  saiu **diferente** da proposta.
+- A proposta em PDF saiu de "Contato" e foi para a coluna **Cotação** — o anexo
+  é a cotação, não um jeito de falar com alguém.
+- "Contato" virou acionável e legível: o telefone escrito `(11) 98888-7777`,
+  ele próprio o link do WhatsApp, com "falar com <nome>" abaixo quando há
+  contato nomeado. Antes eram três ícones sem rótulo.
+- O selo de situação deixou de parecer botão: "Contratado" era `primary`, a
+  única variante sem preenchimento.
+
+### 16.5 O que ficou de fora, deliberadamente
+
+A progressão de status mais rica que a crítica sugere (Pesquisando → Contato
+feito → Cotação recebida → Negociando → Contratado → Descartado) **não** entrou:
+são valores novos no enum `estagio_fornecedor`, com CHECK no Postgres e
+migration — exatamente a "lógica de dados" que a orientação mandou não mexer
+nesta rodada. Fica como próximo passo, e é barato quando for a hora.
+
+Também não virou menu "···" a fileira de ações: com três itens, o menu troca um
+clique direto por dois sem tirar peso real da linha, e um componente de menu
+novo pede um segundo contexto antes de virar Design System (§4.2).

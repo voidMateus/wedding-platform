@@ -5,6 +5,7 @@ import {
   hojeNoFusoDoEvento,
   linhaDeCategoria,
   percentual,
+  resumoDeCotacoes,
   resumoDoOrcamento,
   situacaoDaParcela,
   situacaoFinanceiraFornecedor,
@@ -314,5 +315,66 @@ describe('hojeNoFusoDoEvento', () => {
 describe('somarDias', () => {
   it('atravessa a virada do mês', () => {
     expect(somarDias('2026-09-10', 30)).toBe('2026-10-10')
+  })
+})
+
+describe('resumoDeCotacoes', () => {
+  it('soma a MENOR proposta de cada gasto, nunca todas elas', () => {
+    // Três fornecedores do mesmo refrigerante não são três compras — somar as
+    // três descreveria um casamento que ninguém vai fazer.
+    const resumo = resumoDeCotacoes([
+      { estimado: 180_000, contratado: null, cotacoes: [162_000, 175_000, 198_000] },
+    ])
+
+    expect(resumo.emCotacao).toBe(162_000)
+    expect(resumo.gastosEmCotacao).toBe(1)
+  })
+
+  it('gasto fechado sai da cotação e entra no contratado', () => {
+    const resumo = resumoDeCotacoes([
+      { estimado: 2_400_000, contratado: 2_300_000, cotacoes: [2_300_000, 2_800_000] },
+      { estimado: 180_000, contratado: null, cotacoes: [162_000] },
+    ])
+
+    expect(resumo.contratado).toBe(2_300_000)
+    expect(resumo.emCotacao).toBe(162_000)
+    expect(resumo.gastosEmCotacao).toBe(1)
+  })
+
+  it('conta como "sem fornecedor" só o que está em aberto e sem proposta', () => {
+    const resumo = resumoDeCotacoes([
+      // Planejado e ninguém cotou ainda: é o que a tela pede.
+      { estimado: 950_000, contratado: null, cotacoes: [] },
+      // Contratado direto no Orçamento, sem passar por cotação: não espera ninguém.
+      { estimado: 250_000, contratado: 240_000, cotacoes: [] },
+    ])
+
+    expect(resumo.gastosSemFornecedor).toBe(1)
+  })
+
+  it('proposta zerada não conta como proposta', () => {
+    const resumo = resumoDeCotacoes([{ estimado: 100_000, contratado: null, cotacoes: [0] }])
+
+    expect(resumo.emCotacao).toBe(0)
+    expect(resumo.gastosSemFornecedor).toBe(1)
+  })
+
+  it('o estimado soma tudo, contratado ou não', () => {
+    const resumo = resumoDeCotacoes([
+      { estimado: 100_000, contratado: 90_000, cotacoes: [] },
+      { estimado: 200_000, contratado: null, cotacoes: [] },
+    ])
+
+    expect(resumo.estimado).toBe(300_000)
+  })
+
+  it('sem gasto nenhum, devolve tudo zerado em vez de NaN', () => {
+    expect(resumoDeCotacoes([])).toEqual({
+      estimado: 0,
+      emCotacao: 0,
+      contratado: 0,
+      gastosEmCotacao: 0,
+      gastosSemFornecedor: 0,
+    })
   })
 })

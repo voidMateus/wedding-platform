@@ -44,14 +44,17 @@ export function situacaoFornecedorPresentation(
 }
 
 /**
- * O estágio é escolha do casal, não desfecho — daí nenhum deles ser `success`.
- * "Contratado" é `primary` porque diz o papel do fornecedor no casamento; se
- * já foi pago é outra coluna, derivada das parcelas.
+ * A situação do fornecedor é uma progressão, e o selo precisa deixar claro em
+ * que ponto dela ele está: pesquisar é fato sem valência, negociar é pendência
+ * com providência esperada, e fechar é o desfecho positivo daquela conversa.
+ *
+ * "Contratado" era `primary` — a única variante sem preenchimento, que numa
+ * coluna de estados lia como botão, e não como selo.
  */
 const ESTAGIO_TONES: Record<EstagioFornecedor, StatusTone> = {
   pesquisando: 'neutral',
   em_negociacao: 'warning',
-  contratado: 'primary',
+  contratado: 'success',
   descartado: 'neutral',
 }
 

@@ -16,10 +16,15 @@
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
+import { resumoDeCotacoes } from '#shared/utils/orcamento'
 import { ESTAGIOS_FORNECEDOR, ROTULOS_ESTAGIO_FORNECEDOR } from '#shared/schemas/finance'
 import type { VendorContractInput, VendorInput } from '#shared/schemas/finance'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
-import type { DocumentoComVinculos, FornecedorComSituacao } from '~/types/finance'
+import type {
+  DespesaComParcelas,
+  DocumentoComVinculos,
+  FornecedorComSituacao,
+} from '~/types/finance'
 import {
   applyTableFilters,
   compareNumber,
@@ -60,6 +65,25 @@ const arquivados = computed(() =>
   (data.value?.data ?? []).filter((fornecedor) => fornecedor.excluido_em),
 )
 
+/**
+ * O arquivado guarda o desfecho, não só o nome: "Studio X — R$ 5.500 — não
+ * contratado" é a informação que o casal quer de volta seis meses depois.
+ */
+const arquivadosParaLista = computed(() =>
+  arquivados.value.map((fornecedor) => ({
+    id: fornecedor.id,
+    nome: fornecedor.nome,
+    detalhe: [
+      fornecedor.valor_proposto_centavos
+        ? formatCentsToBRL(fornecedor.valor_proposto_centavos)
+        : null,
+      ROTULOS_ESTAGIO_FORNECEDOR[fornecedor.estagio as keyof typeof ROTULOS_ESTAGIO_FORNECEDOR],
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  })),
+)
+
 // --- tabela ---
 const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
   {
@@ -70,7 +94,9 @@ const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
   },
   {
     key: 'estagio',
-    label: 'Estágio',
+    // "Situação" e não "Estágio": é a mesma pergunta que a coluna do Orçamento
+    // responde ("em que pé isto está?"), e o módulo fala uma língua só.
+    label: 'Situação',
     filter: {
       type: 'select',
       multiple: true,
@@ -104,6 +130,24 @@ const linhasFiltradas = computed(() =>
   }),
 )
 
+/**
+ * Os quatro números do topo, do mesmo cálculo puro que as outras telas usam
+ * (`shared/utils/orcamento.ts`) — nunca somado no template.
+ */
+const resumo = computed(() =>
+  resumoDeCotacoes(
+    despesas.value.map((despesa) => ({
+      estimado: despesa.totais.estimado,
+      contratado: despesa.totais.contratado,
+      cotacoes: cotacoesDoGasto(despesa.id).map((f) => f.valor_proposto_centavos ?? 0),
+    })),
+  ),
+)
+
+function cotacoesDoGasto(despesaId: string): FornecedorComSituacao[] {
+  return fornecedores.value.filter((fornecedor) => fornecedor.gasto?.id === despesaId)
+}
+
 const SEM_GASTO = 'sem-gasto'
 const PREFIXO_CATEGORIA = 'cat:'
 
@@ -116,9 +160,9 @@ const PREFIXO_CATEGORIA = 'cat:'
  * lugar nenhum — e o casal não tinha onde pendurar a primeira proposta.
  *
  * Dois níveis, como no pedido: a categoria (Bebidas) e, dentro dela, o gasto
- * (Refrigerantes) com as propostas que o disputam. Gasto sem nenhuma cotação
- * aparece igual, vazio, com a linha "Adicionar cotação" — é justamente o
- * convite que faltava.
+ * (Refrigerantes) com os fornecedores que o disputam. Gasto sem ninguém
+ * cotando aparece igual, vazio, com a linha "Adicionar fornecedor" — é
+ * justamente o convite que faltava.
  */
 const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
   const porGasto = new Map<string, FornecedorComSituacao[]>()
@@ -156,12 +200,14 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
 
     const totalDeCotacoes = gastos.reduce((total, { cotacoes }) => total + cotacoes.length, 0)
 
+    // A categoria só agrupa — daí `quiet`. Quem o casal procura é o gasto.
     blocos.push({
       id: idCategoria,
       label: categoria.nome,
       level: 0,
+      emphasis: 'quiet',
       meta: `${gastos.length} ${gastos.length === 1 ? 'gasto' : 'gastos'} · ${totalDeCotacoes} ${
-        totalDeCotacoes === 1 ? 'cotação' : 'cotações'
+        totalDeCotacoes === 1 ? 'fornecedor' : 'fornecedores'
       }`,
       icon: 'lucide:folder',
       rows: [],
@@ -170,21 +216,13 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
     if (recolhidos.value.includes(idCategoria)) continue
 
     for (const { despesa, cotacoes } of gastos) {
-      const partes: string[] = []
-      if (despesa.totais.estimado > 0) {
-        partes.push(`estimado ${formatCentsToBRL(despesa.totais.estimado)}`)
-      }
-      partes.push(
-        cotacoes.length === 0
-          ? 'sem cotação ainda'
-          : `${cotacoes.length} ${cotacoes.length === 1 ? 'cotação' : 'cotações'}`,
-      )
-
       blocos.push({
         id: despesa.id,
         label: despesa.descricao,
         level: 1,
-        meta: partes.join(' · '),
+        // O gasto é a entidade desta tela, não um subtítulo do agrupamento.
+        emphasis: 'strong',
+        description: resumoDoGasto(despesa, cotacoes.length),
         rows: cotacoes,
       })
     }
@@ -197,7 +235,10 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
       id: SEM_GASTO,
       label: 'Ainda sem gasto definido',
       level: 0,
-      meta: `${semGasto.length} ${semGasto.length === 1 ? 'cotação' : 'cotações'}`,
+      emphasis: 'strong',
+      description: `${semGasto.length} ${
+        semGasto.length === 1 ? 'fornecedor' : 'fornecedores'
+      } que ainda não disputam um gasto do orçamento`,
       icon: 'lucide:help-circle',
       rows: semGasto,
     })
@@ -205,6 +246,40 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
 
   return blocos
 })
+
+/**
+ * A linha de resumo do gasto — é ela que liga esta tela ao Orçamento.
+ *
+ * Fechado, o que importa é quanto ele ficou contra o que se esperava (a
+ * economia, ou o excedente). Em aberto, é quantas propostas já chegaram.
+ */
+function resumoDoGasto(despesa: DespesaComParcelas, quantasCotacoes: number): string {
+  const partes: string[] = []
+  if (despesa.totais.estimado > 0) {
+    partes.push(`Estimativa ${formatCentsToBRL(despesa.totais.estimado)}`)
+  }
+
+  const contratado = despesa.totais.contratado
+  if (contratado !== null) {
+    partes.push(`contratado ${formatCentsToBRL(contratado)}`)
+    const diferenca = despesa.totais.desvioDoEstimado
+    if (diferenca !== null && diferenca !== 0) {
+      partes.push(
+        diferenca < 0
+          ? `${formatCentsToBRL(Math.abs(diferenca))} de economia`
+          : `${formatCentsToBRL(diferenca)} acima do estimado`,
+      )
+    }
+    return partes.join(' · ')
+  }
+
+  partes.push(
+    quantasCotacoes === 0
+      ? 'nenhum fornecedor ainda'
+      : `${quantasCotacoes} ${quantasCotacoes === 1 ? 'fornecedor' : 'fornecedores'}`,
+  )
+  return partes.join(' · ')
+}
 
 /** Categorias do orçamento, só as que têm gasto — é delas que saem os blocos. */
 const categoriasDoOrcamento = computed(() =>
@@ -292,9 +367,9 @@ async function salvar(input: VendorInput) {
       await criarFornecedor(input)
     }
     modalAberto.value = false
-    toast.success('Cotação salva.')
+    toast.success('Fornecedor salvo.')
   } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar a cotação.'))
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
   }
 }
 
@@ -375,7 +450,7 @@ async function desvincularEArquivar() {
     }
     await arquivarFornecedor(fornecedor.id, true)
     paraArquivar.value = null
-    toast.success('Cotação arquivada. Os gastos continuaram no orçamento, agora sem fornecedor.')
+    toast.success('Fornecedor arquivado. Os gastos continuaram no orçamento, agora sem ele.')
   } catch (erro) {
     toast.error(getApiErrorMessage(erro, 'Não foi possível desvincular e arquivar.'))
   } finally {
@@ -404,6 +479,19 @@ async function restaurar(id: string) {
   }
 }
 
+/** (65) 99999-9999 — o número como o casal o lê, não como o banco o guarda. */
+function telefoneLegivel(telefone: string | null): string | null {
+  if (!telefone) return null
+  const digitos = telefone.replace(/\D/g, '')
+  if (digitos.length === 11) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`
+  }
+  if (digitos.length === 10) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`
+  }
+  return telefone
+}
+
 /** Link de WhatsApp: só dígitos, com o 55 quando o casal digitou só o DDD. */
 function linkWhatsApp(telefone: string | null): string | null {
   if (!telefone) return null
@@ -416,12 +504,12 @@ function linkWhatsApp(telefone: string | null): string | null {
 <template>
   <AdminSection
     title="Fornecedores"
-    description="Cote quantos quiser por gasto, compare e contrate."
+    description="Compare propostas, acompanhe negociações e organize as contratações."
   >
     <template #actions>
       <UiButton @click="novoFornecedor()">
         <Icon name="lucide:plus" class="h-4 w-4" />
-        Adicionar cotação
+        Adicionar fornecedor
       </UiButton>
     </template>
 
@@ -444,15 +532,64 @@ function linkWhatsApp(telefone: string | null): string | null {
       v-else-if="despesas.length === 0"
       icon="lucide:store"
       title="Planeje um gasto primeiro"
-      description="Cada cotação é uma proposta para um gasto do orçamento. Crie o gasto no Orçamento e ele aparece aqui, pronto para receber as propostas dos fornecedores."
+      description="Cada fornecedor é uma proposta para um gasto do orçamento. Crie o gasto no Orçamento e ele aparece aqui, pronto para receber as propostas."
     >
       <UiButton :to="`/admin/${slug}/financeiro`">Ir para o orçamento</UiButton>
     </UiEmptyState>
 
     <template v-else>
+      <!-- Quatro números que respondem "em que pé está a busca por
+           fornecedor?" antes de o casal descer para a lista. Os dois primeiros
+           são o mesmo dinheiro em momentos diferentes; o último é o que ainda
+           depende de alguém procurar. -->
+      <dl
+        class="grid grid-cols-2 gap-px overflow-clip rounded-lg border border-border bg-border lg:grid-cols-4"
+      >
+        <div class="bg-surface-elevated px-4 py-3.5">
+          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Estimado</dt>
+          <dd class="num mt-0.5 text-lg font-semibold text-text">
+            {{ formatCentsToBRL(resumo.estimado) }}
+          </dd>
+          <dd class="mt-0.5 text-xs text-text-muted">o que o orçamento prevê</dd>
+        </div>
+
+        <div class="bg-surface-elevated px-4 py-3.5">
+          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Em cotação</dt>
+          <dd class="num mt-0.5 text-lg font-semibold text-text">
+            {{ formatCentsToBRL(resumo.emCotacao) }}
+          </dd>
+          <dd class="mt-0.5 text-xs text-text-muted">
+            melhor proposta de {{ resumo.gastosEmCotacao }}
+            {{ resumo.gastosEmCotacao === 1 ? 'gasto' : 'gastos' }}
+          </dd>
+        </div>
+
+        <div class="bg-surface-elevated px-4 py-3.5">
+          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Contratado</dt>
+          <dd class="num mt-0.5 text-lg font-semibold text-text">
+            {{ formatCentsToBRL(resumo.contratado) }}
+          </dd>
+          <dd class="mt-0.5 text-xs text-text-muted">já fechado</dd>
+        </div>
+
+        <div class="bg-surface-muted/70 px-4 py-3.5">
+          <dt class="text-xs font-semibold uppercase tracking-wide text-text">Sem fornecedor</dt>
+          <dd
+            class="num mt-0.5 text-2xl font-semibold"
+            :class="resumo.gastosSemFornecedor > 0 ? 'text-warning' : 'text-text'"
+          >
+            {{ resumo.gastosSemFornecedor }}
+          </dd>
+          <dd class="mt-0.5 text-xs text-text-muted">
+            {{ resumo.gastosSemFornecedor === 1 ? 'gasto esperando' : 'gastos esperando' }} a
+            primeira proposta
+          </dd>
+        </div>
+      </dl>
+
       <AdminPanel
-        title="Cotações por gasto"
-        :meta="`${linhasFiltradas.length} ${linhasFiltradas.length === 1 ? 'cotação' : 'cotações'}`"
+        title="Seus gastos"
+        :meta="`${despesas.length} ${despesas.length === 1 ? 'gasto' : 'gastos'} · ${fornecedores.length} ${fornecedores.length === 1 ? 'fornecedor' : 'fornecedores'}`"
       >
         <template #headerActions>
           <AdminTableFilterBar
@@ -484,9 +621,6 @@ function linkWhatsApp(telefone: string | null): string | null {
                 <span class="truncate text-text">{{ row.nome }}</span>
                 <UiBadge v-if="ehMaisBarato(row)" tone="success">menor preço</UiBadge>
               </span>
-              <span v-if="row.nome_contato" class="block truncate text-xs text-text-muted">
-                {{ row.nome_contato }}
-              </span>
               <UiBadge v-if="faltaLevarAoOrcamento(row)" tone="warning" class="mt-1">
                 falta registrar no orçamento
               </UiBadge>
@@ -500,48 +634,65 @@ function linkWhatsApp(telefone: string | null): string | null {
           </template>
 
           <!-- A diferença para a mais barata é o número que decide a compra,
-               e estava em 12px cinza — o mais apagado da célula. -->
+               e estava em 12px cinza — o mais apagado da célula. A proposta em
+               PDF mora aqui, e não em "Contato": o anexo É a cotação. -->
           <template #cell-cotacao="{ row }">
-            <div class="text-right">
-              <span v-if="row.valor_proposto_centavos" class="num text-text">
-                {{ formatCentsToBRL(row.valor_proposto_centavos) }}
-              </span>
-              <span v-else class="text-text-muted">—</span>
-              <span v-if="diferencaParaMenor(row)" class="num block text-sm text-warning">
-                +{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }}
-              </span>
-              <span v-if="row.contratadoCentavos > 0" class="num block text-xs text-success">
-                fechado por {{ formatCentsToBRL(row.contratadoCentavos) }}
-              </span>
-            </div>
-          </template>
-
-          <template #cell-contato="{ row }">
-            <div class="flex items-center gap-0.5">
-              <AdminRowAction
-                v-if="linkWhatsApp(row.telefone)"
-                icon="lucide:message-circle"
-                label="Abrir conversa no WhatsApp"
-                :to="linkWhatsApp(row.telefone) ?? undefined"
-              />
-              <AdminRowAction
-                v-if="row.email"
-                icon="lucide:mail"
-                label="Enviar e-mail"
-                :to="`mailto:${row.email}`"
-              />
-              <AdminRowAction
-                v-if="row.site_url"
-                icon="lucide:external-link"
-                label="Abrir site"
-                :to="row.site_url"
-              />
+            <div class="flex items-center justify-end gap-1.5">
+              <div class="text-right">
+                <span v-if="row.valor_proposto_centavos" class="num text-text">
+                  {{ formatCentsToBRL(row.valor_proposto_centavos) }}
+                </span>
+                <span v-else class="text-text-muted">—</span>
+                <span v-if="diferencaParaMenor(row)" class="num block text-sm text-warning">
+                  +{{ formatCentsToBRL(diferencaParaMenor(row) ?? 0) }}
+                </span>
+                <!-- Só quando o contrato saiu por outro valor: repetir o mesmo
+                     número duas vezes na mesma célula não informa nada. -->
+                <span
+                  v-else-if="
+                    row.contratadoCentavos > 0 &&
+                    row.contratadoCentavos !== row.valor_proposto_centavos
+                  "
+                  class="num block text-sm text-success"
+                >
+                  fechado por {{ formatCentsToBRL(row.contratadoCentavos) }}
+                </span>
+              </div>
               <AdminRowAction
                 icon="lucide:paperclip"
                 :count="row.totalDocumentos"
                 :label="`Propostas anexadas de ${row.nome}`"
                 @click="propostasAbertas = row"
               />
+            </div>
+          </template>
+
+          <!-- Contato é para falar com alguém, então ele diz COM QUEM e por
+               onde — não uma fileira de ícones sem rótulo. O número aparece
+               escrito e é o próprio link do WhatsApp. -->
+          <template #cell-contato="{ row }">
+            <div class="min-w-0">
+              <NuxtLink
+                v-if="linkWhatsApp(row.telefone)"
+                :to="linkWhatsApp(row.telefone) ?? undefined"
+                target="_blank"
+                class="flex items-center gap-1.5 text-sm text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <Icon name="lucide:message-circle" class="h-4 w-4 shrink-0 text-text-muted" />
+                <span class="num truncate">{{ telefoneLegivel(row.telefone) }}</span>
+              </NuxtLink>
+              <a
+                v-else-if="row.email"
+                :href="`mailto:${row.email}`"
+                class="flex items-center gap-1.5 text-sm text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <Icon name="lucide:mail" class="h-4 w-4 shrink-0 text-text-muted" />
+                <span class="truncate">{{ row.email }}</span>
+              </a>
+              <span v-else class="text-sm text-text-muted">—</span>
+              <span v-if="row.nome_contato" class="block truncate text-xs text-text-muted">
+                falar com {{ row.nome_contato }}
+              </span>
             </div>
           </template>
 
@@ -559,10 +710,10 @@ function linkWhatsApp(telefone: string | null): string | null {
               >
                 Contratar
               </UiButton>
-              <AdminRowAction icon="lucide:pencil" label="Editar cotação" @click="editar(row)" />
+              <AdminRowAction icon="lucide:pencil" label="Editar fornecedor" @click="editar(row)" />
               <AdminRowAction
                 icon="lucide:archive"
-                label="Arquivar cotação"
+                label="Arquivar fornecedor"
                 @click="paraArquivar = row"
               />
             </div>
@@ -615,7 +766,7 @@ function linkWhatsApp(telefone: string | null): string | null {
                 />
                 <AdminRowAction
                   icon="lucide:archive"
-                  label="Arquivar cotação"
+                  label="Arquivar fornecedor"
                   @click="paraArquivar = row"
                 />
               </div>
@@ -632,17 +783,19 @@ function linkWhatsApp(telefone: string | null): string | null {
                 @click="novoFornecedor(section.id === SEM_GASTO ? undefined : section.id)"
               >
                 <Icon name="lucide:plus" class="h-4 w-4" />
-                Adicionar cotação
+                Adicionar fornecedor
               </UiButton>
             </div>
           </template>
         </AdminTable>
       </AdminPanel>
 
+      <!-- "fornecedor arquivado", não "cotação arquivada": a proposta
+           recusada continua sendo história útil do fornecedor. -->
       <AdminArchivedList
-        :itens="arquivados"
-        singular="cotação arquivada"
-        plural="cotações arquivadas"
+        :itens="arquivadosParaLista"
+        singular="fornecedor arquivado"
+        plural="fornecedores arquivados"
         @restaurar="restaurar"
       />
     </template>
@@ -693,7 +846,7 @@ function linkWhatsApp(telefone: string | null): string | null {
          então avisar — num toast que aparecia atrás desta mesma janela. -->
     <UiModal
       :model-value="Boolean(paraArquivar)"
-      title="Arquivar cotação"
+      title="Arquivar fornecedor"
       :description="`“${paraArquivar?.nome}” sai da lista. Dá para restaurar depois, e o histórico das despesas continua.`"
       @update:model-value="paraArquivar = null"
     >
