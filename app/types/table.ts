@@ -110,6 +110,19 @@ export interface AdminTableSection<T> {
    * bloco já se distingue pela tipografia.
    */
   cor?: string | null
+  /**
+   * Fundo tingido do cabeçalho, par de `cor` quando `corEstilo` é 'barra'.
+   * Tom quase imperceptível de propósito: a cor identifica o bloco, não o
+   * pinta.
+   */
+  corFundo?: string | null
+  /**
+   * Como a cor aparece. 'ponto' (padrão) é a bolinha ao lado do rótulo, o
+   * tratamento que a tela de Grupos já usa. 'barra' é o filete na borda
+   * esquerda mais o fundo tingido — a linguagem da paleta de categorias do
+   * Financeiro, que precisa ser reconhecível de relance em três telas.
+   */
+  corEstilo?: 'ponto' | 'barra'
   rows: readonly T[]
 }
 

@@ -81,6 +81,10 @@ export default defineEventHandler(async (event) => {
       nome: input.nome,
       valor_previsto_centavos: input.valorPrevistoCentavos,
       ordem_exibicao: input.ordemExibicao,
+      // `cor_indice` não vem daqui: quem escolhe o slot é o trigger
+      // `categorias_orcamento_atribuir_cor`, que sabe quais slots estão livres
+      // entre as categorias ativas deste casamento.
+      cor_personalizada: input.corPersonalizada ?? null,
     })
     .select()
     .single()

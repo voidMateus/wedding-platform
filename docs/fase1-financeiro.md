@@ -1022,3 +1022,80 @@ tem o `?` valendo só para o caractere anterior, então casa com
 "fornecedore"/"fornecedores" e **nunca** com o singular "fornecedor". Ele
 passava enquanto havia resíduo de execuções anteriores (plural) e falhava com o
 banco limpo. Corrigido para `/fornecedor(es)? arquivado(s)?$/`, e a recarga saiu.
+
+---
+
+## 18. Paleta categórica derivada do tema (2026-09-11, noite)
+
+A cor não pertence à categoria: a **paleta pertence ao casamento**. O casal
+escolhe a cor do casamento uma vez, e o sistema deriva dela uma família de tons
+harmonizados; cada categoria ocupa uma **posição** estável nessa família.
+
+### 18.1 O que o banco guarda (e o que ele não guarda)
+
+`categorias_orcamento.cor_indice` — a POSIÇÃO, nunca a cor. Guardar o HEX
+gerado seria o erro simétrico do hash: o casal trocaria o tema de borgonha para
+azul e as categorias continuariam borgonha, porque a cor teria virado dado em
+vez de derivação.
+
+`categorias_orcamento.cor_personalizada` (nulo no caso normal) é o override
+manual. Nulo = a categoria segue o slot e acompanha o tema; preenchido = o
+casal fixou aquela cor.
+
+**Nada de hash do UUID**: dois ids podem colidir no mesmo tom, que é exatamente
+o que a paleta existe para evitar. O slot é atribuído na criação pelo trigger
+`categorias_orcamento_atribuir_cor`, que pega o **menor slot livre** entre as
+categorias ativas do casamento. Excluir uma categoria libera o slot dela para a
+próxima criada e não repinta nenhuma das outras — o oposto de numerar por
+posição, onde apagar a segunda categoria repintaria todas as seguintes.
+
+O backfill usa `ordem_exibicao, created_at, id` como critério: a ordem em que o
+casal já vê as categorias vira a ordem das cores, e os dois desempates impedem
+que duas categorias com a mesma ordem troquem de cor entre execuções.
+
+### 18.2 Como a paleta é gerada
+
+`shared/utils/paleta-categorias.ts`, função pura e única — Orçamento,
+Fornecedores e Pagamentos consomem exatamente a mesma regra.
+
+Rotação de matiz a partir da cor tema, com saturação e luminosidade presas numa
+faixa estreita e dessaturada. Uma lista de cores com nome ("borgonha →
+terracota, ameixa, rosé") só funciona para borgonha; girando a matiz, o
+resultado pertence à mesma identidade seja qual for a cor do casal — e é a
+faixa estreita, não a matiz, que impede o carnaval.
+
+Os passos não são 0°, 30°, 60°: slots vizinhos são criados em sequência (o casal
+cadastra Buffet e depois Bebidas), e dois tons a 30° de distância são quase o
+mesmo tom. A paleta salta meia roda a cada passo e ainda cobre as 12 posições
+sem repetir.
+
+Cada slot devolve três tons: `solida` (filete e ícone), `fundo` (tingido, quase
+imperceptível) e `texto`. Doze testes cobrem o que a escolha promete — que o
+mesmo slot muda de cor com o tema, que os 12 tons são distintos, que o texto
+passa em AA sobre o fundo em cinco temas diferentes, e que o fundo fica abaixo
+de 1.2:1 contra branco (acima disso ele lê como bloco colorido).
+
+Tema cinza tem tratamento próprio: sem saturação não há matiz para girar, e a
+paleta cairia em doze cinzas — nesse caso ela parte da cor padrão da
+plataforma.
+
+### 18.3 Onde a cor aparece
+
+`AdminTableSection` ganhou `corEstilo: 'ponto' | 'barra'` e `corFundo`. O ponto
+continua sendo o tratamento de Grupos; a barra é a linguagem do Financeiro —
+filete de 4px na borda esquerda, ícone na cor e o fundo tingido. A cor nunca
+domina: ela identifica o bloco, não o pinta.
+
+### 18.4 Dois defeitos de teste encontrados no caminho
+
+1. **O E2E da baixa vinha corrompendo o dado de desenvolvimento.** Ele marcava
+   a primeira parcela em aberto como paga e depois clicava no primeiro
+   "Desfazer" da tela — que é OUTRA linha, paga de verdade. A cada execução um
+   pagamento legítimo era desfeito e o marcado ficava. Agora a baixa e o
+   desfazer acontecem na mesma linha, identificada pelo vencimento.
+2. **O recorte "aguardando fornecedor" não se anunciava.** Clicar filtrava a
+   lista e o único sinal era um texto de 12px dentro do cartão — quem clicou
+   não sabia se devia clicar de novo para desfazer. Agora o cartão fica visivelmente
+   pressionado e uma faixa diz o que está sendo mostrado, com "Ver todos os
+   gastos". O bloco "Ainda sem gasto definido" sai do recorte: "gastos sem
+   fornecedor" e "fornecedores sem gasto" são perguntas opostas.

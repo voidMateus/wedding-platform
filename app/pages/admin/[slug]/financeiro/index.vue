@@ -57,6 +57,7 @@ const { data: todasCategorias } = listCategorias()
 const categoriasSimples = computed(() => ({
   data: (todasCategorias.value?.data ?? []).filter((categoria) => !categoria.excluido_em),
 }))
+const { corDaCategoria } = useCategoriaCores()
 const { listVendors } = useVendors()
 const { data: fornecedores } = listVendors()
 
@@ -133,6 +134,15 @@ const categoriasVisiveis = computed(() => {
 
 const linhas = computed(() => categoriasVisiveis.value.flatMap((categoria) => categoria.despesas))
 
+/** Filete + fundo tingido do bloco, a partir do slot da categoria. */
+function corDoBloco(categoria: { corIndice: number | null; corPersonalizada: string | null }) {
+  // "Sem categoria" não tem linha no banco, então também não tem slot: um
+  // filete colorido ali sugeriria uma categoria que não existe.
+  if (categoria.corIndice === null) return {}
+  const cor = corDaCategoria(categoria.corIndice, categoria.corPersonalizada)
+  return { cor: cor.solida, corFundo: cor.fundo, corEstilo: 'barra' as const }
+}
+
 const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
   categoriasVisiveis.value.map((categoria) => {
     // Dois números, não quatro: o teto e o que já foi comprometido contra ele.
@@ -160,6 +170,9 @@ const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
             }
           : undefined,
       icon: 'lucide:folder',
+      // A cor da categoria é a mesma nas três telas do módulo: ela vem do slot
+      // da linha (`cor_indice`) girado a partir da cor tema do casamento.
+      ...corDoBloco(categoria),
       rows: categoria.despesas,
     }
   }),
@@ -643,6 +656,8 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
               id: categoriaEmEdicao.categoriaId,
               nome: categoriaEmEdicao.nome,
               valor_previsto_centavos: categoriaEmEdicao.orcado,
+              cor_indice: categoriaEmEdicao.corIndice ?? 0,
+              cor_personalizada: categoriaEmEdicao.corPersonalizada,
             }
           : null
       "

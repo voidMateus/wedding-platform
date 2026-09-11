@@ -52,6 +52,7 @@ const categorias = computed(() => ({
 const { data: orcamento } = getOrcamento()
 
 const { listDocuments, obterUrlDoDocumento, excluirDocumento } = useFinanceDocuments()
+const { corDaCategoria } = useCategoriaCores()
 
 /** Os gastos do orçamento — é um deles que cada cotação disputa. */
 const despesas = computed(() =>
@@ -190,6 +191,15 @@ const PREFIXO_CATEGORIA = 'cat:'
  * cotando aparece igual, vazio, com a linha "Adicionar fornecedor" — é
  * justamente o convite que faltava.
  */
+/** Filete + fundo tingido do bloco, a partir do slot da categoria. */
+function corDoBloco(categoria: { corIndice: number | null; corPersonalizada: string | null }) {
+  // "Sem categoria" não tem linha no banco, então também não tem slot: um
+  // filete colorido ali sugeriria uma categoria que não existe.
+  if (categoria.corIndice === null) return {}
+  const cor = corDaCategoria(categoria.corIndice, categoria.corPersonalizada)
+  return { cor: cor.solida, corFundo: cor.fundo, corEstilo: 'barra' as const }
+}
+
 const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
   const porGasto = new Map<string, FornecedorComSituacao[]>()
   for (const fornecedor of linhasFiltradas.value) {
@@ -242,6 +252,7 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
         totalDeCotacoes === 1 ? 'fornecedor' : 'fornecedores'
       }`,
       icon: 'lucide:folder',
+      ...corDoBloco(categoria),
       rows: [],
     })
 
@@ -262,7 +273,9 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
   }
 
   // Os contatos que o casal guardou antes de decidir de que gasto precisa.
-  const semGasto = porGasto.get(SEM_GASTO) ?? []
+  // Fora do recorte: "gastos sem fornecedor" e "fornecedores sem gasto" são
+  // perguntas opostas, e mostrar as duas juntas desmentiria o filtro.
+  const semGasto = recorteSemFornecedor.value ? [] : (porGasto.get(SEM_GASTO) ?? [])
   if (semGasto.length > 0) {
     blocos.push({
       id: SEM_GASTO,
@@ -635,7 +648,12 @@ function linkWhatsApp(telefone: string | null): string | null {
         <!-- Clicável: o indicador que gera ação vira o filtro dessa ação. -->
         <button
           type="button"
-          class="bg-surface-muted/70 px-4 py-3.5 text-left transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="px-4 py-3.5 text-left transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :class="
+            recorteSemFornecedor
+              ? 'bg-primary/10 ring-1 ring-inset ring-primary'
+              : 'bg-surface-muted/70 hover:bg-surface-muted'
+          "
           :aria-pressed="recorteSemFornecedor"
           @click="alternarRecorteSemFornecedor"
         >
@@ -649,14 +667,28 @@ function linkWhatsApp(telefone: string | null): string | null {
             {{ resumo.gastosSemFornecedor }}
             {{ resumo.gastosSemFornecedor === 1 ? 'gasto' : 'gastos' }}
           </span>
-          <span class="mt-0.5 block text-xs text-text-muted">
-            {{ recorteSemFornecedor ? 'mostrando só eles · voltar' : 'nenhuma proposta recebida' }}
+          <span class="mt-0.5 flex items-center gap-1 text-xs text-text-muted">
+            <Icon v-if="recorteSemFornecedor" name="lucide:funnel" class="h-3 w-3" />
+            {{ recorteSemFornecedor ? 'filtrando a lista' : 'nenhuma proposta recebida' }}
           </span>
         </button>
       </dl>
 
       <!-- "Fornecedores por gasto" explica, no próprio título, por que uma
            tela de fornecedores está listando gastos. -->
+      <div
+        v-if="recorteSemFornecedor"
+        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/50 px-4 py-2.5"
+      >
+        <span class="flex items-center gap-2 text-sm text-text">
+          <Icon name="lucide:funnel" class="h-4 w-4 shrink-0 text-text-muted" />
+          Mostrando só os gastos que ainda não têm fornecedor
+        </span>
+        <UiButton size="sm" variant="ghost" @click="router.replace({ query: {} })">
+          Ver todos os gastos
+        </UiButton>
+      </div>
+
       <AdminPanel
         title="Fornecedores por gasto"
         :meta="`${despesas.length} ${despesas.length === 1 ? 'gasto' : 'gastos'} · ${fornecedores.length} ${fornecedores.length === 1 ? 'fornecedor' : 'fornecedores'}`"

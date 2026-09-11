@@ -74,6 +74,15 @@ export const budgetCategoryInputSchema = z.object({
   nome: z.string().trim().min(1, 'Informe um nome para a categoria.').max(120),
   valorPrevistoCentavos: valorCentavosSchema.default(0),
   ordemExibicao: z.coerce.number().int().min(0).default(0),
+  /**
+   * Override manual da cor. Nulo (o normal) deixa a categoria seguir o slot
+   * dela na paleta derivada do tema — trocar a cor do casamento repinta tudo.
+   * O HEX gravado aqui é a exceção deliberada: quem o define quis aquela cor.
+   */
+  corPersonalizada: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida.')
+    .nullish(),
 })
 export type BudgetCategoryInput = z.infer<typeof budgetCategoryInputSchema>
 

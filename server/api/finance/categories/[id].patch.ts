@@ -16,6 +16,10 @@ export default defineEventHandler(async (event) => {
     atualizacao.valor_previsto_centavos = input.valorPrevistoCentavos
   }
   if (input.ordemExibicao !== undefined) atualizacao.ordem_exibicao = input.ordemExibicao
+  // `null` é valor legítimo: é como o casal volta a cor para a automática.
+  if (input.corPersonalizada !== undefined) {
+    atualizacao.cor_personalizada = input.corPersonalizada ?? null
+  }
 
   if (Object.keys(atualizacao).length === 0) {
     throw badRequestError('Nada para atualizar.')

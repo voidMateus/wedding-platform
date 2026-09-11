@@ -303,7 +303,18 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
               <td
                 :colspan="columns.length"
                 class="block border-t border-border p-0 first:border-t-0 md:table-cell"
-                :class="block.section.level === 0 ? 'bg-surface-muted' : 'bg-surface'"
+                :class="[
+                  block.section.level === 0 ? 'bg-surface-muted' : 'bg-surface',
+                  block.section.corEstilo === 'barra' && 'border-l-4',
+                ]"
+                :style="
+                  block.section.corEstilo === 'barra' && block.section.cor
+                    ? {
+                        borderLeftColor: block.section.cor,
+                        backgroundColor: block.section.corFundo ?? undefined,
+                      }
+                    : undefined
+                "
               >
                 <button
                   type="button"
@@ -321,9 +332,14 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                     v-if="block.section.icon"
                     :name="block.section.icon"
                     class="h-4 w-4 shrink-0 text-text-muted"
+                    :style="
+                      block.section.corEstilo === 'barra' && block.section.cor
+                        ? { color: block.section.cor }
+                        : undefined
+                    "
                   />
                   <span
-                    v-if="block.section.cor"
+                    v-if="block.section.cor && block.section.corEstilo !== 'barra'"
                     aria-hidden="true"
                     class="h-2 w-2 shrink-0 rounded-full"
                     :style="{ backgroundColor: block.section.cor }"

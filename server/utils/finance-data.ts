@@ -109,6 +109,10 @@ export async function carregarOrcamento(
     categoriaId: categoria.id,
     nome: categoria.nome,
     valorPrevistoCentavos: categoria.valor_previsto_centavos,
+    // `?? 0` porque a coluna nasce com a migration da paleta: enquanto ela não
+    // rodar num ambiente, a categoria cai no slot 0 em vez de quebrar a tela.
+    corIndice: categoria.cor_indice ?? 0,
+    corPersonalizada: categoria.cor_personalizada ?? null,
     despesas: (despesasPorCategoria.get(categoria.id) ?? []).map((despesa) => ({
       valor_estimado_centavos: despesa.valor_estimado_centavos,
       valor_centavos: despesa.valor_centavos,

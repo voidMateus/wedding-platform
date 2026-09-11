@@ -95,25 +95,34 @@ test('Pagamentos registra a baixa na própria linha', async ({ page }) => {
     timeout: 20_000,
   })
 
-  const marcarPago = page.getByRole('button', { name: 'Marcar pago' })
-  await expect(marcarPago.first()).toBeVisible({ timeout: 20_000 })
+  // A baixa e o desfazer acontecem na MESMA linha, identificada pelo
+  // vencimento. A versão anterior marcava a primeira linha em aberto e depois
+  // clicava no primeiro "Desfazer" da tela — que é outra linha, paga de
+  // verdade: o teste vinha desfazendo um pagamento legítimo e deixando o seu
+  // marcado, corrompendo o casamento de desenvolvimento a cada execução.
+  const linha = page
+    .getByRole('row')
+    .filter({ has: page.getByText('06 de set.') })
+    .first()
+  await expect(linha).toBeVisible({ timeout: 20_000 })
 
   // `toPass` porque a página admin renderiza no servidor: clique que chega
   // antes da hidratação é descartado em silêncio.
   await expect(async () => {
-    await marcarPago.first().click({ timeout: 3_000 })
+    await linha.getByRole('button', { name: 'Marcar pago' }).click({ timeout: 3_000 })
     await expect(page.getByRole('heading', { name: 'Registrar pagamento' })).toBeVisible({
       timeout: 3_000,
     })
   }).toPass({ timeout: 30_000 })
   await page.getByRole('button', { name: 'Confirmar' }).click()
 
-  const desfazer = page.getByRole('button', { name: 'Desfazer' })
-  await expect(desfazer.first()).toBeVisible({ timeout: 20_000 })
+  const desfazerDaLinha = linha.getByRole('button', { name: 'Desfazer pagamento' })
+  await expect(desfazerDaLinha).toBeVisible({ timeout: 20_000 })
 
-  // Desfaz para não deixar resíduo no casamento de desenvolvimento.
-  await desfazer.first().click()
-  await expect(page.getByRole('button', { name: 'Marcar pago' }).first()).toBeVisible({
+  // Devolve a linha ao estado anterior — o casamento de desenvolvimento é
+  // compartilhado, e teste que suja dado vira dado de demonstração errado.
+  await desfazerDaLinha.click()
+  await expect(linha.getByRole('button', { name: 'Marcar pago' })).toBeVisible({
     timeout: 20_000,
   })
 })
@@ -244,6 +253,33 @@ test('os fornecedores do mesmo gasto ficam juntos, com o mais barato destacado',
     )
   expect(refrigerantes[0]).toContain('Atacado do Zé')
   expect(refrigerantes[2]).toContain('Bebidas Express')
+})
+
+test('o recorte "aguardando fornecedor" se anuncia e tem saída', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/fornecedores`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Fornecedores' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // Filtro que recorta a lista sem dizer que recortou deixa quem clicou sem
+  // saber se clica de novo para desfazer.
+  const indicador = page.getByRole('button', { name: /Aguardando fornecedor/ })
+  await expect(async () => {
+    await indicador.click({ timeout: 3_000 })
+    await expect(page.getByText('Mostrando só os gastos que ainda não têm fornecedor')).toBeVisible(
+      { timeout: 3_000 },
+    )
+  }).toPass({ timeout: 30_000 })
+
+  await expect(indicador).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByText('Ainda sem gasto definido')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Ver todos os gastos' }).click()
+  await expect(page.getByText('Mostrando só os gastos que ainda não têm fornecedor')).toBeHidden()
+  await expect(indicador).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('a ordenação da coluna ordena de verdade', async ({ page }) => {

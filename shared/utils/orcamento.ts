@@ -75,6 +75,14 @@ export interface GrupoDeCategoria {
   categoriaId: string | null
   nome: string
   valorPrevistoCentavos: number
+  /**
+   * Posição desta categoria na paleta derivada da cor tema
+   * (`shared/utils/paleta-categorias.ts`). Opcional na entrada porque a
+   * categoria "sem categoria" não tem linha no banco — e porque o dado só
+   * existe depois da migration que criou a coluna.
+   */
+  corIndice?: number
+  corPersonalizada?: string | null
   despesas: DespesaCalculavel[]
 }
 
@@ -120,6 +128,13 @@ export interface LinhaDeCategoria {
   percentualContratado: number | null
   /** Quantos gastos ainda não têm custo final. */
   gastosPlanejados: number
+  /**
+   * Slot da categoria na paleta do casamento — cor é derivada, nunca gravada.
+   * `null` no grupo "Sem categoria", que não tem linha no banco: pintar um
+   * filete ali sugeriria uma categoria que não existe.
+   */
+  corIndice: number | null
+  corPersonalizada: string | null
 }
 
 export interface BlocoDeAtencao {
@@ -260,6 +275,8 @@ export function linhaDeCategoria(grupo: GrupoDeCategoria): LinhaDeCategoria {
     aContratar: Math.max(0, estimado - contratado),
     percentualContratado: percentual(contratado, estimado),
     gastosPlanejados,
+    corIndice: grupo.corIndice ?? null,
+    corPersonalizada: grupo.corPersonalizada ?? null,
   }
 }
 

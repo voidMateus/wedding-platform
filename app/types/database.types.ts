@@ -195,6 +195,8 @@ export type Database = {
       categorias_orcamento: {
         Row: {
           casamento_id: string
+          cor_indice: number
+          cor_personalizada: string | null
           created_at: string
           excluido_em: string | null
           id: string
@@ -205,6 +207,8 @@ export type Database = {
         }
         Insert: {
           casamento_id: string
+          cor_indice?: number
+          cor_personalizada?: string | null
           created_at?: string
           excluido_em?: string | null
           id?: string
@@ -215,6 +219,8 @@ export type Database = {
         }
         Update: {
           casamento_id?: string
+          cor_indice?: number
+          cor_personalizada?: string | null
           created_at?: string
           excluido_em?: string | null
           id?: string
