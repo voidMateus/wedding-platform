@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { checkInfinitePayPayment, createInfinitePayCheckoutLink } from '../../../server/utils/infinitepay'
+import {
+  checkInfinitePayPayment,
+  createInfinitePayCheckoutLink,
+} from '../../../server/utils/infinitepay'
 
 // $fetch é global do Nitro (auto-import) — fora do runtime do servidor
 // (vitest puro) precisa ser stubado manualmente para os testes chamarem o
@@ -26,7 +29,10 @@ describe('createInfinitePayCheckoutLink', () => {
       items: [{ quantity: 1, price: 5000, description: 'Air Fryer' }],
     })
 
-    expect(result).toEqual({ ok: true, checkoutUrl: 'https://checkout.infinitepay.com.br/casal?lenc=abc' })
+    expect(result).toEqual({
+      ok: true,
+      checkoutUrl: 'https://checkout.infinitepay.com.br/casal?lenc=abc',
+    })
   })
 
   it('devolve ok:false quando a resposta não tem url', async () => {
@@ -60,7 +66,11 @@ describe('createInfinitePayCheckoutLink', () => {
 
 describe('checkInfinitePayPayment', () => {
   it('devolve paid:true quando a InfinitePay confirma o pagamento', async () => {
-    ;($fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, paid: true, amount: 5000 })
+    ;($fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      paid: true,
+      amount: 5000,
+    })
 
     const result = await checkInfinitePayPayment({ handle: 'casal', orderNsu: 'pagamento-1' })
 

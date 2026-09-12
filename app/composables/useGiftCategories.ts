@@ -18,10 +18,7 @@ export function useGiftCategories() {
     return $fetch<GiftCategory>('/api/gift-categories', { method: 'POST', body: input })
   }
 
-  async function updateGiftCategory(
-    id: string,
-    input: GiftCategoryInput,
-  ): Promise<GiftCategory> {
+  async function updateGiftCategory(id: string, input: GiftCategoryInput): Promise<GiftCategory> {
     return $fetch<GiftCategory>(`/api/gift-categories/${id}`, { method: 'PATCH', body: input })
   }
 

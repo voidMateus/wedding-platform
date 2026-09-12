@@ -77,6 +77,21 @@ interface Props {
   sections?: readonly AdminTableSection<Row>[]
   /** Ids dos blocos recolhidos. O estado é da página, nunca da tabela. */
   collapsedIds?: readonly string[]
+  /**
+   * Onde moram os rótulos de coluna.
+   *
+   * `'table'` (padrão) é um `<thead>` fixo no topo — certo quando a tabela é
+   * uma lista só. `'section'` põe os rótulos dentro de cada bloco, logo acima
+   * das linhas dele, e serve à tabela fragmentada em muitos blocos pequenos:
+   * lá em cima, o cabeçalho descreve linhas que estão a três blocos de
+   * distância e, pior, faz o próprio cabeçalho do bloco parecer a primeira
+   * linha de dados — "Casa das Pedras" lido como se fosse um fornecedor.
+   *
+   * Sem `<thead>` não há menu de filtro no cabeçalho: em `'section'` a página
+   * precisa oferecer a entrada de filtro por fora (busca no painel e o botão
+   * da `AdminTableFilterBar`).
+   */
+  columnHeader?: 'table' | 'section'
 }
 
 const {
@@ -89,6 +104,7 @@ const {
   filters,
   sections,
   collapsedIds,
+  columnHeader = 'table',
 } = defineProps<Props>()
 
 const emit = defineEmits<{
@@ -155,6 +171,19 @@ function headClass(column: AdminTableColumn<Row>): string {
   return column.align === 'right' ? 'text-right' : ''
 }
 
+/**
+ * O peso do cabeçalho do bloco. Por padrão vem do nível (0 forte, 1 discreto);
+ * `emphasis` inverte onde a relação é outra — em Fornecedores a categoria só
+ * agrupa e o gasto é a entidade que o casal procura.
+ */
+function sectionLabelClass(section: AdminTableSection<Row>): string {
+  if (section.emphasis === 'quiet') {
+    return 'text-xs font-semibold uppercase tracking-wide text-text-muted'
+  }
+  if (section.emphasis === 'strong') return 'text-base font-semibold text-text'
+  return section.level === 0 ? 'text-base font-medium text-text' : 'text-sm text-text-muted'
+}
+
 // Coluna sem `filter` nem `sort` declarados não abre menu nenhum — é assim que
 // a tabela evita oferecer um recorte que o endpoint não sabe fazer.
 function isFilterable(column: AdminTableColumn<Row>): boolean {
@@ -211,7 +240,10 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
              virarem uma massa cinza só, sem dizer onde um acabava. Agora o
              cabeçalho recua para o branco do cartão e quem carrega o tom é a
              faixa. -->
-        <thead class="sticky top-0 z-10 hidden md:table-header-group">
+        <thead
+          v-if="columnHeader === 'table'"
+          class="sticky top-0 z-10 hidden md:table-header-group"
+        >
           <tr>
             <th
               v-for="column in columns"
@@ -271,7 +303,18 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
               <td
                 :colspan="columns.length"
                 class="block border-t border-border p-0 first:border-t-0 md:table-cell"
-                :class="block.section.level === 0 ? 'bg-surface-muted' : 'bg-surface'"
+                :class="[
+                  block.section.level === 0 ? 'bg-surface-muted' : 'bg-surface',
+                  block.section.corEstilo === 'barra' && 'border-l-4',
+                ]"
+                :style="
+                  block.section.corEstilo === 'barra' && block.section.cor
+                    ? {
+                        borderLeftColor: block.section.cor,
+                        backgroundColor: block.section.corFundo ?? undefined,
+                      }
+                    : undefined
+                "
               >
                 <button
                   type="button"
@@ -289,38 +332,110 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                     v-if="block.section.icon"
                     :name="block.section.icon"
                     class="h-4 w-4 shrink-0 text-text-muted"
+                    :style="
+                      block.section.corEstilo === 'barra' && block.section.cor
+                        ? { color: block.section.cor }
+                        : undefined
+                    "
                   />
                   <span
-                    v-if="block.section.cor"
+                    v-if="block.section.cor && block.section.corEstilo !== 'barra'"
                     aria-hidden="true"
                     class="h-2 w-2 shrink-0 rounded-full"
                     :style="{ backgroundColor: block.section.cor }"
                   />
-                  <!-- 16px no bloco-raiz (a tabela herda 14px): o nome do
-                       grupo é o título de um trecho da lista, não uma célula, e
-                       no tamanho do corpo ele não se distinguia das linhas que
-                       encabeça. A subdivisão fica em 14px de propósito — os dois
-                       níveis precisam ser diferentes entre si. -->
-                  <span
-                    class="min-w-0 truncate"
-                    :class="
-                      block.section.level === 0
-                        ? 'text-base font-medium text-text'
-                        : 'text-sm text-text-muted'
-                    "
-                  >
-                    {{ block.section.label }}
-                  </span>
-                  <!-- Ao lado do rótulo, não empurrado para a direita: numa
-                       tabela larga o `ml-auto` jogaria a contagem para a borda
-                       da largura ROLÁVEL, fora da área visível — o cabeçalho
-                       do bloco atravessa todas as colunas. -->
-                  <span v-if="block.section.meta" class="num shrink-0 text-xs text-text-muted">
-                    {{ block.section.meta }}
+                  <span class="flex min-w-0 flex-1 flex-col items-start">
+                    <span class="flex min-w-0 max-w-full items-center gap-2">
+                      <!-- 16px no bloco-raiz (a tabela herda 14px): o nome do
+                           grupo é o título de um trecho da lista, não uma
+                           célula, e no tamanho do corpo ele não se distinguia
+                           das linhas que encabeça. A subdivisão fica em 14px de
+                           propósito — os dois níveis precisam ser diferentes
+                           entre si. `emphasis` inverte essa relação quando é o
+                           nível de baixo que carrega a entidade. -->
+                      <span class="min-w-0 truncate" :class="sectionLabelClass(block.section)">
+                        {{ block.section.label }}
+                      </span>
+                      <!-- Ao lado do rótulo, não empurrado para a direita: numa
+                           tabela larga o `ml-auto` jogaria a contagem para a
+                           borda da largura ROLÁVEL, fora da área visível — o
+                           cabeçalho do bloco atravessa todas as colunas.
+
+                           E quem cede espaço primeiro é a meta, não o nome: com
+                           `shrink-0` aqui, uma meta longa espremia o rótulo do
+                           bloco até "F…" no celular — o dado mais importante da
+                           linha desaparecendo para caber o de apoio. -->
+                      <span
+                        v-if="block.section.meta"
+                        class="num min-w-0 truncate text-xs text-text-muted"
+                      >
+                        {{ block.section.meta }}
+                      </span>
+                      <UiBadge
+                        v-if="block.section.badge"
+                        :tone="block.section.badge.tone"
+                        class="shrink-0"
+                      >
+                        {{ block.section.badge.label }}
+                      </UiBadge>
+                    </span>
+                    <span
+                      v-if="block.section.description"
+                      class="num max-w-full truncate text-xs text-text-muted"
+                    >
+                      {{ block.section.description }}
+                    </span>
+                    <!-- A proporção como forma, não como terceiro número lido
+                         em sequência. `aria-hidden` porque os valores que ela
+                         representa já estão escritos na linha acima — para
+                         leitor de tela ela seria repetição. -->
+                    <span
+                      v-if="block.section.progresso && block.section.progresso.total > 0"
+                      aria-hidden="true"
+                      class="mt-1.5 flex h-1 w-36 overflow-clip rounded-full bg-border"
+                    >
+                      <span
+                        class="h-full"
+                        :style="{
+                          width: `${Math.min(100, (block.section.progresso.valor / block.section.progresso.total) * 100)}%`,
+                          backgroundColor: block.section.cor ?? 'var(--color-text-muted)',
+                        }"
+                      />
+                      <span
+                        v-if="block.section.progresso.secundario"
+                        class="h-full opacity-40"
+                        :style="{
+                          width: `${Math.max(0, Math.min(100, ((block.section.progresso.secundario - block.section.progresso.valor) / block.section.progresso.total) * 100))}%`,
+                          backgroundColor: block.section.cor ?? 'var(--color-text-muted)',
+                        }"
+                      />
+                    </span>
                   </span>
                 </button>
               </td>
             </tr>
+
+            <!-- Os rótulos de coluna dentro do bloco, imediatamente acima das
+                 linhas que eles descrevem. `<th scope="col">` de verdade, e um
+                 por bloco: numa tabela fragmentada é isso que diz ao leitor de
+                 tela (e ao olho) que as colunas pertencem a ESTE trecho. Some
+                 junto com as linhas quando o bloco não tem nenhuma. -->
+            <tr
+              v-if="columnHeader === 'section' && block.section && block.rows.length > 0"
+              class="hidden md:table-row"
+            >
+              <th
+                v-for="column in columns"
+                :key="column.key"
+                scope="col"
+                class="border-b border-border bg-surface px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-text-muted"
+                :class="headClass(column)"
+              >
+                <span v-if="column.labelHidden" class="sr-only">{{ column.label }}</span>
+                <span v-else>{{ column.label }}</span>
+              </th>
+            </tr>
+
             <template v-for="row in block.rows" :key="row.id">
               <!-- Linha do celular desenhada pela página. Só existe abaixo de
                    `md`; do `md` pra cima quem manda é a grade de colunas. -->

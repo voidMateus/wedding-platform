@@ -3,7 +3,10 @@ import { photoMetadataSchema } from '#shared/schemas/photos'
 
 describe('photoMetadataSchema', () => {
   it('aceita legenda e ordem válidas', () => {
-    const result = photoMetadataSchema.safeParse({ legenda: 'Ensaio pré-wedding', ordemExibicao: 2 })
+    const result = photoMetadataSchema.safeParse({
+      legenda: 'Ensaio pré-wedding',
+      ordemExibicao: 2,
+    })
     expect(result.success).toBe(true)
   })
 

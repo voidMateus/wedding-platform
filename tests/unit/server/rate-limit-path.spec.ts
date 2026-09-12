@@ -13,7 +13,9 @@ describe('classifyRateLimitPath', () => {
   })
 
   it('classifica a busca por nome mesmo com query string (achado real do Passo 2: event.path do h3 inclui "?q=...", e a rota real de busca sempre tem query string — sem isso o rate limit nunca era aplicado)', () => {
-    expect(classifyRateLimitPath('/api/public/joao-e-maria/rsvp-search?q=maria')).toBe('rsvp-search')
+    expect(classifyRateLimitPath('/api/public/joao-e-maria/rsvp-search?q=maria')).toBe(
+      'rsvp-search',
+    )
     expect(classifyRateLimitPath('/api/public/rsvp-search/select?foo=bar')).toBe('rsvp-search')
   })
 
@@ -26,7 +28,9 @@ describe('classifyRateLimitPath', () => {
     expect(classifyRateLimitPath('/api/public/gifts/gift-1/reserve')).toBe('gift-mutation')
     expect(classifyRateLimitPath('/api/public/gifts/gift-1/checkout')).toBe('gift-mutation')
     expect(classifyRateLimitPath('/api/public/gifts/gift-1/cancel')).toBe('gift-mutation')
-    expect(classifyRateLimitPath('/api/public/gifts/payments/payment-1/status')).toBe('gift-mutation')
+    expect(classifyRateLimitPath('/api/public/gifts/payments/payment-1/status')).toBe(
+      'gift-mutation',
+    )
   })
 
   it('não classifica leitura pública da vitrine de presentes (GET, sem limite)', () => {

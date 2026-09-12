@@ -7,6 +7,8 @@
  * composable `useTableFilters` — e um deles não é componente.
  */
 
+import type { StatusTone } from '~/utils/status-presentation'
+
 export type TableSortDirection = 'asc' | 'desc'
 
 /**
@@ -76,6 +78,29 @@ export interface AdminTableSection<T> {
   level: 0 | 1
   /** Texto à direita do rótulo — normalmente a contagem ("32 pessoas"). */
   meta?: string
+  /**
+   * Segunda linha, abaixo do rótulo — o resumo do bloco ("Estimativa R$ 100,00
+   * · 1 fornecedor"). Existe porque nem todo bloco é só um agrupamento: quando
+   * ele É uma entidade (o gasto que está sendo cotado), o cabeçalho precisa
+   * dizer em que pé ela está, e isso não cabe ao lado do nome.
+   */
+  description?: string
+  /**
+   * Peso visual do cabeçalho, quando o nível não basta para decidi-lo.
+   *
+   * Por padrão o nível 0 é o forte e o 1 é o discreto — certo para grupo e
+   * subdivisão de convidados. Em Fornecedores a relação se inverte: a
+   * categoria é só agrupamento (`quiet`) e o **gasto** é a entidade que o
+   * casal procura (`strong`).
+   */
+  emphasis?: 'quiet' | 'strong'
+  /**
+   * Um único selo de estado ao lado do rótulo, para o que o bloco precisa
+   * gritar (uma categoria acima do orçado). Separado de `meta` porque texto
+   * concatenado em `text-xs text-text-muted` faz o bloco anômalo ler igual ao
+   * saudável — que é exatamente o desfecho que o selo evita.
+   */
+  badge?: { label: string; tone: StatusTone }
   /** Ícone lucide à esquerda do rótulo. */
   icon?: string
   /**
@@ -85,6 +110,26 @@ export interface AdminTableSection<T> {
    * bloco já se distingue pela tipografia.
    */
   cor?: string | null
+  /**
+   * Barra de proporção no cabeçalho do bloco — substitui dois ou três números
+   * lidos em sequência por uma forma. `valor` é o que já se concretizou (pago),
+   * `secundario` o degrau intermediário (contratado) e `total` o todo
+   * (estimado). Pinta na `cor` do bloco quando há uma.
+   */
+  progresso?: { valor: number; secundario?: number; total: number }
+  /**
+   * Fundo tingido do cabeçalho, par de `cor` quando `corEstilo` é 'barra'.
+   * Tom quase imperceptível de propósito: a cor identifica o bloco, não o
+   * pinta.
+   */
+  corFundo?: string | null
+  /**
+   * Como a cor aparece. 'ponto' (padrão) é a bolinha ao lado do rótulo, o
+   * tratamento que a tela de Grupos já usa. 'barra' é o filete na borda
+   * esquerda mais o fundo tingido — a linguagem da paleta de categorias do
+   * Financeiro, que precisa ser reconhecível de relance em três telas.
+   */
+  corEstilo?: 'ponto' | 'barra'
   rows: readonly T[]
 }
 

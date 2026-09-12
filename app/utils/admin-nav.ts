@@ -63,6 +63,14 @@ const ROTAS_DO_MODULO_CONVIDADOS = ['/convidados', '/grupos', '/convites'] as co
 const ROTAS_DO_MODULO_CONFIGURACOES = ['/configuracoes', '/cronograma', '/galeria'] as const
 
 /**
+ * Rotas do módulo Financeiro. Todas debaixo de `/financeiro`, diferente de
+ * Convidados (que possui `/grupos` e `/convites` no mesmo nível): aqui as
+ * telas nasceram juntas, então o prefixo comum já diz a que módulo pertencem
+ * sem uma lista de posse.
+ */
+const ROTAS_DO_MODULO_FINANCEIRO = ['/financeiro'] as const
+
+/**
  * As seções de Configurações, agrupadas pelo assunto que era aba no topo.
  *
  * Vive aqui, e não na página, porque virou navegação: o menu da seção monta a
@@ -155,6 +163,15 @@ export function adminPrimaryNav(slug: string): AdminNavItem[] {
       tambemDonoDe: ROTAS_DO_MODULO_CONVIDADOS.map((rota) => `${base}${rota}`),
     },
     { to: `${base}/presentes`, label: 'Presentes', icon: 'lucide:gift' },
+    // Financeiro é a quinta aba: a barra do celular mostra quatro destinos
+    // mais o "Mais", então ele entra na barra e Configurações (aberta uma vez
+    // por semana, não por dia) passa a viver no "Mais".
+    {
+      to: `${base}/financeiro`,
+      label: 'Financeiro',
+      icon: 'lucide:wallet',
+      tambemDonoDe: ROTAS_DO_MODULO_FINANCEIRO.map((rota) => `${base}${rota}`),
+    },
     // Cronograma e Galeria também perdem aba própria: são telas do módulo
     // Configurações (o casal preparando o que o convidado vai ver).
     {
@@ -227,6 +244,28 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
         itens: [
           { label: 'Formulários', icon: 'lucide:clipboard-list', indisponivel: 'Em breve.' },
           { label: 'Integrações', icon: 'lucide:plug', indisponivel: 'Em breve.' },
+        ],
+      },
+    ]
+  }
+
+  if (ROTAS_DO_MODULO_FINANCEIRO.some((rota) => path.startsWith(`${base}${rota}`))) {
+    return [
+      // As três telas são o CAMINHO do dinheiro, nesta ordem: planejar ->
+      // contratar -> pagar. Uma "Visão geral" por cima delas repetiria os
+      // mesmos números num quarto lugar — o topo do Orçamento já é o resumo.
+      {
+        label: 'Financeiro',
+        itens: [
+          { to: `${base}/financeiro`, label: 'Orçamento', icon: 'lucide:list-tree', exact: true },
+          { to: `${base}/financeiro/fornecedores`, label: 'Fornecedores', icon: 'lucide:store' },
+          { to: `${base}/financeiro/pagamentos`, label: 'Pagamentos', icon: 'lucide:receipt' },
+        ],
+      },
+      {
+        label: 'Gerenciar',
+        itens: [
+          { to: `${base}/financeiro/documentos`, label: 'Documentos', icon: 'lucide:folder' },
         ],
       },
     ]

@@ -406,6 +406,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Convidados** | CRUD completo, importação CSV, filtros e busca |
 | **Grupos** | Organização de convidados em grupos, definição de limites de acompanhantes |
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente — tudo na própria página `/admin/presentes` |
+| **Financeiro** | Orçamento (planejar), Fornecedores (contratar), Pagamentos (pagar) e Documentos — ver 7.9. Refinamento completo em [`fase1-financeiro.md`](fase1-financeiro.md) |
 | **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
 | **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, ordem das seções da home, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
@@ -483,6 +484,20 @@ Cada linha da lista de ordem tem um interruptor (ícone de olho) que liga e desl
 O fundo de cada seção (off-white ou bege) é decidido pela **posição** dela entre as que aparecem, não fixado por seção. É o que garante que duas seções claras nunca fiquem coladas com o mesmo tom — o que passou a ser possível assim que a ordem e a visibilidade viraram configuráveis.
 
 Versículo e "Confirme sua Presença" têm cor própria (a faixa na cor primária e a banda de destaque) e ficam fora do revezamento, sem interrompê-lo: uma faixa escura entre duas seções claras não dispensa que elas sejam diferentes entre si.
+
+### 7.9 Financeiro
+
+Primeiro módulo do Hub (`docs/plano-produto-hub-casamento.md`), inteiramente administrativo — nenhum dado dele aparece no site do convidado. Escopo, modelo de dados e fluxos completos em [`fase1-financeiro.md`](fase1-financeiro.md); o essencial de produto:
+
+- **O módulo responde decisões, não registra lançamentos.** O dinheiro passa por **Orçado** (quanto reservamos) → **Estimado** (quanto achamos que vai custar) → **Contratado** (por quanto fechamos) → **Pago**, e a leitura que diferencia o produto da planilha são as **distâncias** entre eles: estimado menos contratado é trabalho que falta; contratado menos pago é dinheiro que falta.
+- **Três telas, uma por momento** (redesenho de 2026-09-11): **Orçamento** (planejar), **Fornecedores** (cotar e contratar) e **Pagamentos** (o que sai e quando). Um gasto tem custo estimado e custo final; o final só existe depois de contratar, e é ele que manda o gasto para Pagamentos — gasto em planejamento nunca aparece lá.
+- **Contratar preenche um gasto que já existe**: o casal planeja "Buffet, estimado R$ 12.000", cota fornecedores e, ao fechar com um, diz a qual gasto aquilo corresponde. O valor vira custo final, o fornecedor é vinculado e as parcelas nascem.
+- **Estrutura pronta + liberdade de planilha**: as categorias sugeridas são um botão do estado vazio, nunca linhas criadas por conta própria; categoria, fornecedor, parcelamento e observação são todos opcionais.
+- **Teto global opcional** (`casamentos.orcamento_total_centavos`): "temos R$ 100 mil" é dito antes de existir qualquer categoria, e a diferença para o planejado responde "já distribuí tudo que tenho?". Nulo é estado normal.
+- **O resumo degrada, nunca mente**: quem não preencheu planejamento nenhum não vê "0% contratado" nem alarme de estouro — os blocos sem base somem, e o convite para defini-los aparece no lugar.
+- **Bloco de atenção**: vencidos, a vencer em 30 dias e categorias acima do planejado, sempre com valor e quantidade. Nenhuma ocorrência, nenhum bloco — a ausência é a informação. É também o único número que o módulo empurra para a home do painel, e só quando há urgência.
+- **Fornecedor guarda cotação, não contrato**: comparar três propostas não pode inflar o orçamento. O compromisso é sempre uma despesa, e "pago" nunca é estágio de negociação — a situação financeira do fornecedor é derivada das parcelas.
+- **Entradas da lista de presentes** aparecem em bloco separado e só leitura: é dinheiro que entrou, não despesa que saiu, e não abate orçamento nenhum. Fontes de recursos editáveis (aporte dos pais, reserva do casal) são direção da V2, não desta versão.
 
 
 ---

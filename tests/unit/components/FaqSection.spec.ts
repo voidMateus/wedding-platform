@@ -59,7 +59,9 @@ describe('PublicFaqSection', () => {
 
   it('usa a lista de perguntas customizada pelo casal quando presente em config_conteudo', () => {
     const wrapper = mountSection(
-      makeWedding({ config_conteudo: { faqItems: [{ question: 'Tem estacionamento?', answer: 'Sim.' }] } }),
+      makeWedding({
+        config_conteudo: { faqItems: [{ question: 'Tem estacionamento?', answer: 'Sim.' }] },
+      }),
     )
     expect(wrapper.text()).toContain('Tem estacionamento?')
     expect(wrapper.text()).not.toContain(FAQ_CONTENT[0]!.question)
