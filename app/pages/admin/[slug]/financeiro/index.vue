@@ -1,27 +1,34 @@
 <!--
-  Orçamento — onde o casal PLANEJA.
+  Gastos — a lista do único objeto do Financeiro.
 
-  De cima para baixo: quanto temos, em que pé está o dinheiro (estimado →
-  contratado → pago → a pagar) e, abaixo, cada categoria com os gastos dentro.
-  Pagamento não mora aqui: parcela, vencimento e baixa são a tela de Pagamentos.
+  O módulo tinha quatro telas (Orçamento, Fornecedores, Pagamentos, Documentos)
+  porque foi desenhado em cima de VERBOS: planejar, cotar, pagar, anexar. Mas o
+  casal não pensa em verbos — pensa em "o buffet". Com a vida de um gasto
+  picada em quatro telas, cada uma precisava reapresentá-lo do zero (nome,
+  categoria, cor, e o dinheiro dele de novo), e era daí que vinha a repetição.
 
-  Mesma mecânica de tabela do Modo Lista de convidados — blocos recolhíveis por
-  categoria, filtro por coluna e formato empilhado no celular. A governança do
-  Design System não admite <table> escrito à mão.
+  Aqui existe um substantivo só. Fornecedor, parcela, documento e categoria são
+  atributos ou filhos do gasto — nunca telas irmãs. Categoria virou filtro e
+  cor; fornecedor e documento vivem na ficha. A segunda tela do módulo é
+  Pagamentos, e ela se justifica por ser outro EIXO (o tempo), não outro objeto.
+
+  Cada linha mostra UM número, escolhido pela fase (shared/utils/orcamento.ts,
+  `numeroDoGasto`). Antes eram cinco na mesma linha, e nenhum respondia "e daí?".
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
-import { hojeNoFusoDoEvento } from '#shared/utils/orcamento'
+import { faseDoGasto, numeroDoGasto, type FaseDoGasto } from '#shared/utils/orcamento'
 import type {
   BudgetCategoryInput,
   ExpenseInput,
   VendorContractInput,
-  VendorInput,
 } from '#shared/schemas/finance'
-import type { AdminTableColumn, AdminTableSection } from '~/types/table'
+import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
+import type { AdminTableColumn } from '~/types/table'
 import type {
   CategoriaComDespesas,
   DespesaComParcelas,
+  DocumentoComVinculos,
   FornecedorComSituacao,
 } from '~/types/finance'
 import {
@@ -35,8 +42,6 @@ definePageMeta({ layout: 'admin' })
 
 const slug = useActiveWeddingSlug()
 const base = `/admin/${slug}/financeiro`
-const route = useRoute()
-const router = useRouter()
 const toast = useToast()
 
 const {
@@ -57,341 +62,179 @@ const {
 const { data: resumo, status, error, refresh } = getResumo()
 const { data: orcamento } = getOrcamento()
 const { data: todasCategorias } = listCategorias()
-
-// Só as ativas podem ser escolhidas num gasto novo — oferecer uma arquivada
-// seria ressuscitá-la pela porta dos fundos.
-const categoriasSimples = computed(() => ({
-  data: (todasCategorias.value?.data ?? []).filter((categoria) => !categoria.excluido_em),
-}))
 const { corDaCategoria } = useCategoriaCores()
-const { listVendors, criarFornecedor } = useVendors()
+const { listVendors } = useVendors()
 const { data: fornecedores } = listVendors()
+const { listDocuments, atualizarDocumento, obterUrlDoDocumento } = useFinanceDocuments()
+const { data: documentos } = listDocuments()
 
 const categorias = computed<CategoriaComDespesas[]>(() => orcamento.value?.categorias ?? [])
 const todasDespesas = computed(() => categorias.value.flatMap((categoria) => categoria.despesas))
 
+// Só as ativas podem ser escolhidas num gasto novo — oferecer uma arquivada
+// seria ressuscitá-la pela porta dos fundos.
+const categoriasAtivas = computed(() =>
+  (todasCategorias.value?.data ?? []).filter((categoria) => !categoria.excluido_em),
+)
+
 /**
- * A ficha do gasto — a história inteira de um gasto num lugar só.
+ * A linha da lista: o gasto mais o que a fase dele exige para ser desenhada.
  *
- * Clicar na linha abre ela, não o formulário de edição: a pergunta que o casal
- * faz ao clicar em "Refrigerantes" é "como está isso?", não "quero renomear".
- * Editar continua a um clique, no rodapé da ficha.
+ * As propostas entram aqui porque são elas que distinguem "ninguém cotou" de
+ * "três preços na mesa esperando decisão" — a distinção que fazia falta e que
+ * era o assunto inteiro da antiga tela de Fornecedores.
  */
-const fichaAberta = ref(false)
-const despesaDaFicha = ref<DespesaComParcelas | null>(null)
-const hoje = hojeNoFusoDoEvento()
-
-const { listDocuments, obterUrlDoDocumento } = useFinanceDocuments()
-const { data: todosOsDocumentos } = listDocuments()
-
-const documentosDaFicha = computed(() =>
-  (todosOsDocumentos.value?.data ?? []).filter(
-    (documento) => documento.despesa_id === despesaDaFicha.value?.id,
-  ),
-)
-
-function abrirFicha(despesa: DespesaComParcelas) {
-  despesaDaFicha.value = despesa
-  fichaAberta.value = true
+interface GastoNaLista {
+  /** O id do gasto — `AdminTable` identifica linha por ele. */
+  id: string
+  despesa: DespesaComParcelas
+  fase: FaseDoGasto
+  numero: { rotulo: string; valor: number }
+  propostas: number
+  categoriaId: string
+  categoriaNome: string
+  cor: string | null
 }
 
-// A ficha guarda só o id: `orcamento` é refeito a cada mutação, e segurar o
-// objeto antigo deixaria a ficha mostrando o valor de antes da contratação.
-const despesaViva = computed(() =>
-  despesaDaFicha.value
-    ? (todasDespesas.value.find((despesa) => despesa.id === despesaDaFicha.value?.id) ?? null)
-    : null,
-)
+const SEM_CATEGORIA = 'sem-categoria'
 
-const fornecedoresDaFicha = computed(() =>
-  (fornecedores.value?.data ?? []).filter(
-    (fornecedor) => !fornecedor.excluido_em && fornecedor.gasto?.id === despesaViva.value?.id,
-  ),
-)
-
-async function abrirDocumentoDaFicha(documento: { id: string }) {
-  try {
-    const { url } = await obterUrlDoDocumento(documento.id)
-    window.open(url, '_blank', 'noopener')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível abrir o documento.'))
+const gastos = computed<GastoNaLista[]>(() => {
+  const porGasto = new Map<string, FornecedorComSituacao[]>()
+  for (const fornecedor of fornecedores.value?.data ?? []) {
+    if (fornecedor.excluido_em || !fornecedor.gasto) continue
+    const lista = porGasto.get(fornecedor.gasto.id) ?? []
+    lista.push(fornecedor)
+    porGasto.set(fornecedor.gasto.id, lista)
   }
+
+  return categorias.value.flatMap((categoria) =>
+    categoria.despesas.map((despesa) => {
+      const propostas = porGasto.get(despesa.id) ?? []
+      const precos = propostas
+        .map((fornecedor) => fornecedor.valor_proposto_centavos)
+        .filter((valor): valor is number => typeof valor === 'number' && valor > 0)
+      const fase = faseDoGasto(despesa.totais, propostas.length)
+
+      return {
+        id: despesa.id,
+        despesa,
+        fase,
+        numero: numeroDoGasto(despesa.totais, fase, precos.length > 0 ? Math.min(...precos) : null),
+        propostas: propostas.length,
+        categoriaId: categoria.categoriaId ?? SEM_CATEGORIA,
+        categoriaNome: categoria.nome,
+        cor:
+          categoria.corIndice === null
+            ? null
+            : corDaCategoria(categoria.corIndice, categoria.corPersonalizada).solida,
+      }
+    }),
+  )
+})
+
+/**
+ * Um vocabulário só para a fase — o mesmo no chip, no selo da linha e na ficha.
+ * O módulo já perdeu uma rodada inteira por chamar a mesma coisa de "valor
+ * fechado" num lugar e "contratado" em outro.
+ */
+const FASES = [
+  { value: 'planejado', label: 'Planejado' },
+  { value: 'cotando', label: 'Em cotação' },
+  { value: 'contratado', label: 'Contratado' },
+  { value: 'quitado', label: 'Quitado' },
+] as const
+
+/**
+ * O tom responde uma pergunta só: o dinheiro precisa se mexer?
+ *
+ * Planejado e em cotação compartilham o `neutral` de propósito — nos dois nada
+ * saiu nem tem data para sair, e o que os distingue (ter ou não proposta na
+ * mesa) o rótulo já diz. `primary` não entra: é canal de identidade, nunca de
+ * estado (CLAUDE.md, seção 13).
+ */
+const TOM_DA_FASE: Record<FaseDoGasto, 'neutral' | 'warning' | 'success'> = {
+  planejado: 'neutral',
+  cotando: 'neutral',
+  contratado: 'warning',
+  quitado: 'success',
 }
 
-// --- fornecedor a partir da ficha ---
-const fornecedorModalAberto = ref(false)
-const despesaDoFornecedor = ref<string | null>(null)
-
-function novoFornecedorDaFicha(despesaId: string) {
-  despesaDoFornecedor.value = despesaId
-  fornecedorModalAberto.value = true
+function rotuloDaFase(fase: FaseDoGasto): string {
+  return FASES.find((item) => item.value === fase)?.label ?? fase
 }
 
-async function salvarFornecedor(input: VendorInput) {
-  try {
-    await criarFornecedor(input)
-    fornecedorModalAberto.value = false
-    toast.success('Fornecedor salvo.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
-  }
-}
+const opcoesDeCategoria = computed(() =>
+  categorias.value.map((categoria) => ({
+    value: categoria.categoriaId ?? SEM_CATEGORIA,
+    label: categoria.nome,
+  })),
+)
 
-// --- tabela ---
-const colunas = computed<AdminTableColumn<DespesaComParcelas>[]>(() => [
-  { key: 'gasto', label: 'Gasto', filter: { type: 'text', placeholder: 'Buscar gasto' } },
+const colunas = computed<AdminTableColumn<GastoNaLista>[]>(() => [
   {
-    key: 'estagio',
-    label: 'Situação',
-    filter: {
-      type: 'select',
-      multiple: true,
-      options: [
-        { value: 'planejado', label: 'A contratar' },
-        { value: 'contratado', label: 'Contratado' },
-        { value: 'quitado', label: 'Quitado' },
-      ],
-    },
+    key: 'gasto',
+    label: 'Gasto',
+    filter: { type: 'text', placeholder: 'Buscar gasto ou fornecedor' },
   },
-  { key: 'estimado', label: 'Estimado', align: 'right', sort: 'numeric' },
-  { key: 'final', label: 'Contratado', align: 'right', sort: 'numeric' },
-  { key: 'pago', label: 'Pago', align: 'right', sort: 'numeric' },
+  {
+    key: 'categoria',
+    label: 'Categoria',
+    filter: { type: 'select', multiple: true, options: opcoesDeCategoria.value },
+  },
+  {
+    key: 'fase',
+    label: 'Situação',
+    filter: { type: 'select', multiple: true, options: [...FASES] },
+  },
+  { key: 'valor', label: 'Valor', align: 'right', sort: 'numeric' },
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
 
-/**
- * De onde sai o valor de cada coluna, para filtrar e ordenar.
- *
- * Sem isto, declarar `sort` na coluna só desenhava o menu: a tabela nunca
- * reordena `rows` por conta própria, e quem clicava em "Maior a menor" via a
- * lista inalterada. Filtro que não filtra é pior que filtro ausente.
- */
-const acessores: Record<string, ClientColumn<DespesaComParcelas>> = {
+const acessores: Record<string, ClientColumn<GastoNaLista>> = {
   gasto: {
-    value: (despesa) => despesa.descricao,
-    compare: compareText((despesa) => despesa.descricao),
+    value: (linha) => [linha.despesa.descricao, linha.despesa.fornecedor?.nome ?? ''],
+    compare: compareText((linha) => linha.despesa.descricao),
   },
-  estagio: { value: (despesa) => despesa.totais.estagio },
-  estimado: { compare: compareNumber((despesa) => despesa.totais.estimado) },
-  // Gasto ainda sem valor fechado ordena como zero — ele fica junto de quem
-  // ainda não tem compromisso, que é onde o casal espera encontrá-lo.
-  final: { compare: compareNumber((despesa) => despesa.totais.contratado ?? 0) },
-  pago: { compare: compareNumber((despesa) => despesa.totais.pago) },
+  categoria: { value: (linha) => linha.categoriaId },
+  fase: { value: (linha) => linha.fase },
+  // Ordenar pelo número que a linha MOSTRA, não por um campo invisível: a
+  // lista precisa ficar ordenada do jeito que ela se lê.
+  valor: { compare: compareNumber((linha) => linha.numero.valor) },
 }
 
 const filters = useTableFilters(colunas)
 
-const recorteEstouro = computed(() => route.query.recorte === 'estouro')
-const categoriaNaUrl = computed(() => route.query.categoria as string | undefined)
-
-const temFiltroAtivo = computed(() => Object.keys(filters.values.value).length > 0)
-
-// O recorte acontece DENTRO de cada categoria: a lista é uma árvore, e filtrar
-// a planificação desmontaria os blocos.
-const categoriasVisiveis = computed(() => {
-  const base = recorteEstouro.value
-    ? categorias.value.filter((categoria) => categoria.acimaDoOrcado > 0)
-    : categorias.value
-
-  return base
-    .map((categoria) => ({
-      ...categoria,
-      despesas: applyTableFilters(categoria.despesas, colunas.value, acessores, {
-        values: filters.values.value,
-        sortKey: filters.sortKey.value,
-        sortDirection: filters.sortDirection.value,
-      }),
-    }))
-    .filter((categoria) => categoria.despesas.length > 0 || !temFiltroAtivo.value)
-})
-
-const linhas = computed(() => categoriasVisiveis.value.flatMap((categoria) => categoria.despesas))
-
-/** Filete + fundo tingido do bloco, a partir do slot da categoria. */
-function corDoBloco(categoria: { corIndice: number | null; corPersonalizada: string | null }) {
-  // "Sem categoria" não tem linha no banco, então também não tem slot: um
-  // filete colorido ali sugeriria uma categoria que não existe.
-  if (categoria.corIndice === null) return {}
-  const cor = corDaCategoria(categoria.corIndice, categoria.corPersonalizada)
-  return { cor: cor.solida, corFundo: cor.fundo, corEstilo: 'barra' as const }
-}
-
-const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
-  categoriasVisiveis.value.map((categoria) => {
-    // O TETO DA CATEGORIA SAIU DAQUI. Ele e o "estimado" são duas palavras
-    // para "quanto isto vai custar", e mantê-los lado a lado fazia o mesmo
-    // número aparecer quatro vezes no mesmo bloco (a faixa dizia
-    // "R$ 15.000 de R$ 15.000" e a linha repetia os dois). O teto continua
-    // existindo — mas como guarda-corpo, que só fala quando é ultrapassado
-    // (o selo "acima"), e como campo do cadastro da categoria.
-    const partes: string[] = [`estimado ${formatCentsToBRL(categoria.estimado)}`]
-    if (categoria.contratado > 0) {
-      partes.push(`contratado ${formatCentsToBRL(categoria.contratado)}`)
-    }
-
-    return {
-      id: categoria.categoriaId ?? 'sem-categoria',
-      label: categoria.nome,
-      level: 0 as const,
-      meta: partes.join(' · '),
-      // A proporção vira forma: quanto do estimado já virou contrato, e quanto
-      // do contrato já saiu do bolso.
-      progresso: {
-        valor: categoria.pago,
-        secundario: categoria.contratado,
-        total: Math.max(categoria.estimado, categoria.contratado),
-      },
-      badge:
-        categoria.acimaDoOrcado > 0
-          ? {
-              // "acima do teto" e não só "acima": com o teto fora da faixa,
-              // a palavra sozinha não diria acima do quê.
-              label: `${formatCentsToBRL(categoria.acimaDoOrcado)} acima do teto`,
-              tone: 'danger' as const,
-            }
-          : undefined,
-      icon: 'lucide:folder',
-      // A cor da categoria é a mesma nas três telas do módulo: ela vem do slot
-      // da linha (`cor_indice`) girado a partir da cor tema do casamento.
-      ...corDoBloco(categoria),
-      rows: categoria.despesas,
-    }
+const linhas = computed(() =>
+  applyTableFilters(gastos.value, colunas.value, acessores, {
+    values: filters.values.value,
+    sortKey: filters.sortKey.value,
+    sortDirection: filters.sortDirection.value,
   }),
 )
 
-const recolhidos = ref<string[]>([])
+/**
+ * A fila: cada fase com quanto tem dentro.
+ *
+ * É o filtro da coluna "Situação" exposto como chip — o MESMO estado, não um
+ * segundo. Filtro escondido atrás do menu de um cabeçalho já tinha rendido a
+ * reclamação de não dar para saber que a tela estava filtrada.
+ */
+const fasesAtivas = computed(() => filters.valuesOf('fase'))
 
-watch(
-  [categoriaNaUrl, categorias],
-  () => {
-    // Chegando por link de uma categoria específica, só ela fica aberta.
-    if (categoriaNaUrl.value) {
-      recolhidos.value = categorias.value
-        .map((categoria) => categoria.categoriaId ?? 'sem-categoria')
-        .filter((id) => id !== categoriaNaUrl.value)
-    }
-  },
-  { immediate: true },
+const fila = computed(() =>
+  FASES.map((fase) => ({
+    ...fase,
+    quantidade: gastos.value.filter((linha) => linha.fase === fase.value).length,
+    ativo: fasesAtivas.value.includes(fase.value),
+  })),
 )
-
-function alternarBloco(id: string) {
-  recolhidos.value = recolhidos.value.includes(id)
-    ? recolhidos.value.filter((atual) => atual !== id)
-    : [...recolhidos.value, id]
-}
-
-const tudoRecolhido = computed(() => recolhidos.value.length >= secoes.value.length)
-
-function alternarTudo() {
-  recolhidos.value = tudoRecolhido.value ? [] : secoes.value.map((secao) => secao.id)
-}
-
-// --- teto ---
-const tetoAberto = ref(false)
-
-async function salvarTeto(valor: number | null) {
-  try {
-    await definirTetoDoOrcamento(valor)
-    tetoAberto.value = false
-    toast.success(valor === null ? 'Orçamento total removido.' : 'Orçamento total atualizado.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o orçamento total.'))
-  }
-}
-
-// --- categorias ---
-const categoriaModalAberto = ref(false)
-const categoriaEmEdicao = ref<CategoriaComDespesas | null>(null)
-const semeando = ref(false)
-
-function novaCategoria() {
-  categoriaEmEdicao.value = null
-  categoriaModalAberto.value = true
-}
-
-function editarCategoria(categoria: CategoriaComDespesas) {
-  categoriaEmEdicao.value = categoria
-  categoriaModalAberto.value = true
-}
-
-function editarCategoriaPorId(id: string) {
-  const categoria = categorias.value.find((atual) => (atual.categoriaId ?? 'sem-categoria') === id)
-  if (categoria?.categoriaId) editarCategoria(categoria)
-}
-
-async function salvarCategoria(input: BudgetCategoryInput) {
-  try {
-    if (categoriaEmEdicao.value?.categoriaId) {
-      await atualizarCategoria(categoriaEmEdicao.value.categoriaId, input)
-    } else {
-      await criarCategoria(input)
-    }
-    categoriaModalAberto.value = false
-    toast.success('Categoria salva.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar a categoria.'))
-  }
-}
-
-async function comecarComSugeridas() {
-  semeando.value = true
-  try {
-    const criadas = await criarCategoriasSugeridas()
-    toast.success(`${criadas.length} categorias criadas.`)
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível criar as categorias.'))
-  } finally {
-    semeando.value = false
-  }
-}
-
-async function arquivarPorId(id: string) {
-  const categoria = categorias.value.find((atual) => (atual.categoriaId ?? 'sem-categoria') === id)
-  if (!categoria?.categoriaId) return
-  try {
-    await arquivarCategoria(categoria.categoriaId, true)
-    toast.success('Categoria arquivada. Dá para restaurar no fim desta página.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível arquivar a categoria.'))
-  }
-}
-
-const arquivadas = computed(() =>
-  (todasCategorias.value?.data ?? [])
-    .filter((categoria) => categoria.excluido_em)
-    .map((categoria) => ({
-      id: categoria.id,
-      nome: categoria.nome,
-      detalhe:
-        categoria.valor_previsto_centavos > 0
-          ? `orçado ${formatCentsToBRL(categoria.valor_previsto_centavos)}`
-          : null,
-    })),
-)
-
-async function restaurar(id: string) {
-  try {
-    await arquivarCategoria(id, false)
-    toast.success('Categoria restaurada.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível restaurar a categoria.'))
-  }
-}
 
 // --- gastos ---
 const despesaModalAberto = ref(false)
 const despesaEmEdicao = ref<DespesaComParcelas | null>(null)
-const categoriaPadrao = ref<string | null>(null)
 
-function novaDespesa(categoriaId?: string) {
+function novaDespesa() {
   despesaEmEdicao.value = null
-  categoriaPadrao.value = categoriaId && categoriaId !== 'sem-categoria' ? categoriaId : null
-  despesaModalAberto.value = true
-}
-
-function editarDespesa(despesa: DespesaComParcelas) {
-  despesaEmEdicao.value = despesa
-  categoriaPadrao.value = null
   despesaModalAberto.value = true
 }
 
@@ -430,32 +273,54 @@ async function confirmarExclusao() {
   }
 }
 
-// --- registrar o valor fechado direto da linha ---
+function abrirFicha(linha: GastoNaLista) {
+  navigateTo(`${base}/gastos/${linha.despesa.id}`)
+}
+
+function acoesDaLinha(linha: GastoNaLista): AdminRowMenuItem[] {
+  const fechado = linha.despesa.totais.contratado !== null
+  return [
+    { key: 'abrir', label: 'Abrir ficha', icon: 'lucide:arrow-right' },
+    {
+      key: 'contratar',
+      label: 'Registrar valor fechado',
+      icon: 'lucide:handshake',
+      disabled: fechado,
+      title: fechado ? 'Este gasto já tem valor fechado.' : undefined,
+    },
+    {
+      key: 'excluir',
+      label: 'Excluir gasto',
+      icon: 'lucide:trash-2',
+      tone: 'danger',
+      separarAntes: true,
+    },
+  ]
+}
+
+function executarAcao(linha: GastoNaLista, acao: string) {
+  if (acao === 'abrir') abrirFicha(linha)
+  if (acao === 'contratar') abrirContratacao(linha.despesa)
+  if (acao === 'excluir') despesaParaExcluir.value = linha.despesa
+}
+
+// --- contratar ---
 const contratoAberto = ref(false)
 const despesaDoContrato = ref<string | null>(null)
-const fornecedorDoContrato = ref<FornecedorComSituacao | null>(null)
 
-/**
- * Contratar a partir de uma proposta específica precisa levar QUAL proposta:
- * é isso que vincula o fornecedor ao gasto e move o estágio dele. Sem
- * fornecedor escolhido (o botão "Registrar valor" da linha), contratar é só
- * gravar o custo final — o fornecedor é opcional em todo o módulo.
- */
-function abrirContratacao(despesa: DespesaComParcelas, fornecedor?: FornecedorComSituacao | null) {
+function abrirContratacao(despesa: DespesaComParcelas) {
   despesaDoContrato.value = despesa.id
-  fornecedorDoContrato.value = fornecedor ?? null
   contratoAberto.value = true
 }
 
 async function confirmarContratacao(input: VendorContractInput) {
   const despesa = todasDespesas.value.find((atual) => atual.id === input.despesaId)
   try {
-    // Com fornecedor — o escolhido na ficha, ou o que já estava vinculado ao
-    // gasto —, contratar é o fluxo completo (estágio + vínculo + parcelas).
-    // Sem nenhum, é só registrar o valor fechado.
-    const fornecedorId = fornecedorDoContrato.value?.id ?? despesa?.fornecedor?.id
-    if (fornecedorId) {
-      await contratarFornecedor(fornecedorId, input)
+    // Com fornecedor já vinculado, contratar é o fluxo completo (estágio +
+    // vínculo + parcelas). Sem nenhum, é só gravar o custo final — o
+    // fornecedor é opcional em todo o módulo.
+    if (despesa?.fornecedor?.id) {
+      await contratarFornecedor(despesa.fornecedor.id, input)
     } else {
       await atualizarDespesa(input.despesaId, { valorCentavos: input.valorCentavos })
     }
@@ -471,32 +336,152 @@ function criarGastoPeloContrato() {
   novaDespesa()
 }
 
-/** Quanto o fechado diferiu do estimado — economia aparece como ganho. */
-function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean } | null {
-  const valor = despesa.totais.desvioDoEstimado
-  if (valor === null || valor === 0) return null
-  return {
-    texto: `${valor > 0 ? '+' : '−'}${formatCentsToBRL(Math.abs(valor))}`,
-    economia: valor < 0,
+// --- teto do casamento ---
+const tetoAberto = ref(false)
+
+async function salvarTeto(valor: number | null) {
+  try {
+    await definirTetoDoOrcamento(valor)
+    tetoAberto.value = false
+    toast.success(valor === null ? 'Orçamento total removido.' : 'Orçamento total atualizado.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o orçamento total.'))
   }
 }
+
+// --- categorias (atributo do gasto, administrado atrás de uma porta) ---
+const categoriasAberto = ref(false)
+const categoriaModalAberto = ref(false)
+const categoriaEmEdicao = ref<CategoriaComDespesas | null>(null)
+const semeando = ref(false)
+
+const categoriasArquivadas = computed(() =>
+  (todasCategorias.value?.data ?? [])
+    .filter((categoria) => categoria.excluido_em)
+    .map((categoria) => ({ id: categoria.id, nome: categoria.nome })),
+)
+
+/**
+ * Um modal por vez: o gerenciador some enquanto o formulário está aberto e
+ * volta quando ele fecha. Diálogo sobre diálogo empilha duas camadas de foco e
+ * dois "Esc" com significados diferentes.
+ */
+function editarCategoria(id: string) {
+  categoriaEmEdicao.value = categorias.value.find((atual) => atual.categoriaId === id) ?? null
+  categoriasAberto.value = false
+  categoriaModalAberto.value = true
+}
+
+function novaCategoria() {
+  categoriaEmEdicao.value = null
+  categoriasAberto.value = false
+  categoriaModalAberto.value = true
+}
+
+async function salvarCategoria(input: BudgetCategoryInput) {
+  try {
+    if (categoriaEmEdicao.value?.categoriaId) {
+      await atualizarCategoria(categoriaEmEdicao.value.categoriaId, input)
+    } else {
+      await criarCategoria(input)
+    }
+    categoriaModalAberto.value = false
+    categoriasAberto.value = true
+    toast.success('Categoria salva.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar a categoria.'))
+  }
+}
+
+async function arquivarPorId(id: string) {
+  try {
+    await arquivarCategoria(id, true)
+    toast.success('Categoria arquivada. Dá para restaurar aqui mesmo.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível arquivar a categoria.'))
+  }
+}
+
+async function restaurarCategoria(id: string) {
+  try {
+    await arquivarCategoria(id, false)
+    toast.success('Categoria restaurada.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível restaurar a categoria.'))
+  }
+}
+
+async function comecarComSugeridas() {
+  semeando.value = true
+  try {
+    const criadas = await criarCategoriasSugeridas()
+    toast.success(`${criadas.length} categorias criadas.`)
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível criar as categorias.'))
+  } finally {
+    semeando.value = false
+  }
+}
+
+/**
+ * Documentos sem gasto nenhum.
+ *
+ * Com a tela de Documentos extinta, um documento sem vínculo ficaria sem lugar
+ * no mundo — e perder acesso a dado por falta de tela é porta de mão única.
+ * Eles aparecem aqui, discretos, com o caminho para ganhar um gasto.
+ */
+const documentosSoltos = computed(() =>
+  (documentos.value?.data ?? []).filter(
+    (documento) => !documento.despesa_id && !documento.fornecedor_id,
+  ),
+)
+
+const soltosAbertos = ref(false)
+const documentoParaVincular = ref<DocumentoComVinculos | null>(null)
+const gastoDoVinculo = ref('')
+
+async function abrirDocumento(documento: DocumentoComVinculos) {
+  try {
+    const { url } = await obterUrlDoDocumento(documento.id)
+    window.open(url, '_blank', 'noopener')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível abrir o documento.'))
+  }
+}
+
+function pedirVinculo(documento: DocumentoComVinculos) {
+  documentoParaVincular.value = documento
+  gastoDoVinculo.value = ''
+}
+
+async function confirmarVinculo() {
+  const documento = documentoParaVincular.value
+  if (!documento || !gastoDoVinculo.value) return
+  try {
+    await atualizarDocumento(documento.id, { despesaId: gastoDoVinculo.value })
+    documentoParaVincular.value = null
+    toast.success('Documento vinculado ao gasto.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível vincular o documento.'))
+  }
+}
+
+const opcoesDeGasto = computed(() =>
+  todasDespesas.value.map((despesa) => ({ value: despesa.id, label: despesa.descricao })),
+)
 </script>
 
 <template>
   <AdminSection
-    title="Orçamento"
-    description="Quanto vocês pretendem gastar, e o que já está fechado."
+    title="Gastos"
+    description="Tudo o que o casamento vai custar — do que ainda é ideia ao que já foi pago."
   >
-    <!-- "Adicionar <entidade>" + lucide:plus é a forma canônica do CTA no
-         admin; "Novo <entidade>" fica reservado ao título do modal que ele
-         abre (DESIGN-SYSTEM §2). Categoria é estrutura, gasto é conteúdo —
-         daí só um dos dois ser o botão cheio. -->
     <template #actions>
-      <UiButton variant="ghost" @click="novaCategoria">
-        <Icon name="lucide:folder-plus" class="h-4 w-4" />
-        Adicionar categoria
+      <UiButton variant="ghost" @click="categoriasAberto = true">
+        <Icon name="lucide:tags" class="h-4 w-4" />
+        Categorias
       </UiButton>
-      <UiButton @click="novaDespesa()">
+      <UiButton @click="novaDespesa">
         <Icon name="lucide:plus" class="h-4 w-4" />
         Adicionar gasto
       </UiButton>
@@ -507,7 +492,7 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
     <UiEmptyState
       v-else-if="error"
       icon="lucide:triangle-alert"
-      title="Não foi possível carregar o orçamento"
+      title="Não foi possível carregar o financeiro"
       description="Tente novamente em alguns instantes."
     >
       <UiButton variant="outline" @click="refresh()">Tentar novamente</UiButton>
@@ -529,51 +514,45 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
       </UiEmptyState>
 
       <template v-else>
-        <AdminFinanceTotalsHeader
-          :resumo="resumo"
-          :base="base"
-          :slug="slug"
-          @editar-teto="tetoAberto = true"
-        />
+        <AdminFinanceTotalsHeader :resumo="resumo" :slug="slug" @editar-teto="tetoAberto = true" />
 
-        <div
-          v-if="recorteEstouro"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/50 px-4 py-2.5"
-        >
-          <span class="text-sm text-text"> Mostrando só as categorias que passaram do teto </span>
-          <UiButton size="sm" variant="ghost" @click="router.replace({ query: {} })">
-            Ver tudo
-          </UiButton>
+        <!-- A fila. Fica ACIMA do painel, e não dentro do menu de uma coluna,
+             porque é a navegação principal desta tela: é por aqui que o casal
+             pergunta "o que falta decidir?". O chip marcado é a única coisa
+             preenchida da faixa — dá para ver de relance que a lista está
+             recortada, e onde clicar para desfazer. -->
+        <div class="flex flex-wrap items-center gap-2">
+          <UiChip
+            label="Tudo"
+            clickable
+            :selected="fasesAtivas.length === 0"
+            @click="filters.clearColumn('fase')"
+          />
+          <UiChip
+            v-for="etapa in fila"
+            :key="etapa.value"
+            :label="`${etapa.label} · ${etapa.quantidade}`"
+            clickable
+            :selected="etapa.ativo"
+            @click="filters.toggleValue('fase', etapa.value)"
+          />
         </div>
 
-        <AdminPanel title="Categorias e gastos" :meta="`${linhas.length} gastos`">
-          <!-- A barra de filtros ativos mora DENTRO do painel: ela descreve o
-               recorte da tabela logo abaixo, e solta criava uma faixa vazia
-               entre o resumo e o painel sempre que nada estava filtrado. -->
+        <AdminPanel title="Gastos" :meta="`${linhas.length} de ${gastos.length}`">
           <template #headerActions>
             <AdminTableFilterBar
               :filters="filters"
               :columns="colunas"
-              group-label="Filtros do orçamento"
+              group-label="Filtros dos gastos"
             />
-            <UiButton variant="ghost" size="sm" @click="alternarTudo">
-              <Icon
-                :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
-                class="h-4 w-4"
-              />
-              {{ tudoRecolhido ? 'Expandir tudo' : 'Recolher tudo' }}
-            </UiButton>
           </template>
 
           <AdminTable
             :columns="colunas"
             :rows="linhas"
-            :sections="secoes"
-            :collapsed-ids="recolhidos"
             :filters="filters"
             row-clickable
             empty-label="Nenhum gasto com esses filtros."
-            @toggle-section="alternarBloco"
             @row-click="abrirFicha"
           >
             <template #cell-gasto="{ row }">
@@ -583,156 +562,126 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
                   class="block max-w-full truncate text-left text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   @click="abrirFicha(row)"
                 >
-                  {{ row.descricao }}
+                  {{ row.despesa.descricao }}
                 </button>
-                <span v-if="row.fornecedor" class="block truncate text-xs text-text-muted">
-                  {{ row.fornecedor.nome }}
+                <span
+                  v-if="row.despesa.fornecedor || row.propostas > 0"
+                  class="block truncate text-xs text-text-muted"
+                >
+                  <template v-if="row.despesa.fornecedor">
+                    {{ row.despesa.fornecedor.nome }}
+                  </template>
+                  <template v-else>
+                    {{ row.propostas }}
+                    {{ row.propostas === 1 ? 'proposta' : 'propostas' }}
+                  </template>
                 </span>
               </div>
             </template>
 
-            <!-- Tons pelo mapa da plataforma: "A contratar" é fato sem
-                 valência (neutral), "Contratado" ainda tem dinheiro a sair
-                 (warning, o mesmo de `a_pagar` do fornecedor) e "Quitado" é o
-                 desfecho resolvido. `primary` é canal de identidade, nunca de
-                 estado — e era a única variante sem preenchimento, o que
-                 deixava o estado mais importante da coluna como o mais
-                 apagado dos três. -->
-            <template #cell-estagio="{ row }">
-              <UiBadge
-                :tone="
-                  row.totais.estagio === 'quitado'
-                    ? 'success'
-                    : row.totais.estagio === 'contratado'
-                      ? 'warning'
-                      : 'neutral'
-                "
-              >
-                {{
-                  row.totais.estagio === 'quitado'
-                    ? 'Quitado'
-                    : row.totais.estagio === 'contratado'
-                      ? 'Contratado'
-                      : 'A contratar'
-                }}
-              </UiBadge>
-            </template>
-
-            <template #cell-estimado="{ row }">
-              <span class="num text-text-muted">
-                {{ formatCentsToBRL(row.totais.estimado) }}
-              </span>
-            </template>
-
-            <template #cell-final="{ row }">
-              <template v-if="row.totais.contratado !== null">
-                <span class="num text-text">
-                  {{ formatCentsToBRL(row.totais.contratado) }}
-                </span>
+            <!-- A categoria é atributo: ponto de cor e nome, do tamanho de um
+                 atributo. Ela já foi o bloco que envolvia estas linhas, e era
+                 essa promoção que fazia a tela parecer uma árvore. -->
+            <template #cell-categoria="{ row }">
+              <span class="flex min-w-0 items-center gap-1.5 text-sm text-text-muted">
                 <span
-                  v-if="desvio(row)"
-                  class="num ml-1.5 text-sm"
-                  :class="desvio(row)?.economia ? 'text-success' : 'text-warning'"
-                >
-                  {{ desvio(row)?.texto }}
-                </span>
-              </template>
-              <!-- Preencher o valor fechado é o gesto central do módulo: é ele
-                   que transforma plano em compromisso e manda o gasto para
-                   Pagamentos. Era o menor controle da tela, em 12px. -->
-              <UiButton v-else size="sm" variant="outline" @click="abrirContratacao(row)">
-                Registrar valor
-              </UiButton>
-            </template>
-
-            <template #cell-pago="{ row }">
-              <span class="num text-text-muted">
-                {{ row.totais.pago > 0 ? formatCentsToBRL(row.totais.pago) : '—' }}
+                  v-if="row.cor"
+                  aria-hidden="true"
+                  class="h-2 w-2 shrink-0 rounded-full"
+                  :style="{ backgroundColor: row.cor }"
+                />
+                <span class="truncate">{{ row.categoriaNome }}</span>
               </span>
             </template>
 
-            <!-- Um controle por linha: editar é a própria linha (clicável),
-                 como na lista de convidados. -->
+            <template #cell-fase="{ row }">
+              <UiBadge :tone="TOM_DA_FASE[row.fase]">{{ rotuloDaFase(row.fase) }}</UiBadge>
+            </template>
+
+            <!-- UM número. O rótulo embaixo dele muda com a fase, porque o que
+                 a linha precisa dizer muda com a fase: quanto acho que custa,
+                 qual a melhor proposta, quanto ainda devo, quanto custou. -->
+            <template #cell-valor="{ row }">
+              <div class="flex flex-col items-end leading-tight">
+                <span class="num font-medium text-text">
+                  {{ formatCentsToBRL(row.numero.valor) }}
+                </span>
+                <span class="text-xs text-text-muted">{{ row.numero.rotulo }}</span>
+              </div>
+            </template>
+
             <template #cell-acoes="{ row }">
-              <div class="flex items-center justify-end gap-1">
-                <AdminRowAction
-                  icon="lucide:trash-2"
-                  label="Excluir gasto"
-                  tone="danger"
-                  @click="despesaParaExcluir = row"
+              <div class="flex items-center justify-end">
+                <AdminRowMenu
+                  :items="acoesDaLinha(row)"
+                  :label="`Ações de ${row.despesa.descricao}`"
+                  @select="executarAcao(row, $event)"
                 />
               </div>
             </template>
 
             <template #stacked="{ row }">
-              <div class="flex flex-col gap-1 px-4 py-3">
+              <button
+                type="button"
+                class="flex w-full flex-col gap-1 px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                @click="abrirFicha(row)"
+              >
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-medium text-text">{{ row.descricao }}</span>
-                  <UiBadge v-if="row.totais.contratado === null" tone="neutral">
-                    A contratar
-                  </UiBadge>
+                  <UiBadge :tone="TOM_DA_FASE[row.fase]">{{ rotuloDaFase(row.fase) }}</UiBadge>
+                  <span class="font-medium text-text">{{ row.despesa.descricao }}</span>
                 </div>
-                <span class="num text-sm text-text-muted">
-                  estimado {{ formatCentsToBRL(row.totais.estimado) }}
-                  <template v-if="row.totais.contratado !== null">
-                    · fechado {{ formatCentsToBRL(row.totais.contratado) }}
-                  </template>
+                <span class="flex items-center gap-1.5 text-xs text-text-muted">
+                  <span
+                    v-if="row.cor"
+                    aria-hidden="true"
+                    class="h-2 w-2 shrink-0 rounded-full"
+                    :style="{ backgroundColor: row.cor }"
+                  />
+                  {{ row.categoriaNome }}
                 </span>
-                <!-- `size="md"` (40px) e não `sm`: no celular estes são o
-                     único caminho para a ação, e `sm` fica abaixo do alvo de
-                     toque confortável. -->
-                <div class="mt-1 flex items-center gap-2">
-                  <UiButton
-                    v-if="row.totais.contratado === null"
-                    variant="outline"
-                    @click="abrirContratacao(row)"
-                  >
-                    Registrar valor
-                  </UiButton>
-                  <UiButton variant="ghost" @click="abrirFicha(row)">Abrir</UiButton>
-                  <AdminRowAction
-                    icon="lucide:trash-2"
-                    label="Excluir gasto"
-                    tone="danger"
-                    @click="despesaParaExcluir = row"
-                  />
-                </div>
-              </div>
-            </template>
-
-            <!-- O rodapé do bloco continua a lista de dentro dele. As duas
-                 ações da categoria viram ícones: rotuladas, elas repetiam três
-                 botões de texto em cada categoria e viravam a coisa mais
-                 pesada da tela. -->
-            <template #section-footer="{ section }">
-              <div class="flex flex-wrap items-center gap-1 px-4 py-2 md:pl-10">
-                <UiButton size="sm" variant="ghost" @click="novaDespesa(section.id)">
-                  <Icon name="lucide:plus" class="h-4 w-4" />
-                  Adicionar gasto
-                </UiButton>
-                <template v-if="section.id !== 'sem-categoria'">
-                  <AdminRowAction
-                    icon="lucide:pencil"
-                    :label="`Editar categoria ${section.label}`"
-                    @click="editarCategoriaPorId(section.id)"
-                  />
-                  <AdminRowAction
-                    icon="lucide:archive"
-                    :label="`Arquivar categoria ${section.label}`"
-                    @click="arquivarPorId(section.id)"
-                  />
-                </template>
-              </div>
+                <span class="num text-sm text-text">
+                  {{ formatCentsToBRL(row.numero.valor) }}
+                  <span class="text-xs text-text-muted">{{ row.numero.rotulo }}</span>
+                </span>
+              </button>
             </template>
           </AdminTable>
         </AdminPanel>
 
-        <AdminArchivedList
-          :itens="arquivadas"
-          singular="categoria arquivada"
-          plural="categorias arquivadas"
-          @restaurar="restaurar"
-        />
+        <!-- Discreto de propósito: é resíduo da tela extinta, não uma seção. -->
+        <div v-if="documentosSoltos.length > 0" class="text-sm">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 text-text-muted transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            @click="soltosAbertos = !soltosAbertos"
+          >
+            <Icon
+              :name="soltosAbertos ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+              class="h-4 w-4"
+            />
+            {{ documentosSoltos.length }}
+            {{ documentosSoltos.length === 1 ? 'documento sem gasto' : 'documentos sem gasto' }}
+          </button>
+
+          <ul v-if="soltosAbertos" class="mt-2 flex flex-col divide-y divide-border">
+            <li
+              v-for="documento in documentosSoltos"
+              :key="documento.id"
+              class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2"
+            >
+              <button
+                type="button"
+                class="min-w-0 flex-1 truncate text-left text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                @click="abrirDocumento(documento)"
+              >
+                {{ documento.titulo }}
+              </button>
+              <UiButton size="sm" variant="ghost" @click="pedirVinculo(documento)">
+                Vincular a um gasto
+              </UiButton>
+            </li>
+          </ul>
+        </div>
       </template>
 
       <AdminFinanceBudgetTotalModal
@@ -742,6 +691,16 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
         @salvar="salvarTeto"
       />
     </template>
+
+    <AdminFinanceCategoriesModal
+      v-model="categoriasAberto"
+      :categorias="categorias"
+      :arquivadas="categoriasArquivadas"
+      @adicionar="novaCategoria"
+      @editar="editarCategoria"
+      @arquivar="arquivarPorId"
+      @restaurar="restaurarCategoria"
+    />
 
     <AdminFinanceCategoryModal
       v-model="categoriaModalAberto"
@@ -759,45 +718,39 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
       @salvar="salvarCategoria"
     />
 
-    <AdminFinanceExpenseSheet
-      v-model="fichaAberta"
-      :despesa="despesaViva"
-      :fornecedores="fornecedoresDaFicha"
-      :documentos="documentosDaFicha"
-      :hoje="hoje"
-      @editar="editarDespesa"
-      @contratar="(fornecedor) => despesaViva && abrirContratacao(despesaViva, fornecedor)"
-      @adicionar-fornecedor="novoFornecedorDaFicha"
-      @abrir-documento="abrirDocumentoDaFicha"
-      @ir-para-pagamentos="navigateTo(`${base}/pagamentos`)"
-    />
-
-    <AdminFinanceVendorModal
-      v-model="fornecedorModalAberto"
-      :fornecedor="null"
-      :categorias="categoriasSimples?.data ?? []"
-      :despesas="todasDespesas"
-      :despesa-padrao="despesaDoFornecedor"
-      @salvar="salvarFornecedor"
-    />
-
     <AdminFinanceExpenseModal
       v-model="despesaModalAberto"
       :despesa="despesaEmEdicao"
-      :categorias="categoriasSimples?.data ?? []"
+      :categorias="categoriasAtivas"
       :fornecedores="fornecedores?.data ?? []"
-      :categoria-padrao="categoriaPadrao"
       @salvar="salvarDespesa"
     />
 
     <AdminFinanceContractModal
       v-model="contratoAberto"
-      :fornecedor="fornecedorDoContrato"
+      :fornecedor="null"
       :despesas="todasDespesas"
       :despesa-padrao="despesaDoContrato"
       @contratar="confirmarContratacao"
       @criar-gasto="criarGastoPeloContrato"
     />
+
+    <UiModal
+      :model-value="Boolean(documentoParaVincular)"
+      title="Vincular documento"
+      :description="`Escolha o gasto a que “${documentoParaVincular?.titulo ?? ''}” pertence.`"
+      @update:model-value="documentoParaVincular = null"
+    >
+      <UiSelect
+        v-model="gastoDoVinculo"
+        label="Gasto"
+        :options="[{ value: '', label: 'Escolha…' }, ...opcoesDeGasto]"
+      />
+      <template #footer>
+        <UiButton variant="ghost" @click="documentoParaVincular = null">Cancelar</UiButton>
+        <UiButton :disabled="!gastoDoVinculo" @click="confirmarVinculo">Vincular</UiButton>
+      </template>
+    </UiModal>
 
     <UiModal
       :model-value="Boolean(despesaParaExcluir)"

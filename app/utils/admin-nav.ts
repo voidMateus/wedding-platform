@@ -251,21 +251,28 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
 
   if (ROTAS_DO_MODULO_FINANCEIRO.some((rota) => path.startsWith(`${base}${rota}`))) {
     return [
-      // As três telas são o CAMINHO do dinheiro, nesta ordem: planejar ->
-      // contratar -> pagar. Uma "Visão geral" por cima delas repetiria os
-      // mesmos números num quarto lugar — o topo do Orçamento já é o resumo.
+      // Duas telas, um objeto. Eram quatro (Orçamento, Fornecedores,
+      // Pagamentos, Documentos) porque a navegação seguia VERBOS — planejar,
+      // cotar, pagar, anexar —, e a vida de um mesmo gasto ficava picada entre
+      // elas. Fornecedor e documento viraram seções da ficha do gasto;
+      // Pagamentos sobrevive por ser outro EIXO (o tempo), não outro objeto.
       {
         label: 'Financeiro',
         itens: [
-          { to: `${base}/financeiro`, label: 'Orçamento', icon: 'lucide:list-tree', exact: true },
-          { to: `${base}/financeiro/fornecedores`, label: 'Fornecedores', icon: 'lucide:store' },
-          { to: `${base}/financeiro/pagamentos`, label: 'Pagamentos', icon: 'lucide:receipt' },
-        ],
-      },
-      {
-        label: 'Gerenciar',
-        itens: [
-          { to: `${base}/financeiro/documentos`, label: 'Documentos', icon: 'lucide:folder' },
+          {
+            to: `${base}/financeiro`,
+            label: 'Gastos',
+            icon: 'lucide:receipt-text',
+            exact: true,
+            // A ficha é filha desta lista, não um destino próprio: quem está
+            // lendo um gasto continua "em Gastos".
+            tambemDonoDe: [`${base}/financeiro/gastos`],
+          },
+          {
+            to: `${base}/financeiro/pagamentos`,
+            label: 'Pagamentos',
+            icon: 'lucide:calendar-clock',
+          },
         ],
       },
     ]

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   DIAS_HORIZONTE_VENCIMENTO,
+  faseDoGasto,
   gerarParcelas,
   hojeNoFusoDoEvento,
   linhaDeCategoria,
+  numeroDoGasto,
   percentual,
   resumoDeCotacoes,
   resumoDoOrcamento,
@@ -382,5 +384,71 @@ describe('resumoDeCotacoes', () => {
       gastosSemFornecedor: 0,
       propostasEmAvaliacao: 0,
     })
+  })
+})
+
+describe('faseDoGasto — a cotação é um momento próprio, não "ainda planejado"', () => {
+  it('sem proposta na mesa, o gasto continua planejado', () => {
+    expect(faseDoGasto(totaisDaDespesa(planejado(800_000)), 0)).toBe('planejado')
+  })
+
+  it('com proposta e sem valor fechado, o gasto está em cotação', () => {
+    expect(faseDoGasto(totaisDaDespesa(planejado(800_000)), 3)).toBe('cotando')
+  })
+
+  it('contratado nunca volta a cotar, mesmo com propostas ainda penduradas', () => {
+    const totais = totaisDaDespesa(contratado(800_000, 750_000))
+    expect(faseDoGasto(totais, 3)).toBe('contratado')
+  })
+
+  it('quitado é quitado — o dinheiro saiu inteiro', () => {
+    const totais = totaisDaDespesa(
+      contratado(800_000, 750_000, [parcela('2026-08-01', 750_000, '2026-08-01')]),
+    )
+    expect(faseDoGasto(totais, 0)).toBe('quitado')
+  })
+})
+
+describe('numeroDoGasto — uma fase, uma pergunta, um número', () => {
+  it('planejado mostra a estimativa', () => {
+    const totais = totaisDaDespesa(planejado(800_000))
+    expect(numeroDoGasto(totais, 'planejado', null)).toEqual({
+      rotulo: 'estimado',
+      valor: 800_000,
+    })
+  })
+
+  it('em cotação, o número é a melhor proposta — não a estimativa', () => {
+    const totais = totaisDaDespesa(planejado(800_000))
+    expect(numeroDoGasto(totais, 'cotando', 690_000)).toEqual({
+      rotulo: 'melhor proposta',
+      valor: 690_000,
+    })
+  })
+
+  it('em cotação sem nenhum preço informado, degrada para o estimado', () => {
+    // Zero ali seria mentira: ninguém ofereceu de graça, ninguém ofereceu nada.
+    const totais = totaisDaDespesa(planejado(800_000))
+    expect(numeroDoGasto(totais, 'cotando', null)).toEqual({
+      rotulo: 'estimado',
+      valor: 800_000,
+    })
+  })
+
+  it('contratado mostra o que ainda falta sair do bolso', () => {
+    const totais = totaisDaDespesa(
+      contratado(800_000, 750_000, [parcela('2026-08-01', 250_000, '2026-08-01')]),
+    )
+    expect(numeroDoGasto(totais, 'contratado', null)).toEqual({
+      rotulo: 'falta pagar',
+      valor: 500_000,
+    })
+  })
+
+  it('quitado mostra quanto custou de verdade', () => {
+    const totais = totaisDaDespesa(
+      contratado(800_000, 750_000, [parcela('2026-08-01', 750_000, '2026-08-01')]),
+    )
+    expect(numeroDoGasto(totais, 'quitado', null)).toEqual({ rotulo: 'pago', valor: 750_000 })
   })
 })

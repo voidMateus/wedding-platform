@@ -49,7 +49,7 @@ describe('nav primária do admin', () => {
     ])
   })
 
-  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/fornecedores'])(
+  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/gastos/abc'])(
     'acende Financeiro em %s',
     (caminho) => {
       expect(ehItemAtivo(itemPrimario('Financeiro'), rota(`${BASE}${caminho}`))).toBe(true)
@@ -126,30 +126,40 @@ describe('menu da seção', () => {
 })
 
 describe('menu da seção do Financeiro', () => {
-  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/documentos'])(
+  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/gastos/abc'])(
     'desenha a coluna do módulo em %s',
     (caminho) => {
       expect(adminSectionMenu(SLUG, `${BASE}${caminho}`).length).toBeGreaterThan(0)
     },
   )
 
-  // As três telas são o caminho do dinheiro — planejar, contratar, pagar —,
-  // e Documentos é o anexo que serve às três.
-  it('põe as três telas do caminho do dinheiro juntas, e Documentos à parte', () => {
+  // Duas telas, um objeto: Gastos é a lista do gasto, Pagamentos é o mesmo
+  // dinheiro no eixo do tempo. Fornecedores e Documentos deixaram de ser tela
+  // — viraram seções da ficha do gasto.
+  it('tem duas telas, e só', () => {
     const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
 
-    expect(menu.map((g) => g.label)).toEqual(['Financeiro', 'Gerenciar'])
-    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Orçamento', 'Fornecedores', 'Pagamentos'])
+    expect(menu.map((g) => g.label)).toEqual(['Financeiro'])
+    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Pagamentos'])
   })
 
-  // `exact` no Orçamento, senão ele ficaria aceso dentro de Fornecedores,
-  // Pagamentos e Documentos — que são subrotas dele.
-  it('Orçamento acende só na raiz do módulo', () => {
+  // `exact` em Gastos, senão ele ficaria aceso dentro de Pagamentos, que é
+  // subrota dele.
+  it('Gastos acende na raiz do módulo, não em Pagamentos', () => {
     const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
-    const orcamento = financeiro.itens.find((i) => i.label === 'Orçamento')!
+    const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
 
-    expect(ehItemAtivo(orcamento, rota(`${BASE}/financeiro`))).toBe(true)
-    expect(ehItemAtivo(orcamento, rota(`${BASE}/financeiro/pagamentos`))).toBe(false)
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro`))).toBe(true)
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/pagamentos`))).toBe(false)
+  })
+
+  // A ficha é filha da lista: quem está lendo um gasto continua "em Gastos",
+  // senão o menu apaga inteiro no exato momento em que se abre um objeto.
+  it('a ficha do gasto mantém Gastos aceso', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
+
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/gastos/uuid-do-gasto`))).toBe(true)
   })
 
   // A tela de Pagamentos guarda o recorte na URL (`?filtro=vencidos`). Um

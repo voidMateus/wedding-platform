@@ -1273,3 +1273,126 @@ mesmo modal que a tela correspondente abriria.
    que já tinha aparecido nos fornecedores arquivados. A listagem passou a vir
    inteira numa requisição só, e o recorte por gasto ou por fornecedor é da
    tela.
+
+---
+
+## 21. Repensar do zero: um objeto, duas telas (2026-09-12)
+
+A rodada 20 atacou o vocabulário e criou a ficha do gasto, e ainda assim o
+veredito do casal foi: *"misturamos muitos conceitos na mesma tela… está um bom
+frankenstein… vamos repensar do zero, e o principal é pensar qual seria,
+objetivamente, o conceito de UX Design a usar."*
+
+Ele estava certo, e o que sobrou não era um problema de layout.
+
+### 21.1 A medida do Frankenstein
+
+| | |
+|---|---|
+| Telas | **4** (Orçamento, Fornecedores, Pagamentos, Documentos) |
+| Linhas de página | **2.846** |
+| Estados de modal | **13** |
+| Lugares que formatam dinheiro | **38** |
+
+### 21.2 O diagnóstico
+
+As telas foram desenhadas em cima de **verbos** — planejar, cotar, pagar,
+anexar. O casal não pensa em verbos: pensa em *"o buffet"*. Com a vida de um
+gasto picada em quatro telas, cada uma precisava reapresentá-lo do zero (nome,
+categoria, cor, e o dinheiro dele de novo). Era daí que vinha toda a repetição
+que as rodadas 14 a 20 vinham tentando maquiar.
+
+A prova estava escrita no próprio CLAUDE.md, por nós: *"A tela de Fornecedores é
+a lista de gastos do Orçamento, não a lista de cotações."* Duas telas que
+assumidamente tinham **as mesmas linhas**, com roupas diferentes. Isso não é
+hierarquia confusa — é duplicação.
+
+### 21.3 O conceito: OOUX (Object-Oriented UX)
+
+Método da Sophia Prater, processo ORCA — mapear **Objetos → Relações → Ações →
+Atributos** e navegar por substantivo, nunca por etapa de processo. Rodado neste
+domínio, sobra **um objeto só**:
+
+| Candidato | Veredito |
+|---|---|
+| **Gasto** | **O objeto.** Tem identidade, ciclo de vida, e alguém pergunta por ele pelo nome. |
+| Fornecedor | Filho — já nasce preso a `despesa_id`. Sozinho não significa nada. |
+| Parcela | Filho — só existe dentro de gasto contratado. |
+| Documento | Filho — anexo de um gasto. |
+| Categoria | **Atributo**, não objeto. É rótulo + cor. Nunca foi uma coisa. |
+
+### 21.4 As três regras que saíram disso
+
+**1. Um substantivo, uma lista.** Fornecedores e Documentos deixaram de ser
+tela. Orçamento deixou de ser tela e virou o *cabeçalho* da lista. Pagamentos
+sobrevive porque muda o **eixo** (tempo), não o objeto — e essa é a régua para
+telas futuras: ordenar os mesmos gastos por outro critério é filtro, não tela.
+
+**2. Um número por linha, escolhido pela fase.** `faseDoGasto` acrescenta ao
+`EstagioDoGasto` a única distinção que ele não sabia fazer — "ninguém cotou"
+contra "três preços na mesa" — e `numeroDoGasto` resolve o que a linha mostra:
+
+| Fase | Número | Pergunta pendente |
+|---|---|---|
+| Planejado | estimado | quanto isto vai custar? |
+| Em cotação | melhor proposta | fecho com quem? |
+| Contratado | falta pagar | quanto ainda sai do bolso? |
+| Quitado | pago | quanto custou? |
+
+Em cotação sem nenhum preço informado, o indicador **degrada para o estimado** —
+zero ali mentiria dizendo que alguém ofereceu de graça.
+
+**3. Ler nunca abre modal.** A ficha virou rota (`/financeiro/gastos/<id>`), com
+os campos do próprio gasto editáveis nela mesma. Modal ficou para decisão curta:
+contratar, dar baixa, agendar, confirmar exclusão.
+
+### 21.5 O que o módulo virou
+
+```
+Financeiro
+├── Gastos          a lista. um objeto por linha, um número por linha.
+│   └── [gasto]     a ficha: propostas · contrato · parcelas · documentos · detalhes
+└── Pagamentos      o eixo do tempo, em faixas: vencidos · próximos 30 dias ·
+                    mais para frente · sem data · pagos
+```
+
+O agregado do módulo passou a ser **um só**, no topo de Gastos: a barra de
+proporção (pago ⊂ contratado ⊂ estimado, contra o teto) e uma frase em prosa com
+os números dentro. A régua de cinco cartões de Pagamentos saiu inteira — o
+cabeçalho de cada faixa já carrega contagem e total.
+
+### 21.6 Decisões de detalhe, e o que cada uma evita
+
+- **A fila por fase é chip, não menu de coluna** — e é o **mesmo** estado do
+  filtro da coluna "Situação", não um segundo. Filtro escondido atrás do menu de
+  um cabeçalho já tinha rendido a reclamação de não dar para saber que a tela
+  estava filtrada.
+- **Planejado e Em cotação dividem o tom `neutral`.** O tom responde "o dinheiro
+  precisa se mexer?"; o que os distingue o rótulo já diz. `primary` não entra:
+  é canal de identidade, nunca de estado (CLAUDE.md §13).
+- **"Pagos" nasce recolhido** em Pagamentos: é histórico, não pendência. Dar
+  baixa numa linha a faz **mudar de faixa** — some da lista de pendências, e é
+  isso mesmo que a tela promete ao organizar por tempo.
+- **Categorias viraram modal**, aberto por um botão discreto no cabeçalho. Criar
+  e renomear categoria acontece algumas vezes por casamento, não toda semana —
+  e o teto delas é guarda-corpo, que só precisa falar quando é ultrapassado.
+- **Documento sem gasto ganhou abrigo.** Com a tela de Documentos extinta, um
+  documento sem vínculo ficaria inalcançável; ele aparece numa tira discreta no
+  fim da lista, com o caminho para ganhar um gasto. Perder acesso a dado por
+  falta de tela é porta de mão única.
+- **O aviso de arquivar fornecedor vinculado voltou** para a ficha. Ele morava
+  na tela extinta, e o servidor recusa o arquivamento: sem esse aviso a tela
+  mandaria tentar para só então avisar, num toast atrás da própria janela.
+
+### 21.7 O que a suíte E2E pegou desta vez
+
+Duas coisas, e nenhuma delas estética:
+
+1. **Um teste vermelho estava sujando o banco de desenvolvimento.** O teste
+   marcava uma parcela como paga e a desmarcava no fim — mas a asserção do meio
+   falhou, e a parcela ficou paga. Pior: catorze fornecedores `ZForn` de
+   execuções anteriores estavam pendurados em gastos reais do casamento de
+   demonstração. Os dois passos de limpeza agora vivem em `finally`.
+2. **A ordem de quem age.** Dar baixa move a linha para a faixa recolhida, e o
+   teste procurava o "Desfazer" onde a linha não estava mais — o mesmo tipo de
+   engano que, num humano, viraria "cliquei e sumiu".

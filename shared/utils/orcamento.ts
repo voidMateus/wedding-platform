@@ -485,3 +485,49 @@ export function resumoDeCotacoes(gastos: readonly GastoEmCotacao[]): ResumoDeCot
     propostasEmAvaliacao,
   }
 }
+
+/**
+ * Em que ponto da própria vida o gasto está — o eixo da tela de Gastos.
+ *
+ * `EstagioDoGasto` deriva só de dinheiro (há valor fechado? já foi pago?) e por
+ * isso não sabe distinguir "ninguém cotou ainda" de "tenho três propostas na
+ * mesa esperando decisão" — dois momentos que pedem ações opostas do casal.
+ * A fase acrescenta essa distinção, e é a única coisa que ela acrescenta.
+ */
+export type FaseDoGasto = 'planejado' | 'cotando' | 'contratado' | 'quitado'
+
+export function faseDoGasto(totais: TotaisDaDespesa, propostas: number): FaseDoGasto {
+  if (totais.estagio !== 'planejado') return totais.estagio
+  return propostas > 0 ? 'cotando' : 'planejado'
+}
+
+/**
+ * O ÚNICO número que a linha do gasto mostra, escolhido pela fase.
+ *
+ * Antes a linha trazia estimado, contratado, pago, teto e desvio ao mesmo
+ * tempo: cinco valores para um objeto, e nenhum deles respondendo "e daí?".
+ * Cada fase tem exatamente uma pergunta pendente, então tem um número só —
+ * quanto acho que custa, qual a melhor proposta, quanto ainda devo, quanto
+ * custou. Os demais continuam existindo, na ficha do gasto.
+ */
+export interface NumeroDoGasto {
+  /** Rótulo em minúsculas, para ficar sob o número sem virar um cabeçalho. */
+  rotulo: string
+  valor: number
+}
+
+export function numeroDoGasto(
+  totais: TotaisDaDespesa,
+  fase: FaseDoGasto,
+  menorProposta: number | null,
+): NumeroDoGasto {
+  if (fase === 'quitado') return { rotulo: 'pago', valor: totais.pago }
+  if (fase === 'contratado') return { rotulo: 'falta pagar', valor: totais.aPagar }
+  // Em cotação sem nenhum preço na mesa não existe "melhor proposta" — o
+  // indicador degrada para o estimado em vez de exibir um zero que mentiria
+  // dizendo que alguém ofereceu de graça.
+  if (fase === 'cotando' && menorProposta !== null) {
+    return { rotulo: 'melhor proposta', valor: menorProposta }
+  }
+  return { rotulo: 'estimado', valor: totais.estimado }
+}
