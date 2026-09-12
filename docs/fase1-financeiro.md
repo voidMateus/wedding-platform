@@ -209,12 +209,15 @@ categoria existir.
   — "Buffet" duas vezes quebra o total mental do casal antes de quebrar
   qualquer código.
 - **Catálogo de categorias sugeridas** em `shared/orcamento-categorias.ts`
-  (fonte única): Espaço, Buffet, Bebidas, Bolo e doces, Fotografia e vídeo,
-  Música, Decoração e flores, Vestuário e beleza, Papelaria e convites,
-  Celebrante e cartório, Lembrancinhas, Transporte, Lua de mel, Outros. Elas
-  **não** nascem com o casamento: são um botão no estado vazio ("Começar com
-  as categorias sugeridas") que insere em lote e deixa tudo editável. Criar
-  linhas por trigger tiraria a liberdade sem pedir licença.
+  (fonte única): Espaço e estrutura, Cerimônia e assessoria, Buffet, Bebidas,
+  Bolo e doces, Decoração e flores, Música, Fotografia e vídeo, Vestuário e
+  beleza, Atrativos da festa, Papelaria e lembranças, Transporte. Elas **não**
+  nascem com o casamento: são um botão no estado vazio ("Começar com as
+  categorias sugeridas") que insere em lote e deixa tudo editável. Criar linhas
+  por trigger tiraria a liberdade sem pedir licença. **São exatamente doze**, e
+  isso é regra: `TAMANHO_PALETA_CATEGORIAS` também é 12, então a décima terceira
+  nasceria com a cor de outra — repetição aceitável quando o casal chega lá
+  sozinho, defeito de fábrica no que a plataforma sugere (ver seção 22).
 
 ### 4.2 `despesas`
 
@@ -1396,3 +1399,62 @@ Duas coisas, e nenhuma delas estética:
 2. **A ordem de quem age.** Dar baixa move a linha para a faixa recolhida, e o
    teste procurava o "Desfazer" onde a linha não estava mais — o mesmo tipo de
    engano que, num humano, viraria "cliquei e sumiu".
+
+---
+
+## 22. O catálogo confrontado com a realidade (2026-09-12)
+
+O casal passou a **checklist de fornecedores da cerimonial dele** — documento de
+trabalho de uma profissional em atividade, com 33 linhas. Confrontar o catálogo
+sugerido com ela é a primeira vez que essa lista foi verificada contra algo que
+não fosse a nossa intuição.
+
+### 22.1 Três buracos
+
+| Faltava | A checklist pedia | Onde caía antes |
+|---|---|---|
+| **Cerimônia e assessoria** | assessoria, assessoria musical da cerimônia, celebrante, cartório | "Outros" |
+| **Atrativos da festa** | cabine fotográfica, totem self, canoa de água de coco, brindes de pista, "atrativos na festa" | "Outros", ou errado em "Fotografia e vídeo" |
+| **estrutura** (em "Espaço e estrutura") | gerador, iluminação, sonorização | sem lugar |
+
+A assessoria é o achado mais constrangedor: a profissional que organiza o
+casamento — e uma das maiores linhas do orçamento — não tinha categoria.
+
+### 22.2 Uma categoria que sobrava
+
+**"Outros" saiu.** A tela já agrupa gasto sem categoria sob "Sem categoria";
+manter as duas cria dois baldes com o mesmo significado, e o casal passa a ter
+que decidir entre eles — com o resultado previsível de o mesmo tipo de gasto
+acabar metade em cada.
+
+### 22.3 A regra dos doze
+
+`TAMANHO_PALETA_CATEGORIAS` é 12. O catálogo antigo tinha **catorze**: duas
+nasciam com a cor de outra, no primeiro clique, sem ninguém ter escolhido nada.
+Repetir cor é aceitável quando o casal chega na décima terceira por conta
+própria; no que a plataforma sugere, é defeito de fábrica. O teto de doze virou
+regra da lista, com teste (`tests/unit/shared/orcamento-categorias.spec.ts`).
+
+Para caber, duas fusões e duas ausências deliberadas:
+
+- **Celebrante e cartório** + **Assessoria** → "Cerimônia e assessoria". É tudo
+  "o que faz a cerimônia acontecer", e gastar dois dos doze slots para separar
+  o que o casal contrata como um assunto só era caro.
+- **Papelaria e convites** + **Lembrancinhas** → "Papelaria e lembranças".
+  Cobre convites, save the date, personalizados, lembrancinhas e kit banheiro:
+  tudo o que é impresso ou entregue na mão do convidado.
+- **Lua de mel** ficou de fora: é dinheiro gasto depois do casamento, e com
+  frequência vindo dos presentes. Somá-la ao teto faria "quanto já comprometi"
+  responder por dois orçamentos ao mesmo tempo.
+- **Traje da noiva** e **traje do noivo** são duas linhas da checklist, mas dois
+  **gastos** dentro de "Vestuário e beleza". Categoria é o balde, não a linha —
+  e foi essa distinção que impediu a lista de virar as 33 linhas da checklist.
+
+### 22.4 O que a checklist pede e ainda não existe
+
+Ela é uma lista de **gastos**, não de categorias. As 33 linhas caberiam como
+gastos sugeridos dentro das doze categorias — mas o módulo tem uma regra
+própria contra isso: *"chegar com quatorze linhas que ninguém pediu é o oposto
+de liberdade de planilha"*. Semear 33 seria pior. Se virar funcionalidade, o
+formato defensável é um catálogo por categoria, oferecido **dentro** da
+categoria e item a item, nunca em lote no primeiro clique.
