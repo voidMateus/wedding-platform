@@ -111,6 +111,13 @@ export interface AdminTableSection<T> {
    */
   cor?: string | null
   /**
+   * Barra de proporção no cabeçalho do bloco — substitui dois ou três números
+   * lidos em sequência por uma forma. `valor` é o que já se concretizou (pago),
+   * `secundario` o degrau intermediário (contratado) e `total` o todo
+   * (estimado). Pinta na `cor` do bloco quando há uma.
+   */
+  progresso?: { valor: number; secundario?: number; total: number }
+  /**
    * Fundo tingido do cabeçalho, par de `cor` quando `corEstilo` é 'barra'.
    * Tom quase imperceptível de propósito: a cor identifica o bloco, não o
    * pinta.

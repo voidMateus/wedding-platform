@@ -220,7 +220,49 @@ const diferencaDoEstimado = computed(() => {
 })
 
 const SEM_GASTO = 'sem-gasto'
-const PREFIXO_CATEGORIA = 'cat:'
+
+/**
+ * Em que pé está a decisão sobre um gasto.
+ *
+ * É por aqui que a tela se organiza — e não mais pela categoria. A categoria já
+ * é o eixo do Orçamento; repeti-la aqui fazia as duas telas desenharem a mesma
+ * árvore, e nenhuma dizia qual era o assunto próprio. Organizada por decisão,
+ * esta responde "o que falta fazer?" em vez de "onde isto se encaixa?".
+ *
+ * A ordem é a da urgência, não a do fluxo: quem já tem preço na mesa e nenhuma
+ * decisão tomada vem primeiro.
+ */
+const FILA = [
+  {
+    id: 'decidir',
+    label: 'Prontos para decidir',
+    descricao: 'Já têm proposta com preço, e ninguém fechou',
+  },
+  {
+    id: 'sem-proposta',
+    label: 'Precisam de proposta',
+    descricao: 'Nenhum fornecedor cotando ainda',
+  },
+  {
+    id: 'aguardando',
+    label: 'Esperando resposta',
+    descricao: 'Fornecedor cadastrado, preço ainda não',
+  },
+  { id: 'fechado', label: 'Fechados', descricao: 'Valor contratado' },
+] as const
+
+type EstadoDaFila = (typeof FILA)[number]['id']
+
+function estadoDoGasto(
+  despesa: DespesaComParcelas,
+  cotacoes: readonly FornecedorComSituacao[],
+): EstadoDaFila {
+  if (despesa.totais.contratado !== null) return 'fechado'
+  if (cotacoes.length === 0) return 'sem-proposta'
+  return cotacoes.some((fornecedor) => (fornecedor.valor_proposto_centavos ?? 0) > 0)
+    ? 'decidir'
+    : 'aguardando'
+}
 
 /**
  * A tela é a lista de gastos do ORÇAMENTO, não a lista de cotações.
@@ -235,11 +277,18 @@ const PREFIXO_CATEGORIA = 'cat:'
  * cotando aparece igual, vazio, com a linha "Adicionar fornecedor" — é
  * justamente o convite que faltava.
  */
-/** Filete + fundo tingido do bloco, a partir do slot da categoria. */
-function corDoBloco(categoria: { corIndice: number | null; corPersonalizada: string | null }) {
-  // "Sem categoria" não tem linha no banco, então também não tem slot: um
-  // filete colorido ali sugeriria uma categoria que não existe.
-  if (categoria.corIndice === null) return {}
+/**
+ * Filete + fundo tingido do gasto, na cor da categoria dele.
+ *
+ * Com a tela agrupada por decisão, a categoria deixou de ser o bloco — mas
+ * continua sendo o que o casal reconhece de relance entre as três telas, então
+ * ela vira a cor do próprio gasto.
+ */
+function corDoGasto(despesa: DespesaComParcelas) {
+  const categoria = categoriasDoOrcamento.value.find(
+    (linha) => linha.categoriaId === despesa.categoria?.id,
+  )
+  if (!categoria || categoria.corIndice === null) return {}
   const cor = corDaCategoria(categoria.corIndice, categoria.corPersonalizada)
   return { cor: cor.solida, corFundo: cor.fundo, corEstilo: 'barra' as const }
 }
@@ -267,50 +316,62 @@ const secoes = computed<AdminTableSection<FornecedorComSituacao>[]>(() => {
 
   const blocos: AdminTableSection<FornecedorComSituacao>[] = []
 
-  for (const categoria of categoriasDoOrcamento.value) {
-    const idCategoria = `${PREFIXO_CATEGORIA}${categoria.categoriaId ?? 'sem-categoria'}`
+  // Cada gasto do orçamento entra na fila pelo estado da decisão dele.
+  const gastosPorEstado = new Map<
+    EstadoDaFila,
+    { despesa: DespesaComParcelas; cotacoes: FornecedorComSituacao[] }[]
+  >()
 
-    const gastos = categoria.despesas
-      .map((despesa) => ({ despesa, cotacoes: porGasto.get(despesa.id) ?? [] }))
-      // Com filtro ativo, gasto sem nenhum fornecedor correspondente sai: quem
-      // filtrou está procurando uma proposta, não planejando.
-      .filter(({ cotacoes }) => cotacoes.length > 0 || !temFiltroAtivo.value)
-      // O recorte inverte a pergunta: mostra só o que ainda não tem ninguém.
-      .filter(
-        ({ despesa, cotacoes }) =>
-          !recorteSemFornecedor.value ||
-          (cotacoes.length === 0 && despesa.totais.contratado === null),
-      )
+  for (const despesa of despesas.value) {
+    const cotacoes = porGasto.get(despesa.id) ?? []
 
+    // Com filtro ativo, gasto sem proposta correspondente sai: quem filtrou
+    // está procurando um fornecedor, não planejando.
+    if (cotacoes.length === 0 && temFiltroAtivo.value) continue
+    // O recorte inverte a pergunta: mostra só o que ainda não tem ninguém.
+    if (
+      recorteSemFornecedor.value &&
+      !(cotacoes.length === 0 && despesa.totais.contratado === null)
+    ) {
+      continue
+    }
+
+    const estado = estadoDoGasto(despesa, cotacoes)
+    const lista = gastosPorEstado.get(estado) ?? []
+    lista.push({ despesa, cotacoes })
+    gastosPorEstado.set(estado, lista)
+  }
+
+  for (const etapa of FILA) {
+    const gastos = gastosPorEstado.get(etapa.id) ?? []
     if (gastos.length === 0) continue
 
-    const totalDeCotacoes = gastos.reduce((total, { cotacoes }) => total + cotacoes.length, 0)
-
-    // A categoria só agrupa — daí `quiet`. Quem o casal procura é o gasto.
     blocos.push({
-      id: idCategoria,
-      label: categoria.nome,
+      id: `fila:${etapa.id}`,
+      label: etapa.label,
       level: 0,
       emphasis: 'quiet',
-      meta: `${gastos.length} ${gastos.length === 1 ? 'gasto' : 'gastos'} · ${totalDeCotacoes} ${
-        totalDeCotacoes === 1 ? 'fornecedor' : 'fornecedores'
-      }`,
-      icon: 'lucide:folder',
-      ...corDoBloco(categoria),
+      meta: `${gastos.length} ${gastos.length === 1 ? 'gasto' : 'gastos'}`,
+      description: etapa.descricao,
+      icon: 'lucide:list-checks',
       rows: [],
     })
 
-    if (recolhidos.value.includes(idCategoria)) continue
+    if (recolhidos.value.includes(`fila:${etapa.id}`)) continue
 
     for (const { despesa, cotacoes } of gastos) {
       blocos.push({
         id: despesa.id,
         label: despesa.descricao,
         level: 1,
-        // O gasto é a entidade desta tela, não um subtítulo do agrupamento.
+        // O gasto é a entidade desta tela; a etapa acima só o agrupa.
         emphasis: 'strong',
+        meta: despesa.categoria?.nome,
         description: resumoDoGasto(despesa),
         badge: seloDaDiferenca(despesa),
+        // A cor continua sendo a da categoria: é ela que o casal reconhece
+        // entre as três telas, mesmo quando o agrupamento aqui é outro.
+        ...corDoGasto(despesa),
         rows: cotacoes,
       })
     }
@@ -394,7 +455,7 @@ function alternarBloco(id: string) {
     : [...recolhidos.value, id]
 }
 
-// "Recolher tudo" fecha as categorias, não os gastos: recolher a categoria já
+// "Recolher tudo" fecha as etapas da fila, não os gastos: recolher a etapa já
 // leva os gastos dela junto, e contar os dois níveis faria o botão trocar de
 // rótulo com metade da tela ainda aberta.
 const categoriasVisiveis = computed(() =>
@@ -556,8 +617,13 @@ async function confirmarContratacao(input: VendorContractInput) {
 
 // --- propostas anexadas ---
 const propostasAbertas = ref<FornecedorComSituacao | null>(null)
-const filtroDeDocumentos = computed(() => ({ fornecedorId: propostasAbertas.value?.id }))
-const { data: propostas } = listDocuments(filtroDeDocumentos)
+const { data: todosOsDocumentos } = listDocuments()
+
+const propostas = computed(() =>
+  (todosOsDocumentos.value?.data ?? []).filter(
+    (documento) => documento.fornecedor_id === propostasAbertas.value?.id,
+  ),
+)
 
 // Abrir e excluir precisam funcionar aqui como funcionam em Documentos: a
 // lista desenha os controles, e handler vazio é controle que não responde.
@@ -728,7 +794,7 @@ function linkWhatsApp(telefone: string | null): string | null {
       </div>
 
       <AdminPanel
-        title="Fornecedores por gasto"
+        title="O que falta decidir"
         :meta="`${despesas.length} ${despesas.length === 1 ? 'gasto' : 'gastos'} · ${fornecedores.length} ${fornecedores.length === 1 ? 'fornecedor' : 'fornecedores'}`"
       >
         <template #headerActions>
@@ -994,8 +1060,8 @@ function linkWhatsApp(telefone: string | null): string | null {
     >
       <div class="flex flex-col gap-3">
         <AdminFinanceDocumentList
-          v-if="(propostas?.data ?? []).length > 0"
-          :documentos="propostas?.data ?? []"
+          v-if="propostas.length > 0"
+          :documentos="propostas"
           compacta
           @abrir="abrirProposta"
           @excluir="excluirProposta"

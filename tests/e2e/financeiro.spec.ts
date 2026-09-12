@@ -183,6 +183,61 @@ test('o lançamento é editável — vencimento, valor e data de pagamento', asy
   })
 })
 
+test('a ficha do gasto conta a história inteira dele', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Orçamento' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // Clicar no gasto abre a ficha, não o formulário de edição: a pergunta que o
+  // casal faz ao clicar em "Refrigerantes" é "como está isso?".
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Refrigerantes', exact: true }).first().click({
+      timeout: 3_000,
+    })
+    await expect(page.getByRole('heading', { name: 'Refrigerantes' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+
+  const ficha = page.getByRole('dialog')
+
+  // As quatro camadas da história, que antes exigiam visitar três telas.
+  for (const secao of ['Propostas', 'Contrato', 'Pagamentos', 'Documentos']) {
+    await expect(ficha.getByRole('heading', { name: secao })).toBeVisible()
+  }
+  // Duas vezes de propósito: na lista de propostas e no contrato fechado.
+  await expect(ficha.getByText('Atacado do Zé').first()).toBeVisible()
+
+  // E só os documentos DESTE gasto: a listagem vem inteira e o recorte é da
+  // tela, porque duas chamadas com a mesma chave de cache compartilhavam a
+  // resposta — a ficha do refrigerante mostrava o contrato do buffet.
+  await expect(ficha.getByText('Contrato do buffet')).toHaveCount(0)
+
+  await ficha.getByLabel('Fechar').click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+})
+
+test('Fornecedores agrupa por decisão, não por categoria', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/fornecedores`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Fornecedores' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // A tela responde "o que falta fazer?", não "onde isto se encaixa?" — essa
+  // segunda pergunta já é a do Orçamento, e repeti-la fazia as duas telas
+  // desenharem a mesma árvore.
+  await expect(page.getByText('Precisam de proposta')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText('Nenhum fornecedor cotando ainda')).toBeVisible()
+  await expect(page.getByText('Fechados', { exact: true })).toBeVisible()
+})
+
 test('arquivar fornecedor contratado explica o vínculo e oferece a saída', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)

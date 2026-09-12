@@ -1,12 +1,6 @@
 import type { DocumentLinkInput, DocumentPatch, TipoDocumento } from '#shared/schemas/finance'
 import type { Documento, DocumentoComVinculos } from '~/types/finance'
 
-export interface FiltroDeDocumentos {
-  tipo?: TipoDocumento
-  fornecedorId?: string
-  despesaId?: string
-}
-
 const CHAVE_DOCUMENTOS = 'finance-documents'
 
 /**
@@ -15,17 +9,19 @@ const CHAVE_DOCUMENTOS = 'finance-documents'
  * um fornecedor sem uma segunda tela.
  */
 export function useFinanceDocuments() {
-  function listDocuments(filtro: MaybeRefOrGetter<FiltroDeDocumentos> = {}) {
+  /**
+   * TODOS os documentos do casamento, numa requisição só — o recorte por
+   * fornecedor ou por gasto é da tela.
+   *
+   * O filtro chegou a ser parâmetro daqui, e isso era uma armadilha: duas
+   * chamadas com a MESMA chave de cache, distinguidas apenas pela query,
+   * compartilham a resposta no Nuxt. Na prática a ficha de um gasto mostrava os
+   * documentos de outro, sem erro nenhum para acusar. A lista de um casamento
+   * cabe inteira na memória; o recorte é um `filter` na tela.
+   */
+  function listDocuments() {
     return useFetch<{ data: DocumentoComVinculos[] }>('/api/finance/documents', {
       key: CHAVE_DOCUMENTOS,
-      query: computed(() => {
-        const valor = toValue(filtro)
-        return {
-          tipo: valor.tipo,
-          fornecedorId: valor.fornecedorId,
-          despesaId: valor.despesaId,
-        }
-      }),
     })
   }
 

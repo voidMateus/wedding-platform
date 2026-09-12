@@ -103,13 +103,19 @@ export default defineEventHandler(async (event) => {
       .is('pago_em', null)
 
     if (emAberto && emAberto.length > 0) {
-      await client
+      // O erro é checado: um delete que falha volta 200 sem apagar nada, e o
+      // insert logo abaixo duplicaria o parcelamento em silêncio.
+      const { error: erroLimpeza } = await client
         .from('parcelas_despesa')
         .delete()
         .in(
           'id',
           emAberto.map((parcela) => parcela.id),
         )
+
+      if (erroLimpeza) {
+        throw badRequestError(erroLimpeza.message)
+      }
     }
 
     const { data: pagas } = await client

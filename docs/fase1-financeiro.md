@@ -1193,3 +1193,83 @@ sido reuso pelo nome, não pela função.
 
 Passou a documentar `cor_indice`/`cor_personalizada`, os dois triggers de cor e
 a progressão de `estagio` — a lacuna que esta rodada tinha aberto.
+
+---
+
+## 20. A confusão que sobrou (2026-09-12)
+
+Depois de tudo, as duas telas ainda liam como confusas. O diagnóstico não foi
+de layout — foi de **vocabulário e repetição**, e o sintoma mais concreto era
+este: no bloco do Espaço, o número R$ 15.000,00 aparecia **quatro vezes** com
+quatro rótulos diferentes ("R$ 15.000 de R$ 15.000" na faixa, depois Estimado e
+Valor fechado na linha). Quando o mesmo número aparece quatro vezes, a tela não
+informa — ela pede para o casal decifrar se são números diferentes.
+
+Três causas, e uma ausência.
+
+### 20.1 Seis palavras para dinheiro, duas delas quase sinônimas
+
+Teto do casamento · **orçado** (da categoria) · **estimado** · contratado ·
+pago · a pagar. As duas do meio são a mesma frase na cabeça de quem usa
+("reservei 15 mil para Espaço" e "acho que Espaço vai custar 15 mil"), e o
+sistema pedia que o casal mantivesse as duas.
+
+**O teto da categoria saiu da leitura diária.** Ele continua existindo, mas
+como guarda-corpo: só fala quando é ultrapassado (o selo "R$ 500,00 acima do
+teto") e como campo opcional do cadastro da categoria. A faixa passou a dizer
+só "estimado · contratado", e a proporção virou **barra** — uma forma no lugar
+de um terceiro número lido em sequência.
+
+A coluna "Valor fechado" virou **"Contratado"**: a mesma palavra do cartão, da
+ficha e do resumo. O módulo fala uma língua só.
+
+> Não apaguei a coluna `valor_previsto_centavos`. Apagar dado é porta de mão
+> única; se a tela simples se provar melhor por uns meses, a migration que a
+> remove é trivial naquele momento.
+
+### 20.2 As duas telas mostravam os mesmos números com nomes diferentes
+
+R$ 71.700 era "Estimado" no Orçamento e "Orçamento estimado" em Fornecedores.
+Metade dos cartões de cada tela repetia a outra, com rótulo trocado — o que faz
+duvidar em vez de informar.
+
+### 20.3 As duas telas desenhavam a mesma árvore
+
+Categoria → gasto, idêntico nas duas, com colunas diferentes. **Fornecedores
+deixou de espelhar o Orçamento**: agora ela agrupa por estado da decisão —
+*Prontos para decidir* · *Precisam de proposta* · *Esperando resposta* ·
+*Fechados* —, respondendo "o que falta fazer?" em vez de "onde isto se
+encaixa?", que é a pergunta do Orçamento. A categoria continua reconhecível: ela
+virou a cor do próprio gasto.
+
+### 20.4 A ausência: nada contava a história de UM gasto
+
+Para saber tudo sobre Refrigerantes — estimei 1.800, recebi 3 propostas, fechei
+com o Zé por 1.620, paguei metade — era preciso visitar três telas e juntar na
+cabeça.
+
+`FinanceExpenseSheet` é a **ficha do gasto**: propostas lado a lado com
+"Contratar" em cada uma, o contrato com a economia, as parcelas e os documentos.
+Clicar no gasto abre ela, não o formulário de edição — a pergunta de quem clica
+em "Refrigerantes" é "como está isso?", não "quero renomear". Editar continua a
+um clique, no rodapé.
+
+A ficha é leitura + atalho, nunca um quarto lugar de cadastro: cada ação abre o
+mesmo modal que a tela correspondente abriria.
+
+### 20.5 Dois defeitos que a ficha encontrou no primeiro dia
+
+1. **Quatro parcelas de R$ 810 num contrato de R$ 1.620.** O módulo permite que
+   a soma das parcelas divirja do valor fechado ("entrada e o resto a combinar"
+   é o caso normal), mas a regra exige que a divergência seja **exibida** — e
+   ela não estava em tela nenhuma. Agora a ficha diz "as parcelas somam X — Y
+   acima do valor contratado". No caminho, o `contract.post.ts` passou a checar
+   o erro do delete das parcelas em aberto: um delete que falha volta 200 sem
+   apagar nada, e o insert seguinte duplicaria o parcelamento em silêncio.
+
+2. **A ficha do refrigerante mostrava o contrato do buffet.** Duas chamadas
+   `useFetch` para `/api/finance/documents` com a MESMA chave de cache,
+   distinguidas só pela query, compartilham a resposta — exatamente a armadilha
+   que já tinha aparecido nos fornecedores arquivados. A listagem passou a vir
+   inteira numa requisição só, e o recorte por gasto ou por fornecedor é da
+   tela.

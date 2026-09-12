@@ -11,13 +11,19 @@
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
+import { hojeNoFusoDoEvento } from '#shared/utils/orcamento'
 import type {
   BudgetCategoryInput,
   ExpenseInput,
   VendorContractInput,
+  VendorInput,
 } from '#shared/schemas/finance'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
-import type { CategoriaComDespesas, DespesaComParcelas } from '~/types/finance'
+import type {
+  CategoriaComDespesas,
+  DespesaComParcelas,
+  FornecedorComSituacao,
+} from '~/types/finance'
 import {
   applyTableFilters,
   compareNumber,
@@ -58,11 +64,78 @@ const categoriasSimples = computed(() => ({
   data: (todasCategorias.value?.data ?? []).filter((categoria) => !categoria.excluido_em),
 }))
 const { corDaCategoria } = useCategoriaCores()
-const { listVendors } = useVendors()
+const { listVendors, criarFornecedor } = useVendors()
 const { data: fornecedores } = listVendors()
 
 const categorias = computed<CategoriaComDespesas[]>(() => orcamento.value?.categorias ?? [])
 const todasDespesas = computed(() => categorias.value.flatMap((categoria) => categoria.despesas))
+
+/**
+ * A ficha do gasto — a história inteira de um gasto num lugar só.
+ *
+ * Clicar na linha abre ela, não o formulário de edição: a pergunta que o casal
+ * faz ao clicar em "Refrigerantes" é "como está isso?", não "quero renomear".
+ * Editar continua a um clique, no rodapé da ficha.
+ */
+const fichaAberta = ref(false)
+const despesaDaFicha = ref<DespesaComParcelas | null>(null)
+const hoje = hojeNoFusoDoEvento()
+
+const { listDocuments, obterUrlDoDocumento } = useFinanceDocuments()
+const { data: todosOsDocumentos } = listDocuments()
+
+const documentosDaFicha = computed(() =>
+  (todosOsDocumentos.value?.data ?? []).filter(
+    (documento) => documento.despesa_id === despesaDaFicha.value?.id,
+  ),
+)
+
+function abrirFicha(despesa: DespesaComParcelas) {
+  despesaDaFicha.value = despesa
+  fichaAberta.value = true
+}
+
+// A ficha guarda só o id: `orcamento` é refeito a cada mutação, e segurar o
+// objeto antigo deixaria a ficha mostrando o valor de antes da contratação.
+const despesaViva = computed(() =>
+  despesaDaFicha.value
+    ? (todasDespesas.value.find((despesa) => despesa.id === despesaDaFicha.value?.id) ?? null)
+    : null,
+)
+
+const fornecedoresDaFicha = computed(() =>
+  (fornecedores.value?.data ?? []).filter(
+    (fornecedor) => !fornecedor.excluido_em && fornecedor.gasto?.id === despesaViva.value?.id,
+  ),
+)
+
+async function abrirDocumentoDaFicha(documento: { id: string }) {
+  try {
+    const { url } = await obterUrlDoDocumento(documento.id)
+    window.open(url, '_blank', 'noopener')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível abrir o documento.'))
+  }
+}
+
+// --- fornecedor a partir da ficha ---
+const fornecedorModalAberto = ref(false)
+const despesaDoFornecedor = ref<string | null>(null)
+
+function novoFornecedorDaFicha(despesaId: string) {
+  despesaDoFornecedor.value = despesaId
+  fornecedorModalAberto.value = true
+}
+
+async function salvarFornecedor(input: VendorInput) {
+  try {
+    await criarFornecedor(input)
+    fornecedorModalAberto.value = false
+    toast.success('Fornecedor salvo.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
+  }
+}
 
 // --- tabela ---
 const colunas = computed<AdminTableColumn<DespesaComParcelas>[]>(() => [
@@ -81,7 +154,7 @@ const colunas = computed<AdminTableColumn<DespesaComParcelas>[]>(() => [
     },
   },
   { key: 'estimado', label: 'Estimado', align: 'right', sort: 'numeric' },
-  { key: 'final', label: 'Valor fechado', align: 'right', sort: 'numeric' },
+  { key: 'final', label: 'Contratado', align: 'right', sort: 'numeric' },
   { key: 'pago', label: 'Pago', align: 'right', sort: 'numeric' },
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
@@ -145,16 +218,15 @@ function corDoBloco(categoria: { corIndice: number | null; corPersonalizada: str
 
 const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
   categoriasVisiveis.value.map((categoria) => {
-    // Dois números, não quatro: o teto e o que já foi comprometido contra ele.
-    // A faixa antiga concatenava orçado, estimado, contratado e o estouro numa
-    // só linha cinza — e a categoria estourada lia igual à saudável.
-    const partes: string[] = []
-    if (categoria.orcado > 0) {
-      partes.push(
-        `${formatCentsToBRL(categoria.estimado)} de ${formatCentsToBRL(categoria.orcado)}`,
-      )
-    } else {
-      partes.push(`estimado ${formatCentsToBRL(categoria.estimado)}`)
+    // O TETO DA CATEGORIA SAIU DAQUI. Ele e o "estimado" são duas palavras
+    // para "quanto isto vai custar", e mantê-los lado a lado fazia o mesmo
+    // número aparecer quatro vezes no mesmo bloco (a faixa dizia
+    // "R$ 15.000 de R$ 15.000" e a linha repetia os dois). O teto continua
+    // existindo — mas como guarda-corpo, que só fala quando é ultrapassado
+    // (o selo "acima"), e como campo do cadastro da categoria.
+    const partes: string[] = [`estimado ${formatCentsToBRL(categoria.estimado)}`]
+    if (categoria.contratado > 0) {
+      partes.push(`contratado ${formatCentsToBRL(categoria.contratado)}`)
     }
 
     return {
@@ -162,10 +234,19 @@ const secoes = computed<AdminTableSection<DespesaComParcelas>[]>(() =>
       label: categoria.nome,
       level: 0 as const,
       meta: partes.join(' · '),
+      // A proporção vira forma: quanto do estimado já virou contrato, e quanto
+      // do contrato já saiu do bolso.
+      progresso: {
+        valor: categoria.pago,
+        secundario: categoria.contratado,
+        total: Math.max(categoria.estimado, categoria.contratado),
+      },
       badge:
         categoria.acimaDoOrcado > 0
           ? {
-              label: `${formatCentsToBRL(categoria.acimaDoOrcado)} acima`,
+              // "acima do teto" e não só "acima": com o teto fora da faixa,
+              // a palavra sozinha não diria acima do quê.
+              label: `${formatCentsToBRL(categoria.acimaDoOrcado)} acima do teto`,
               tone: 'danger' as const,
             }
           : undefined,
@@ -352,20 +433,29 @@ async function confirmarExclusao() {
 // --- registrar o valor fechado direto da linha ---
 const contratoAberto = ref(false)
 const despesaDoContrato = ref<string | null>(null)
+const fornecedorDoContrato = ref<FornecedorComSituacao | null>(null)
 
-function abrirContratacao(despesa: DespesaComParcelas) {
+/**
+ * Contratar a partir de uma proposta específica precisa levar QUAL proposta:
+ * é isso que vincula o fornecedor ao gasto e move o estágio dele. Sem
+ * fornecedor escolhido (o botão "Registrar valor" da linha), contratar é só
+ * gravar o custo final — o fornecedor é opcional em todo o módulo.
+ */
+function abrirContratacao(despesa: DespesaComParcelas, fornecedor?: FornecedorComSituacao | null) {
   despesaDoContrato.value = despesa.id
+  fornecedorDoContrato.value = fornecedor ?? null
   contratoAberto.value = true
 }
 
 async function confirmarContratacao(input: VendorContractInput) {
   const despesa = todasDespesas.value.find((atual) => atual.id === input.despesaId)
   try {
-    // Com fornecedor vinculado, contratar é o fluxo completo (estágio +
-    // parcelas). Sem fornecedor, é só registrar o valor fechado — o fornecedor
-    // é opcional em todo o módulo.
-    if (despesa?.fornecedor) {
-      await contratarFornecedor(despesa.fornecedor.id, input)
+    // Com fornecedor — o escolhido na ficha, ou o que já estava vinculado ao
+    // gasto —, contratar é o fluxo completo (estágio + vínculo + parcelas).
+    // Sem nenhum, é só registrar o valor fechado.
+    const fornecedorId = fornecedorDoContrato.value?.id ?? despesa?.fornecedor?.id
+    if (fornecedorId) {
+      await contratarFornecedor(fornecedorId, input)
     } else {
       await atualizarDespesa(input.despesaId, { valorCentavos: input.valorCentavos })
     }
@@ -450,7 +540,7 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
           v-if="recorteEstouro"
           class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/50 px-4 py-2.5"
         >
-          <span class="text-sm text-text">Mostrando só as categorias acima do orçado</span>
+          <span class="text-sm text-text"> Mostrando só as categorias que passaram do teto </span>
           <UiButton size="sm" variant="ghost" @click="router.replace({ query: {} })">
             Ver tudo
           </UiButton>
@@ -484,14 +574,14 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
             row-clickable
             empty-label="Nenhum gasto com esses filtros."
             @toggle-section="alternarBloco"
-            @row-click="editarDespesa"
+            @row-click="abrirFicha"
           >
             <template #cell-gasto="{ row }">
               <div class="min-w-0">
                 <button
                   type="button"
                   class="block max-w-full truncate text-left text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  @click="editarDespesa(row)"
+                  @click="abrirFicha(row)"
                 >
                   {{ row.descricao }}
                 </button>
@@ -599,7 +689,7 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
                   >
                     Registrar valor
                   </UiButton>
-                  <UiButton variant="ghost" @click="editarDespesa(row)">Editar</UiButton>
+                  <UiButton variant="ghost" @click="abrirFicha(row)">Abrir</UiButton>
                   <AdminRowAction
                     icon="lucide:trash-2"
                     label="Excluir gasto"
@@ -669,6 +759,28 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
       @salvar="salvarCategoria"
     />
 
+    <AdminFinanceExpenseSheet
+      v-model="fichaAberta"
+      :despesa="despesaViva"
+      :fornecedores="fornecedoresDaFicha"
+      :documentos="documentosDaFicha"
+      :hoje="hoje"
+      @editar="editarDespesa"
+      @contratar="(fornecedor) => despesaViva && abrirContratacao(despesaViva, fornecedor)"
+      @adicionar-fornecedor="novoFornecedorDaFicha"
+      @abrir-documento="abrirDocumentoDaFicha"
+      @ir-para-pagamentos="navigateTo(`${base}/pagamentos`)"
+    />
+
+    <AdminFinanceVendorModal
+      v-model="fornecedorModalAberto"
+      :fornecedor="null"
+      :categorias="categoriasSimples?.data ?? []"
+      :despesas="todasDespesas"
+      :despesa-padrao="despesaDoFornecedor"
+      @salvar="salvarFornecedor"
+    />
+
     <AdminFinanceExpenseModal
       v-model="despesaModalAberto"
       :despesa="despesaEmEdicao"
@@ -680,7 +792,7 @@ function desvio(despesa: DespesaComParcelas): { texto: string; economia: boolean
 
     <AdminFinanceContractModal
       v-model="contratoAberto"
-      :fornecedor="null"
+      :fornecedor="fornecedorDoContrato"
       :despesas="todasDespesas"
       :despesa-padrao="despesaDoContrato"
       @contratar="confirmarContratacao"

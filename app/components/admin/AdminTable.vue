@@ -385,6 +385,31 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                     >
                       {{ block.section.description }}
                     </span>
+                    <!-- A proporção como forma, não como terceiro número lido
+                         em sequência. `aria-hidden` porque os valores que ela
+                         representa já estão escritos na linha acima — para
+                         leitor de tela ela seria repetição. -->
+                    <span
+                      v-if="block.section.progresso && block.section.progresso.total > 0"
+                      aria-hidden="true"
+                      class="mt-1.5 flex h-1 w-36 overflow-clip rounded-full bg-border"
+                    >
+                      <span
+                        class="h-full"
+                        :style="{
+                          width: `${Math.min(100, (block.section.progresso.valor / block.section.progresso.total) * 100)}%`,
+                          backgroundColor: block.section.cor ?? 'var(--color-text-muted)',
+                        }"
+                      />
+                      <span
+                        v-if="block.section.progresso.secundario"
+                        class="h-full opacity-40"
+                        :style="{
+                          width: `${Math.max(0, Math.min(100, ((block.section.progresso.secundario - block.section.progresso.valor) / block.section.progresso.total) * 100))}%`,
+                          backgroundColor: block.section.cor ?? 'var(--color-text-muted)',
+                        }"
+                      />
+                    </span>
                   </span>
                 </button>
               </td>

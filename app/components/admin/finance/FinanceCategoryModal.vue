@@ -72,12 +72,15 @@ function submeter() {
       <UiInput v-model="nome" label="Nome" placeholder="Decoração e flores" />
       <UiCurrencyInput
         v-model="valorPrevisto"
-        label="Quanto pretendem gastar"
+        label="Teto desta categoria (opcional)"
         :error="erro ?? undefined"
       />
+      <!-- Opcional de verdade, e a tela não o repete: o teto é guarda-corpo,
+           não número de leitura diária. Quem imagina o custo é a estimativa de
+           cada gasto; o teto só fala quando é ultrapassado. -->
       <p class="text-xs text-text-muted">
-        O planejado é o teto que vocês imaginam para esta categoria — não precisa ser exato, e pode
-        ficar em branco.
+        Em branco, esta categoria não avisa nada — o que vale é a estimativa de cada gasto. Com um
+        teto definido, a categoria avisa quando o planejado passar dele.
       </p>
 
       <fieldset class="flex flex-col gap-2">

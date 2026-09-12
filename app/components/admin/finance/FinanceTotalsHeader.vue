@@ -147,7 +147,7 @@ const estouro = computed(() => resumo.atencao.acimaDoOrcado)
       <Icon name="lucide:triangle-alert" class="h-4 w-4 shrink-0" />
       <span>
         <span class="num font-semibold">{{ formatCentsToBRL(estouro.valor) }}</span>
-        acima do orçado em
+        acima do teto em
         {{ estouro.quantidade }}
         {{ estouro.quantidade === 1 ? 'categoria' : 'categorias' }}
       </span>
