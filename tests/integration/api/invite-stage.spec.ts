@@ -63,6 +63,26 @@ describe('api: funil de estágios do convite', () => {
     return { invite, membros }
   }
 
+  /**
+   * Registra um envio de convite com data escolhida.
+   *
+   * Substitui o `update({ enviado_em })` em `convites`, que deixou de existir
+   * na migration B: o fato passou a ser uma LINHA em `comunicacoes`, e
+   * `enviado_em` é a leitura dela (`min` dos envios do tipo `convite`).
+   * Escrito pelo client `service_role` porque o que se monta aqui é o CENÁRIO,
+   * não o gesto do casal — o gesto tem teste próprio, logo acima.
+   */
+  async function registrarEnvioEm(conviteId: string, quando: string) {
+    const { error } = await admin.from('comunicacoes').insert({
+      casamento_id: wedding.id,
+      convite_id: conviteId,
+      canal: 'outro',
+      tipo: 'convite',
+      enviado_em: quando,
+    })
+    if (error) throw new Error(`Falha ao registrar envio de teste: ${error.message}`)
+  }
+
   it('nasce em not_sent: nenhum fato aconteceu ainda', async () => {
     const { invite } = await novoConvite('Estagio Zero', 2)
     expect(await stageOf(invite.id)).toBe('not_sent')
@@ -315,7 +335,7 @@ describe('api: funil de estágios do convite', () => {
     expect((await detalhe()).stageSince).toBeNull()
 
     const enviadoEm = '2026-09-01T10:00:00.000Z'
-    await admin.from('convites').update({ enviado_em: enviadoEm }).eq('id', invite.id)
+    await registrarEnvioEm(invite.id, enviadoEm)
     const enviado = await detalhe()
     expect(enviado.stage).toBe('sent')
     expect(new Date(enviado.stageSince!).toISOString()).toBe(enviadoEm)
@@ -358,10 +378,7 @@ describe('api: funil de estágios do convite', () => {
 
   it('a listagem também devolve o estágio e a data dele', async () => {
     const { invite } = await novoConvite('Tempo na Listagem', 1)
-    await admin
-      .from('convites')
-      .update({ enviado_em: '2026-09-02T10:00:00.000Z' })
-      .eq('id', invite.id)
+    await registrarEnvioEm(invite.id, '2026-09-02T10:00:00.000Z')
 
     const client = createTestApiClient({ cookie })
     const res = await client.get('/api/invites?pageSize=100')
