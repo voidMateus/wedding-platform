@@ -115,9 +115,29 @@ export type BudgetTotalInput = z.infer<typeof budgetTotalSchema>
  * não um estado incompleto: "fechei o buffet, o pagamento a gente combina" é o
  * começo normal de uma despesa.
  */
+/**
+ * A entrada — opcional, e ortogonal ao resto do plano.
+ *
+ * Dar entrada é a forma normal de contratar fornecedor de casamento ("10% para
+ * segurar a data, o resto em maio"), e ela combina tanto com "o saldo numa
+ * data" quanto com "o saldo parcelado". Por isso é um campo dos dois modos, e
+ * não um quarto modo: entrada e forma do saldo são duas perguntas, não uma.
+ *
+ * Em CENTAVOS, nunca em percentual — o percentual é atalho de digitação na
+ * tela. Ver `gerarParcelasComEntrada`.
+ */
+const entradaSchema = z.object({
+  valorCentavos: valorCentavosSchema.refine((valor) => valor > 0, 'A entrada precisa de um valor.'),
+  venceEm: dataSchema,
+})
+
 export const parcelamentoSchema = z.discriminatedUnion('modo', [
   z.object({ modo: z.literal('depois') }),
-  z.object({ modo: z.literal('a_vista'), venceEm: dataSchema }),
+  z.object({
+    modo: z.literal('a_vista'),
+    venceEm: dataSchema,
+    entrada: entradaSchema.nullish(),
+  }),
   z.object({
     modo: z.literal('parcelado'),
     quantidade: z.coerce
@@ -126,6 +146,7 @@ export const parcelamentoSchema = z.discriminatedUnion('modo', [
       .min(2, 'Um parcelamento tem pelo menos 2 parcelas.')
       .max(60, 'No máximo 60 parcelas.'),
     primeiroVencimento: dataSchema,
+    entrada: entradaSchema.nullish(),
   }),
 ])
 export type ParcelamentoInput = z.infer<typeof parcelamentoSchema>

@@ -419,6 +419,67 @@ export function gerarParcelas(
 }
 
 /** Um gasto visto pela tela de Fornecedores: o que se planejou, o que se cotou. */
+/**
+ * O plano de pagamento de um contrato: uma entrada opcional, e o resto.
+ *
+ * Entrada é a forma NORMAL de contratar fornecedor de casamento — "dei 10% para
+ * segurar a data e o resto pago em maio" —, e não era expressável: o gerador só
+ * sabia dividir em parcelas iguais. Quem dava entrada tinha que criar as
+ * parcelas na mão, uma a uma.
+ *
+ * A entrada é guardada em CENTAVOS, nunca em percentual. O percentual é atalho
+ * de digitação ("10%" preenche o campo), não o dado: gravar 10% de um contrato
+ * de R$ 7.333 obrigaria a decidir para que lado arredondar toda vez que alguém
+ * lesse a linha, e a entrada de verdade já foi paga num valor exato.
+ */
+export interface EntradaDoPlano {
+  valorCentavos: number
+  venceEm: string
+}
+
+/**
+ * Entrada + saldo, no formato que `parcelas_despesa` espera.
+ *
+ * `quantidade` 1 no resto significa "o saldo inteiro numa data só" — é o caso
+ * do casal que dá entrada e quita perto do casamento.
+ *
+ * A entrada é sempre a parcela 1. Se ela cobrir o contrato inteiro (ou mais), o
+ * saldo simplesmente não gera linha: parcela de valor zero ou negativo seria um
+ * compromisso que não existe. A divergência entre a soma das parcelas e o valor
+ * contratado continua sendo EXIBIDA e nunca bloqueada — é a regra do módulo.
+ */
+export function gerarParcelasComEntrada(
+  valorCentavos: number,
+  entrada: EntradaDoPlano | null,
+  resto: { quantidade: number; primeiroVencimento: string },
+): Array<{ numero: number; vence_em: string; valor_centavos: number }> {
+  if (!entrada) return gerarParcelas(valorCentavos, resto.quantidade, resto.primeiroVencimento)
+
+  const linhaDaEntrada = {
+    numero: 1,
+    vence_em: entrada.venceEm,
+    valor_centavos: entrada.valorCentavos,
+  }
+
+  const saldo = valorCentavos - entrada.valorCentavos
+  if (saldo <= 0) return [linhaDaEntrada]
+
+  const parcelasDoSaldo = gerarParcelas(saldo, resto.quantidade, resto.primeiroVencimento).map(
+    (parcela) => ({ ...parcela, numero: parcela.numero + 1 }),
+  )
+
+  return [linhaDaEntrada, ...parcelasDoSaldo]
+}
+
+/**
+ * Quanto é um percentual do contrato, em centavos — o atalho de digitação da
+ * entrada. Arredonda para baixo: a entrada é o que já saiu, e é melhor ela
+ * ficar um centavo menor que o saldo ficar um centavo negativo.
+ */
+export function percentualEmCentavos(valorCentavos: number, percentual: number): number {
+  return Math.floor((valorCentavos * percentual) / 100)
+}
+
 export interface GastoEmCotacao {
   estimado: number
   /** Valor fechado, ou `null` enquanto o gasto não virou compromisso. */

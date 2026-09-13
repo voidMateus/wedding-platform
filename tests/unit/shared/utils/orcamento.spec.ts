@@ -3,10 +3,12 @@ import {
   DIAS_HORIZONTE_VENCIMENTO,
   faseDoGasto,
   gerarParcelas,
+  gerarParcelasComEntrada,
   hojeNoFusoDoEvento,
   linhaDeCategoria,
   numeroDoGasto,
   percentual,
+  percentualEmCentavos,
   resumoDeCotacoes,
   resumoDoOrcamento,
   situacaoDaParcela,
@@ -450,5 +452,92 @@ describe('numeroDoGasto — uma fase, uma pergunta, um número', () => {
       contratado(800_000, 750_000, [parcela('2026-08-01', 750_000, '2026-08-01')]),
     )
     expect(numeroDoGasto(totais, 'quitado', null)).toEqual({ rotulo: 'pago', valor: 750_000 })
+  })
+})
+
+describe('gerarParcelasComEntrada — dar entrada é o caso normal, não a exceção', () => {
+  it('sem entrada, é o parcelamento igual de sempre', () => {
+    const comEntrada = gerarParcelasComEntrada(900_000, null, {
+      quantidade: 3,
+      primeiroVencimento: '2026-11-10',
+    })
+    expect(comEntrada).toEqual(gerarParcelas(900_000, 3, '2026-11-10'))
+  })
+
+  it('entrada agora, o resto numa data só — o caso do fotógrafo', () => {
+    // "Dei 10% para segurar a data e pago o resto em maio."
+    const parcelas = gerarParcelasComEntrada(
+      1_000_000,
+      { valorCentavos: 100_000, venceEm: '2026-09-15' },
+      { quantidade: 1, primeiroVencimento: '2027-05-01' },
+    )
+
+    expect(parcelas).toEqual([
+      { numero: 1, vence_em: '2026-09-15', valor_centavos: 100_000 },
+      { numero: 2, vence_em: '2027-05-01', valor_centavos: 900_000 },
+    ])
+  })
+
+  it('entrada agora, o resto parcelado — a entrada é sempre a parcela 1', () => {
+    const parcelas = gerarParcelasComEntrada(
+      1_000_000,
+      { valorCentavos: 100_000, venceEm: '2026-09-15' },
+      { quantidade: 3, primeiroVencimento: '2026-11-10' },
+    )
+
+    expect(parcelas.map((parcela) => parcela.numero)).toEqual([1, 2, 3, 4])
+    expect(parcelas[0]?.valor_centavos).toBe(100_000)
+    expect(parcelas.slice(1).map((parcela) => parcela.valor_centavos)).toEqual([
+      300_000, 300_000, 300_000,
+    ])
+    expect(parcelas.slice(1).map((parcela) => parcela.vence_em)).toEqual([
+      '2026-11-10',
+      '2026-12-10',
+      '2027-01-10',
+    ])
+  })
+
+  it('a soma fecha com o contrato, com a sobra na primeira do saldo', () => {
+    const parcelas = gerarParcelasComEntrada(
+      1_000,
+      { valorCentavos: 100, venceEm: '2026-09-15' },
+      { quantidade: 7, primeiroVencimento: '2026-10-01' },
+    )
+    const soma = parcelas.reduce((total, parcela) => total + parcela.valor_centavos, 0)
+
+    expect(soma).toBe(1_000)
+    expect(parcelas[1]?.valor_centavos).toBe(132)
+    expect(parcelas[2]?.valor_centavos).toBe(128)
+  })
+
+  it('entrada que cobre o contrato inteiro não gera saldo', () => {
+    // Parcela de valor zero seria um compromisso que não existe.
+    const parcelas = gerarParcelasComEntrada(
+      500_000,
+      { valorCentavos: 500_000, venceEm: '2026-09-15' },
+      { quantidade: 3, primeiroVencimento: '2026-10-01' },
+    )
+    expect(parcelas).toHaveLength(1)
+    expect(parcelas[0]?.valor_centavos).toBe(500_000)
+  })
+
+  it('entrada maior que o contrato não inverte o saldo — a divergência é exibida, não corrigida', () => {
+    const parcelas = gerarParcelasComEntrada(
+      500_000,
+      { valorCentavos: 600_000, venceEm: '2026-09-15' },
+      { quantidade: 2, primeiroVencimento: '2026-10-01' },
+    )
+    expect(parcelas).toEqual([{ numero: 1, vence_em: '2026-09-15', valor_centavos: 600_000 }])
+  })
+})
+
+describe('percentualEmCentavos — o atalho de digitação da entrada', () => {
+  it('10% de um valor redondo', () => {
+    expect(percentualEmCentavos(1_000_000, 10)).toBe(100_000)
+  })
+
+  it('arredonda para BAIXO: melhor a entrada faltar um centavo que o saldo ficar negativo', () => {
+    expect(percentualEmCentavos(733_333, 10)).toBe(73_333)
+    expect(percentualEmCentavos(999, 50)).toBe(499)
   })
 })

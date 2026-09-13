@@ -133,14 +133,15 @@ describe('menu da seção do Financeiro', () => {
     },
   )
 
-  // Um objeto e três perguntas: Gastos é a lista do gasto, Pagamentos é o mesmo
-  // dinheiro no eixo do tempo, e Categorias é ele SOMADO ("onde está indo?").
-  // Fornecedores e Documentos deixaram de ser tela — viraram seções da ficha.
+  // Um objeto e três perguntas, na ordem do dinheiro na vida do casal: Gastos é
+  // a lista, Categorias é onde ele se planeja e se soma ("onde está indo?"), e
+  // Pagamentos é o mesmo dinheiro no eixo do tempo. Fornecedores e Documentos
+  // deixaram de ser tela — viraram seções da ficha.
   it('tem três telas, e nenhuma delas relista a outra', () => {
     const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
 
     expect(menu.map((g) => g.label)).toEqual(['Financeiro'])
-    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Pagamentos', 'Categorias'])
+    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Categorias', 'Pagamentos'])
   })
 
   // `exact` em Gastos protege Pagamentos; Categorias precisa da mesma prova,

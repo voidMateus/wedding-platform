@@ -1,6 +1,6 @@
 import { serverSupabaseClient } from '#supabase/server'
 import { expenseInputSchema } from '#shared/schemas/finance'
-import { gerarParcelas } from '#shared/utils/orcamento'
+import { gerarParcelasComEntrada } from '#shared/utils/orcamento'
 
 /**
  * Cria a despesa e, quando o casal escolheu como pagar, já gera as parcelas.
@@ -40,14 +40,20 @@ export default defineEventHandler(async (event) => {
   // agendar a saída de um dinheiro que ninguém se comprometeu a pagar.
   const parcelamento = input.parcelamento
   if (input.valorCentavos && parcelamento && parcelamento.modo !== 'depois') {
-    const parcelas =
+    // Entrada e forma do saldo são duas perguntas, não uma: dar entrada é a
+    // maneira normal de contratar fornecedor de casamento, e antes só existia
+    // "parcelas iguais" — quem segurava a data com um sinal criava as linhas
+    // à mão, uma a uma.
+    const parcelas = gerarParcelasComEntrada(
+      input.valorCentavos,
+      parcelamento.entrada ?? null,
       parcelamento.modo === 'a_vista'
-        ? gerarParcelas(input.valorCentavos, 1, parcelamento.venceEm)
-        : gerarParcelas(
-            input.valorCentavos,
-            parcelamento.quantidade,
-            parcelamento.primeiroVencimento,
-          )
+        ? { quantidade: 1, primeiroVencimento: parcelamento.venceEm }
+        : {
+            quantidade: parcelamento.quantidade,
+            primeiroVencimento: parcelamento.primeiroVencimento,
+          },
+    )
 
     if (parcelas.length > 0) {
       const { error: parcelasError } = await client.from('parcelas_despesa').insert(

@@ -1658,3 +1658,73 @@ quantas parcelas e observação. Ficou com **gasto, custo estimado e categoria**
 dá dois passos em vez de um. Em troca, o cadastro deixa de cobrar sete campos
 pelo gesto que mais se repete. O caminho principal de planejamento nem passa
 por aqui — é a linha dentro da categoria.
+
+---
+
+## 26. Entrada: o sinal e o saldo (2026-09-13)
+
+*"Meu fotógrafo eu dei entrada de 10% e o restante eu vou pagar só numa data
+específica perto do casamento. Mas eu poderia inclusive dar um percentual de
+entrada e o restante parcelar."*
+
+O módulo só sabia dividir em **parcelas iguais**. Quem dava sinal — a forma
+normal de contratar fornecedor de casamento — criava as linhas na mão, uma a
+uma, em Pagamentos.
+
+### 26.1 O modelo não precisou mudar
+
+`parcelas_despesa` sempre teve valor e vencimento por linha, e a regra do módulo
+já dizia que a soma pode divergir do contrato. Uma entrada é só duas parcelas de
+valores diferentes. O que faltava era o **gerador**.
+
+`gerarParcelasComEntrada(valor, entrada, resto)` — a entrada é sempre a parcela
+1; o saldo segue pelo gerador de sempre, com a numeração deslocada. Entrada que
+cobre o contrato inteiro não gera saldo: parcela de valor zero (ou negativo)
+seria um compromisso que não existe.
+
+### 26.2 Entrada é ortogonal ao modo, não um quarto modo
+
+"Entrada" e "como o saldo sai" são duas perguntas. Por isso `entrada` é campo
+opcional dos modos `a_vista` e `parcelado`, e não `modo: 'entrada_e_saldo'` —
+que obrigaria a duplicar a combinatória.
+
+Na tela, o modo `a_vista` passou a se chamar **"Numa data só"**: "à vista" com
+entrada é uma contradição em palavras.
+
+### 26.3 Percentual é atalho, centavo é o dado
+
+Os botões 10% · 20% · 30% · 50% preenchem o campo; o que se grava são centavos.
+Gravar "10%" de um contrato de R$ 7.333 obrigaria a decidir o arredondamento
+toda vez que alguém lesse a linha — e a entrada de verdade já saiu num valor
+exato. `percentualEmCentavos` arredonda para **baixo**: melhor a entrada faltar
+um centavo que o saldo ficar negativo.
+
+A prévia ("Vai virar: entrada de R$ 1.000,00 em 13/09, depois R$ 9.000,00 em
+…") sai do **mesmo** `gerarParcelasComEntrada` que o servidor usa. Prévia
+calculada à parte é uma segunda implementação da regra, e é assim que tela e
+banco passam a discordar.
+
+### 26.4 O bug que isso desenterrou
+
+Registrar valor fechado num gasto **sem fornecedor** caía num ramo que gravava
+só `valor_centavos` — e **descartava o parcelamento em silêncio**. O casal
+preenchia entrada e parcelas, recebia "o pagamento já está em Pagamentos", e não
+havia parcela nenhuma. O defeito é anterior a esta rodada; a entrada só aumentou
+o que se perdia.
+
+A correção virou uma sequência só, no composable
+(`useFinance.registrarContratacao`): com fornecedor, o endpoint de contratação
+faz tudo; sem fornecedor, grava o valor e **depois** cria as parcelas, porque o
+PATCH da despesa não aceita parcelamento.
+
+### 26.5 Duas armadilhas de verificação, registradas
+
+- **`nuxt typecheck` não pega erro de sintaxe de template.** Dois `@evento` com
+  duas atribuições soltas (`a = x` e `b = y` em linhas separadas) passaram no
+  typecheck e derrubaram a página em runtime: o compilador do Vue lê o valor de
+  um `@evento` como UMA expressão. Agora são funções nomeadas. Typecheck limpo
+  não é prova de que a aplicação sobe.
+- **Contratar sem fornecedor são duas requisições**, e o teste navegava entre
+  elas, abortando a segunda. Ele via uma parcela só e acusava o produto de um
+  defeito que era dele — foi preciso confirmar no banco para separar as duas
+  coisas. A espera agora é pelo diálogo fechar, que só acontece depois das duas.

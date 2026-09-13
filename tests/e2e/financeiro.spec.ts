@@ -475,6 +475,89 @@ test('a categoria oferece o que costuma faltar, e a sugestão vira gasto', async
   }
 })
 
+test('contratar com entrada gera o sinal e o saldo, não parcelas iguais', async ({ page }) => {
+  test.setTimeout(240_000)
+  const nome = `ZEntrada ${Date.now().toString().slice(-8)}`
+  const slug = await entrar(page)
+
+  // Um gasto criado aqui mesmo: contratar mexe no valor fechado e nas parcelas,
+  // e desfazer isso pela UI não existe — então o alvo tem que ser descartável.
+  await page.goto(`/admin/${slug}/financeiro/categorias`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Categorias' })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(async () => {
+    await page.getByRole('button', { name: /^Música/ }).click({ timeout: 3_000 })
+    await expect(page.getByRole('button', { name: 'Adicionar gasto' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+  await page.getByRole('button', { name: 'Adicionar gasto' }).click()
+  await page.getByLabel('Nome do gasto novo').fill(nome)
+  await page.getByLabel('Estimativa do gasto novo').fill('10.000,00')
+  await page.getByRole('heading', { level: 1, name: 'Categorias' }).click()
+  await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveValue('10.000,00', {
+    timeout: 20_000,
+  })
+
+  try {
+    await abrirGastos(page, slug)
+    const linha = page.getByRole('row').filter({ hasText: nome }).first()
+    await expect(linha).toBeVisible({ timeout: 20_000 })
+
+    await expect(async () => {
+      await linha.getByRole('button', { name: /^Ações de/ }).click({ timeout: 3_000 })
+      await page
+        .getByRole('menuitem', { name: 'Registrar valor fechado' })
+        .click({ timeout: 3_000 })
+      await expect(page.getByLabel('Valor fechado')).toBeVisible({ timeout: 3_000 })
+    }).toPass({ timeout: 30_000 })
+
+    // "Dei 10% para segurar a data, o resto pago numa data só."
+    await page.getByLabel('Valor fechado').fill('10.000,00')
+    await page.getByLabel('Teve entrada (sinal)').check()
+    await page.getByRole('button', { name: '10%', exact: true }).click()
+    await expect(page.getByLabel('Valor da entrada')).toHaveValue('1.000,00')
+
+    // `UiSelect` é um combobox da Reka, não um `<select>` nativo: abre e escolhe.
+    await page.getByLabel('Como vai pagar o restante').click()
+    await page.getByRole('option', { name: 'Numa data só' }).click()
+
+    // A prévia sai do MESMO gerador do servidor — se ela mentir aqui, mente lá.
+    await expect(page.getByText(/Vai virar: entrada de R\$\s1\.000,00/)).toBeVisible()
+    await expect(page.getByText(/R\$\s9\.000,00/).first()).toBeVisible()
+
+    await page.getByRole('button', { name: 'Confirmar contratação' }).click()
+
+    // Espera o diálogo fechar antes de navegar. Contratar um gasto SEM
+    // fornecedor são duas requisições (grava o valor, depois cria as parcelas),
+    // e sair da página no meio aborta a segunda — o teste via uma parcela só e
+    // acusava o produto de um defeito que era dele mesmo.
+    await expect(page.getByRole('button', { name: 'Confirmar contratação' })).toBeHidden({
+      timeout: 20_000,
+    })
+
+    await page.goto(`/admin/${slug}/financeiro/pagamentos`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
+      timeout: 20_000,
+    })
+
+    const linhas = page.getByRole('row').filter({ hasText: nome })
+    await expect(linhas).toHaveCount(2, { timeout: 20_000 })
+    await expect(linhas.filter({ hasText: 'R$ 1.000,00' })).toHaveCount(1)
+    await expect(linhas.filter({ hasText: 'R$ 9.000,00' })).toHaveCount(1)
+  } finally {
+    // `abrirFicha` e não um clique cru: ele já trata a corrida com a hidratação.
+    // Limpeza que falha aqui mascararia o erro do corpo do teste.
+    await abrirFicha(page, slug, nome)
+    await page.getByRole('button', { name: 'Excluir gasto' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
+      timeout: 20_000,
+    })
+  }
+})
+
 test('a ordenação da coluna ordena de verdade', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)

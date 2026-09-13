@@ -17,7 +17,11 @@
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
-import { ROTULOS_FORMA_PAGAMENTO, type FormaPagamento } from '#shared/schemas/finance'
+import {
+  ROTULOS_FORMA_PAGAMENTO,
+  type FormaPagamento,
+  type InstallmentsGenerateInput,
+} from '#shared/schemas/finance'
 import { DIAS_HORIZONTE_VENCIMENTO, hojeNoFusoDoEvento, somarDias } from '#shared/utils/orcamento'
 import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
 import type { AdminTableColumn, AdminTableSection } from '~/types/table'
@@ -144,6 +148,20 @@ const secoes = computed<AdminTableSection<PagamentoListado>[]>(() => {
   })
 })
 
+/**
+ * `every` sobre as faixas VISÍVEIS, não `length >= length`: "Pagos" nasce
+ * recolhido e some da lista quando não há nada pago, e a contagem crua diria
+ * que tudo está recolhido com a tela toda aberta.
+ */
+const tudoRecolhido = computed(
+  () =>
+    secoes.value.length > 0 && secoes.value.every((secao) => recolhidos.value.includes(secao.id)),
+)
+
+function alternarTudo() {
+  recolhidos.value = tudoRecolhido.value ? [] : secoes.value.map((secao) => secao.id)
+}
+
 // --- marcar pago ---
 const pagamentoEmEdicao = ref<PagamentoListado | null>(null)
 const dataDoPagamento = ref(hoje)
@@ -237,26 +255,40 @@ async function salvarEdicao() {
 
 // --- agendar o que está sem data ---
 const agendamento = ref<PagamentoListado | null>(null)
-const quantidadeParcelas = ref('1')
-const primeiroVencimento = ref(hoje)
+const planoDoAgendamento = ref<InstallmentsGenerateInput['parcelamento'] | undefined>(undefined)
+const planoPronto = ref(false)
 
 function abrirAgendamento(pagamento: PagamentoListado) {
   agendamento.value = pagamento
-  quantidadeParcelas.value = '1'
-  primeiroVencimento.value = hoje
+}
+
+// Função nomeada, e não duas atribuições soltas no atributo: o compilador de
+// template do Vue lê o valor de um `@evento` como UMA expressão, e duas linhas
+// ali viram erro de sintaxe — que o `typecheck` não acusa e só aparece quando a
+// página tenta renderizar.
+function receberPlano(payload: {
+  plano: InstallmentsGenerateInput['parcelamento'] | undefined
+  pronto: boolean
+}) {
+  planoDoAgendamento.value = payload.plano
+  planoPronto.value = payload.pronto
 }
 
 async function confirmarAgendamento() {
   const pagamento = agendamento.value
+  const plano = planoDoAgendamento.value
   if (!pagamento) return
-  const quantidade = Number(quantidadeParcelas.value)
+
+  // "Defino depois" aqui não faz nada: agendar É definir quando. O saldo segue
+  // em "Sem data", que é exatamente o estado de onde ele veio.
+  if (!plano || !planoPronto.value) {
+    toast.error('Escolha quando este pagamento vai sair.')
+    return
+  }
 
   try {
     await gerarParcelasDaDespesa(pagamento.despesa_id, {
-      parcelamento:
-        quantidade <= 1
-          ? { modo: 'a_vista', venceEm: primeiroVencimento.value }
-          : { modo: 'parcelado', quantidade, primeiroVencimento: primeiroVencimento.value },
+      parcelamento: plano,
       substituirEmAberto: false,
     })
     agendamento.value = null
@@ -360,6 +392,13 @@ const opcoesForma = [
           :columns="colunas"
           group-label="Filtros de pagamentos"
         />
+        <UiButton variant="ghost" size="sm" @click="alternarTudo">
+          <Icon
+            :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
+            class="h-4 w-4"
+          />
+          {{ tudoRecolhido ? 'Expandir tudo' : 'Recolher tudo' }}
+        </UiButton>
       </template>
 
       <AdminTable
@@ -543,10 +582,12 @@ const opcoesForma = [
       :description="`${agendamento?.despesa.descricao ?? ''} — ${agendamento ? formatCentsToBRL(agendamento.valor_centavos) : ''} sem data definida`"
       @update:model-value="agendamento = null"
     >
-      <form class="flex flex-col gap-4" @submit.prevent="confirmarAgendamento">
-        <UiInput v-model="quantidadeParcelas" label="Em quantas vezes" type="number" />
-        <UiDatePicker v-model="primeiroVencimento" label="Primeiro vencimento" />
-      </form>
+      <AdminFinancePaymentPlanFields
+        :total-centavos="agendamento?.valor_centavos ?? 0"
+        :hoje="hoje"
+        :reiniciar="Boolean(agendamento)"
+        @atualizar="receberPlano"
+      />
       <template #footer>
         <UiButton variant="ghost" @click="agendamento = null">Cancelar</UiButton>
         <UiButton @click="confirmarAgendamento">Agendar</UiButton>

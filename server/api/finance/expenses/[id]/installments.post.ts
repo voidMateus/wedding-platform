@@ -1,6 +1,6 @@
 import { serverSupabaseClient } from '#supabase/server'
 import { installmentsGenerateSchema } from '#shared/schemas/finance'
-import { gerarParcelas, totaisDaDespesa } from '#shared/utils/orcamento'
+import { gerarParcelasComEntrada, totaisDaDespesa } from '#shared/utils/orcamento'
 
 /**
  * Gera parcelas para uma despesa que já existe — o caminho de quem escolheu
@@ -90,10 +90,19 @@ export default defineEventHandler(async (event) => {
     throw badRequestError('Esta despesa já está totalmente parcelada.')
   }
 
-  const novas =
+  // A entrada aqui sai do SALDO ainda não parcelado, não do valor do contrato:
+  // agendar o que sobrou de um gasto já meio parcelado é caso normal, e usar o
+  // total faria a entrada comer parcela que já existe.
+  const novas = gerarParcelasComEntrada(
+    saldo,
+    input.parcelamento.entrada ?? null,
     input.parcelamento.modo === 'a_vista'
-      ? gerarParcelas(saldo, 1, input.parcelamento.venceEm)
-      : gerarParcelas(saldo, input.parcelamento.quantidade, input.parcelamento.primeiroVencimento)
+      ? { quantidade: 1, primeiroVencimento: input.parcelamento.venceEm }
+      : {
+          quantidade: input.parcelamento.quantidade,
+          primeiroVencimento: input.parcelamento.primeiroVencimento,
+        },
+  )
 
   // Continua a numeração existente em vez de reiniciar: o índice único
   // (despesa_id, numero) recusaria, e "2 de 3" precisa continuar apontando

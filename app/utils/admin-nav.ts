@@ -268,16 +268,18 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
             // lendo um gasto continua "em Gastos".
             tambemDonoDe: [`${base}/financeiro/gastos`],
           },
+          // Categoria é atributo do gasto, não um terceiro objeto — mas ela
+          // ganha lugar pelo mesmo motivo que Grupos tem o dele em Convidados:
+          // somada, ela responde "onde o dinheiro está indo?", pergunta que uma
+          // lista de linhas individuais não responde. Vem ANTES de Pagamentos
+          // porque é ali que se planeja: a ordem do menu é a ordem do dinheiro
+          // na vida do casal — listar, planejar, pagar.
+          { to: `${base}/financeiro/categorias`, label: 'Categorias', icon: 'lucide:tags' },
           {
             to: `${base}/financeiro/pagamentos`,
             label: 'Pagamentos',
             icon: 'lucide:calendar-clock',
           },
-          // Categoria é atributo do gasto, não um terceiro objeto — mas ela
-          // ganha lugar pelo mesmo motivo que Grupos tem o dele em Convidados:
-          // somada, ela responde "onde o dinheiro está indo?", pergunta que
-          // uma lista de linhas individuais não responde.
-          { to: `${base}/financeiro/categorias`, label: 'Categorias', icon: 'lucide:tags' },
         ],
       },
     ]

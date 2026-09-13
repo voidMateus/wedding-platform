@@ -1,6 +1,6 @@
 import { serverSupabaseClient } from '#supabase/server'
 import { vendorContractSchema } from '#shared/schemas/finance'
-import { gerarParcelas } from '#shared/utils/orcamento'
+import { gerarParcelasComEntrada } from '#shared/utils/orcamento'
 
 /**
  * Contratar um fornecedor — a ponte entre as três telas do módulo.
@@ -84,14 +84,20 @@ export default defineEventHandler(async (event) => {
   }
 
   if (input.parcelamento && input.parcelamento.modo !== 'depois') {
-    const parcelas =
+    // Entrada e forma do saldo são duas perguntas, não uma: dar entrada é a
+    // maneira normal de contratar fornecedor de casamento, e antes só existia
+    // "parcelas iguais" — quem segurava a data com um sinal criava as linhas
+    // à mão, uma a uma.
+    const parcelas = gerarParcelasComEntrada(
+      input.valorCentavos,
+      input.parcelamento.entrada ?? null,
       input.parcelamento.modo === 'a_vista'
-        ? gerarParcelas(input.valorCentavos, 1, input.parcelamento.venceEm)
-        : gerarParcelas(
-            input.valorCentavos,
-            input.parcelamento.quantidade,
-            input.parcelamento.primeiroVencimento,
-          )
+        ? { quantidade: 1, primeiroVencimento: input.parcelamento.venceEm }
+        : {
+            quantidade: input.parcelamento.quantidade,
+            primeiroVencimento: input.parcelamento.primeiroVencimento,
+          },
+    )
 
     // Substitui o que estava em aberto: contratar de novo o mesmo gasto é
     // renegociação, e a parcela antiga descreveria um acordo que não existe

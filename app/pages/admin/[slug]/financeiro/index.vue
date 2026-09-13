@@ -47,9 +47,8 @@ const {
   definirTetoDoOrcamento,
   criarCategoriasSugeridas,
   criarDespesa,
-  atualizarDespesa,
   excluirDespesa,
-  contratarFornecedor,
+  registrarContratacao,
 } = useFinance()
 
 const { data: resumo, status, error, refresh } = getResumo()
@@ -288,14 +287,10 @@ function abrirContratacao(despesa: DespesaComParcelas) {
 async function confirmarContratacao(input: VendorContractInput) {
   const despesa = todasDespesas.value.find((atual) => atual.id === input.despesaId)
   try {
-    // Com fornecedor já vinculado, contratar é o fluxo completo (estágio +
-    // vínculo + parcelas). Sem nenhum, é só gravar o custo final — o
-    // fornecedor é opcional em todo o módulo.
-    if (despesa?.fornecedor?.id) {
-      await contratarFornecedor(despesa.fornecedor.id, input)
-    } else {
-      await atualizarDespesa(input.despesaId, { valorCentavos: input.valorCentavos })
-    }
+    // O fornecedor é opcional em todo o módulo — e é o composable que sabe a
+    // diferença entre os dois caminhos. Aqui, gravar o valor e esquecer o plano
+    // de pagamento era perda silenciosa de dado.
+    await registrarContratacao(despesa?.fornecedor?.id ?? null, input)
     contratoAberto.value = false
     toast.success('Valor fechado registrado — o pagamento já está em Pagamentos.')
   } catch (erro) {

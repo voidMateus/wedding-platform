@@ -95,6 +95,32 @@ export function useFinance() {
     return despesa
   }
 
+  /**
+   * Registrar o valor fechado de um gasto — com ou sem fornecedor.
+   *
+   * Com fornecedor é o fluxo completo (estágio + vínculo + parcelas), que o
+   * endpoint de contratação já faz sozinho. SEM fornecedor era só gravar o
+   * custo final — e o plano de pagamento ia para o lixo em silêncio: o casal
+   * preenchia entrada e parcelas, lia "o pagamento já está em Pagamentos" e
+   * não havia parcela nenhuma. O PATCH da despesa não aceita parcelamento, por
+   * isso o segundo passo existe.
+   *
+   * `substituirEmAberto` para espelhar a contratação com fornecedor:
+   * registrar de novo o valor de um gasto é renegociação, e a parcela antiga
+   * descreve um acordo que não existe mais.
+   */
+  async function registrarContratacao(fornecedorId: string | null, input: VendorContractInput) {
+    if (fornecedorId) return contratarFornecedor(fornecedorId, input)
+
+    await atualizarDespesa(input.despesaId, { valorCentavos: input.valorCentavos })
+    if (input.parcelamento && input.parcelamento.modo !== 'depois') {
+      await gerarParcelasDaDespesa(input.despesaId, {
+        parcelamento: input.parcelamento,
+        substituirEmAberto: true,
+      })
+    }
+  }
+
   async function definirTetoDoOrcamento(orcamentoTotalCentavos: number | null) {
     const resposta = await $fetch<{ orcamento_total_centavos: number | null }>(
       '/api/finance/budget-total',
@@ -203,6 +229,7 @@ export function useFinance() {
     getOrcamento,
     getPagamentos,
     contratarFornecedor,
+    registrarContratacao,
     listCategorias,
     atualizarFinanceiro,
     definirTetoDoOrcamento,

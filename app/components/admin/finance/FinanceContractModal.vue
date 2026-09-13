@@ -33,10 +33,12 @@ const emit = defineEmits<{
 
 const despesaId = ref('')
 const valor = ref<number | null>(null)
-const modoParcelamento = ref<'depois' | 'a_vista' | 'parcelado'>('depois')
-const quantidadeParcelas = ref('2')
-const primeiroVencimento = ref('')
 const erro = ref('')
+
+// O plano de pagamento (entrada + restante) vive no componente de campos, que
+// é o mesmo usado em "Agendar pagamento". Aqui só guardamos o que ele produz.
+const plano = ref<VendorContractInput['parcelamento']>(undefined)
+const planoPronto = ref(true)
 
 /** Sem valor fechado primeiro: é o que se está contratando agora. */
 const opcoesDespesa = computed(() => {
@@ -53,13 +55,6 @@ const opcoesDespesa = computed(() => {
 
 const despesaEscolhida = computed(() => despesas.find((despesa) => despesa.id === despesaId.value))
 
-const previaDaParcela = computed(() => {
-  const total = valor.value ?? 0
-  const quantidade = Number(quantidadeParcelas.value)
-  if (modoParcelamento.value !== 'parcelado' || total <= 0 || quantidade < 2) return ''
-  return `${quantidade}x de aproximadamente ${formatCentsToBRL(Math.floor(total / quantidade))}`
-})
-
 watch(
   () => modelValue,
   (aberto) => {
@@ -69,9 +64,6 @@ watch(
     // A cotação é a melhor sugestão de valor que existe — e continua editável,
     // porque o preço fechado costuma diferir da proposta.
     valor.value = fornecedor?.valor_proposto_centavos ?? null
-    modoParcelamento.value = 'depois'
-    quantidadeParcelas.value = '2'
-    primeiroVencimento.value = hojeNoFusoDoEvento()
   },
 )
 
@@ -81,6 +73,13 @@ watch(despesaEscolhida, (despesa) => {
     valor.value = despesa.totais.estimado || null
   }
 })
+
+// Função nomeada: `@evento` no template é UMA expressão, e duas atribuições
+// soltas ali viram erro de sintaxe que o typecheck não acusa.
+function receberPlano(payload: { plano: VendorContractInput['parcelamento']; pronto: boolean }) {
+  plano.value = payload.plano
+  planoPronto.value = payload.pronto
+}
 
 function submeter() {
   erro.value = ''
@@ -92,24 +91,15 @@ function submeter() {
     erro.value = 'Informe o valor fechado.'
     return
   }
-  if (modoParcelamento.value !== 'depois' && !primeiroVencimento.value) {
-    erro.value = 'Informe a data de vencimento.'
+  if (!planoPronto.value) {
+    erro.value = 'Complete os dados do pagamento.'
     return
   }
 
   emit('contratar', {
     despesaId: despesaId.value,
     valorCentavos: valor.value,
-    parcelamento:
-      modoParcelamento.value === 'depois'
-        ? undefined
-        : modoParcelamento.value === 'a_vista'
-          ? { modo: 'a_vista', venceEm: primeiroVencimento.value }
-          : {
-              modo: 'parcelado',
-              quantidade: Number(quantidadeParcelas.value),
-              primeiroVencimento: primeiroVencimento.value,
-            },
+    parcelamento: plano.value,
   })
 }
 </script>
@@ -152,29 +142,12 @@ function submeter() {
       <template v-if="opcoesDespesa.length > 0">
         <UiCurrencyInput v-model="valor" label="Valor fechado" />
 
-        <UiSelect
-          v-model="modoParcelamento"
-          label="Como vai pagar"
-          :options="[
-            { value: 'depois', label: 'Defino depois' },
-            { value: 'a_vista', label: 'À vista' },
-            { value: 'parcelado', label: 'Parcelado' },
-          ]"
+        <AdminFinancePaymentPlanFields
+          :total-centavos="valor ?? 0"
+          :hoje="hojeNoFusoDoEvento()"
+          :reiniciar="modelValue"
+          @atualizar="receberPlano"
         />
-
-        <div v-if="modoParcelamento !== 'depois'" class="grid gap-4 sm:grid-cols-2">
-          <UiInput
-            v-if="modoParcelamento === 'parcelado'"
-            v-model="quantidadeParcelas"
-            label="Parcelas"
-            type="number"
-            :hint="previaDaParcela"
-          />
-          <UiDatePicker
-            v-model="primeiroVencimento"
-            :label="modoParcelamento === 'a_vista' ? 'Vencimento' : 'Primeiro vencimento'"
-          />
-        </div>
 
         <p v-if="erro" class="text-sm text-danger">{{ erro }}</p>
       </template>

@@ -33,7 +33,7 @@ const hoje = hojeNoFusoDoEvento()
 
 const gastoId = computed(() => String(route.params.id))
 
-const { getOrcamento, listCategorias, atualizarDespesa, excluirDespesa, contratarFornecedor } =
+const { getOrcamento, listCategorias, atualizarDespesa, excluirDespesa, registrarContratacao } =
   useFinance()
 const { data: orcamento, status, error } = getOrcamento()
 const { data: todasCategorias } = listCategorias()
@@ -191,12 +191,10 @@ function abrirContratacao(fornecedor: FornecedorComSituacao | null) {
 
 async function confirmarContratacao(input: VendorContractInput) {
   try {
-    const fornecedorId = fornecedorDoContrato.value?.id ?? despesa.value?.fornecedor?.id
-    if (fornecedorId) {
-      await contratarFornecedor(fornecedorId, input)
-    } else {
-      await atualizarDespesa(input.despesaId, { valorCentavos: input.valorCentavos })
-    }
+    await registrarContratacao(
+      fornecedorDoContrato.value?.id ?? despesa.value?.fornecedor?.id ?? null,
+      input,
+    )
     // A lista de fornecedores tem cache próprio: sem este refresh a proposta
     // recém-contratada continuaria desenhada como "em análise" logo abaixo.
     await atualizarFornecedores()
