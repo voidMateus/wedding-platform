@@ -18,11 +18,7 @@
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { faseDoGasto, numeroDoGasto, type FaseDoGasto } from '#shared/utils/orcamento'
-import type {
-  BudgetCategoryInput,
-  ExpenseInput,
-  VendorContractInput,
-} from '#shared/schemas/finance'
+import type { ExpenseInput, VendorContractInput } from '#shared/schemas/finance'
 import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
 import type { AdminTableColumn } from '~/types/table'
 import type {
@@ -49,10 +45,7 @@ const {
   getOrcamento,
   listCategorias,
   definirTetoDoOrcamento,
-  criarCategoria,
   criarCategoriasSugeridas,
-  atualizarCategoria,
-  arquivarCategoria,
   criarDespesa,
   atualizarDespesa,
   excluirDespesa,
@@ -349,67 +342,11 @@ async function salvarTeto(valor: number | null) {
   }
 }
 
-// --- categorias (atributo do gasto, administrado atrás de uma porta) ---
-const categoriasAberto = ref(false)
-const categoriaModalAberto = ref(false)
-const categoriaEmEdicao = ref<CategoriaComDespesas | null>(null)
+// A semeadura continua aqui porque pertence ao ESTADO VAZIO desta tela — é o
+// primeiro gesto de quem abre o Financeiro. Criar, renomear e arquivar
+// categoria mudou-se para /financeiro/categorias, que também é onde os totais
+// por categoria passaram a viver.
 const semeando = ref(false)
-
-const categoriasArquivadas = computed(() =>
-  (todasCategorias.value?.data ?? [])
-    .filter((categoria) => categoria.excluido_em)
-    .map((categoria) => ({ id: categoria.id, nome: categoria.nome })),
-)
-
-/**
- * Um modal por vez: o gerenciador some enquanto o formulário está aberto e
- * volta quando ele fecha. Diálogo sobre diálogo empilha duas camadas de foco e
- * dois "Esc" com significados diferentes.
- */
-function editarCategoria(id: string) {
-  categoriaEmEdicao.value = categorias.value.find((atual) => atual.categoriaId === id) ?? null
-  categoriasAberto.value = false
-  categoriaModalAberto.value = true
-}
-
-function novaCategoria() {
-  categoriaEmEdicao.value = null
-  categoriasAberto.value = false
-  categoriaModalAberto.value = true
-}
-
-async function salvarCategoria(input: BudgetCategoryInput) {
-  try {
-    if (categoriaEmEdicao.value?.categoriaId) {
-      await atualizarCategoria(categoriaEmEdicao.value.categoriaId, input)
-    } else {
-      await criarCategoria(input)
-    }
-    categoriaModalAberto.value = false
-    categoriasAberto.value = true
-    toast.success('Categoria salva.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar a categoria.'))
-  }
-}
-
-async function arquivarPorId(id: string) {
-  try {
-    await arquivarCategoria(id, true)
-    toast.success('Categoria arquivada. Dá para restaurar aqui mesmo.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível arquivar a categoria.'))
-  }
-}
-
-async function restaurarCategoria(id: string) {
-  try {
-    await arquivarCategoria(id, false)
-    toast.success('Categoria restaurada.')
-  } catch (erro) {
-    toast.error(getApiErrorMessage(erro, 'Não foi possível restaurar a categoria.'))
-  }
-}
 
 async function comecarComSugeridas() {
   semeando.value = true
@@ -477,7 +414,7 @@ const opcoesDeGasto = computed(() =>
     description="Tudo o que o casamento vai custar — do que ainda é ideia ao que já foi pago."
   >
     <template #actions>
-      <UiButton variant="ghost" @click="categoriasAberto = true">
+      <UiButton variant="ghost" :to="`${base}/categorias`">
         <Icon name="lucide:tags" class="h-4 w-4" />
         Categorias
       </UiButton>
@@ -509,7 +446,7 @@ const opcoesDeGasto = computed(() =>
           <UiButton :disabled="semeando" @click="comecarComSugeridas">
             Começar com as categorias sugeridas
           </UiButton>
-          <UiButton variant="outline" @click="novaCategoria">Criar do zero</UiButton>
+          <UiButton variant="outline" :to="`${base}/categorias`">Criar do zero</UiButton>
         </div>
       </UiEmptyState>
 
@@ -691,32 +628,6 @@ const opcoesDeGasto = computed(() =>
         @salvar="salvarTeto"
       />
     </template>
-
-    <AdminFinanceCategoriesModal
-      v-model="categoriasAberto"
-      :categorias="categorias"
-      :arquivadas="categoriasArquivadas"
-      @adicionar="novaCategoria"
-      @editar="editarCategoria"
-      @arquivar="arquivarPorId"
-      @restaurar="restaurarCategoria"
-    />
-
-    <AdminFinanceCategoryModal
-      v-model="categoriaModalAberto"
-      :categoria="
-        categoriaEmEdicao?.categoriaId
-          ? {
-              id: categoriaEmEdicao.categoriaId,
-              nome: categoriaEmEdicao.nome,
-              valor_previsto_centavos: categoriaEmEdicao.orcado,
-              cor_indice: categoriaEmEdicao.corIndice ?? 0,
-              cor_personalizada: categoriaEmEdicao.corPersonalizada,
-            }
-          : null
-      "
-      @salvar="salvarCategoria"
-    />
 
     <AdminFinanceExpenseModal
       v-model="despesaModalAberto"

@@ -1458,3 +1458,65 @@ própria contra isso: *"chegar com quatorze linhas que ninguém pediu é o opost
 de liberdade de planilha"*. Semear 33 seria pior. Se virar funcionalidade, o
 formato defensável é um catálogo por categoria, oferecido **dentro** da
 categoria e item a item, nunca em lote no primeiro clique.
+
+---
+
+## 23. Categorias, no desenho de Grupos (2026-09-12)
+
+O casal olhou a tela vazia e apontou o precedente que já existia na casa:
+*"Categorias poderíamos fazer igual é Grupos (lá de convidados), e desta forma
+ainda poderia ser uma opção do casal de ver os totais por categoria agrupado."*
+
+Estava certo nas duas pontas. Em Convidados, "Andamento por grupo" é uma linha
+por grupo — ponto de cor, barra de proporção, a contagem à direita ("2/3
+confirmados"). É um gerenciador de etiqueta que, de graça, virou a resposta para
+"como está cada pedaço?". O Financeiro tinha o gerenciador **dentro de um
+modal**, sem nenhuma soma, e a pergunta "onde o dinheiro está indo?" não tinha
+lugar nenhum no módulo.
+
+### 23.1 A tradução
+
+| Grupos | Categorias |
+|---|---|
+| ponto da cor do grupo | ponto do slot da categoria na paleta do tema |
+| barra de confirmados | pago dentro do contratado, contra o total da categoria |
+| "2/3 confirmados" | "R$ 23.000 de R$ 24.000 contratados" |
+| chips Ativos/Arquivados | chips Ativas/Arquivadas |
+| editar / arquivar na linha | editar / arquivar na linha |
+
+O nome de cada categoria é link para `/financeiro?categoria=<id>`: roll-up que
+não deixa descer é número sem serventia.
+
+### 23.2 Onde a cópia literal teria mentido
+
+Grupos normaliza a barra POR LINHA — lá cada barra é "quantos dos meus
+confirmaram", e comparar comprimentos entre grupos não é a proposta. Copiado tal
+qual, Bebidas com R$ 1.800 desenhava a mesma barra de Buffet com R$ 24.000, numa
+tela chamada "Onde o dinheiro está indo". A régua aqui é **compartilhada**: o
+comprimento é o tamanho da categoria e o preenchimento é o quanto dela já está
+fechado.
+
+Isso torna a largura da barra parte do dado — e foi assim que apareceu o defeito
+seguinte: o selo "R$ 500,00 acima do teto" e os botões de ação dividiam a linha
+com a barra, então **duas linhas tinham barra mais curta que as outras** e a
+comparação era falsa. O selo foi para junto dos números (é uma afirmação sobre
+dinheiro) e as ações ganharam largura fixa.
+
+A lista também passou a ser ordenada por tamanho, não por ordem de exibição:
+uma tela que responde "onde o dinheiro está indo" e obriga a ler doze linhas
+para ordenar de cabeça não respondeu.
+
+### 23.3 O que saiu junto
+
+O `FinanceCategoriesModal` foi excluído, e a tela de Gastos deixou de carregar
+os dois modais de categoria: o botão "Categorias" do cabeçalho e o "Criar do
+zero" do estado vazio agora são links. A regra do módulo ganhou a ressalva que
+faltava — **tela nova se justifica por eixo novo OU por agregação** —, porque
+somar por um atributo responde uma pergunta que lista nenhuma responde.
+
+### 23.4 Uma armadilha de teste, registrada
+
+`formatCentsToBRL` produz espaço **não separável** depois do "R$". O Playwright
+normaliza espaço quando o seletor é string, mas **não** quando é regex — então
+`getByText(/R\$ 1\.620,00/)` não casa com o que está na tela, enquanto
+`getByText('R$ 1.620,00')` casa. Em regex, use `\s`.

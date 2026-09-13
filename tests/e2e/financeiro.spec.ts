@@ -328,6 +328,41 @@ test('a fila por fase recorta a lista e diz que recortou', async ({ page }) => {
   ).toBeVisible({ timeout: 20_000 })
 })
 
+test('Categorias soma o que a lista de gastos não soma', async ({ page }) => {
+  test.setTimeout(120_000)
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/categorias`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Categorias' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // O mesmo desenho de "Andamento por grupo", em Convidados: ponto de cor,
+  // barra e o par de valores à direita. A pergunta "onde o dinheiro está
+  // indo?" não tem resposta numa lista de linhas individuais.
+  await expect(page.getByRole('heading', { name: 'Onde o dinheiro está indo' })).toBeVisible()
+
+  const bebidas = page.getByRole('listitem').filter({ hasText: 'Bebidas' }).first()
+  await expect(bebidas).toBeVisible({ timeout: 20_000 })
+  // `\s` e não um espaço literal: `formatCentsToBRL` põe espaço NÃO SEPARÁVEL
+  // depois do "R$", e o Playwright só normaliza espaço quando o seletor é
+  // string — com regex, ele compara o texto cru.
+  await expect(bebidas.getByText(/R\$\s1\.620,00 de R\$\s1\.800,00 contratados/)).toBeVisible()
+
+  // Roll-up que não deixa descer é um número sem serventia: o nome leva para a
+  // lista já recortada naquela categoria.
+  await expect(async () => {
+    await bebidas.getByRole('link', { name: 'Bebidas' }).click({ timeout: 3_000 })
+    await expect(page).toHaveURL(/categoria=/, { timeout: 3_000 })
+  }).toPass({ timeout: 30_000 })
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.getByRole('row').filter({ hasText: 'Refrigerantes' }).first()).toBeVisible()
+  await expect(page.getByRole('row').filter({ hasText: 'Celebrante' })).toHaveCount(0)
+})
+
 test('a ordenação da coluna ordena de verdade', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)

@@ -273,6 +273,11 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
             label: 'Pagamentos',
             icon: 'lucide:calendar-clock',
           },
+          // Categoria é atributo do gasto, não um terceiro objeto — mas ela
+          // ganha lugar pelo mesmo motivo que Grupos tem o dele em Convidados:
+          // somada, ela responde "onde o dinheiro está indo?", pergunta que
+          // uma lista de linhas individuais não responde.
+          { to: `${base}/financeiro/categorias`, label: 'Categorias', icon: 'lucide:tags' },
         ],
       },
     ]

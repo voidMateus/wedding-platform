@@ -133,14 +133,25 @@ describe('menu da seção do Financeiro', () => {
     },
   )
 
-  // Duas telas, um objeto: Gastos é a lista do gasto, Pagamentos é o mesmo
-  // dinheiro no eixo do tempo. Fornecedores e Documentos deixaram de ser tela
-  // — viraram seções da ficha do gasto.
-  it('tem duas telas, e só', () => {
+  // Um objeto e três perguntas: Gastos é a lista do gasto, Pagamentos é o mesmo
+  // dinheiro no eixo do tempo, e Categorias é ele SOMADO ("onde está indo?").
+  // Fornecedores e Documentos deixaram de ser tela — viraram seções da ficha.
+  it('tem três telas, e nenhuma delas relista a outra', () => {
     const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
 
     expect(menu.map((g) => g.label)).toEqual(['Financeiro'])
-    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Pagamentos'])
+    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Pagamentos', 'Categorias'])
+  })
+
+  // `exact` em Gastos protege Pagamentos; Categorias precisa da mesma prova,
+  // porque também é subrota da raiz do módulo.
+  it('Gastos não acende dentro de Categorias', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
+    const categorias = financeiro.itens.find((i) => i.label === 'Categorias')!
+
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/categorias`))).toBe(false)
+    expect(ehItemAtivo(categorias, rota(`${BASE}/financeiro/categorias`))).toBe(true)
   })
 
   // `exact` em Gastos, senão ele ficaria aceso dentro de Pagamentos, que é
