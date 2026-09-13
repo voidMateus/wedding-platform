@@ -177,8 +177,7 @@ export function useGuests() {
    *
    * Recebe o CSV como blob em vez de deixar o navegador navegar até a URL:
    * `/api/guests/export` exige a sessão do Supabase, e uma navegação direta
-   * sairia do contexto do app. O `Content-Disposition` do servidor define o
-   * nome; aqui ele é reaplicado porque um download de blob não o lê.
+   * sairia do contexto do app (`~/utils/download`).
    */
   async function exportGuests(params: GuestListParams = {}): Promise<void> {
     // Só os recortes: `page`/`pageSize`/`sort` não vão junto de propósito — o
@@ -197,12 +196,7 @@ export function useGuests() {
 
     const blob = await $fetch<Blob>('/api/guests/export', { query, responseType: 'blob' })
 
-    const url = URL.createObjectURL(blob)
-    const ancora = document.createElement('a')
-    ancora.href = url
-    ancora.download = nomeDoArquivoDaExportacao(new Date())
-    ancora.click()
-    URL.revokeObjectURL(url)
+    baixarArquivo(blob, nomeDoArquivoDaExportacao(new Date()))
   }
 
   return {

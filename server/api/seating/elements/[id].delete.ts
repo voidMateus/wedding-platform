@@ -2,7 +2,7 @@ import { serverSupabaseClient } from '#supabase/server'
 
 /** Exclusão física: rascunho de layout, sem valor histórico próprio. */
 export default defineEventHandler(async (event) => {
-  const { weddingId } = await requireWeddingContext(event)
+  const { weddingId, memberId } = await requireWeddingContext(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw badRequestError('id do elemento não informado.')
 
@@ -17,6 +17,12 @@ export default defineEventHandler(async (event) => {
 
   if (error) throw badRequestError(error.message)
   if (!data) throw notFoundError('Elemento não encontrado.')
+
+  await recordAuditLog(event, weddingId, memberId, {
+    action: 'floorplan_element.delete',
+    entityType: 'floorplan_element',
+    entityId: id,
+  })
 
   return { id }
 })

@@ -12,7 +12,15 @@
  * Duas implementações divergiriam na borda que ninguém testa.
  */
 
-/** Datas do domínio são date-only (`2026-10-20`), nunca timestamp. */
+/**
+ * Date-only (`2026-10-20`), NUNCA timestamp.
+ *
+ * `casamentos.prazo_rsvp` e `parcelas_despesa.vence_em` não são a mesma coisa:
+ * o primeiro é `timestamptz` e precisa ser convertido no fuso do EVENTO antes
+ * de chegar aqui (`hojeNoFusoDoEvento(new Date(prazo))`), o segundo já é
+ * `date`. Passar o timestamp cru faz `Date.parse` devolver `NaN`, e o efeito
+ * seria o pior possível: nenhum lembrete sai, e nada acusa.
+ */
 type DataISO = string
 
 /**

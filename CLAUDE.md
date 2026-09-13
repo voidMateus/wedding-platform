@@ -156,7 +156,7 @@ Schema completo, ERD e convenções SQL: **[`docs/DATABASE.md`](docs/DATABASE.md
 - Dado pessoal de convidado (nome, telefone, e-mail) nunca logado em texto pleno; acesso de leitura restrito a membros autenticados do respectivo `casamento_id`. Exclusão definitiva (hard delete) sob pedido formal é processo manual, não ação de UI self-service (base legal: legítimo interesse do casal organizador).
 - PITR habilitado em produção (retenção 30 dias); restauração de backup testada manualmente antes de cada casamento com data próxima.
 - Secrets nunca commitados — geridos via variável de ambiente/secret manager do provedor. `service_role key` tem rotação periódica documentada.
-- Ação administrativa sensível (exclusão, mudança de permissão) registrada em `audit_logs` com ator/ação/timestamp; ação automatizada do sistema usa `actor_type = 'system'`.
+- Ação administrativa sensível (exclusão, mudança de permissão) registrada em `audit_logs` com ator/ação/timestamp; ação automatizada do sistema usa `actor_type = 'system'` (`recordSystemAuditLog`, para o cron). **Toda** rota de escrita do caminho administrativo registra — `tests/unit/server/auditoria-completa.spec.ts` varre `server/api/**` e falha quando uma nasce sem registro. A dispensa é declarada no próprio arquivo, com o motivo, pela frase `auditoria dispensada:` (hoje existe uma: arrastar mesa na planta, que geraria ruído suficiente para esconder o resto da trilha).
 
 ## 12. Invariantes críticos de regra de negócio
 

@@ -25,6 +25,13 @@ describe('diasAte', () => {
   it('devolve nulo para data inválida', () => {
     expect(diasAte('nunca', '2026-10-15')).toBeNull()
   })
+
+  it('recusa TIMESTAMP no lugar de data — quem chama converte no fuso do evento antes', () => {
+    // `casamentos.prazo_rsvp` é timestamptz. Passá-lo cru daria NaN, e o
+    // sintoma seria silencioso: nenhum lembrete sairia e nada acusaria.
+    expect(diasAte('2026-10-01', '2026-10-20T02:59:00+00:00')).toBeNull()
+    expect(marcaQueDispara('2026-10-06', '2026-10-20T02:59:00+00:00', [14])).toBeNull()
+  })
 })
 
 describe('marcaQueDispara', () => {

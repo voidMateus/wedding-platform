@@ -23,7 +23,10 @@ onUnmounted(() => {
 })
 
 function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  // `scrollBehaviorPreferido`, nunca 'smooth' fixo: rolagem suave em JS ignora
+  // o CSS de movimento reduzido, e a página inteira deslizando é justamente o
+  // movimento que mais provoca enjoo (app/utils/motion.ts).
+  window.scrollTo({ top: 0, behavior: scrollBehaviorPreferido() })
 }
 </script>
 

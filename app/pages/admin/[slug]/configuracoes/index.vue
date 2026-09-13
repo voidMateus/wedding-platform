@@ -40,7 +40,10 @@ const { data: wedding, status, refresh } = await getWedding()
 function rolarAteSecao(secao: string | null) {
   if (!secao) return
   nextTick(() => {
-    document.getElementById(secao)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.getElementById(secao)?.scrollIntoView({
+      behavior: scrollBehaviorPreferido(),
+      block: 'start',
+    })
   })
 }
 

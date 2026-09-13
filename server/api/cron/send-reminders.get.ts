@@ -59,14 +59,24 @@ export default defineEventHandler(async (event) => {
       // para o site, e mandar o convidado para um site que ainda não está no ar
       // é pior que não lembrar.
       if (lembretes.rsvp.ativo && casamento.status_ciclo_vida === 'publicado') {
-        const marca = marcaQueDispara(hoje, casamento.prazo_rsvp, lembretes.rsvp.diasAntes)
-        if (marca !== null) {
+        // `prazo_rsvp` é timestamptz; as marcas comparam DATAS. A conversão é
+        // no fuso do EVENTO, não do servidor: um prazo às 23h59 de São Paulo é
+        // 02h59 do dia seguinte em UTC, e cortar a string daria o dia errado —
+        // o lembrete de "3 dias antes" sairia com 2.
+        const prazo = casamento.prazo_rsvp
+          ? hojeNoFusoDoEvento(new Date(casamento.prazo_rsvp))
+          : null
+        const marca = marcaQueDispara(hoje, prazo, lembretes.rsvp.diasAntes)
+        // `prazo` não é nulo aqui: sem prazo, `marcaQueDispara` já devolveu
+        // null e não há marca nenhuma a disparar.
+        if (marca !== null && prazo) {
           rsvpEnviados += await enviarLembretesDeRsvp({
             admin,
             provider,
             origin,
             hoje,
             marca,
+            prazo,
             casamento,
           })
         }
@@ -113,9 +123,11 @@ async function enviarLembretesDeRsvp(params: {
   origin: string
   hoje: string
   marca: number
+  /** Já convertido para data no fuso do evento. */
+  prazo: string
   casamento: CasamentoDoCron
 }): Promise<number> {
-  const { admin, provider, origin, hoje, marca, casamento } = params
+  const { admin, provider, origin, hoje, marca, prazo, casamento } = params
 
   const { data: convites } = await admin
     .from('convites_com_resumo')
@@ -236,7 +248,7 @@ async function enviarLembretesDeRsvp(params: {
       action: 'communication.rsvp_reminder.sent',
       entityType: 'wedding',
       entityId: casamento.id,
-      metadata: { marca, enviados, prazo: casamento.prazo_rsvp },
+      metadata: { marca, enviados, prazo },
     })
   }
 

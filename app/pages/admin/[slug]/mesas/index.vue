@@ -249,6 +249,9 @@ function proporcao(mesa: MesaComOcupantes): string {
         <Icon name="lucide:download" class="h-4 w-4" />
         Exportar
       </UiButton>
+      <!-- A folha imprimível que a F2.5 previu: a própria tela, com a chrome
+           escondida pelo bloco `@media print` de main.css. -->
+      <AdminPrintButton label="Imprimir mapa" />
       <UiButton @click="novaMesa">
         <Icon name="lucide:plus" class="h-4 w-4" />
         Adicionar mesa
@@ -413,7 +416,11 @@ function proporcao(mesa: MesaComOcupantes): string {
         <p class="text-sm text-text-muted">
           <span class="font-medium text-text">{{ semMesa.length }}</span>
           {{ semMesa.length === 1 ? 'pessoa ainda sem mesa' : 'pessoas ainda sem mesa' }}:
-          {{ semMesa.slice(0, 6).map((p) => p.nomeCompleto).join(', ')
+          {{
+            semMesa
+              .slice(0, 6)
+              .map((p) => p.nomeCompleto)
+              .join(', ')
           }}<template v-if="semMesa.length > 6"> e mais {{ semMesa.length - 6 }}</template
           >. Abra uma mesa para sentá-las.
         </p>

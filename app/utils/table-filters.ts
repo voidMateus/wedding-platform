@@ -155,3 +155,77 @@ export function buildClearAllPatch<T>(
   }
   return patch
 }
+
+/**
+ * A fila que faz o filtro CEDER A PASSAGEM à navegação do usuário.
+ *
+ * O defeito que ela existe para pagar (achado em 2026-09-09, reproduzido em
+ * 2026-09-10): digitar no filtro e clicar numa linha dentro da janela do
+ * debounce (300ms) fazia o modal não abrir. O clique dispara um `router.push`
+ * com `?editar=<id>`; com a navegação ainda em voo, o `router.replace` do
+ * filtro **aborta** a anterior — o Vue Router cancela a navegação pendente, e
+ * o `editar` nunca chega.
+ *
+ * O merge de `applyQuery` nunca foi o problema (ele monta o destino a partir
+ * da query do momento e preserva as chaves alheias); o problema é o aborto.
+ * Então a correção não é mesclar melhor, é **não escrever enquanto o usuário
+ * está indo a algum lugar**: o patch fica guardado e é reaplicado quando a
+ * navegação assenta, sobre a URL que ela produziu.
+ *
+ * Só aparecia sob carga — com a máquina folgada o `push` completa antes do
+ * flush do debounce —, e é por isso que o estado vive aqui, fora do router:
+ * assim a regra é verificável sem depender de tempo. Um teste E2E dedicado
+ * chegou a ser escrito e foi descartado por ser instável por construção.
+ */
+export interface FilaDeQuery {
+  /** `router.beforeEach`: alguém começou a navegar. */
+  aoIniciar: () => void
+  /** `router.afterEach`: a navegação assentou (com sucesso ou não). */
+  aoTerminar: () => void
+  /** Pede para escrever um patch na query — agora, ou quando der. */
+  enfileirar: (patch: Record<string, string | undefined>) => void
+  /** Só para teste/diagnóstico: há patch esperando? */
+  readonly pendente: boolean
+}
+
+export function criarFilaDeQuery(
+  escrever: (patch: Record<string, string | undefined>) => void,
+): FilaDeQuery {
+  let navegando = false
+  let acumulado: Record<string, string | undefined> | null = null
+
+  function despejar(): void {
+    if (!acumulado) return
+    const patch = acumulado
+    // Zerado ANTES de escrever: `escrever` dispara uma navegação, que chama
+    // `aoIniciar`/`aoTerminar` de volta — com o acumulado ainda cheio, o
+    // despejo se repetiria para sempre.
+    acumulado = null
+    escrever(patch)
+  }
+
+  return {
+    aoIniciar() {
+      navegando = true
+    },
+
+    aoTerminar() {
+      navegando = false
+      despejar()
+    },
+
+    enfileirar(patch) {
+      if (navegando) {
+        // Acumula em vez de substituir: duas teclas e uma ordenação dentro da
+        // mesma janela viram uma escrita só, e nenhuma se perde.
+        acumulado = { ...(acumulado ?? {}), ...patch }
+        return
+      }
+      escrever(patch)
+    },
+
+    get pendente() {
+      return acumulado !== null
+    },
+  }
+}

@@ -460,3 +460,124 @@ body {
   --shadow-md: 0 4px 10px -2px rgb(28 28 32 / 0.07), 0 2px 4px -2px rgb(28 28 32 / 0.05);
   --shadow-lg: 0 12px 24px -4px rgb(28 28 32 / 0.1), 0 4px 8px -4px rgb(28 28 32 / 0.06);
 }
+
+/* Movimento reduzido — dívida levantada em 2026-09-09 e paga aqui.
+ *
+ * Quem liga "Reduzir movimento" no sistema normalmente tem distúrbio
+ * vestibular: enjoo ou tontura de verdade com movimento que acontece sozinho.
+ * Daí a regra ter dois níveis, e não um só:
+ *
+ *   1. O que roda SEM NINGUÉM PEDIR é zerado de fato — a seta "role para
+ *      descobrir" do Hero (`animate-bounce`, laço infinito, na primeira tela
+ *      que todo convidado vê) e o `animate-pulse` do UiSkeleton. Estes são os
+ *      casos que o requisito existe para resolver.
+ *   2. O que RESPONDE A UM GESTO (hover, clique, abrir modal) fica quase
+ *      instantâneo em vez de sumir: `1ms` e não `0s`. Zerar de vez cancelaria
+ *      o evento `transitionend`, e componente que espera por ele para desmontar
+ *      ficaria preso na tela. É a receita padrão da WAI, não uma precaução
+ *      inventada aqui.
+ *
+ * O `--transition-duration` é redefinido junto porque é dele que sai a
+ * `.transition-brand`, usada em toda a plataforma — a vantagem de o movimento
+ * ter saído de um token só. `duration-200` escrito à mão (hoje só no UiModal)
+ * não passa pelo token, então a regra também alcança as classes utilitárias de
+ * duração e animação do Tailwind pelo seletor genérico.
+ *
+ * `scrollIntoView({ behavior: 'smooth' })` em JS NÃO obedece a nada disto (é
+ * API de script, não CSS) — os dois lugares que a usam consultam `matchMedia`
+ * antes, em `app/utils/motion.ts`.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-duration: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Animação decorativa em laço não fica "rápida", fica PARADA: um pulso de
+     1ms repetido uma vez ainda é um salto visível, e o ponto era não haver
+     salto nenhum. */
+  .animate-bounce,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+/* Impressão — e é ela que entrega o "exportar em PDF" do backlog.
+ *
+ * Nenhuma biblioteca de PDF entra no bundle: "Salvar como PDF" é um destino de
+ * impressão em todo navegador atual, então a folha imprimível JÁ É o PDF. Uma
+ * dependência de geração de PDF no cliente custaria centenas de KB no caminho
+ * do casal para redesenhar, pior, uma tabela que o navegador já sabe paginar.
+ *
+ * O que esta folha precisa desfazer é o app shell: o painel é uma caixa de
+ * altura de tela com a rolagem dentro do `<main>` e a grade dentro de
+ * `.table-scroll` — imprimir isso sem desfazer sairia uma página só, com a
+ * primeira dobra da tabela e nada mais. Por isso todo contêiner de rolagem
+ * volta a `visible` e toda altura fixa volta a `auto`.
+ */
+@media print {
+  /* A trava de rolagem do painel (htmlAttrs em admin.vue) recortaria tudo
+     abaixo da primeira tela. */
+  html,
+  body {
+    overflow: visible !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  /* Navegação não existe no papel: ninguém clica numa folha. Inclui o que a
+     página marcar com `.no-print` — tipicamente os botões de ação. */
+  header,
+  nav,
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  /* O shell e o scroller interno viram fluxo normal, para a tabela poder
+     quebrar entre páginas em vez de ser cortada na altura do viewport. */
+  main,
+  .table-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    padding: 0 !important;
+  }
+
+  /* Fundo e sombra de cartão gastam tinta e não dizem nada no papel; a borda
+     fina fica, porque é ela que separa uma seção da outra. */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Linha de tabela cortada ao meio pela quebra de página é o defeito mais
+     comum de impressão de lista — e o cabeçalho repetido no topo de cada
+     página é o que mantém a lista legível a partir da segunda. */
+  tr,
+  img {
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  .print-only {
+    display: revert !important;
+  }
+}
+
+/* Só aparece no papel: o título da folha, a data da impressão. Fora da mídia
+   de impressão, não existe. */
+.print-only {
+  display: none;
+}

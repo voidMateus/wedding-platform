@@ -75,11 +75,13 @@ const hoje = hojeNoFusoDoEvento()
  */
 const proximoRsvp = computed(() => {
   if (!form.value.rsvp.ativo) return null
-  const data = proximaDataDeLembrete(
-    hoje,
-    props.wedding?.prazo_rsvp?.slice(0, 10) ?? null,
-    lerMarcas(marcasRsvp.value),
-  )
+  // `prazo_rsvp` é timestamptz e as marcas comparam DATAS. A conversão é no
+  // fuso do EVENTO: cortar os 10 primeiros caracteres daria a data em UTC, e
+  // um prazo às 23h59 de São Paulo viraria o dia seguinte.
+  const prazo = props.wedding?.prazo_rsvp
+    ? hojeNoFusoDoEvento(new Date(props.wedding.prazo_rsvp))
+    : null
+  const data = proximaDataDeLembrete(hoje, prazo, lerMarcas(marcasRsvp.value))
   return data ? formatDatePtBR(data) : null
 })
 

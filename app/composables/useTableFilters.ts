@@ -91,12 +91,39 @@ export function useTableFilters<T>(
 
   // Só as chaves do patch são mexidas: `?novo=1`/`?editar=<id>` governam os
   // modais das listagens e não podem ser perdidos ao filtrar.
-  function applyQuery(patch: Record<string, string | undefined>): void {
+  //
+  // A query é relida DENTRO do escritor, não no momento do pedido: entre um e
+  // outro pode ter havido a navegação a que o filtro cedeu a passagem, e é a
+  // URL que ela produziu que precisa ser preservada.
+  const fila = criarFilaDeQuery((patch) => {
     const merged: LocationQueryRaw = { ...route.query, ...patch }
     const query = Object.fromEntries(
       Object.entries(merged).filter(([, value]) => value !== undefined && value !== ''),
     )
     void router.replace({ query })
+  })
+
+  // O filtro escreve na URL com `replace`, e o usuário navega com `push` (o
+  // clique numa linha abre o modal por `?editar=<id>`). Uma navegação em voo é
+  // ABORTADA pela seguinte — e era assim que uma tecla digitada dentro da
+  // janela do debounce engolia o clique. Com estes dois guardas, o filtro
+  // espera a navegação assentar e se reaplica depois dela.
+  //
+  // `afterEach` roda também quando a navegação falha (abortada, duplicada), o
+  // que é o que impede a fila de ficar presa em "navegando" para sempre.
+  const pararAntes = router.beforeEach(() => {
+    fila.aoIniciar()
+  })
+  const pararDepois = router.afterEach(() => {
+    fila.aoTerminar()
+  })
+  onScopeDispose(() => {
+    pararAntes()
+    pararDepois()
+  })
+
+  function applyQuery(patch: Record<string, string | undefined>): void {
+    fila.enfileirar(patch)
   }
 
   function setValues(key: string, next: string[]): void {

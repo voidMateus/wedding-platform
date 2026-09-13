@@ -159,23 +159,39 @@ Destino de cada um, resolvido no refinamento de 2026-09-13
 Não bloqueiam nenhuma fase do Hub, mas continuam existindo e precisam de
 espaço em algum sprint — sinalizados aqui pra não sumir:
 
-- `prefers-reduced-motion` não respeitado em nenhum lugar da plataforma.
+Pagos em 2026-09-13 (detalhe de cada um em `ROADMAP.md` seção 4):
+
+- ~~`prefers-reduced-motion` não respeitado em nenhum lugar da plataforma.~~
 - ~~Remover `convites.status_convite`~~ — **absorvido pela Fase 2** (F2.7):
-  sai na mesma migration que remove `convites.enviado_em`, que passa a ser
-  derivado do registro de envio.
-- Corrida entre filtro debounced e clique na linha (`useTableFilters`) —
-  bug reproduzido, causa raiz identificada, conserto pendente.
-- Trava de rolagem do painel no `<body>` em vez do `<html>`.
-- Auditoria completa de ações administrativas.
-- Testes E2E cobrindo os fluxos críticos (RSVP, reserva de presente, login).
-- Internacionalização (i18n) — inglês/espanhol.
-- Exportação de dados em CSV/PDF completa (falta presentes, e PDF para os
-  dois — convidados em CSV já está entregue).
-- Revisão de performance com dados de casamentos grandes (500+ convidados).
-- Observabilidade completa (Sentry + métricas de uso).
-- Testes de carga nos endpoints públicos (RSVP, reserva de presentes).
-- Revisão de segurança/RLS por terceiros — **pré-requisito obrigatório
-  antes da Fase 6** (abertura multi-tenant self-service), não do Hub em si.
+  saiu na migration B, junto de `convites.enviado_em`.
+- ~~Corrida entre filtro debounced e clique na linha (`useTableFilters`).~~
+- ~~Trava de rolagem do painel no `<body>` em vez do `<html>`.~~
+- ~~Auditoria completa de ações administrativas~~ — fechada por uma varredura
+  que falha quando uma rota de escrita nasce sem registro, não por uma
+  passagem manual que envelheceria no mês seguinte.
+- ~~Exportação de dados em CSV/PDF completa.~~ Presentes ganharam CSV; o PDF
+  dos dois é a folha imprimível do navegador, sem biblioteca no bundle.
+
+Em aberto:
+
+- ~~Testes E2E cobrindo os fluxos críticos~~ — o buraco era a reserva de
+  presente; RSVP e login já tinham teste.
+- Internacionalização (i18n) — inglês/espanhol. **É fase, não dívida**:
+  traduzir um produto inteiro escrito em pt-BR (textos de tela, e-mails,
+  mensagens de erro, conteúdo padrão do site do casal) não cabe num sprint
+  nem sai de um sprint sozinho — e nenhum usuário pediu ainda.
+- Revisão de performance com dados de casamentos grandes (500+ convidados), e
+  o LCP do site público — cujo alvo foi corrigido em 2026-09-13: o
+  "vazamento do bundle do admin" que constava como causa não existe (medido).
+- Observabilidade completa (Sentry + métricas de uso). Depende de escolher
+  provedor e política de retenção — a aplicação trata dado pessoal de
+  convidado, então não é decisão só de instrumentação.
+- Testes de carga nos endpoints públicos: o script existe
+  (`scripts/carga-publica.mjs`); falta rodá-lo contra dado de casamento
+  grande e registrar o resultado.
+- Revisão de segurança/RLS **por terceiros** — pré-requisito obrigatório
+  antes da Fase 6 (abertura multi-tenant self-service), não do Hub em si.
+  Não é trabalho de código: é contratar quem olhe de fora.
 
 ### 5.4 Descartado permanentemente (decisão já tomada antes, mantida)
 
