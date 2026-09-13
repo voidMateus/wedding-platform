@@ -55,4 +55,15 @@ npm run build
 npm run preview   # serve o build de produção localmente
 ```
 
-Deploy pensado para a Vercel (ver `vercel.json` — cron da sincronização de galeria). `main` é a branch de produção; todo merge passa por CI (lint/typecheck/test/build).
+Deploy pensado para a Vercel (ver `vercel.json` — os crons de sincronização de galeria e de avisos automáticos). `main` é a branch de produção; todo merge passa por CI (lint/typecheck/test/build).
+
+### Envio de e-mail
+
+O envio por e-mail (convites, lembretes de RSVP e avisos de pagamento) é **opcional**: sem as variáveis abaixo, o canal some do painel e o WhatsApp assistido continua sendo o caminho completo.
+
+1. Crie uma conta no provedor (Resend) e **verifique o domínio de envio** — são registros SPF/DKIM no DNS do domínio, e é a única parte que não se resolve no código. Sem domínio verificado, todo envio volta `403`.
+2. Preencha `RESEND_API_KEY` e `EMAIL_REMETENTE` (só o endereço, ex.: `convites@seudominio.com.br`).
+3. No painel do provedor, cadastre o webhook `https://SEU_SITE/api/webhooks/email` para os eventos de entrega/devolução e copie o segredo (`whsec_...`) para `RESEND_WEBHOOK_SECRET`.
+4. Reimplante: o painel só enxerga o canal depois de um build novo (a flag é avaliada em build, como a da busca de locais).
+
+Os avisos automáticos nascem **desligados** em cada casamento — quem liga é o casal, em Configurações › Avisos.

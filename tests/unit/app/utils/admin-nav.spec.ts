@@ -210,6 +210,7 @@ describe('menu da seção de Configurações', () => {
     expect(adminSectionMenu(SLUG, `${BASE}/configuracoes`).map((g) => g.label)).toEqual([
       'Geral',
       'Aparência',
+      'Avisos',
       'Conteúdo',
       'Colaboradores',
       'Páginas do site',

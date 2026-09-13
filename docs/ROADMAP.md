@@ -29,7 +29,7 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 
 ### Fase 2 — Consolidação
 - [x] Importação de convidados via CSV — wizard de três passos, catálogo central de campos e gerador de modelo; ver [`PRODUCT.md`](PRODUCT.md) seções 3.5 e 3.6. Acompanhantes ficaram deliberadamente fora.
-- [ ] Lembretes automáticos de RSVP por e-mail — depende da infraestrutura de e-mail, que a Fase 2 do Hub deixou nomeada como a entrega seguinte à v1 de Comunicações (`fase2-convidados.md` seção 2.2).
+- [x] Lembretes automáticos de RSVP por e-mail — **entregues na entrega seguinte à Fase 2 do Hub** (2026-09-13, `fase2-convidados.md` seção 13), junto do envio real por e-mail. Um cron diário, configurado por casamento em Configurações › Avisos e **desligado por padrão**: quem nunca recebeu o convite, quem já respondeu por inteiro e quem já recebeu lembrete hoje ficam de fora, e a proteção contra repetição é derivada do log de envios, nunca de uma coluna.
 - [ ] Exportação de dados em CSV/PDF — **convidados em CSV entregue** (segue os filtros da tela, colunas do catálogo central; ver [`PRODUCT.md`](PRODUCT.md) seção 3.5). Falta presentes, e PDF em qualquer um dos dois.
 - [x] Convite com geração de link/QR code — entregue em
       `InviteAccessLinkSection.vue`: gerar, reexibir sem invalidar o já
@@ -168,7 +168,7 @@ com dois membros dissolve o núcleo.
 1. **Vazamento de dados entre tenants**: exige suíte de testes automatizados específica validando que toda query respeita RLS, incluindo endpoints novos adicionados ao longo do tempo — e, separadamente, testes do caminho do convidado (não coberto por RLS, ver [`CLAUDE.md`](../CLAUDE.md), Modelo de Confiança).
 2. **Ruído de performance de um tenant afetando outro**: a denormalização de `casamento_id` em tabelas filhas (ver [`DATABASE.md`](DATABASE.md)) já prepara o particionamento declarativo por `casamento_id` em `convidados`, `respostas_rsvp` e `reservas_presentes`. Gatilho de decisão sugerido: avaliar particionamento quando qualquer uma dessas tabelas ultrapassar ~5 milhões de linhas agregadas, ou quando queries de dashboard de um único tenant começarem a competir visivelmente por I/O com outros tenants.
 3. **Suporte ao cliente em escala**: painel interno de operação precisa existir antes de abrir cadastro self-service, para permitir suporte, reembolsos e resolução de disputas sem acesso direto ao banco de produção.
-4. **Escalabilidade de e-mail transacional**: volume de convites/lembretes cresce proporcionalmente ao número de tenants — revisar limites e reputação de envio do provedor (Resend) antes da Fase 5.
+4. **Escalabilidade de e-mail transacional**: volume de convites/lembretes cresce proporcionalmente ao número de tenants — revisar limites e reputação de envio do provedor (Resend, integrado em 2026-09-13 atrás de `server/utils/email-provider.ts`) antes da Fase 5. O cron de avisos manda um e-mail por convite em sequência: com muitos tenants no mesmo dia, é o primeiro ponto a revisar (lote/fila).
 
 ## 10. Tabelas de preparação para SaaS (criadas desde a v1, mesmo sem cobrança ativa)
 

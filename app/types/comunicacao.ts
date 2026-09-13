@@ -13,7 +13,28 @@ export interface EnvioRegistrado {
   id: string
   canal: CanalComunicacao
   enviadoEm: string
+  /**
+   * O que aconteceu com o e-mail DEPOIS de sair, derivado do evento mais
+   * recente em `eventos_email`. Sempre `null` nos canais sem provedor
+   * (whatsapp, outro): lá o sistema nunca soube se chegou, e fingir um
+   * "entregue" seria inventar a única informação que o canal não dá.
+   */
+  entrega: EstadoDeEntrega | null
 }
+
+/**
+ * `enviado` é o estado de quem saiu e ainda não teve notícia — não é "falhou".
+ * `devolvido` e `reclamado` são os dois que pedem providência do casal (e são
+ * os únicos que a tela destaca).
+ */
+export type EstadoDeEntrega = 'enviado' | 'entregue' | 'devolvido' | 'reclamado' | 'adiado'
+
+/**
+ * Por onde a plataforma manda. É um subconjunto de `CanalComunicacao`: `outro`
+ * é como se REGISTRA um envio feito por fora, nunca como se envia — e o
+ * seletor da tela só pode oferecer o que ela sabe fazer.
+ */
+export type CanalDeEnvio = Extract<CanalComunicacao, 'whatsapp' | 'email'>
 
 /**
  * A linha da tela de Comunicações: um convite, com o último envio de cada tipo
@@ -42,6 +63,11 @@ export interface LinhaDeComunicacao {
    * contatos"), nunca erro.
    */
   telefoneE164: string | null
+  /**
+   * E-mail do responsável já normalizado, ou nulo quando não há como mandar
+   * por e-mail. Mesma regra do telefone: nulo é trabalho a fazer, nunca erro.
+   */
+  email: string | null
   envios: Record<TipoComunicacao, EnvioRegistrado | null>
 }
 
@@ -56,6 +82,10 @@ export interface ComunicacoesResponse {
     comConviteEnviado: number
     semNenhumEnvio: number
     semTelefone: number
+    /** O par de `semTelefone` para o outro canal — a tela mostra o do canal ativo. */
+    semEmail: number
+    /** Quantos envios por e-mail voltaram (devolvido/reclamado) e pedem providência. */
+    naoEntregues: number
   }
 }
 
@@ -68,6 +98,16 @@ export interface MensagemPronta {
   /** Link do convite, ou nulo quando a credencial não pôde ser reexibida. */
   link: string | null
   telefoneE164: string | null
+  email: string | null
   /** `wa.me` pronto, ou nulo quando não há telefone. */
   linkWhatsApp: string | null
+}
+
+/** O resultado de um envio por e-mail — o que o toast da tela precisa dizer. */
+export interface EnvioPorEmail {
+  id: string
+  tipo: TipoComunicacao
+  enviadoEm: string
+  /** Primeiro nome de quem recebeu, nunca o endereço. */
+  destinatario: string
 }

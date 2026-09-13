@@ -89,6 +89,20 @@ export default defineNuxtConfig({
     // com /api/places/** (CLAUDE.md, seção 11). Ausente, o autocomplete
     // desliga e sobra o cadastro manual, que é completo por si só.
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+    // Envio de e-mail (a entrega seguinte à Fase 2 do Hub), via
+    // server/utils/email-resend.ts. Server-only e opcional: sem a chave OU sem
+    // o remetente verificado, `resolveEmailProvider()` devolve null, o canal
+    // e-mail some da tela e o cron de lembretes não manda nada — o WhatsApp
+    // assistido e o registro manual continuam inteiros.
+    resendApiKey: process.env.RESEND_API_KEY,
+    // Só o ENDEREÇO (convites@dominio.com.br); o nome de exibição é o do
+    // casal, montado por envio. Precisa ser de um domínio verificado no
+    // provedor, senão todo envio volta 403.
+    emailRemetente: process.env.EMAIL_REMETENTE,
+    // Assina o webhook de entrega/devolução. Sem ele o webhook RECUSA tudo —
+    // um webhook sem prova de origem é um endpoint público que escreve no
+    // banco (server/api/webhooks/email.post.ts).
+    resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET,
     public: {
       // URL pública do site, exposta ao bundle porque as tags de SEO precisam
       // de URL ABSOLUTA (canonical, og:url, og:image e o JSON-LD de Evento) e
@@ -111,6 +125,12 @@ export default defineNuxtConfig({
       // manual. Avaliado no build: adicionar GOOGLE_MAPS_API_KEY depois exige
       // um novo deploy para o painel enxergar a busca.
       placesSearchEnabled: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      // Mesma regra do `placesSearchEnabled`: só o FATO de o canal existir,
+      // nunca a credencial. Sem esta flag, o seletor de canal ofereceria
+      // "E-mail" e todo envio falharia com 503 — o canal precisa sumir da
+      // tela, não falhar nela. Avaliado no build: configurar o provedor
+      // depois exige um novo deploy para o painel enxergar o canal.
+      emailEnabled: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_REMETENTE),
     },
   },
 

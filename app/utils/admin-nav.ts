@@ -120,6 +120,12 @@ export const SETTINGS_ASSUNTOS = [
     ],
   },
   {
+    id: 'avisos',
+    label: 'Avisos',
+    blurb: 'O que a plataforma envia sozinha.',
+    secoes: [{ id: 'avisos', label: 'Avisos automáticos', icon: 'lucide:bell' }],
+  },
+  {
     id: 'conteudo',
     label: 'Conteúdo',
     blurb: 'Textos exibidos aos convidados.',

@@ -78,6 +78,11 @@ watch(secaoAtual, (secao) => rolarAteSecao(secao))
         :couple-names="wedding?.nomes_noivos ?? ''"
         @refresh="refresh"
       />
+      <AdminSettingsRemindersTab
+        v-else-if="assunto.id === 'avisos'"
+        :wedding="wedding"
+        @saved="refresh"
+      />
       <AdminSettingsContentTab
         v-else-if="assunto.id === 'conteudo'"
         :wedding="wedding"

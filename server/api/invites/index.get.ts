@@ -107,12 +107,23 @@ export default defineEventHandler(async (event) => {
     // A view não declara NOT NULL em coluna nenhuma (o Postgres não infere isso
     // para view), então o tipo gerado sai todo anulável. As colunas vêm 1:1 de
     // `convites`, onde id/nome/casamento_id são NOT NULL — o resto do objeto é
-    // uma linha de convite com três colunas derivadas a mais, que ficam aqui e
-    // não no DTO.
-    const { total_membros, total_respondidos, status_operacional, estagio_desde, ...invite } = row
+    // uma linha de convite com as colunas derivadas a mais.
+    const {
+      total_membros,
+      total_respondidos,
+      status_operacional,
+      estagio_desde,
+      enviado_em,
+      ultimo_contato: _ultimoContato,
+      ...invite
+    } = row
 
     return {
       ...(invite as unknown as Invite),
+      // Derivado na view, não mais uma coluna de `convites` — por isso sai do
+      // spread e entra nomeado. `ultimo_contato` fica de fora: quem o usa é a
+      // tela de Comunicações, que lê a view direto.
+      enviado_em,
       responsibleGuestName: invite.convidado_responsavel_id
         ? (responsibleNameById.get(invite.convidado_responsavel_id) ?? null)
         : null,

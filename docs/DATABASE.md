@@ -76,6 +76,7 @@ Sentar é uma **coluna** (`convidados.mesa_id` e `acompanhantes_avulsos.mesa_id`
 | Tabela | Propósito |
 |---|---|
 | `fotos` | Itens da galeria de fotos do casal. Referencia um arquivo de uma fonte externa espelhada (`conexao_id` → `conexoes_galeria`, `id_arquivo_origem`, `url_miniatura_origem`, `tipo_mime_origem`), servido direto do Google (thumbnail do Drive), nunca copiado — `caminho_storage` é coluna legada (nullable, não mais escrita). Policy de leitura pública (`fotos_select_publico`) além da de membros; `foco_x`/`foco_y` (ponto de foco, ver [`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md)) |
+| `eventos_email` | Log **append-only** do que aconteceu com um e-mail depois de enviado (entregue/devolvido/reclamado/adiado), alimentado pelo webhook do provedor. O estado de entrega de um envio é o evento mais recente — nunca uma coluna em `comunicacoes`, que não tem policy de UPDATE |
 | `conexoes_galeria` | Conexão do casamento com a fonte externa da galeria (Google Drive hoje). Uma por `casamento_id`. Modo `oauth` (tokens cifrados em repouso — AES-256-GCM) ou `public_link` (URL de pasta pública). `provedor` é ponto de extensão pra outras fontes sem migration estrutural. Sem policy pública (guarda segredo) |
 | `tarefas` | Fila de processamento assíncrono (importação de CSV, envio de e-mail em lote) — **ainda não implementada**, ver [`ARCHITECTURE.md`](ARCHITECTURE.md) seção 3.4 |
 | `trilha_auditoria` | Trilha de auditoria de ações administrativas sensíveis |
@@ -107,7 +108,7 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 
 | Tabela | FK principal | O que é |
 |---|---|---|
-| `casamentos` | — | Evento — `slug`, `nomes_noivos`, `data_evento`, `prazo_rsvp`, `modo_lista_convidados`, `config_faixas_etarias`, `config_tema`, `config_conteudo`, `status_ciclo_vida`, `arquivado_em` |
+| `casamentos` | — | Evento — `slug`, `nomes_noivos`, `data_evento`, `prazo_rsvp`, `modo_lista_convidados`, `config_faixas_etarias`, `status_ciclo_vida`, `arquivado_em` e os **quatro jsonb de configuração**, que nunca se misturam: `config_tema` (visual), `config_conteudo` (texto do site público), `config_comunicacao` (texto que o casal manda ao convidado) e `config_lembretes` (o que a plataforma manda sozinha, e o único que nasce desligado) |
 | `membros_casamento` | `casamento_id`; `usuario_id` (auth) | Acesso administrativo — `papel` |
 | `etapas_evento` | `casamento_id`; `mesmo_local_que` (auto-referência, opcional) | Cerimônia/recepção/festa — local, horário, `ordem_exibicao`. O local é uma entidade selecionável, não texto: `origem_local` (`maps_place`\|`manual`\|null=legado), `place_id_local` + `provedor_local`, `url_mapa_local`, coordenadas e as partes do endereço manual — ver seção 3.2 |
 | `convites` | `casamento_id`; `convidado_responsavel_id` → `convidados` (opcional) | Unidade real de RSVP — `codigo_interno`, `max_acompanhantes`, `mensagem_rsvp`, `arquivado_em`. **Sem coluna de status e sem `enviado_em`**: o estágio é derivado (`convites_com_resumo.status_operacional`) e o envio é o registro em `comunicacoes` |
@@ -134,7 +135,8 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 | Tabela | FK principal | O que é |
 |---|---|---|
 | `credenciais_acesso_convite` | `casamento_id`; `convite_id` → `convites` (único ativo por convite, `where revogado_em is null`) | Credencial — `codigo_hash` (SHA-256, autentica), `codigo_cifrado` (AES-256-GCM, só reexibição no painel; nulo em linhas antigas), `revogado_em` |
-| `comunicacoes` | `casamento_id`; `convite_id` → `convites`; `convidado_id` → `convidados` (opcional, destinatário) | Log append-only de envio — `tipo` (`save_the_date`\|`convite`\|`lembrete`), `canal` (`whatsapp`\|`email`\|`outro`), `enviado_em`, `registrado_por`. Nunca guarda o número/e-mail usado |
+| `comunicacoes` | `casamento_id`; `convite_id` → `convites`; `convidado_id` → `convidados` (opcional, destinatário) | Log append-only de envio — `tipo` (`save_the_date`\|`convite`\|`lembrete`), `canal` (`whatsapp`\|`email`\|`outro`), `enviado_em`, `registrado_por` (nulo no envio automático: não houve clique), `provedor_mensagem_id` (única ponte com o webhook de entrega). Nunca guarda o número/e-mail usado |
+| `eventos_email` | `casamento_id` (denormalizado, derivado por trigger); `comunicacao_id` → `comunicacoes` (cascade) | `tipo_evento` (`entregue`\|`devolvido`\|`reclamado`\|`adiado`), `ocorrido_em` (quando o provedor diz, não quando o webhook chegou), `metadados`. Sem policy de insert para `authenticated`: quem grava é o webhook, com `service_role` |
 | `conexoes_galeria` | `casamento_id` (único) | Conexão da galeria — `provedor`, `modo`, tokens cifrados |
 | `trilha_auditoria` | `casamento_id`; `autor_id` (opcional — nulo em ações do sistema) | `tipo_autor`, `acao`, `tipo_entidade`/`entidade_id`, `metadados` |
 
