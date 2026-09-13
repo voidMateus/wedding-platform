@@ -35,17 +35,26 @@ describe('nav primária do admin', () => {
     expect(ehItemAtivo(itemPrimario('Convidados'), rota(`${BASE}/presentes`))).toBe(false)
   })
 
-  // Convites entrou em Convidados; Cronograma e Galeria, em Configurações. O
-  // topo fica com quatro abas — exatamente o que a barra do celular mostra sem
-  // precisar do "Mais".
-  it('mantém só as quatro abas de módulo no topo', () => {
+  // Convites entrou em Convidados; Cronograma e Galeria, em Configurações. Com
+  // a chegada do Financeiro são cinco destinos: a barra do celular mostra os
+  // quatro primeiros e joga Configurações no "Mais" — por isso a ORDEM aqui é
+  // parte do contrato, não detalhe de escrita.
+  it('mantém as cinco abas de módulo no topo, nesta ordem', () => {
     expect(adminPrimaryNav(SLUG).map((i) => i.label)).toEqual([
       'Início',
       'Convidados',
       'Presentes',
+      'Financeiro',
       'Configurações',
     ])
   })
+
+  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/gastos/abc'])(
+    'acende Financeiro em %s',
+    (caminho) => {
+      expect(ehItemAtivo(itemPrimario('Financeiro'), rota(`${BASE}${caminho}`))).toBe(true)
+    },
+  )
 
   it.each(['/configuracoes', '/cronograma', '/galeria'])(
     'acende Configurações em %s',
@@ -113,6 +122,67 @@ describe('menu da seção', () => {
 
     expect(nucleos.to).toBeUndefined()
     expect(ehItemAtivo(nucleos, rota(`${BASE}/convidados`))).toBe(false)
+  })
+})
+
+describe('menu da seção do Financeiro', () => {
+  it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/gastos/abc'])(
+    'desenha a coluna do módulo em %s',
+    (caminho) => {
+      expect(adminSectionMenu(SLUG, `${BASE}${caminho}`).length).toBeGreaterThan(0)
+    },
+  )
+
+  // Um objeto e três perguntas, na ordem do dinheiro na vida do casal: Gastos é
+  // a lista, Categorias é onde ele se planeja e se soma ("onde está indo?"), e
+  // Pagamentos é o mesmo dinheiro no eixo do tempo. Fornecedores e Documentos
+  // deixaram de ser tela — viraram seções da ficha.
+  it('tem três telas, e nenhuma delas relista a outra', () => {
+    const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
+
+    expect(menu.map((g) => g.label)).toEqual(['Financeiro'])
+    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Categorias', 'Pagamentos'])
+  })
+
+  // `exact` em Gastos protege Pagamentos; Categorias precisa da mesma prova,
+  // porque também é subrota da raiz do módulo.
+  it('Gastos não acende dentro de Categorias', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
+    const categorias = financeiro.itens.find((i) => i.label === 'Categorias')!
+
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/categorias`))).toBe(false)
+    expect(ehItemAtivo(categorias, rota(`${BASE}/financeiro/categorias`))).toBe(true)
+  })
+
+  // `exact` em Gastos, senão ele ficaria aceso dentro de Pagamentos, que é
+  // subrota dele.
+  it('Gastos acende na raiz do módulo, não em Pagamentos', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
+
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro`))).toBe(true)
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/pagamentos`))).toBe(false)
+  })
+
+  // A ficha é filha da lista: quem está lendo um gasto continua "em Gastos",
+  // senão o menu apaga inteiro no exato momento em que se abre um objeto.
+  it('a ficha do gasto mantém Gastos aceso', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
+
+    expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/gastos/uuid-do-gasto`))).toBe(true)
+  })
+
+  // A tela de Pagamentos guarda o recorte na URL (`?filtro=vencidos`). Um
+  // filtro nunca pode apagar o item de menu que o recebeu.
+  it('Pagamentos continua aceso com o filtro na URL', () => {
+    const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
+    const pagamentos = financeiro.itens.find((i) => i.label === 'Pagamentos')!
+
+    expect(
+      ehItemAtivo(pagamentos, rota(`${BASE}/financeiro/pagamentos`, { filtro: 'vencidos' })),
+    ).toBe(true)
   })
 })
 

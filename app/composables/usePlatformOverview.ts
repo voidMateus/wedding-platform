@@ -6,7 +6,9 @@ import type { PlatformWeddingOverview } from '~/types/platform'
  */
 export function usePlatformOverview() {
   function getOverview() {
-    return useFetch<{ data: PlatformWeddingOverview[] }>('/api/platform/overview', { key: 'platform-overview' })
+    return useFetch<{ data: PlatformWeddingOverview[] }>('/api/platform/overview', {
+      key: 'platform-overview',
+    })
   }
 
   return { getOverview }

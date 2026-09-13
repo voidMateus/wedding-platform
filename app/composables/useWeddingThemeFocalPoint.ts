@@ -9,10 +9,13 @@ export function useWeddingThemeFocalPoint() {
   async function updateThemeFocalPoint(
     input: ThemeFocalPointInput,
   ): Promise<{ target: 'cover' | 'story'; x: number; y: number }> {
-    return $fetch<{ target: 'cover' | 'story'; x: number; y: number }>('/api/wedding/theme/focal-point', {
-      method: 'PATCH',
-      body: input,
-    })
+    return $fetch<{ target: 'cover' | 'story'; x: number; y: number }>(
+      '/api/wedding/theme/focal-point',
+      {
+        method: 'PATCH',
+        body: input,
+      },
+    )
   }
 
   return { updateThemeFocalPoint }

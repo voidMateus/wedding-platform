@@ -1,0 +1,609 @@
+<!--
+  Pagamentos — o eixo do TEMPO.
+
+  É a única segunda tela que se justifica no módulo. Gastos responde "o que é
+  isto e quanto custa"; aqui a pergunta é outra e não cabe naquela lista: "o que
+  vence, e o que já passou". Toda tela que apenas reordenasse os mesmos gastos
+  por outro critério seria um filtro disfarçado de tela — esta muda o eixo.
+
+  Por isso a lista se organiza em faixas de tempo, e não mais numa grade plana
+  com uma coluna "Estado" repetindo em cada linha o que a faixa já diz. O
+  cabeçalho de cada faixa carrega a contagem e o total; a régua de cinco números
+  que ficava no topo saiu, porque o único agregado do módulo mora em Gastos.
+
+  **Contratar é o que traz o gasto para cá — não ter parcela definida não o
+  esconde.** Quem fechou com o buffet e escolheu "defino depois" encontra o
+  compromisso aqui em "Sem data", com o caminho para agendar.
+-->
+<script setup lang="ts">
+import { formatCentsToBRL } from '#shared/utils/format-currency'
+import {
+  ROTULOS_FORMA_PAGAMENTO,
+  type FormaPagamento,
+  type InstallmentsGenerateInput,
+} from '#shared/schemas/finance'
+import { DIAS_HORIZONTE_VENCIMENTO, hojeNoFusoDoEvento, somarDias } from '#shared/utils/orcamento'
+import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
+import type { AdminTableColumn, AdminTableSection } from '~/types/table'
+import type { PagamentoListado } from '~/types/finance'
+import {
+  applyTableFilters,
+  compareNumber,
+  compareText,
+  type ClientColumn,
+} from '~/utils/table-rows'
+
+definePageMeta({ layout: 'admin' })
+
+const slug = useActiveWeddingSlug()
+const base = `/admin/${slug}/financeiro`
+const toast = useToast()
+
+const { getPagamentos, atualizarParcela, excluirParcela, gerarParcelasDaDespesa } = useFinance()
+const { corDaCategoria } = useCategoriaCores()
+const { data, status, error, refresh } = getPagamentos()
+
+const hoje = hojeNoFusoDoEvento()
+const horizonte = somarDias(hoje, DIAS_HORIZONTE_VENCIMENTO)
+const pagamentos = computed(() => data.value?.data ?? [])
+
+/**
+ * As faixas de tempo, na ordem em que cobram atenção.
+ *
+ * "Sem data" fica entre o futuro e o passado de propósito: ela não é um prazo,
+ * é uma decisão pendente — o compromisso existe e ninguém combinou quando sai.
+ */
+const FAIXAS = [
+  { id: 'vencidos', label: 'Vencidos', descricao: 'Passaram da data sem baixa' },
+  {
+    id: 'proximos',
+    label: `Próximos ${DIAS_HORIZONTE_VENCIMENTO} dias`,
+    descricao: 'O que sai da conta agora',
+  },
+  { id: 'depois', label: 'Mais para frente', descricao: 'Já agendado, ainda longe' },
+  { id: 'sem-data', label: 'Sem data', descricao: 'Contratado, falta combinar quando' },
+  { id: 'pagos', label: 'Pagos', descricao: 'Já saiu da conta' },
+] as const
+
+type Faixa = (typeof FAIXAS)[number]['id']
+
+function faixaDoPagamento(pagamento: PagamentoListado): Faixa {
+  if (pagamento.situacao === 'paga') return 'pagos'
+  if (pagamento.situacao === 'a_definir') return 'sem-data'
+  if (pagamento.situacao === 'vencida') return 'vencidos'
+  return pagamento.vence_em && pagamento.vence_em <= horizonte ? 'proximos' : 'depois'
+}
+
+// A coluna "Estado" saiu: dentro de uma faixa de tempo ela repetiria em cada
+// linha exatamente o que o cabeçalho da faixa acabou de dizer.
+const colunas = computed<AdminTableColumn<PagamentoListado>[]>(() => [
+  {
+    key: 'gasto',
+    label: 'Gasto',
+    filter: { type: 'text', placeholder: 'Buscar gasto ou fornecedor' },
+  },
+  { key: 'vencimento', label: 'Vencimento', sort: 'date' },
+  { key: 'valor', label: 'Valor', align: 'right', sort: 'numeric' },
+  { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
+])
+
+const acessores: Record<string, ClientColumn<PagamentoListado>> = {
+  gasto: {
+    value: (pagamento) => [pagamento.despesa.descricao, pagamento.fornecedor?.nome ?? ''],
+    compare: compareText((pagamento) => pagamento.despesa.descricao),
+  },
+  // Sem data vai para o fim do crescente, que é onde "ainda não decidido"
+  // pertence numa linha do tempo.
+  vencimento: { compare: compareText((pagamento) => pagamento.vence_em ?? '9999-12-31') },
+  valor: { compare: compareNumber((pagamento) => pagamento.valor_centavos) },
+}
+
+const filters = useTableFilters(colunas)
+
+const linhasFiltradas = computed(() =>
+  applyTableFilters(pagamentos.value, colunas.value, acessores, {
+    values: filters.values.value,
+    sortKey: filters.sortKey.value,
+    sortDirection: filters.sortDirection.value,
+  }),
+)
+
+// Pagos nasce recolhido: é histórico, não é pendência. Ele continua na tela
+// (some seria esconder dinheiro que saiu), mas não ocupa a primeira dobra.
+const recolhidos = ref<string[]>(['pagos'])
+
+function alternarFaixa(id: string) {
+  recolhidos.value = recolhidos.value.includes(id)
+    ? recolhidos.value.filter((atual) => atual !== id)
+    : [...recolhidos.value, id]
+}
+
+const secoes = computed<AdminTableSection<PagamentoListado>[]>(() => {
+  const porFaixa = new Map<Faixa, PagamentoListado[]>()
+  for (const pagamento of linhasFiltradas.value) {
+    const faixa = faixaDoPagamento(pagamento)
+    const lista = porFaixa.get(faixa) ?? []
+    lista.push(pagamento)
+    porFaixa.set(faixa, lista)
+  }
+
+  return FAIXAS.filter((faixa) => (porFaixa.get(faixa.id) ?? []).length > 0).map((faixa) => {
+    const linhas = porFaixa.get(faixa.id) ?? []
+    const total = linhas.reduce((soma, pagamento) => soma + pagamento.valor_centavos, 0)
+
+    return {
+      id: faixa.id,
+      label: faixa.label,
+      level: 0 as const,
+      description: faixa.descricao,
+      meta: `${linhas.length} ${linhas.length === 1 ? 'lançamento' : 'lançamentos'} · ${formatCentsToBRL(total)}`,
+      // Só o atraso ganha selo. Um selo em cada faixa faria a faixa que importa
+      // ler igual às outras quatro.
+      badge:
+        faixa.id === 'vencidos'
+          ? { label: formatCentsToBRL(total), tone: 'danger' as const }
+          : undefined,
+      rows: linhas,
+    }
+  })
+})
+
+/**
+ * `every` sobre as faixas VISÍVEIS, não `length >= length`: "Pagos" nasce
+ * recolhido e some da lista quando não há nada pago, e a contagem crua diria
+ * que tudo está recolhido com a tela toda aberta.
+ */
+const tudoRecolhido = computed(
+  () =>
+    secoes.value.length > 0 && secoes.value.every((secao) => recolhidos.value.includes(secao.id)),
+)
+
+function alternarTudo() {
+  recolhidos.value = tudoRecolhido.value ? [] : secoes.value.map((secao) => secao.id)
+}
+
+// --- marcar pago ---
+const pagamentoEmEdicao = ref<PagamentoListado | null>(null)
+const dataDoPagamento = ref(hoje)
+const formaDoPagamento = ref<FormaPagamento | ''>('')
+
+function abrirBaixa(pagamento: PagamentoListado) {
+  pagamentoEmEdicao.value = pagamento
+  dataDoPagamento.value = hoje
+  formaDoPagamento.value = (pagamento.forma_pagamento as FormaPagamento) ?? ''
+}
+
+async function confirmarBaixa() {
+  const pagamento = pagamentoEmEdicao.value
+  if (!pagamento) return
+  try {
+    await atualizarParcela(pagamento.id, {
+      pagoEm: dataDoPagamento.value,
+      formaPagamento: formaDoPagamento.value || null,
+    })
+    pagamentoEmEdicao.value = null
+    toast.success('Pagamento registrado.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível registrar o pagamento.'))
+  }
+}
+
+async function desfazer(pagamento: PagamentoListado) {
+  try {
+    await atualizarParcela(pagamento.id, { pagoEm: null })
+    toast.success('Pagamento desfeito.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível desfazer o pagamento.'))
+  }
+}
+
+// --- editar o lançamento ---
+/**
+ * Vencimento, valor, data de pagamento e forma são todos editáveis: um
+ * pagamento é combinado, remarcado e pago fora da data mais vezes do que o
+ * contrário.
+ */
+const emEdicao = ref<PagamentoListado | null>(null)
+const edicaoVenceEm = ref('')
+const edicaoValor = ref(0)
+const edicaoFoiPago = ref(false)
+const edicaoPagoEm = ref('')
+const edicaoForma = ref<FormaPagamento | ''>('')
+const edicaoObservacao = ref('')
+const salvandoEdicao = ref(false)
+
+function abrirEdicao(pagamento: PagamentoListado) {
+  // A linha `a_definir` não é uma parcela — não há o que editar nela, e o que
+  // ela pede é justamente a data que falta.
+  if (pagamento.tipo === 'a_definir') {
+    abrirAgendamento(pagamento)
+    return
+  }
+
+  emEdicao.value = pagamento
+  edicaoVenceEm.value = pagamento.vence_em ?? ''
+  edicaoValor.value = pagamento.valor_centavos
+  edicaoFoiPago.value = Boolean(pagamento.pago_em)
+  edicaoPagoEm.value = pagamento.pago_em ?? hoje
+  edicaoForma.value = (pagamento.forma_pagamento as FormaPagamento) ?? ''
+  edicaoObservacao.value = pagamento.observacao ?? ''
+}
+
+async function salvarEdicao() {
+  const pagamento = emEdicao.value
+  if (!pagamento) return
+
+  salvandoEdicao.value = true
+  try {
+    await atualizarParcela(pagamento.id, {
+      venceEm: edicaoVenceEm.value,
+      valorCentavos: edicaoValor.value,
+      // Desmarcar é mandar `pagoEm: null` — `pago_em` é a única fonte do
+      // estado de pagamento, então tirar a data É desfazer a baixa.
+      pagoEm: edicaoFoiPago.value ? edicaoPagoEm.value : null,
+      formaPagamento: edicaoFoiPago.value ? edicaoForma.value || null : null,
+      observacao: edicaoObservacao.value || null,
+    })
+    emEdicao.value = null
+    toast.success('Lançamento atualizado.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o lançamento.'))
+  } finally {
+    salvandoEdicao.value = false
+  }
+}
+
+// --- agendar o que está sem data ---
+const agendamento = ref<PagamentoListado | null>(null)
+const planoDoAgendamento = ref<InstallmentsGenerateInput['parcelamento'] | undefined>(undefined)
+const planoPronto = ref(false)
+
+function abrirAgendamento(pagamento: PagamentoListado) {
+  agendamento.value = pagamento
+}
+
+// Função nomeada, e não duas atribuições soltas no atributo: o compilador de
+// template do Vue lê o valor de um `@evento` como UMA expressão, e duas linhas
+// ali viram erro de sintaxe — que o `typecheck` não acusa e só aparece quando a
+// página tenta renderizar.
+function receberPlano(payload: {
+  plano: InstallmentsGenerateInput['parcelamento'] | undefined
+  pronto: boolean
+}) {
+  planoDoAgendamento.value = payload.plano
+  planoPronto.value = payload.pronto
+}
+
+async function confirmarAgendamento() {
+  const pagamento = agendamento.value
+  const plano = planoDoAgendamento.value
+  if (!pagamento) return
+
+  // "Defino depois" aqui não faz nada: agendar É definir quando. O saldo segue
+  // em "Sem data", que é exatamente o estado de onde ele veio.
+  if (!plano || !planoPronto.value) {
+    toast.error('Escolha quando este pagamento vai sair.')
+    return
+  }
+
+  try {
+    await gerarParcelasDaDespesa(pagamento.despesa_id, {
+      parcelamento: plano,
+      substituirEmAberto: false,
+    })
+    agendamento.value = null
+    toast.success('Pagamento agendado.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível agendar o pagamento.'))
+  }
+}
+
+/**
+ * O menu da linha. Fora dele fica só a ação que a linha existe para oferecer —
+ * dar baixa, ou agendar o que não tem data.
+ */
+function acoesDaLinha(pagamento: PagamentoListado): AdminRowMenuItem[] {
+  const ehParcela = pagamento.tipo === 'parcela'
+  return [
+    { key: 'ficha', label: 'Abrir o gasto', icon: 'lucide:arrow-right' },
+    {
+      key: 'editar',
+      label: 'Editar lançamento',
+      icon: 'lucide:pencil',
+      disabled: !ehParcela,
+      title: ehParcela ? undefined : 'Este saldo ainda não tem parcela para editar.',
+    },
+    {
+      key: 'desfazer',
+      label: 'Desfazer pagamento',
+      icon: 'lucide:undo-2',
+      disabled: !pagamento.pago_em,
+      title: pagamento.pago_em ? undefined : 'Este lançamento ainda não foi pago.',
+    },
+    {
+      key: 'remover',
+      label: 'Remover parcela',
+      icon: 'lucide:trash-2',
+      tone: 'danger',
+      separarAntes: true,
+      disabled: !ehParcela,
+      title: ehParcela ? undefined : 'Sem parcela para remover ainda.',
+    },
+  ]
+}
+
+function executarAcao(pagamento: PagamentoListado, acao: string) {
+  if (acao === 'ficha') navigateTo(`${base}/gastos/${pagamento.despesa.id}`)
+  if (acao === 'editar') abrirEdicao(pagamento)
+  if (acao === 'desfazer') desfazer(pagamento)
+  if (acao === 'remover') paraExcluir.value = pagamento
+}
+
+const paraExcluir = ref<PagamentoListado | null>(null)
+
+async function confirmarExclusao() {
+  const pagamento = paraExcluir.value
+  if (!pagamento) return
+  try {
+    await excluirParcela(pagamento.id)
+    paraExcluir.value = null
+    toast.success('Parcela removida.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível remover a parcela.'))
+  }
+}
+
+const opcoesForma = [
+  { value: '', label: 'Não informar' },
+  ...Object.entries(ROTULOS_FORMA_PAGAMENTO).map(([value, label]) => ({ value, label })),
+]
+</script>
+
+<template>
+  <AdminSection title="Pagamentos" description="O que vence, o que passou e o que já saiu.">
+    <UiSkeleton v-if="status === 'pending'" class="h-96 w-full" />
+
+    <UiEmptyState
+      v-else-if="error"
+      icon="lucide:triangle-alert"
+      title="Não foi possível carregar os pagamentos"
+      description="Tente novamente em alguns instantes."
+    >
+      <UiButton variant="outline" @click="refresh()">Tentar novamente</UiButton>
+    </UiEmptyState>
+
+    <UiEmptyState
+      v-else-if="pagamentos.length === 0"
+      icon="lucide:receipt"
+      title="Nenhum compromisso ainda"
+      description="Assim que um gasto tiver valor fechado, ele aparece aqui — mesmo antes de você definir como vai pagar."
+    >
+      <UiButton :to="base">Ir para os gastos</UiButton>
+    </UiEmptyState>
+
+    <AdminPanel
+      v-else
+      title="Calendário"
+      :meta="`${linhasFiltradas.length} de ${pagamentos.length}`"
+    >
+      <template #headerActions>
+        <AdminTableFilterBar
+          :filters="filters"
+          :columns="colunas"
+          group-label="Filtros de pagamentos"
+        />
+        <UiButton variant="ghost" size="sm" @click="alternarTudo">
+          <Icon
+            :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
+            class="h-4 w-4"
+          />
+          {{ tudoRecolhido ? 'Expandir tudo' : 'Recolher tudo' }}
+        </UiButton>
+      </template>
+
+      <AdminTable
+        :columns="colunas"
+        :rows="linhasFiltradas"
+        :sections="secoes"
+        :collapsed-ids="recolhidos"
+        :filters="filters"
+        row-clickable
+        empty-label="Nenhum lançamento com esses filtros."
+        @toggle-section="alternarFaixa"
+        @row-click="abrirEdicao"
+      >
+        <template #cell-gasto="{ row }">
+          <div class="min-w-0">
+            <!-- O nome leva para a ficha do gasto; a linha inteira abre o
+                 lançamento. São duas perguntas diferentes no mesmo lugar:
+                 "como está o buffet?" e "quero mexer nesta parcela". -->
+            <NuxtLink
+              :to="`${base}/gastos/${row.despesa.id}`"
+              class="block max-w-full truncate text-text hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              @click.stop
+            >
+              {{ row.despesa.descricao }}
+            </NuxtLink>
+            <span class="flex items-center gap-1.5 truncate text-xs text-text-muted">
+              <span
+                v-if="row.categoria"
+                aria-hidden="true"
+                class="h-2 w-2 shrink-0 rounded-full"
+                :style="{
+                  backgroundColor: corDaCategoria(
+                    row.categoria.cor_indice,
+                    row.categoria.cor_personalizada,
+                  ).solida,
+                }"
+              />
+              <span class="truncate">
+                <template v-if="row.categoria">{{ row.categoria.nome }}</template>
+                <template v-if="row.categoria && row.fornecedor"> · </template>
+                <template v-if="row.fornecedor">{{ row.fornecedor.nome }}</template>
+              </span>
+            </span>
+          </div>
+        </template>
+
+        <template #cell-vencimento="{ row }">
+          <div class="min-w-0">
+            <span v-if="row.vence_em" class="num block text-sm text-text">
+              {{ formatarVencimento(row.vence_em, hoje) }}
+            </span>
+            <span v-else class="block text-sm text-text-muted">Sem data</span>
+            <span v-if="row.pago_em" class="block truncate text-xs text-text-muted">
+              pago em {{ formatarVencimento(row.pago_em, hoje) }}
+              <template v-if="row.forma_pagamento">
+                · {{ ROTULOS_FORMA_PAGAMENTO[row.forma_pagamento as FormaPagamento] }}
+              </template>
+            </span>
+            <span
+              v-else-if="row.vence_em && row.totalDeParcelas > 1"
+              class="block text-xs text-text-muted"
+            >
+              parcela {{ row.numero }} de {{ row.totalDeParcelas }}
+            </span>
+          </div>
+        </template>
+
+        <template #cell-valor="{ row }">
+          <span class="num font-medium text-text">
+            {{ formatCentsToBRL(row.valor_centavos) }}
+          </span>
+        </template>
+
+        <!-- Só "Agendar" fica em `outline`: é o furo que esta tela existe para
+             fechar. "Marcar pago" em ghost porque aparece em quase toda linha. -->
+        <template #cell-acoes="{ row }">
+          <div class="flex items-center justify-end gap-1">
+            <UiButton
+              v-if="row.tipo === 'a_definir'"
+              size="sm"
+              variant="outline"
+              @click="abrirAgendamento(row)"
+            >
+              Agendar
+            </UiButton>
+            <UiButton v-else-if="!row.pago_em" size="sm" variant="ghost" @click="abrirBaixa(row)">
+              Marcar pago
+            </UiButton>
+            <AdminRowMenu
+              :items="acoesDaLinha(row)"
+              :label="`Ações de ${row.despesa.descricao}`"
+              @select="executarAcao(row, $event)"
+            />
+          </div>
+        </template>
+
+        <template #stacked="{ row }">
+          <div class="flex flex-col gap-1 px-4 py-3">
+            <span class="font-medium text-text">{{ row.despesa.descricao }}</span>
+            <span class="num text-sm text-text">
+              {{ formatCentsToBRL(row.valor_centavos) }}
+              <template v-if="row.vence_em">
+                · vence em {{ formatarVencimento(row.vence_em, hoje) }}
+              </template>
+              <template v-else>· sem data definida</template>
+            </span>
+            <div class="mt-1 flex items-center gap-2">
+              <UiButton
+                v-if="row.tipo === 'a_definir'"
+                variant="outline"
+                @click="abrirAgendamento(row)"
+              >
+                Agendar
+              </UiButton>
+              <UiButton v-else-if="!row.pago_em" variant="outline" @click="abrirBaixa(row)">
+                Marcar pago
+              </UiButton>
+              <UiButton v-else variant="ghost" @click="desfazer(row)">Desfazer</UiButton>
+              <UiButton variant="ghost" :to="`${base}/gastos/${row.despesa.id}`">
+                Abrir gasto
+              </UiButton>
+            </div>
+          </div>
+        </template>
+      </AdminTable>
+    </AdminPanel>
+
+    <UiModal
+      :model-value="Boolean(pagamentoEmEdicao)"
+      title="Registrar pagamento"
+      :description="`${pagamentoEmEdicao?.despesa.descricao ?? ''} — ${pagamentoEmEdicao ? formatCentsToBRL(pagamentoEmEdicao.valor_centavos) : ''}`"
+      @update:model-value="pagamentoEmEdicao = null"
+    >
+      <form class="flex flex-col gap-4" @submit.prevent="confirmarBaixa">
+        <UiDatePicker v-model="dataDoPagamento" label="Pago em" />
+        <UiSelect v-model="formaDoPagamento" label="Forma de pagamento" :options="opcoesForma" />
+      </form>
+      <template #footer>
+        <UiButton variant="ghost" @click="pagamentoEmEdicao = null">Cancelar</UiButton>
+        <UiButton @click="confirmarBaixa">Confirmar</UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      :model-value="Boolean(emEdicao)"
+      title="Editar lançamento"
+      :description="emEdicao?.despesa.descricao ?? ''"
+      @update:model-value="emEdicao = null"
+    >
+      <form class="flex flex-col gap-4" @submit.prevent="salvarEdicao">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UiDatePicker v-model="edicaoVenceEm" label="Vence em" />
+          <UiCurrencyInput v-model="edicaoValor" label="Valor" />
+        </div>
+
+        <UiCheckbox v-model="edicaoFoiPago" label="Este lançamento já foi pago" />
+
+        <div v-if="edicaoFoiPago" class="grid gap-4 sm:grid-cols-2">
+          <UiDatePicker
+            v-model="edicaoPagoEm"
+            label="Pago em"
+            hint="A data do pagamento é o que define o estado — desmarcar acima desfaz a baixa."
+          />
+          <UiSelect v-model="edicaoForma" label="Forma de pagamento" :options="opcoesForma" />
+        </div>
+
+        <UiInput v-model="edicaoObservacao" label="Observação" placeholder="Opcional" />
+      </form>
+
+      <template #footer>
+        <UiButton variant="ghost" @click="emEdicao = null">Cancelar</UiButton>
+        <UiButton :disabled="salvandoEdicao" @click="salvarEdicao">
+          {{ salvandoEdicao ? 'Salvando…' : 'Salvar' }}
+        </UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      :model-value="Boolean(agendamento)"
+      title="Agendar pagamento"
+      :description="`${agendamento?.despesa.descricao ?? ''} — ${agendamento ? formatCentsToBRL(agendamento.valor_centavos) : ''} sem data definida`"
+      @update:model-value="agendamento = null"
+    >
+      <AdminFinancePaymentPlanFields
+        :total-centavos="agendamento?.valor_centavos ?? 0"
+        :hoje="hoje"
+        :reiniciar="Boolean(agendamento)"
+        @atualizar="receberPlano"
+      />
+      <template #footer>
+        <UiButton variant="ghost" @click="agendamento = null">Cancelar</UiButton>
+        <UiButton @click="confirmarAgendamento">Agendar</UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      :model-value="Boolean(paraExcluir)"
+      title="Remover parcela"
+      description="A parcela sai do cronograma. O gasto e o valor contratado continuam no orçamento — o saldo volta a aparecer como sem data."
+      @update:model-value="paraExcluir = null"
+    >
+      <template #footer>
+        <UiButton variant="ghost" @click="paraExcluir = null">Cancelar</UiButton>
+        <UiButton variant="destructive" @click="confirmarExclusao">Remover</UiButton>
+      </template>
+    </UiModal>
+  </AdminSection>
+</template>

@@ -67,7 +67,10 @@ describe('PublicGrandeDiaSection', () => {
 
   it('renderiza um único cartão quando os segmentos já vêm fundidos no mesmo grupo', () => {
     const wrapper = mountSection([
-      [makeSegment({ id: 'a', titulo: 'Cerimônia' }), makeSegment({ id: 'b', titulo: 'Recepção', mesmo_local_que: 'a' })],
+      [
+        makeSegment({ id: 'a', titulo: 'Cerimônia' }),
+        makeSegment({ id: 'b', titulo: 'Recepção', mesmo_local_que: 'a' }),
+      ],
     ])
     expect(wrapper.findAll('[data-test="spotlight-card"]')).toHaveLength(1)
   })

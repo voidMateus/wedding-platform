@@ -14,7 +14,9 @@ export function useEventSegmentImageUpload() {
   }
 
   async function removeEventSegmentImage(id: string): Promise<{ removed: boolean }> {
-    return $fetch<{ removed: boolean }>(`/api/event-segments/${id}/image-upload`, { method: 'DELETE' })
+    return $fetch<{ removed: boolean }>(`/api/event-segments/${id}/image-upload`, {
+      method: 'DELETE',
+    })
   }
 
   return { uploadEventSegmentImage, removeEventSegmentImage }

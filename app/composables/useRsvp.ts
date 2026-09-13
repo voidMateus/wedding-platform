@@ -39,5 +39,12 @@ export function useRsvp() {
     return $fetch(`/api/rsvp/invites/${inviteId}/finalize`, { method: 'POST', body: input })
   }
 
-  return { searchGuests, selectGuest, confirmGuest, getRsvpByCode, autosaveGuestStatus, finalizeInvite }
+  return {
+    searchGuests,
+    selectGuest,
+    confirmGuest,
+    getRsvpByCode,
+    autosaveGuestStatus,
+    finalizeInvite,
+  }
 }

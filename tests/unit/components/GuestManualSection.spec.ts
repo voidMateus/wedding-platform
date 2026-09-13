@@ -63,7 +63,9 @@ describe('PublicGuestManualSection', () => {
       makeWedding({
         config_conteudo: {
           guestManualIntro: 'Leia com carinho.',
-          guestManualTopics: [{ icon: 'lucide:info', title: 'Estacionamento', description: 'Vagas no local.' }],
+          guestManualTopics: [
+            { icon: 'lucide:info', title: 'Estacionamento', description: 'Vagas no local.' },
+          ],
         },
       }),
     )

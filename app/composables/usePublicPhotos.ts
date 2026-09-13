@@ -12,7 +12,9 @@ interface PhotoListResponse {
 export function usePublicPhotos() {
   function getPublicPhotos() {
     const slug = useWeddingSlug()
-    return useFetch<PhotoListResponse>(`/api/public/${slug}/photos`, { key: `public-photos-${slug}` })
+    return useFetch<PhotoListResponse>(`/api/public/${slug}/photos`, {
+      key: `public-photos-${slug}`,
+    })
   }
 
   return { getPublicPhotos }

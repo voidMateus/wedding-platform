@@ -7,7 +7,9 @@ describe('extractDriveFolderId', () => {
   const FOLDER_ID = '1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUv'
 
   it('extrai de uma URL /drive/folders/{id}', () => {
-    expect(extractDriveFolderId(`https://drive.google.com/drive/folders/${FOLDER_ID}`)).toBe(FOLDER_ID)
+    expect(extractDriveFolderId(`https://drive.google.com/drive/folders/${FOLDER_ID}`)).toBe(
+      FOLDER_ID,
+    )
   })
 
   it('extrai ignorando querystring (usp=sharing, resourcekey)', () => {
@@ -27,9 +29,9 @@ describe('extractDriveFolderId', () => {
 
   it('extrai de open?id={id} e uc?id={id}', () => {
     expect(extractDriveFolderId(`https://drive.google.com/open?id=${FOLDER_ID}`)).toBe(FOLDER_ID)
-    expect(extractDriveFolderId(`https://drive.google.com/uc?id=${FOLDER_ID}&export=download`)).toBe(
-      FOLDER_ID,
-    )
+    expect(
+      extractDriveFolderId(`https://drive.google.com/uc?id=${FOLDER_ID}&export=download`),
+    ).toBe(FOLDER_ID)
   })
 
   it('aceita um id colado sozinho', () => {

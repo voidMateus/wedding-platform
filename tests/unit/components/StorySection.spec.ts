@@ -32,7 +32,9 @@ function mountStory(wedding: Wedding) {
     props: { wedding },
     global: {
       components: { UiSectionDivider: SectionDivider, PublicEditorialSection: EditorialSection },
-      stubs: { NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] } },
+      stubs: {
+        NuxtImg: { template: '<img :src="src" :alt="alt" />', props: ['src', 'alt', 'sizes'] },
+      },
     },
   })
 }
@@ -73,7 +75,9 @@ describe('PublicStorySection', () => {
   })
 
   it('usa a mensagem customizada pelo casal quando presente em config_conteudo', () => {
-    const wrapper = mountStory(makeWedding({ config_conteudo: { storyMessage: 'Nossa história, do nosso jeito.' } }))
+    const wrapper = mountStory(
+      makeWedding({ config_conteudo: { storyMessage: 'Nossa história, do nosso jeito.' } }),
+    )
     expect(wrapper.text()).toContain('Nossa história, do nosso jeito.')
     expect(wrapper.text()).not.toContain(STORY_CONTENT.paragraphs[0])
   })

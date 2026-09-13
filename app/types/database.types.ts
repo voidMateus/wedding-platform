@@ -146,6 +146,7 @@ export type Database = {
           modo_entrega_presente_fisico: string
           modo_lista_convidados: string
           nomes_noivos: string
+          orcamento_total_centavos: number | null
           prazo_rsvp: string | null
           slug: string
           status_ciclo_vida: string
@@ -164,6 +165,7 @@ export type Database = {
           modo_entrega_presente_fisico?: string
           modo_lista_convidados?: string
           nomes_noivos: string
+          orcamento_total_centavos?: number | null
           prazo_rsvp?: string | null
           slug: string
           status_ciclo_vida?: string
@@ -182,12 +184,60 @@ export type Database = {
           modo_entrega_presente_fisico?: string
           modo_lista_convidados?: string
           nomes_noivos?: string
+          orcamento_total_centavos?: number | null
           prazo_rsvp?: string | null
           slug?: string
           status_ciclo_vida?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      categorias_orcamento: {
+        Row: {
+          casamento_id: string
+          cor_indice: number
+          cor_personalizada: string | null
+          created_at: string
+          excluido_em: string | null
+          id: string
+          nome: string
+          ordem_exibicao: number
+          updated_at: string
+          valor_previsto_centavos: number
+        }
+        Insert: {
+          casamento_id: string
+          cor_indice?: number
+          cor_personalizada?: string | null
+          created_at?: string
+          excluido_em?: string | null
+          id?: string
+          nome: string
+          ordem_exibicao?: number
+          updated_at?: string
+          valor_previsto_centavos?: number
+        }
+        Update: {
+          casamento_id?: string
+          cor_indice?: number
+          cor_personalizada?: string | null
+          created_at?: string
+          excluido_em?: string | null
+          id?: string
+          nome?: string
+          ordem_exibicao?: number
+          updated_at?: string
+          valor_previsto_centavos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categorias_orcamento_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       categorias_presentes: {
         Row: {
@@ -674,6 +724,140 @@ export type Database = {
           },
         ]
       }
+      despesas: {
+        Row: {
+          casamento_id: string
+          categoria_id: string | null
+          created_at: string
+          descricao: string
+          excluido_em: string | null
+          fornecedor_id: string | null
+          id: string
+          observacao: string | null
+          updated_at: string
+          valor_centavos: number | null
+          valor_estimado_centavos: number | null
+        }
+        Insert: {
+          casamento_id: string
+          categoria_id?: string | null
+          created_at?: string
+          descricao: string
+          excluido_em?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+          valor_centavos?: number | null
+          valor_estimado_centavos?: number | null
+        }
+        Update: {
+          casamento_id?: string
+          categoria_id?: string | null
+          created_at?: string
+          descricao?: string
+          excluido_em?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+          valor_centavos?: number | null
+          valor_estimado_centavos?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "despesas_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "despesas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_orcamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "despesas_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos: {
+        Row: {
+          caminho_storage: string | null
+          casamento_id: string
+          created_at: string
+          despesa_id: string | null
+          fornecedor_id: string | null
+          id: string
+          nome_arquivo: string | null
+          tamanho_bytes: number | null
+          tipo: string
+          tipo_mime: string | null
+          titulo: string
+          updated_at: string
+          url_externa: string | null
+        }
+        Insert: {
+          caminho_storage?: string | null
+          casamento_id: string
+          created_at?: string
+          despesa_id?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          nome_arquivo?: string | null
+          tamanho_bytes?: number | null
+          tipo: string
+          tipo_mime?: string | null
+          titulo: string
+          updated_at?: string
+          url_externa?: string | null
+        }
+        Update: {
+          caminho_storage?: string | null
+          casamento_id?: string
+          created_at?: string
+          despesa_id?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          nome_arquivo?: string | null
+          tamanho_bytes?: number | null
+          tipo?: string
+          tipo_mime?: string | null
+          titulo?: string
+          updated_at?: string
+          url_externa?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_despesa_id_fkey"
+            columns: ["despesa_id"]
+            isOneToOne: false
+            referencedRelation: "despesas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       etapas_evento: {
         Row: {
           casamento_id: string
@@ -795,6 +979,82 @@ export type Database = {
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fornecedores: {
+        Row: {
+          casamento_id: string
+          categoria_id: string | null
+          created_at: string
+          despesa_id: string | null
+          email: string | null
+          estagio: string
+          excluido_em: string | null
+          id: string
+          nome: string
+          nome_contato: string | null
+          observacao: string | null
+          site_url: string | null
+          telefone: string | null
+          updated_at: string
+          valor_proposto_centavos: number | null
+        }
+        Insert: {
+          casamento_id: string
+          categoria_id?: string | null
+          created_at?: string
+          despesa_id?: string | null
+          email?: string | null
+          estagio?: string
+          excluido_em?: string | null
+          id?: string
+          nome: string
+          nome_contato?: string | null
+          observacao?: string | null
+          site_url?: string | null
+          telefone?: string | null
+          updated_at?: string
+          valor_proposto_centavos?: number | null
+        }
+        Update: {
+          casamento_id?: string
+          categoria_id?: string | null
+          created_at?: string
+          despesa_id?: string | null
+          email?: string | null
+          estagio?: string
+          excluido_em?: string | null
+          id?: string
+          nome?: string
+          nome_contato?: string | null
+          observacao?: string | null
+          site_url?: string | null
+          telefone?: string | null
+          updated_at?: string
+          valor_proposto_centavos?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fornecedores_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_orcamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fornecedores_despesa_id_fkey"
+            columns: ["despesa_id"]
+            isOneToOne: false
+            referencedRelation: "despesas"
             referencedColumns: ["id"]
           },
         ]
@@ -1186,6 +1446,63 @@ export type Database = {
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parcelas_despesa: {
+        Row: {
+          casamento_id: string
+          created_at: string
+          despesa_id: string
+          forma_pagamento: string | null
+          id: string
+          numero: number
+          observacao: string | null
+          pago_em: string | null
+          updated_at: string
+          valor_centavos: number
+          vence_em: string
+        }
+        Insert: {
+          casamento_id: string
+          created_at?: string
+          despesa_id: string
+          forma_pagamento?: string | null
+          id?: string
+          numero: number
+          observacao?: string | null
+          pago_em?: string | null
+          updated_at?: string
+          valor_centavos: number
+          vence_em: string
+        }
+        Update: {
+          casamento_id?: string
+          created_at?: string
+          despesa_id?: string
+          forma_pagamento?: string | null
+          id?: string
+          numero?: number
+          observacao?: string | null
+          pago_em?: string | null
+          updated_at?: string
+          valor_centavos?: number
+          vence_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelas_despesa_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcelas_despesa_despesa_id_fkey"
+            columns: ["despesa_id"]
+            isOneToOne: false
+            referencedRelation: "despesas"
             referencedColumns: ["id"]
           },
         ]

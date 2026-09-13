@@ -59,7 +59,10 @@ describe('UiCard', () => {
   })
 
   it('aplica o degrau reduzido (radius/elevation "lg"/"sm") quando pedido', () => {
-    const wrapper = mount(Card, { props: { radius: 'lg', elevation: 'sm' }, slots: { default: 'Conteúdo' } })
+    const wrapper = mount(Card, {
+      props: { radius: 'lg', elevation: 'sm' },
+      slots: { default: 'Conteúdo' },
+    })
     expect(wrapper.classes()).toContain('rounded-lg')
     expect(wrapper.classes()).toContain('shadow-sm')
   })
@@ -71,7 +74,10 @@ describe('UiCard', () => {
   })
 
   it('variant "interactive" ganha hover no degrau médio da escala', () => {
-    const wrapper = mount(Card, { props: { variant: 'interactive' }, slots: { default: 'Conteúdo' } })
+    const wrapper = mount(Card, {
+      props: { variant: 'interactive' },
+      slots: { default: 'Conteúdo' },
+    })
     expect(wrapper.classes()).toContain('hover:shadow-md')
     expect(wrapper.classes()).toContain('cursor-pointer')
   })

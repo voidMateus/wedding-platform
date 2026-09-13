@@ -95,13 +95,19 @@ describe('PublicHero', () => {
   it('mostra o local do primeiro segmento com nome_local na linha da data', () => {
     const wrapper = mountHero({
       wedding: makeWedding(),
-      segments: [makeSegment({ nome_local: null }), makeSegment({ nome_local: 'Buffet Casa das Pedras' })],
+      segments: [
+        makeSegment({ nome_local: null }),
+        makeSegment({ nome_local: 'Buffet Casa das Pedras' }),
+      ],
     })
     expect(wrapper.text()).toContain('Buffet Casa das Pedras')
   })
 
   it('não quebra quando nenhum segmento tem nome_local', () => {
-    const wrapper = mountHero({ wedding: makeWedding(), segments: [makeSegment({ nome_local: null })] })
+    const wrapper = mountHero({
+      wedding: makeWedding(),
+      segments: [makeSegment({ nome_local: null })],
+    })
     expect(wrapper.text()).not.toContain('•')
   })
 
@@ -139,7 +145,9 @@ describe('PublicHero', () => {
 
   it('o atalho de presentes é o CTA primário (cor de destaque)', () => {
     const wrapper = mountHero({ wedding: makeWedding() })
-    const presentesLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/presentes')
+    const presentesLink = wrapper
+      .findAll('a')
+      .find((a) => a.attributes('href') === '/ana-e-joao/presentes')
     expect(presentesLink?.classes()).toContain('bg-primary')
   })
 
@@ -160,7 +168,9 @@ describe('PublicHero', () => {
 
   it('respeita a seleção customizada de atalhos do casal (config_tema.heroButtons)', () => {
     const wrapper = mountHero({
-      wedding: makeWedding({ config_tema: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' } }),
+      wedding: makeWedding({
+        config_tema: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' },
+      }),
     })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     expect(hrefs).toContain('/ana-e-joao/#nossos-momentos')
@@ -169,7 +179,9 @@ describe('PublicHero', () => {
 
     const faqLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#faq')
     expect(faqLink?.classes()).toContain('bg-primary')
-    const galeriaLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/ana-e-joao/#nossos-momentos')
+    const galeriaLink = wrapper
+      .findAll('a')
+      .find((a) => a.attributes('href') === '/ana-e-joao/#nossos-momentos')
     expect(galeriaLink?.classes()).not.toContain('bg-primary')
   })
 

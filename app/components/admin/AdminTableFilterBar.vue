@@ -20,9 +20,15 @@ interface Props {
   filters: TableFiltersApi
   /** Nome do grupo para leitor de tela (ex.: "Filtros de convidados"). */
   groupLabel: string
+  /**
+   * Mantém o botão "Filtros" visível em qualquer largura. Necessário para a
+   * tabela sem `<thead>` (`column-header="section"`), onde não existe o menu
+   * do cabeçalho para onde o botão normalmente delega no desktop.
+   */
+  alwaysShowButton?: boolean
 }
 
-const { columns, filters, groupLabel } = defineProps<Props>()
+const { columns, filters, groupLabel, alwaysShowButton = false } = defineProps<Props>()
 
 const isModalOpen = ref(false)
 
@@ -52,10 +58,12 @@ const hasActive = computed(() => filters.hasActive.value)
       Limpar tudo
     </button>
 
-    <!-- md:hidden: do `md` pra cima o caminho é o menu do próprio cabeçalho. -->
+    <!-- md:hidden: do `md` pra cima o caminho é o menu do próprio cabeçalho —
+         a menos que a tabela não tenha cabeçalho (`alwaysShowButton`). -->
     <button
       type="button"
-      class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-text-muted transition-brand hover:bg-surface-muted/60 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:hidden"
+      class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-text-muted transition-brand hover:bg-surface-muted/60 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      :class="!alwaysShowButton && 'md:hidden'"
       @click="isModalOpen = true"
     >
       <Icon name="lucide:sliders-horizontal" class="h-3.5 w-3.5" />

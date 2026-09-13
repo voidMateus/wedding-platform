@@ -13,6 +13,8 @@ describe('guestAccessTokenGenerateSchema', () => {
   })
 
   it('rejeita conviteId que não é uuid', () => {
-    expect(guestAccessTokenGenerateSchema.safeParse({ conviteId: 'não-é-uuid' }).success).toBe(false)
+    expect(guestAccessTokenGenerateSchema.safeParse({ conviteId: 'não-é-uuid' }).success).toBe(
+      false,
+    )
   })
 })

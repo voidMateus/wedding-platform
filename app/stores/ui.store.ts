@@ -28,7 +28,15 @@ export const useUiStore = defineStore('ui', () => {
     themeConfig.value = config
   }
 
+  /**
+   * Devolve o id do toast — o de um já visível quando a mensagem se repete, e
+   * é isso que impede a mesma ação impedida de empilhar seis cartões iguais.
+   * Quem chama (`useToast`) reinicia a contagem desse id.
+   */
   function pushToast(tone: ToastTone, message: string): string {
+    const jaNaTela = toasts.value.find((toast) => toast.tone === tone && toast.message === message)
+    if (jaNaTela) return jaNaTela.id
+
     const id = crypto.randomUUID()
     toasts.value.push({ id, tone, message })
     return id

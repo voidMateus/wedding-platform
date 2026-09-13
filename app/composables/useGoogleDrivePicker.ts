@@ -72,9 +72,13 @@ interface Gapi {
   load: (name: string, callback: () => void) => void
 }
 
-function getGoogle(): { accounts?: { oauth2: GoogleOAuth2 }; picker?: PickerNamespace } | undefined {
-  return (window as unknown as { google?: { accounts?: { oauth2: GoogleOAuth2 }; picker?: PickerNamespace } })
-    .google
+function getGoogle():
+  { accounts?: { oauth2: GoogleOAuth2 }; picker?: PickerNamespace } | undefined {
+  return (
+    window as unknown as {
+      google?: { accounts?: { oauth2: GoogleOAuth2 }; picker?: PickerNamespace }
+    }
+  ).google
 }
 function getGapi(): Gapi | undefined {
   return (window as unknown as { gapi?: Gapi }).gapi

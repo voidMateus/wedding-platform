@@ -63,6 +63,14 @@ const ROTAS_DO_MODULO_CONVIDADOS = ['/convidados', '/grupos', '/convites'] as co
 const ROTAS_DO_MODULO_CONFIGURACOES = ['/configuracoes', '/cronograma', '/galeria'] as const
 
 /**
+ * Rotas do módulo Financeiro. Todas debaixo de `/financeiro`, diferente de
+ * Convidados (que possui `/grupos` e `/convites` no mesmo nível): aqui as
+ * telas nasceram juntas, então o prefixo comum já diz a que módulo pertencem
+ * sem uma lista de posse.
+ */
+const ROTAS_DO_MODULO_FINANCEIRO = ['/financeiro'] as const
+
+/**
  * As seções de Configurações, agrupadas pelo assunto que era aba no topo.
  *
  * Vive aqui, e não na página, porque virou navegação: o menu da seção monta a
@@ -155,6 +163,15 @@ export function adminPrimaryNav(slug: string): AdminNavItem[] {
       tambemDonoDe: ROTAS_DO_MODULO_CONVIDADOS.map((rota) => `${base}${rota}`),
     },
     { to: `${base}/presentes`, label: 'Presentes', icon: 'lucide:gift' },
+    // Financeiro é a quinta aba: a barra do celular mostra quatro destinos
+    // mais o "Mais", então ele entra na barra e Configurações (aberta uma vez
+    // por semana, não por dia) passa a viver no "Mais".
+    {
+      to: `${base}/financeiro`,
+      label: 'Financeiro',
+      icon: 'lucide:wallet',
+      tambemDonoDe: ROTAS_DO_MODULO_FINANCEIRO.map((rota) => `${base}${rota}`),
+    },
     // Cronograma e Galeria também perdem aba própria: são telas do módulo
     // Configurações (o casal preparando o que o convidado vai ver).
     {
@@ -227,6 +244,42 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
         itens: [
           { label: 'Formulários', icon: 'lucide:clipboard-list', indisponivel: 'Em breve.' },
           { label: 'Integrações', icon: 'lucide:plug', indisponivel: 'Em breve.' },
+        ],
+      },
+    ]
+  }
+
+  if (ROTAS_DO_MODULO_FINANCEIRO.some((rota) => path.startsWith(`${base}${rota}`))) {
+    return [
+      // Duas telas, um objeto. Eram quatro (Orçamento, Fornecedores,
+      // Pagamentos, Documentos) porque a navegação seguia VERBOS — planejar,
+      // cotar, pagar, anexar —, e a vida de um mesmo gasto ficava picada entre
+      // elas. Fornecedor e documento viraram seções da ficha do gasto;
+      // Pagamentos sobrevive por ser outro EIXO (o tempo), não outro objeto.
+      {
+        label: 'Financeiro',
+        itens: [
+          {
+            to: `${base}/financeiro`,
+            label: 'Gastos',
+            icon: 'lucide:receipt-text',
+            exact: true,
+            // A ficha é filha desta lista, não um destino próprio: quem está
+            // lendo um gasto continua "em Gastos".
+            tambemDonoDe: [`${base}/financeiro/gastos`],
+          },
+          // Categoria é atributo do gasto, não um terceiro objeto — mas ela
+          // ganha lugar pelo mesmo motivo que Grupos tem o dele em Convidados:
+          // somada, ela responde "onde o dinheiro está indo?", pergunta que uma
+          // lista de linhas individuais não responde. Vem ANTES de Pagamentos
+          // porque é ali que se planeja: a ordem do menu é a ordem do dinheiro
+          // na vida do casal — listar, planejar, pagar.
+          { to: `${base}/financeiro/categorias`, label: 'Categorias', icon: 'lucide:tags' },
+          {
+            to: `${base}/financeiro/pagamentos`,
+            label: 'Pagamentos',
+            icon: 'lucide:calendar-clock',
+          },
         ],
       },
     ]

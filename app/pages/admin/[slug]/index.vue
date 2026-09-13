@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
+import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { formatDatePtBR } from '#shared/utils/format-date'
 import {
   FAIXA_ETARIA_NAO_INFORMADA,
@@ -80,6 +81,40 @@ const metrics = computed(() => {
     { label: 'Pessoas na lista', value: data.value.people.total },
     { label: 'Confirmações hoje', value: data.value.rsvp.respondedToday, tone: 'primary' as const },
   ]
+})
+
+// --- alerta do Financeiro ---
+//
+// Vencidos primeiro, "vence em 30 dias" como segunda opção: o painel mostra no
+// máximo UM número do módulo, e ele precisa ser o que pede providência hoje.
+const { getResumo } = useFinance()
+const { data: resumoFinanceiro } = getResumo()
+
+const alertaFinanceiro = computed(() => {
+  const atencao = resumoFinanceiro.value?.atencao
+  if (!atencao) return null
+
+  const base = `/admin/${slug}/financeiro`
+
+  if (atencao.vencidos.quantidade > 0) {
+    return {
+      valor: formatCentsToBRL(atencao.vencidos.valor),
+      descricao: `vencido${atencao.vencidos.quantidade === 1 ? '' : 's'} em ${atencao.vencidos.quantidade} parcela${atencao.vencidos.quantidade === 1 ? '' : 's'}`,
+      destino: `${base}/orcamento?vencimento=vencidos`,
+      tone: 'danger' as const,
+    }
+  }
+
+  if (atencao.proximos30Dias.quantidade > 0) {
+    return {
+      valor: formatCentsToBRL(atencao.proximos30Dias.valor),
+      descricao: `a pagar nos próximos 30 dias`,
+      destino: `${base}/orcamento?vencimento=proximos`,
+      tone: 'warning' as const,
+    }
+  }
+
+  return null
 })
 
 // --- pessoas por faixa etária ---
@@ -272,6 +307,32 @@ function statusOf(invite: InviteListItem) {
           </div>
         </div>
       </AdminPanel>
+
+      <!--
+        O Financeiro empurra UM dado para cá, e só quando há urgência: parcela
+        vencida ou vencendo em 30 dias. Repetir o quadro inteiro do módulo
+        transformaria o painel em dois dashboards concorrentes; a ausência
+        desta faixa é a informação de que o dinheiro está em dia.
+      -->
+      <NuxtLink
+        v-if="alertaFinanceiro"
+        :to="alertaFinanceiro.destino"
+        class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-muted/60 sm:px-5"
+      >
+        <Icon
+          name="lucide:wallet"
+          class="h-4 w-4 shrink-0"
+          :class="alertaFinanceiro.tone === 'danger' ? 'text-danger' : 'text-warning'"
+        />
+        <span
+          class="font-display text-lg font-semibold tabular-nums"
+          :class="alertaFinanceiro.tone === 'danger' ? 'text-danger' : 'text-warning'"
+        >
+          {{ alertaFinanceiro.valor }}
+        </span>
+        <span class="text-sm text-text">{{ alertaFinanceiro.descricao }}</span>
+        <span class="ml-auto text-xs text-text-muted">ver no Financeiro</span>
+      </NuxtLink>
 
       <div class="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <AdminMetricStrip :metrics="metrics" class="lg:col-span-8" />
