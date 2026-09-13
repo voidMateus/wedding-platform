@@ -5,13 +5,27 @@ interface Props {
   /** Valor em centavos — `undefined`/`null` quando o campo está vazio. */
   modelValue?: number | null
   label?: string
+  /**
+   * Nome acessível quando o campo não tem `label` desenhado — mesmo contrato
+   * do `UiInput`. Existe para a edição no lugar, em lista: ali o rótulo
+   * visível é o nome do gasto na própria linha, e sem isto todos os campos de
+   * dinheiro da tela se anunciariam igual ("R$", sem dono).
+   */
+  ariaLabel?: string
   error?: string
   disabled?: boolean
   /** Teto de dígitos aceitos (padrão: 11 → R$ 999.999.999,99). */
   maxDigits?: number
 }
 
-const { modelValue = null, label, error, disabled = false, maxDigits = 11 } = defineProps<Props>()
+const {
+  modelValue = null,
+  label,
+  ariaLabel,
+  error,
+  disabled = false,
+  maxDigits = 11,
+} = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: number | undefined]
@@ -62,6 +76,7 @@ function onInput(event: Event) {
         placeholder="0,00"
         :disabled="disabled"
         :value="displayText"
+        :aria-label="ariaLabel"
         :aria-invalid="Boolean(error)"
         :aria-describedby="error ? `${inputId}-error` : undefined"
         class="h-10 rounded-md border border-border bg-surface pl-10 pr-3 text-sm tabular-nums text-text placeholder:text-text-muted transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"

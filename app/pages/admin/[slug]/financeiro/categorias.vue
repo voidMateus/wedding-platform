@@ -105,6 +105,31 @@ function resumo(linha: CategoriaComDespesas): string {
   return `${formatCentsToBRL(linha.contratado)} de ${formatCentsToBRL(linha.estimado)} contratados`
 }
 
+/**
+ * Quais categorias estão abertas.
+ *
+ * A linha era um link para a lista de gastos filtrada; virou expansão porque a
+ * pergunta de quem clica numa categoria é "o que tem aqui dentro?", e a
+ * resposta cabe na própria linha — inclusive editável. O caminho para a lista
+ * continua existindo, dentro do que abriu.
+ */
+const expandidas = ref<string[]>([])
+
+function chave(linha: CategoriaComDespesas): string {
+  return linha.categoriaId ?? 'sem-categoria'
+}
+
+function aberta(linha: CategoriaComDespesas): boolean {
+  return expandidas.value.includes(chave(linha))
+}
+
+function alternar(linha: CategoriaComDespesas) {
+  const id = chave(linha)
+  expandidas.value = aberta(linha)
+    ? expandidas.value.filter((atual) => atual !== id)
+    : [...expandidas.value, id]
+}
+
 // --- criar / editar ---
 const modalAberto = ref(false)
 const emEdicao = ref<CategoriaComDespesas | null>(null)
@@ -208,42 +233,77 @@ async function arquivar(id: string, arquivada: boolean) {
       </div>
 
       <ul v-else class="divide-y divide-border">
-        <li
-          v-for="linha in linhas"
-          :key="linha.categoriaId ?? 'sem-categoria'"
-          class="ledger-row flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-5 sm:px-5"
-        >
-          <!-- `sm:contents` dissolve este wrapper a partir do sm, como em
-               Grupos: nome, barra e valor viram irmãos diretos da linha e as
-               barras ficam alinhadas entre si. No celular ele mantém nome e
-               ações na primeira linha. -->
-          <div class="flex items-center gap-3 sm:contents">
-            <span
-              class="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-text sm:w-44 sm:flex-none"
+        <li v-for="linha in linhas" :key="chave(linha)" class="ledger-row flex flex-col">
+          <div class="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 flex-col gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-row sm:items-center sm:gap-5"
+              :aria-expanded="aberta(linha)"
+              @click="alternar(linha)"
             >
               <span
-                v-if="linha.corIndice !== null"
-                aria-hidden="true"
-                class="h-2.5 w-2.5 shrink-0 rounded-full"
-                :style="{
-                  backgroundColor: corDaCategoria(linha.corIndice, linha.corPersonalizada).solida,
-                }"
-              />
-              <!-- O roll-up só serve se der para descer dele: o nome leva para
-                   a lista de gastos já recortada nesta categoria. -->
-              <NuxtLink
-                :to="`${base}?categoria=${linha.categoriaId ?? 'sem-categoria'}`"
-                class="truncate hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                class="flex min-w-0 items-center gap-2 text-sm font-medium text-text sm:w-44 sm:flex-none"
               >
-                {{ linha.nome }}
-              </NuxtLink>
-            </span>
+                <Icon
+                  name="lucide:chevron-down"
+                  class="h-4 w-4 shrink-0 text-text-muted transition-brand"
+                  :class="!aberta(linha) && '-rotate-90'"
+                />
+                <span
+                  v-if="linha.corIndice !== null"
+                  aria-hidden="true"
+                  class="h-2.5 w-2.5 shrink-0 rounded-full"
+                  :style="{
+                    backgroundColor: corDaCategoria(linha.corIndice, linha.corPersonalizada).solida,
+                  }"
+                />
+                <span class="truncate">{{ linha.nome }}</span>
+              </span>
 
-            <!-- Largura FIXA, e o selo de estouro não mora aqui: com as ações
-                 encolhendo ou crescendo por linha, a barra ao lado mudava de
-                 largura junto — e barras de larguras diferentes não podem ser
-                 comparadas, que é justamente o que esta tela promete. -->
-            <span class="flex shrink-0 items-center justify-end gap-1 sm:order-last sm:w-20">
+              <!-- aria-hidden: a mesma informação está no texto ao lado. -->
+              <span
+                class="relative block h-2 w-full overflow-hidden rounded-full bg-text/10 sm:flex-1"
+                aria-hidden="true"
+              >
+                <template v-if="proporcao(linha)">
+                  <span
+                    class="absolute inset-y-0 left-0 rounded-full opacity-20 transition-brand"
+                    :style="{
+                      width: proporcao(linha)?.total,
+                      backgroundColor: proporcao(linha)?.solida,
+                    }"
+                  />
+                  <span
+                    class="absolute inset-y-0 left-0 rounded-full opacity-50 transition-brand"
+                    :style="{
+                      width: proporcao(linha)?.contratado,
+                      backgroundColor: proporcao(linha)?.solida,
+                    }"
+                  />
+                  <span
+                    class="absolute inset-y-0 left-0 rounded-full transition-brand"
+                    :style="{
+                      width: proporcao(linha)?.pago,
+                      backgroundColor: proporcao(linha)?.solida,
+                    }"
+                  />
+                </template>
+              </span>
+
+              <!-- O selo de estouro vive junto dos números, que é o assunto dele. -->
+              <span class="flex flex-col items-start gap-1 sm:w-52 sm:items-end">
+                <UiBadge v-if="linha.acimaDoOrcado > 0" tone="danger">
+                  {{ formatCentsToBRL(linha.acimaDoOrcado) }} acima do teto
+                </UiBadge>
+                <span class="num text-xs text-text-muted sm:text-right">{{ resumo(linha) }}</span>
+              </span>
+            </button>
+
+            <!-- Largura FIXA: com as ações encolhendo ou crescendo por linha, a
+                 barra ao lado mudaria de largura junto — e barras de larguras
+                 diferentes não podem ser comparadas, que é o que esta tela
+                 promete. -->
+            <span class="flex shrink-0 items-center justify-end gap-1 sm:w-20">
               <!-- "Sem categoria" não é linha do banco: não se renomeia nem se
                    arquiva, e oferecer os botões prometeria o que não existe. -->
               <template v-if="linha.categoriaId">
@@ -262,43 +322,9 @@ async function arquivar(id: string, arquivada: boolean) {
             </span>
           </div>
 
-          <!-- aria-hidden: a mesma informação está no texto ao lado. -->
-          <div
-            class="relative h-2 overflow-hidden rounded-full bg-text/10 sm:flex-1"
-            aria-hidden="true"
-          >
-            <template v-if="proporcao(linha)">
-              <div
-                class="absolute inset-y-0 left-0 rounded-full opacity-20 transition-brand"
-                :style="{
-                  width: proporcao(linha)?.total,
-                  backgroundColor: proporcao(linha)?.solida,
-                }"
-              />
-              <div
-                class="absolute inset-y-0 left-0 rounded-full opacity-50 transition-brand"
-                :style="{
-                  width: proporcao(linha)?.contratado,
-                  backgroundColor: proporcao(linha)?.solida,
-                }"
-              />
-              <div
-                class="absolute inset-y-0 left-0 rounded-full transition-brand"
-                :style="{
-                  width: proporcao(linha)?.pago,
-                  backgroundColor: proporcao(linha)?.solida,
-                }"
-              />
-            </template>
+          <div v-if="aberta(linha)" class="border-t border-border px-4 py-2 sm:px-5 sm:pl-12">
+            <AdminFinanceCategoryExpenses :categoria="linha" :base="base" />
           </div>
-
-          <!-- O selo de estouro vive junto dos números, que é o assunto dele. -->
-          <span class="flex flex-col items-start gap-1 sm:w-52 sm:items-end">
-            <UiBadge v-if="linha.acimaDoOrcado > 0" tone="danger">
-              {{ formatCentsToBRL(linha.acimaDoOrcado) }} acima do teto
-            </UiBadge>
-            <span class="num text-xs text-text-muted sm:text-right">{{ resumo(linha) }}</span>
-          </span>
         </li>
       </ul>
     </AdminPanel>

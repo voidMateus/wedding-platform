@@ -1520,3 +1520,74 @@ somar por um atributo responde uma pergunta que lista nenhuma responde.
 normaliza espaço quando o seletor é string, mas **não** quando é regex — então
 `getByText(/R\$ 1\.620,00/)` não casa com o que está na tela, enquanto
 `getByText('R$ 1.620,00')` casa. Em regex, use `\s`.
+
+---
+
+## 24. Planejar é digitar, não abrir formulário (2026-09-12)
+
+O casal trouxe o relatório e a página do orçamento do casamentos.com — a
+ferramenta que, nas palavras dele, *"fez eu montar meu casamento inicialmente"*.
+Os dois artefatos derrubaram uma hipótese minha e revelaram o mecanismo que
+faltava.
+
+### 24.1 O que os artefatos provam
+
+**O modelo já era o nosso.** Categoria → Conceito → custo estimado / custo final
+/ pago / pendente mapeia um a um em `categorias_orcamento` → `despesas` →
+`valor_estimado_centavos` / `valor_centavos` / parcelas. Nada a modelar.
+
+**Não existe modal.** No HTML da página deles, o nome do gasto é um `<input>`
+dentro da linha e os valores são `contenteditable`. Digita e Tab. Nosso
+"Adicionar gasto" abria um modal de cinco campos — para montar trinta itens, são
+trinta modais. **Era aqui que estávamos piores.**
+
+**R$ 0 é um estado, não uma ausência.** O orçamento real do casal tem cinco
+itens parados em zero — "Lembrança crianças", "Joalheria Noiva", "Acessórios
+Noivo", "Estética noiva", "Estética noivo" — e duas categorias inteiras vazias.
+Nenhum foi apagado. Zero quer dizer "considerei e não vou ter", ou "ainda não
+sei". Isso matou a ideia de uma **triagem** (um momento único de decidir o que
+fica): não há momento, há uma lista que vai sendo preenchida — o *processo
+contínuo* que o casal pediu.
+
+### 24.2 A diferença estrutural que decidiu onde isso mora
+
+A lista plana deles é de **categorias** (14 linhas); os ~30 itens ficam um nível
+abaixo. A nossa é de **gastos**. Por isso pré-criar trinta itens é inofensivo lá
+e tóxico aqui — viraria trinta linhas de "R$ 0,00 estimado" na tela de Gastos, e
+o chip diria "Planejado · 30".
+
+Então o planejamento mora em **Categorias**: a linha da categoria abre e mostra
+os gastos dela, editáveis no lugar. Gastos continua plana e continua respondendo
+"o que falta decidir".
+
+### 24.3 As decisões da edição no lugar
+
+- **Salva ao sair da LINHA, não do campo.** Passar do nome para o valor é
+  continuar na mesma linha; salvar ali dispararia um refetch no meio da
+  digitação. O guarda é `relatedTarget` contido na linha.
+- **O rascunho é local, por gasto.** Toda mutação refaz `getOrcamento()`; sem
+  rascunho local, salvar uma linha apagaria o que estava sendo escrito na
+  vizinha — a mesma armadilha que a ficha já tinha resolvido observando o id.
+- **No erro, o rascunho também é descartado.** Manter no campo um número que o
+  servidor recusou é pior que voltar ao anterior, porque o casal segue lendo
+  como salvo. É também o motivo de este componente chamar a própria mutação
+  (CLAUDE.md §9 permite ao componente "self-contained"): com o salvamento na
+  página, ele não saberia que falhou.
+- **Nome vazio não apaga o gasto** — volta ao que era. Excluir é ação explícita,
+  na ficha.
+- **Sair de uma linha nova em branco desiste dela**, em vez de criar um gasto
+  sem nome: "+ adicionar" é barato de clicar por engano.
+- **`valorEstimadoCentavos: 0`, nunca `null`.** `expenseInputSchema` exige que
+  estimado ou fechado exista; mandar nulo nos dois deixaria o gasto sem nenhum
+  valor declarado. Zero satisfaz o schema **e** é o estado que o casal quer
+  expressar.
+- **`UiCurrencyInput` ganhou `ariaLabel`**, mesmo contrato do `UiInput`: em
+  lista, o rótulo visível é o nome do gasto na própria linha, e sem isto todos
+  os campos de dinheiro da tela se anunciariam como "R$", sem dono.
+
+### 24.4 O que ficou para depois
+
+O catálogo de itens sugeridos por categoria (~3 a 5 cada) — apagados no rodapé
+da categoria, virando gasto quando o casal digita um valor, **sem linha no banco
+antes disso**. É o que dá o "norte" a quem não sabe começar; a mecânica desta
+rodada é o que torna preenchê-lo barato.

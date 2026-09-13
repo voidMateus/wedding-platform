@@ -349,18 +349,86 @@ test('Categorias soma o que a lista de gastos não soma', async ({ page }) => {
   // string — com regex, ele compara o texto cru.
   await expect(bebidas.getByText(/R\$\s1\.620,00 de R\$\s1\.800,00 contratados/)).toBeVisible()
 
-  // Roll-up que não deixa descer é um número sem serventia: o nome leva para a
-  // lista já recortada naquela categoria.
+  // Roll-up que não deixa descer é um número sem serventia: a linha abre a
+  // categoria, e de dentro dela sai o caminho para a lista já recortada.
   await expect(async () => {
-    await bebidas.getByRole('link', { name: 'Bebidas' }).click({ timeout: 3_000 })
-    await expect(page).toHaveURL(/categoria=/, { timeout: 3_000 })
+    await page.getByRole('button', { name: /^Bebidas/ }).click({ timeout: 3_000 })
+    await expect(page.getByRole('link', { name: 'Ver na lista de gastos' })).toBeVisible({
+      timeout: 3_000,
+    })
   }).toPass({ timeout: 30_000 })
+
+  await page.getByRole('link', { name: 'Ver na lista de gastos' }).click()
+  await expect(page).toHaveURL(/categoria=/, { timeout: 20_000 })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
     timeout: 20_000,
   })
   await expect(page.getByRole('row').filter({ hasText: 'Refrigerantes' }).first()).toBeVisible()
   await expect(page.getByRole('row').filter({ hasText: 'Celebrante' })).toHaveCount(0)
+})
+
+test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }) => {
+  test.setTimeout(180_000)
+  const nome = `ZGasto ${Date.now().toString().slice(-8)}`
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/categorias`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Categorias' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // "Música" de propósito: é a única categoria da demo cujos totais nenhum
+  // outro teste desta suíte afirma, então criar um gasto aqui não derruba
+  // ninguém rodando em paralelo.
+  await expect(async () => {
+    await page.getByRole('button', { name: /^Música/ }).click({ timeout: 3_000 })
+    await expect(page.getByRole('button', { name: 'Adicionar gasto' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+
+  await page.getByRole('button', { name: 'Adicionar gasto' }).click()
+  await page.getByLabel('Nome do gasto novo').fill(nome)
+  await page.getByLabel('Estimativa do gasto novo').fill('1.234,00')
+
+  // O ponto inteiro desta tela: planejar não abre modal nenhum.
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  try {
+    // Sair da LINHA é o que salva — passar do nome para o valor não salva, para
+    // não disparar um refetch no meio da digitação.
+    await page.getByRole('heading', { level: 1, name: 'Categorias' }).click()
+    await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveValue('1.234,00', {
+      timeout: 20_000,
+    })
+
+    // E persiste: recarrega, reabre a categoria, o valor está lá.
+    await page.reload()
+    await expect(async () => {
+      await page.getByRole('button', { name: /^Música/ }).click({ timeout: 3_000 })
+      await expect(page.getByLabel(`Estimativa de ${nome}`)).toBeVisible({ timeout: 3_000 })
+    }).toPass({ timeout: 30_000 })
+    await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveValue('1.234,00')
+
+    // Editar é o mesmo gesto de criar.
+    await page.getByLabel(`Estimativa de ${nome}`).fill('2.000,00')
+    await page.getByRole('heading', { level: 1, name: 'Categorias' }).click()
+    await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveValue('2.000,00', {
+      timeout: 20_000,
+    })
+  } finally {
+    // Limpeza pela ficha — o casamento de demonstração é compartilhado.
+    await page.getByRole('link', { name: `Abrir ficha de ${nome}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible({
+      timeout: 20_000,
+    })
+    await page.getByRole('button', { name: 'Excluir gasto' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
+      timeout: 20_000,
+    })
+  }
 })
 
 test('a ordenação da coluna ordena de verdade', async ({ page }) => {
