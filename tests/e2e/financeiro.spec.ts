@@ -299,30 +299,27 @@ test('as propostas do gasto chegam em ordem de preço, com a menor marcada', asy
   expect(ordem[2]).toContain('Bebidas Express')
 })
 
-test('a fila por fase recorta a lista e diz que recortou', async ({ page }) => {
+test('filtrar a lista deixa sinal visível, com saída', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)
 
-  await abrirGastos(page, slug)
+  // Houve uma fileira de chips por fase acima da tabela; ela saiu por repetir o
+  // filtro da coluna "Situação" e o agregado do topo. O que ela existia para
+  // proteger continua valendo: recorte que não se anuncia deixa quem clicou sem
+  // saber se clica de novo para desfazer.
+  await page.goto(`/admin/${slug}/financeiro?fase=contratado`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
+    timeout: 20_000,
+  })
 
-  // A fila é o filtro da coluna "Situação" exposto como chip — o MESMO estado,
-  // não um segundo. Filtro escondido atrás do menu de um cabeçalho deixava
-  // quem clicou sem saber se clica de novo para desfazer.
-  const tudo = page.getByRole('button', { name: 'Tudo', exact: true })
-  const contratados = page.getByRole('button', { name: /^Contratado · \d/ })
-
-  await expect(tudo).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 })
-
-  await expect(async () => {
-    await contratados.click({ timeout: 3_000 })
-    await expect(contratados).toHaveAttribute('aria-pressed', 'true', { timeout: 3_000 })
-  }).toPass({ timeout: 30_000 })
-
-  await expect(tudo).toHaveAttribute('aria-pressed', 'false')
-  // O recorte é real, não só decoração do chip.
+  await expect(page.getByText('Situação: Contratado')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByRole('row').filter({ hasText: 'Flores da cerimônia' })).toHaveCount(0)
 
-  await tudo.click()
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Limpar tudo' }).click({ timeout: 3_000 })
+    await expect(page.getByText('Situação: Contratado')).toBeHidden({ timeout: 3_000 })
+  }).toPass({ timeout: 30_000 })
+
   await expect(
     page.getByRole('row').filter({ hasText: 'Flores da cerimônia' }).first(),
   ).toBeVisible({ timeout: 20_000 })

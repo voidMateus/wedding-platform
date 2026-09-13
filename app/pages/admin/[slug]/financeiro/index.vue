@@ -126,9 +126,16 @@ const gastos = computed<GastoNaLista[]>(() => {
 })
 
 /**
- * Um vocabulário só para a fase — o mesmo no chip, no selo da linha e na ficha.
- * O módulo já perdeu uma rodada inteira por chamar a mesma coisa de "valor
- * fechado" num lugar e "contratado" em outro.
+ * Um vocabulário só para a fase — o mesmo no selo da linha, no filtro da coluna
+ * e na ficha. O módulo já perdeu uma rodada inteira por chamar a mesma coisa de
+ * "valor fechado" num lugar e "contratado" em outro.
+ *
+ * Já houve uma fileira de chips acima da tabela repetindo estas quatro opções,
+ * com a contagem de cada uma. Ela saiu: era o MESMO filtro que o menu da coluna
+ * "Situação" já oferece, e as contagens repetiam o agregado que a faixa do topo
+ * já dá. Recorte visível continua garantido pela `AdminTableFilterBar`, que
+ * desenha um chip removível por filtro ativo — era esse o problema que a
+ * fileira tinha sido criada para resolver, e ele já tinha outra solução.
  */
 const FASES = [
   { value: 'planejado', label: 'Planejado' },
@@ -203,23 +210,6 @@ const linhas = computed(() =>
     sortKey: filters.sortKey.value,
     sortDirection: filters.sortDirection.value,
   }),
-)
-
-/**
- * A fila: cada fase com quanto tem dentro.
- *
- * É o filtro da coluna "Situação" exposto como chip — o MESMO estado, não um
- * segundo. Filtro escondido atrás do menu de um cabeçalho já tinha rendido a
- * reclamação de não dar para saber que a tela estava filtrada.
- */
-const fasesAtivas = computed(() => filters.valuesOf('fase'))
-
-const fila = computed(() =>
-  FASES.map((fase) => ({
-    ...fase,
-    quantidade: gastos.value.filter((linha) => linha.fase === fase.value).length,
-    ativo: fasesAtivas.value.includes(fase.value),
-  })),
 )
 
 // --- gastos ---
@@ -441,28 +431,6 @@ const opcoesDeGasto = computed(() =>
 
       <template v-else>
         <AdminFinanceTotalsHeader :resumo="resumo" :slug="slug" @editar-teto="tetoAberto = true" />
-
-        <!-- A fila. Fica ACIMA do painel, e não dentro do menu de uma coluna,
-             porque é a navegação principal desta tela: é por aqui que o casal
-             pergunta "o que falta decidir?". O chip marcado é a única coisa
-             preenchida da faixa — dá para ver de relance que a lista está
-             recortada, e onde clicar para desfazer. -->
-        <div class="flex flex-wrap items-center gap-2">
-          <UiChip
-            label="Tudo"
-            clickable
-            :selected="fasesAtivas.length === 0"
-            @click="filters.clearColumn('fase')"
-          />
-          <UiChip
-            v-for="etapa in fila"
-            :key="etapa.value"
-            :label="`${etapa.label} · ${etapa.quantidade}`"
-            clickable
-            :selected="etapa.ativo"
-            @click="filters.toggleValue('fase', etapa.value)"
-          />
-        </div>
 
         <AdminPanel title="Gastos" :meta="`${linhas.length} de ${gastos.length}`">
           <template #headerActions>
