@@ -110,7 +110,7 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 | `casamentos` | — | Evento — `slug`, `nomes_noivos`, `data_evento`, `prazo_rsvp`, `modo_lista_convidados`, `config_faixas_etarias`, `config_tema`, `config_conteudo`, `status_ciclo_vida`, `arquivado_em` |
 | `membros_casamento` | `casamento_id`; `usuario_id` (auth) | Acesso administrativo — `papel` |
 | `etapas_evento` | `casamento_id`; `mesmo_local_que` (auto-referência, opcional) | Cerimônia/recepção/festa — local, horário, `ordem_exibicao`. O local é uma entidade selecionável, não texto: `origem_local` (`maps_place`\|`manual`\|null=legado), `place_id_local` + `provedor_local`, `url_mapa_local`, coordenadas e as partes do endereço manual — ver seção 3.2 |
-| `convites` | `casamento_id`; `convidado_responsavel_id` → `convidados` (opcional) | Unidade real de RSVP — `codigo_interno`, `status_convite` (`pendente`\|`enviado`), `max_acompanhantes`, `mensagem_rsvp`, `arquivado_em` |
+| `convites` | `casamento_id`; `convidado_responsavel_id` → `convidados` (opcional) | Unidade real de RSVP — `codigo_interno`, `max_acompanhantes`, `mensagem_rsvp`, `arquivado_em`. **Sem coluna de status e sem `enviado_em`**: o estágio é derivado (`convites_com_resumo.status_operacional`) e o envio é o registro em `comunicacoes` |
 | `grupos` | `casamento_id`; `grupo_pai_id` → `grupos` (opcional, auto-referência, restrict) | Etiqueta organizacional livre — `nome`, `cor`, `grupo_pai_id` (subdivisão) |
 | `nucleos_acompanhantes` | `casamento_id` | Agrupamento simétrico de Acompanhantes — sem colunas de negócio próprias. A linha é **apagada** quando sobra menos de um par (`normalizar_nucleo_acompanhantes()`): a FK é `on delete set null`, então dissolver é um DELETE. Sem soft delete, e sem nome — o rótulo é derivado dos membros (`PRODUCT.md` 3.7) |
 | `convidados` | `casamento_id` (denormalizado); `convite_id` → `convites` (restrict); `grupo_id` → `grupos` (opcional, aponta para a **folha**: grupo ou subdivisão); `nucleo_id` → `nucleos_acompanhantes` (opcional) | Convidado individual — nome, contato, `apelido`/`sexo`/`data_nascimento`/`faixa_etaria_manual`/`caminho_foto`/`papel_casamento`, `ordem_nucleo`, `em_consideracao` |
@@ -134,9 +134,28 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 | Tabela | FK principal | O que é |
 |---|---|---|
 | `credenciais_acesso_convite` | `casamento_id`; `convite_id` → `convites` (único ativo por convite, `where revogado_em is null`) | Credencial — `codigo_hash` (SHA-256, autentica), `codigo_cifrado` (AES-256-GCM, só reexibição no painel; nulo em linhas antigas), `revogado_em` |
-| `comunicacoes` | `credencial_id` → `credenciais_acesso_convite` | Log de envio — `tipo`, `canal`, `enviado_em`/`aberto_em` |
+| `comunicacoes` | `casamento_id`; `convite_id` → `convites`; `convidado_id` → `convidados` (opcional, destinatário) | Log append-only de envio — `tipo` (`save_the_date`\|`convite`\|`lembrete`), `canal` (`whatsapp`\|`email`\|`outro`), `enviado_em`, `registrado_por`. Nunca guarda o número/e-mail usado |
 | `conexoes_galeria` | `casamento_id` (único) | Conexão da galeria — `provedor`, `modo`, tokens cifrados |
 | `trilha_auditoria` | `casamento_id`; `autor_id` (opcional — nulo em ações do sistema) | `tipo_autor`, `acao`, `tipo_entidade`/`entidade_id`, `metadados` |
+
+**Financeiro (Fase 1 do Hub)**
+
+| Tabela | FK principal | O que é |
+|---|---|---|
+| `categorias_orcamento` | `casamento_id` | Categoria do orçamento — `nome`, `valor_orcado_centavos` (teto, opcional), `cor_indice` (posição na paleta derivada do tema, nunca o HEX), `cor_personalizada` |
+| `despesas` | `casamento_id`; `categoria_id` → `categorias_orcamento` (opcional, restrict); `fornecedor_id` → `fornecedores` (opcional, restrict) | O gasto — `valor_estimado_centavos` (planejamento) e `valor_centavos` (contrato, **nulo até fechar**: é preenchê-lo que transforma o gasto em compromisso) |
+| `parcelas_despesa` | `casamento_id`; `despesa_id` → `despesas` (cascade) | Parcela — `vence_em`, `valor_centavos`, `pago_em`. `pago_em` é a **única** fonte do estado de pagamento: paga/a vencer/vencida é sempre derivado dele contra hoje |
+| `fornecedores` | `casamento_id`; `categoria_id` → `categorias_orcamento` (opcional); `despesa_id` → `despesas` (opcional, restrict) | Proposta para **um** gasto — contato, `estagio` da negociação, `valor_proposto_centavos` (cotação, nunca entra em total) |
+| `documentos` | `casamento_id`; `fornecedor_id` e `despesa_id` (os dois opcionais) | Contrato/comprovante/referência — arquivo no bucket privado **ou** link externo (XOR) |
+
+**Mesas e planta do salão (Fase 2 do Hub)**
+
+| Tabela | FK principal | O que é |
+|---|---|---|
+| `mesas` | `casamento_id` | Mesa da recepção — `nome`, `capacidade`, `formato`, medidas e posição em **centímetros**. Sem coluna de ocupação (é sempre contagem) e sem soft delete (é rascunho de layout) |
+| `elementos_planta` | `casamento_id` | Referência do salão que não senta ninguém (pista, palco, buffet, bolo, entrada, bar) — `tipo`, rótulo, medidas e posição em centímetros |
+
+Sentar é **coluna**, não tabela de junção: `convidados.mesa_id` e `acompanhantes_avulsos.mesa_id`, ambas `on delete set null`.
 
 **Billing (estrutura embrionária)**
 
@@ -198,7 +217,7 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 - **Chaves primárias**: sempre `id uuid primary key default gen_random_uuid()` (exceções documentadas na seção 1).
 - **Enums**: implementados como `CHECK` constraint sobre `text`, não `CREATE TYPE ... AS ENUM`, para facilitar alteração de valores permitidos sem migração destrutiva.
   ```sql
-  status_convite text not null check (status_convite in ('pendente', 'enviado')) default 'pendente'
+  canal text not null check (canal in ('whatsapp', 'email', 'outro'))
   ```
 - **Padrão XOR entre colunas opcionais**: quando uma linha deve pertencer a exatamente uma de duas entidades-pai (ex.: `assinaturas.casamento_id` ou `assinaturas.conta_id`), usa-se `CHECK (num_nonnulls(coluna_a, coluna_b) = 1)` — nunca duas FKs opcionais sem constraint garantindo exclusividade.
 - **Migrations**: uma migration por mudança lógica, nome no padrão `YYYYMMDDHHMMSS_short_description.sql`. Migrations nunca são editadas após merge na branch principal — correções viram uma nova migration.
@@ -207,12 +226,12 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 - **Comentários em SQL**: toda tabela e coluna não óbvia recebe `COMMENT ON TABLE`/`COMMENT ON COLUMN` explicando intenção de negócio, já que o schema é a documentação viva do domínio.
 - **Views**: último recurso, para o que o PostgREST não consegue expressar a partir da tabela — nunca conveniência de consulta (agregação reaproveitada continua sendo computada no endpoint, como faz `server/api/dashboard/summary.get.ts`). Qualquer view **precisa** ser criada com `security_invoker = true` (Postgres 15+): sem isso ela roda com o privilégio do dono (que ignora RLS), não do usuário que consulta — ver em `docs/CHANGELOG.md` o achado de segurança que motivou remover a primeira view do projeto.
 
-  Existe uma única view hoje:
+  Existem duas views hoje:
 
   | View | O que resolve |
   |---|---|
   | `convidados_com_status` | Cada convidado com `status_rsvp` resolvido (`coalesce(respostas_rsvp.status_rsvp, 'pendente')`) mais `respondido_em`. Existe porque "pendente" não é valor gravado: `respostas_rsvp` só ganha linha quando alguém responde, e "sem linha OU status pendente" não é expressável a partir de `convidados` (com `!inner` quem nunca respondeu some; com `!left` o filtro corta a resposta embutida, não o convidado). Usada só em `GET /api/guests` — leitura; escrita continua sempre em `convidados`/`respostas_rsvp` |
-  | `convites_com_resumo` | Cada convite com `total_membros`, `total_respondidos` e `status_resposta` (`pendente`\|`parcial`\|`respondido`). Existe porque a listagem é paginada: contar membros e respostas na aplicação, depois de paginar, faria filtro e ordenação por esses valores recortarem só a página carregada. O denominador é o número de **membros** do convite, não o de linhas em `respostas_rsvp` — ver a correção de comportamento em [`CHANGELOG.md`](CHANGELOG.md). Usada só em `GET /api/invites` |
+  | `convites_com_resumo` | Cada convite com `total_membros`, `total_respondidos`, `status_operacional` (o estágio do funil: `nao_enviado`\|`enviado`\|`aberto`\|`parcial`\|`respondido`), `estagio_desde`, `enviado_em` (derivado do **primeiro** registro em `comunicacoes` do tipo `convite`) e `ultimo_contato` (o envio mais recente de qualquer tipo). Existe porque a listagem é paginada: derivar estágio e contagens na aplicação, depois de paginar, faria filtro e ordenação por esses valores recortarem só a página carregada. O denominador é o número de **membros** do convite, não o de linhas em `respostas_rsvp` — ver a correção de comportamento em [`CHANGELOG.md`](CHANGELOG.md). Usada em `GET /api/invites`, `GET /api/communications` e no dashboard |
 
   **Manutenção**: a view seleciona `c.*`, expandido na criação. Coluna nova em `convidados` não aparece nela sozinha — é preciso `drop view` + `create view` (o `create or replace` não muda a lista de colunas). O typecheck acusa, porque o tipo gerado da view fica sem a coluna que o código passou a usar.
 - **Colunas de hash**: nomeadas `<coluna>_hash` (ex: `codigo_hash`), geradas via `pgcrypto` no momento da escrita; o valor em texto plano correspondente nunca é persistido, apenas retornado uma vez no momento da geração (ex: dentro do link enviado ao convidado).

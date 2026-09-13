@@ -34,10 +34,9 @@ export default defineEventHandler(async (event) => {
         .select('prazo_rsvp, data_evento, config_faixas_etarias')
         .eq('id', weddingId)
         .single(),
-      // A VIEW, não a tabela: `enviado_em` deixou de ser coluna e passou a ser
+      // A VIEW, não a tabela: `enviado_em` não existe mais em `convites` — é
       // derivado do primeiro registro em `comunicacoes` do tipo convite (Fase 2
-      // do Hub). Lendo a tabela, este painel continuaria certo até a coluna
-      // física sair — e então diria "0 enviados" sem nada acusar.
+      // do Hub).
       client
         .from('convites_com_resumo')
         .select('id, enviado_em, arquivado_em')
@@ -162,9 +161,7 @@ export default defineEventHandler(async (event) => {
     rsvpDeadline: wedding.prazo_rsvp,
     invites: {
       total: invites.length,
-      // `enviado_em` da view — derivado do registro de envio. `status_convite`
-      // ficou obsoleta com o funil de estágios, e a coluna física de
-      // `enviado_em` sai junto com ela.
+      // `enviado_em` da view — derivado do registro de envio.
       sent: invites.filter((i) => i.enviado_em !== null).length,
       responded: invitesResponded,
       partial: invitesPartial,

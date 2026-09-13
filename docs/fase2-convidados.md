@@ -701,3 +701,12 @@ schema novo; nela, um `update` numa coluna removida falharia. A view já deriva
 `enviado_em` do registro de envio, e o `coalesce` com a coluna física cobre
 exatamente essa janela — quando ela fechar, o coalesce sai junto com a coluna.
 É o mesmo cuidado que já tinha adiado `status_convite` uma vez.
+
+**Saiu no merge seguinte** (`20260913120001_convites_sem_enviado_em_e_status.sql`),
+fechando a fase. Com o código de Comunicações já em produção, nada mais escrevia
+nas duas colunas: a view caiu, as colunas caíram (`convites_status_convite_idx`
+junto, sem linha própria) e a view voltou sem o `coalesce` — `env.enviado_em`,
+o primeiro registro do tipo `convite`, passou a ser a única origem possível do
+estágio "Enviado". `docs/DATABASE.md` foi acertado no mesmo passo, onde ainda
+descrevia `comunicacoes` pelo schema anterior à fase e usava `status_convite`
+como exemplo da convenção de enum.

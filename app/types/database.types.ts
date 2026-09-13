@@ -685,7 +685,6 @@ export type Database = {
           codigo_interno: string
           convidado_responsavel_id: string | null
           created_at: string
-          enviado_em: string | null
           excluido_em: string | null
           id: string
           max_acompanhantes: number | null
@@ -693,7 +692,6 @@ export type Database = {
           mensagem_rsvp_em: string | null
           nome: string
           observacoes: string | null
-          status_convite: string
           updated_at: string
         }
         Insert: {
@@ -702,7 +700,6 @@ export type Database = {
           codigo_interno: string
           convidado_responsavel_id?: string | null
           created_at?: string
-          enviado_em?: string | null
           excluido_em?: string | null
           id?: string
           max_acompanhantes?: number | null
@@ -710,7 +707,6 @@ export type Database = {
           mensagem_rsvp_em?: string | null
           nome: string
           observacoes?: string | null
-          status_convite?: string
           updated_at?: string
         }
         Update: {
@@ -719,7 +715,6 @@ export type Database = {
           codigo_interno?: string
           convidado_responsavel_id?: string | null
           created_at?: string
-          enviado_em?: string | null
           excluido_em?: string | null
           id?: string
           max_acompanhantes?: number | null
@@ -727,7 +722,6 @@ export type Database = {
           mensagem_rsvp_em?: string | null
           nome?: string
           observacoes?: string | null
-          status_convite?: string
           updated_at?: string
         }
         Relationships: [
@@ -2243,7 +2237,6 @@ export type Database = {
           codigo_interno: string
           convidado_responsavel_id: string | null
           created_at: string
-          enviado_em: string | null
           excluido_em: string | null
           id: string
           max_acompanhantes: number | null
@@ -2251,7 +2244,6 @@ export type Database = {
           mensagem_rsvp_em: string | null
           nome: string
           observacoes: string | null
-          status_convite: string
           updated_at: string
         }
         SetofOptions: {
