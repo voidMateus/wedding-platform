@@ -431,6 +431,53 @@ test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }
   }
 })
 
+test('a categoria oferece o que costuma faltar, e a sugestão vira gasto', async ({ page }) => {
+  test.setTimeout(180_000)
+  const item = 'Som e iluminação de pista'
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/categorias`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Categorias' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  await expect(async () => {
+    await page.getByRole('button', { name: /^Música/ }).click({ timeout: 3_000 })
+    await expect(page.getByText('Faltou algo?')).toBeVisible({ timeout: 3_000 })
+  }).toPass({ timeout: 30_000 })
+
+  const sugestao = page.getByRole('button', { name: new RegExp(item) })
+  await expect(sugestao).toBeVisible()
+  await sugestao.click()
+
+  // O nome já vem pronto e o cursor cai no VALOR — é o que falta saber.
+  await expect(page.getByLabel('Nome do gasto novo')).toHaveValue(item)
+  await expect(page.getByLabel('Estimativa do gasto novo')).toBeFocused()
+
+  try {
+    await page.getByLabel('Estimativa do gasto novo').fill('3.500,00')
+    await page.getByRole('heading', { level: 1, name: 'Categorias' }).click()
+    await expect(page.getByLabel(`Estimativa de ${item}`)).toHaveValue('3.500,00', {
+      timeout: 20_000,
+    })
+
+    // E some da fileira: a sugestão não se repete depois de virar gasto — mas
+    // as outras continuam lá, porque a lista não se esgota.
+    await expect(page.getByRole('button', { name: new RegExp(item) })).toHaveCount(0)
+    await expect(page.getByText('Faltou algo?')).toBeVisible()
+  } finally {
+    await page.getByRole('link', { name: `Abrir ficha de ${item}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: item })).toBeVisible({
+      timeout: 20_000,
+    })
+    await page.getByRole('button', { name: 'Excluir gasto' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
+      timeout: 20_000,
+    })
+  }
+})
+
 test('a ordenação da coluna ordena de verdade', async ({ page }) => {
   test.setTimeout(120_000)
   const slug = await entrar(page)

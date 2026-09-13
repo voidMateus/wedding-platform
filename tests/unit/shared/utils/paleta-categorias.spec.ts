@@ -47,7 +47,7 @@ describe('corDaCategoria', () => {
     }
   })
 
-  it('os 12 slots dão 12 tons distintos', () => {
+  it('cada slot da paleta dá um tom distinto', () => {
     const tons = paletaDeCategorias(BORGONHA).map((cor) => cor.solida)
     expect(new Set(tons).size).toBe(TAMANHO_PALETA_CATEGORIAS)
   })

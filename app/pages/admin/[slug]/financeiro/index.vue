@@ -223,28 +223,17 @@ const fila = computed(() =>
 )
 
 // --- gastos ---
+// O modal só CADASTRA. Editar acontece no lugar — na linha da categoria, em
+// Categorias, e nos campos da própria ficha.
 const despesaModalAberto = ref(false)
-const despesaEmEdicao = ref<DespesaComParcelas | null>(null)
 
 function novaDespesa() {
-  despesaEmEdicao.value = null
   despesaModalAberto.value = true
 }
 
 async function salvarDespesa(input: ExpenseInput) {
   try {
-    if (despesaEmEdicao.value) {
-      await atualizarDespesa(despesaEmEdicao.value.id, {
-        descricao: input.descricao,
-        valorEstimadoCentavos: input.valorEstimadoCentavos,
-        valorCentavos: input.valorCentavos,
-        categoriaId: input.categoriaId,
-        fornecedorId: input.fornecedorId,
-        observacao: input.observacao,
-      })
-    } else {
-      await criarDespesa(input)
-    }
+    await criarDespesa(input)
     despesaModalAberto.value = false
     toast.success('Gasto salvo.')
   } catch (erro) {
@@ -631,9 +620,7 @@ const opcoesDeGasto = computed(() =>
 
     <AdminFinanceExpenseModal
       v-model="despesaModalAberto"
-      :despesa="despesaEmEdicao"
       :categorias="categoriasAtivas"
-      :fornecedores="fornecedores?.data ?? []"
       @salvar="salvarDespesa"
     />
 

@@ -28,22 +28,17 @@
  * categoria sob "Sem categoria"; ter as duas cria dois baldes com o mesmo
  * significado, e o casal passa a ter que escolher entre eles.
  *
- * ## Por que exatamente doze
+ * ## Por que exatamente treze
  *
- * `TAMANHO_PALETA_CATEGORIAS` é 12: a partir da décima terceira os slots de cor
- * se repetem, e duas categorias nascem com a mesma cor. Repetir é aceitável
- * quando o casal chega lá por conta própria — mas o catálogo que a plataforma
- * sugere não pode nascer com cor duplicada. O teto de doze é, portanto, regra
- * desta lista, não coincidência.
+ * `TAMANHO_PALETA_CATEGORIAS` é o teto: passando dele, duas categorias nascem
+ * com a mesma cor. Repetir é aceitável quando o casal chega lá por conta
+ * própria — mas o catálogo que a plataforma sugere não pode nascer com cor
+ * duplicada. São treze para uma paleta de catorze, com um slot de folga.
  *
- * Ficaram de fora, deliberadamente, duas linhas da checklist:
- *
- * - **Lua de mel**: é dinheiro gasto depois do casamento, e muitas vezes vindo
- *   dos presentes. Somá-la ao teto do casamento faria "quanto já comprometi"
- *   responder por dois orçamentos ao mesmo tempo.
- * - **Traje da noiva/noivo separados**: a checklist tem os dois, mas eles são
- *   dois GASTOS dentro de "Vestuário e beleza" — categoria é o balde, não a
- *   linha.
+ * Ficou de fora, deliberadamente, uma distinção da checklist: **traje da noiva
+ * e traje do noivo** são duas linhas dela, mas dois GASTOS dentro de "Vestuário
+ * e beleza" — categoria é o balde, não a linha. É o catálogo de itens
+ * (`shared/orcamento-itens.ts`) que carrega esse nível de detalhe.
  */
 export interface CategoriaSugerida {
   nome: string
@@ -71,4 +66,8 @@ export const CATEGORIAS_ORCAMENTO_SUGERIDAS: readonly CategoriaSugerida[] = [
   // tudo o que é impresso ou entregue na mão do convidado.
   { nome: 'Papelaria e lembranças', ordemExibicao: 10 },
   { nome: 'Transporte', ordemExibicao: 11 },
+  // Voltou depois de ter sido cortada: o orçamento real de um casal mostrou
+  // R$ 4.000 lançados aqui (passagens e carro). O argumento de que lua de mel
+  // é gasto "de depois" era teórico; o uso não é.
+  { nome: 'Lua de mel', ordemExibicao: 12 },
 ] as const

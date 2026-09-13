@@ -20,7 +20,20 @@ import { DEFAULT_PRIMARY_COLOR, isValidHexColor } from './contrast'
  * elementos de marca e nas ações.
  */
 
-export const TAMANHO_PALETA_CATEGORIAS = 12
+/**
+ * Quantos slots a paleta tem.
+ *
+ * Era 12, e o catálogo sugerido precisava de 13 — a décima terceira categoria
+ * nasceria com a cor de outra, no primeiro clique. Subir para 14 REPINTA as
+ * categorias de todos os casamentos existentes (o passo de matiz deixa de ser
+ * 30° e passa a ~25,7°), e é por isso que foi feito agora, com um punhado de
+ * casamentos, e não depois.
+ *
+ * Este número tem um par em SQL: as funções `categorias_orcamento_atribuir_cor`
+ * e `categorias_orcamento_cor_ao_restaurar` procuram o menor slot livre em
+ * `generate_series(0, TAMANHO - 1)`. Mudar aqui exige migration lá.
+ */
+export const TAMANHO_PALETA_CATEGORIAS = 14
 
 /**
  * A ordem em que a paleta caminha pela roda de cores.
@@ -28,10 +41,11 @@ export const TAMANHO_PALETA_CATEGORIAS = 12
  * Não é 0°, 30°, 60°…: slots vizinhos são criados em sequência (o casal cadastra
  * Buffet e depois Bebidas), e dois tons a 30° de distância são quase o mesmo
  * tom. Saltando meia roda a cada passo, as categorias criadas em seguida saem
- * bem diferentes uma da outra, e a volta completa ainda cobre as 12 posições
- * sem repetir nenhuma.
+ * bem diferentes uma da outra, e a volta completa ainda cobre as 14 posições
+ * sem repetir nenhuma — nenhum par consecutivo fica a menos de 100° de
+ * distância.
  */
-const PASSOS_DE_MATIZ = [0, 6, 3, 9, 1, 7, 4, 10, 2, 8, 5, 11] as const
+const PASSOS_DE_MATIZ = [0, 7, 3, 10, 1, 8, 4, 11, 2, 9, 5, 12, 6, 13] as const
 
 /** A faixa que mantém tudo na mesma família — dessaturado e claro. */
 const SATURACAO_SOLIDA = 0.36
@@ -41,7 +55,7 @@ const LUMINOSIDADE_FUNDO = 0.965
 const SATURACAO_TEXTO = 0.46
 const LUMINOSIDADE_TEXTO = 0.26
 
-/** Abaixo disso a cor tema é cinza, e girar a matiz dela devolveria 12 cinzas. */
+/** Abaixo disso a cor tema é cinza, e girar a matiz dela devolveria 14 cinzas. */
 const SATURACAO_MINIMA_DO_TEMA = 0.08
 
 export interface CorDeCategoria {

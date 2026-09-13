@@ -1591,3 +1591,70 @@ O catálogo de itens sugeridos por categoria (~3 a 5 cada) — apagados no rodap
 da categoria, virando gasto quando o casal digita um valor, **sem linha no banco
 antes disso**. É o que dá o "norte" a quem não sabe começar; a mecânica desta
 rodada é o que torna preenchê-lo barato.
+
+---
+
+## 25. O norte de quem não sabe começar (2026-09-12)
+
+Fecha o que a rodada 24 abriu. Três entregas.
+
+### 25.1 O catálogo de itens (`shared/orcamento-itens.ts`)
+
+54 gastos comuns distribuídos pelas treze categorias, vindos da checklist da
+cerimonial do casal somada aos itens que o casamentos.com pré-cria. Aparecem
+apagados, com borda tracejada, no rodapé da categoria: *"Faltou algo? + Banda ou
+DJ da festa · + Música da cerimônia · …"*.
+
+As três regras da lista:
+
+1. **Sugestão não é linha no banco.** Nada vira `despesas` sozinho — só o clique
+   cria. Trinta linhas de "R$ 0,00" semeadas entrariam na lista de Gastos, nos
+   chips da fila e em todos os agregados.
+2. **A sugestão não se esgota.** Some item a item conforme o casal cadastra,
+   volta se ele excluir, e nunca "expira". O pedido foi processo contínuo, não
+   um assistente de primeira execução.
+3. **Sem valor sugerido.** O relatório real que serviu de referência traz só os
+   nomes. Sugerir "R$ 12.000 de buffet" ancoraria uma expectativa errada na
+   maior parte do Brasil, com ar de autoridade.
+
+O vínculo com a categoria é por **nome**. Categoria renomeada pelo casal deixa
+de receber sugestão — e isso é o certo: "Bebidas do Zé" não é mais a nossa
+"Bebidas". Como a quebra é silenciosa, há teste travando que toda chave do
+catálogo existe em `orcamento-categorias.ts` e que nenhuma categoria fica sem
+itens.
+
+Clicar numa sugestão abre a linha nova com o **nome pronto e o cursor no
+valor** — o que falta saber. Por isso `UiCurrencyInput` ganhou `autofocus`,
+mesmo contrato do `UiInput`.
+
+### 25.2 Lua de mel volta, e a paleta vai a catorze
+
+O orçamento real do casal tem R$ 4.000 em "Viagem de Noivos" — o argumento de
+que lua de mel é gasto "de depois" era teórico; o uso não é. São treze
+categorias sugeridas.
+
+Treze não cabem numa paleta de doze, então ela foi a **catorze**
+(`20260913000001_paleta_catorze_slots.sql`). O custo, declarado na migration: o
+passo de matiz deixa de ser 360/12 e passa a 360/14, o que **repinta as
+categorias de todos os casamentos existentes**. Nenhuma linha muda de slot — só
+o tom que aquele slot produz. Foi feito agora, com um punhado de casamentos,
+porque nunca seria mais barato.
+
+O número vive em dois lugares — `TAMANHO_PALETA_CATEGORIAS` e o
+`generate_series` das duas funções de trigger. O Postgres não importa constante
+de TypeScript; o par se mantém à mão, e é por isso que a migration diz isso em
+comentário.
+
+### 25.3 O modal de cadastro cai de sete campos para três
+
+Tinha custo estimado, valor fechado, categoria, fornecedor, como vai pagar,
+quantas parcelas e observação. Ficou com **gasto, custo estimado e categoria**.
+
+- **Valor fechado e parcelamento** saíram para "Registrar valor fechado" — o
+  gesto que transforma plano em compromisso já tem ação e janela próprias.
+- **Fornecedor e observação** saíram para a ficha, onde se editam no lugar.
+
+É uma capacidade a menos no atalho: quem cadastra um gasto já contratado agora
+dá dois passos em vez de um. Em troca, o cadastro deixa de cobrar sete campos
+pelo gesto que mais se repete. O caminho principal de planejamento nem passa
+por aqui — é a linha dentro da categoria.

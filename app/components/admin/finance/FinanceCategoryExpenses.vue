@@ -14,6 +14,7 @@
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
+import { sugestoesQueFaltam } from '#shared/orcamento-itens'
 import type { CategoriaComDespesas, DespesaComParcelas } from '~/types/finance'
 
 interface Props {
@@ -36,8 +37,28 @@ const { criarDespesa, atualizarDespesa } = useFinance()
  */
 const rascunhos = ref<Record<string, { descricao: string; estimado: number | null }>>({})
 
-/** A linha nova, ainda sem id. Nula quando ninguém pediu uma. */
-const nova = ref<{ descricao: string; estimado: number | null } | null>(null)
+/**
+ * A linha nova, ainda sem id. Nula quando ninguém pediu uma.
+ *
+ * `focarValor` distingue as duas origens: "+ Adicionar gasto" abre com o cursor
+ * no nome (é o que falta saber); uma sugestão abre com o cursor no VALOR, já
+ * que o nome veio pronto.
+ */
+const nova = ref<{ descricao: string; estimado: number | null; focarValor: boolean } | null>(null)
+
+/**
+ * O que esta categoria costuma ter e ainda não tem.
+ *
+ * Fica no rodapé, apagado, e não se esgota: some item a item conforme o casal
+ * cadastra, e volta a aparecer se ele excluir. Nenhuma linha nasce no banco por
+ * causa disto — só o clique cria.
+ */
+const sugestoes = computed(() =>
+  sugestoesQueFaltam(
+    categoria.nome,
+    categoria.despesas.map((despesa) => despesa.descricao),
+  ),
+)
 
 function rascunho(despesa: DespesaComParcelas) {
   return (
@@ -141,7 +162,11 @@ function aoSairDaLinha(evento: FocusEvent, acao: () => void) {
 }
 
 function adicionar() {
-  nova.value = { descricao: '', estimado: null }
+  nova.value = { descricao: '', estimado: null, focarValor: false }
+}
+
+function usarSugestao(item: string) {
+  nova.value = { descricao: item, estimado: null, focarValor: true }
 }
 </script>
 
@@ -200,17 +225,37 @@ function adicionar() {
         :model-value="nova.descricao"
         aria-label="Nome do gasto novo"
         placeholder="O que vocês vão contratar?"
-        autofocus
+        :autofocus="!nova.focarValor"
         @update:model-value="nova = { ...nova!, descricao: $event }"
       />
       <UiCurrencyInput
         class="sm:w-44"
         :model-value="nova.estimado"
         aria-label="Estimativa do gasto novo"
+        :autofocus="nova.focarValor"
         @update:model-value="nova = { ...nova!, estimado: $event ?? null }"
       />
       <span class="hidden sm:block sm:w-8" aria-hidden="true" />
     </div>
+
+    <!-- Borda tracejada porque ainda não é nada: a sugestão é um convite, não
+         um gasto. Ela não some depois de usada uma vez — o casal volta em
+         março e o que ele não cadastrou continua aqui. -->
+    <p
+      v-if="sugestoes.length > 0"
+      class="flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2 text-xs text-text-muted"
+    >
+      <span>Faltou algo?</span>
+      <button
+        v-for="item in sugestoes"
+        :key="item"
+        type="button"
+        class="rounded-md border border-dashed border-border px-2 py-0.5 transition-brand hover:border-primary/40 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        @click="usarSugestao(item)"
+      >
+        + {{ item }}
+      </button>
+    </p>
 
     <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
       <UiButton size="sm" variant="ghost" @click="adicionar">

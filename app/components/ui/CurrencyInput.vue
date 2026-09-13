@@ -16,6 +16,14 @@ interface Props {
   disabled?: boolean
   /** Teto de dígitos aceitos (padrão: 11 → R$ 999.999.999,99). */
   maxDigits?: number
+  /**
+   * Põe o cursor no campo assim que ele monta — mesmo contrato do `UiInput`,
+   * e pelo mesmo motivo: foco no `onMounted`, não no atributo `autofocus` do
+   * HTML, porque o campo aparece depois, num bloco que o Vue insere. Serve à
+   * linha que nasce de uma sugestão: ali o nome já veio pronto, e o que falta
+   * é o valor.
+   */
+  autofocus?: boolean
 }
 
 const {
@@ -25,6 +33,7 @@ const {
   error,
   disabled = false,
   maxDigits = 11,
+  autofocus = false,
 } = defineProps<Props>()
 
 const emit = defineEmits<{
@@ -32,6 +41,11 @@ const emit = defineEmits<{
 }>()
 
 const inputId = useId()
+
+const campo = ref<HTMLInputElement | null>(null)
+onMounted(() => {
+  if (autofocus) campo.value?.focus()
+})
 
 const displayText = computed(() =>
   modelValue === null || modelValue === undefined ? '' : formatCentsToAmount(modelValue),
@@ -71,6 +85,7 @@ function onInput(event: Event) {
       </span>
       <input
         :id="inputId"
+        ref="campo"
         type="text"
         inputmode="numeric"
         placeholder="0,00"
