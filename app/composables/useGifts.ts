@@ -23,7 +23,17 @@ export interface GiftActivityEntry {
 interface GiftListResponse {
   data: Gift[]
   paymentsSummary: GiftPaymentsSummary
+  /** Os lançamentos mais recentes, para o painel de atividade — sempre um recorte. */
   activity: GiftActivityEntry[]
+  /**
+   * Quem presenteou cada presente, sobre TODOS os lançamentos. É daqui que
+   * saem o status e a coluna "Presenteado por" — de `activity` eles vinham
+   * recortados nos 20 mais recentes, e um presente com contribuição antiga
+   * aparecia como disponível (achado de 2026-09-13).
+   */
+  giversByGift: Record<string, string[]>
+  /** Quanto já entrou por presente, em centavos. */
+  raisedByGift: Record<string, number>
 }
 
 /**

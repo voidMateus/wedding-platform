@@ -9,9 +9,11 @@ import { mesaPosicaoSchema } from '#shared/schemas/mesas'
  * assim que um campo alheio acaba sobrescrito por um valor velho de outra aba.
  * Mesma lição do teto global do Financeiro não entrar em `PATCH /api/wedding`.
  *
- * Sem `recordAuditLog`: mover uma mesa no desenho não é ação administrativa
+ * auditoria dispensada: mover uma mesa no desenho não é ação administrativa
  * sensível (CLAUDE.md seção 11 pede auditoria de exclusão e permissão), e
- * registrar cada arrasto encheria a trilha de ruído que esconderia o resto.
+ * registrar cada arrasto encheria a trilha de ruído que esconderia o resto. A
+ * varredura de `tests/unit/server/auditoria-completa.spec.ts` aceita esta
+ * frase exata — é assim que a exceção fica declarada em vez de esquecida.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId } = await requireWeddingContext(event)

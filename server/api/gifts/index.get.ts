@@ -64,7 +64,9 @@ export default defineEventHandler(async (event) => {
 
   const { data: contributions, error: contributionsError } = await client
     .from('contribuicoes_presentes')
-    .select('id, presente_id, nome_contribuinte, telefone_presenteador, valor_centavos, quantidade_cotas, mensagem, contribuido_em')
+    .select(
+      'id, presente_id, nome_contribuinte, telefone_presenteador, valor_centavos, quantidade_cotas, mensagem, contribuido_em',
+    )
     .eq('casamento_id', weddingId)
     .order('contribuido_em', { ascending: false })
     .limit(RECENT_ACTIVITY_LIMIT)
@@ -123,6 +125,55 @@ export default defineEventHandler(async (event) => {
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
     .slice(0, RECENT_ACTIVITY_LIMIT)
 
+  // Quem presenteou CADA presente, e quanto entrou — sobre TODOS os
+  // lançamentos, não sobre os 20 da atividade recente.
+  //
+  // Achado de 2026-09-13: a tela derivava a coluna "Reservado por" e o status
+  // de `activity`, que é limitada a RECENT_ACTIVITY_LIMIT. Um presente de cota
+  // com contribuições mais antigas que as 20 últimas aparecia como
+  // "Disponível", sem nenhum nome — e o filtro por status concordava com a
+  // mentira. O resumo por presente sai daqui justamente para que "reservado"
+  // não dependa de quantos lançamentos couberam numa lista de atividade.
+  const [{ data: todasReservas }, { data: todasContribuicoes }] = await Promise.all([
+    client
+      .from('reservas_presentes')
+      .select('id, presente_id, nome_contribuinte, reservado_em')
+      .eq('casamento_id', weddingId)
+      .order('reservado_em', { ascending: false }),
+    client
+      .from('contribuicoes_presentes')
+      .select('presente_id, nome_contribuinte, valor_centavos, contribuido_em')
+      .eq('casamento_id', weddingId)
+      .order('contribuido_em', { ascending: false }),
+  ])
+
+  const giversByGift: Record<string, string[]> = {}
+  const raisedByGift: Record<string, number> = {}
+
+  for (const reserva of todasReservas ?? []) {
+    ;(giversByGift[reserva.presente_id] ??= []).push(reserva.nome_contribuinte ?? 'Anônimo')
+
+    // Reserva só arrecada quando foi PAGA online, e aí vale o preço do próprio
+    // presente — `checkout.post.ts` nunca aceita outro valor, e a tabela de
+    // reservas não guarda valor nenhum. Reserva gratuita (o convidado compra e
+    // leva) não entra em dinheiro nenhum.
+    if (paidReservationIds.has(reserva.id)) {
+      raisedByGift[reserva.presente_id] =
+        (raisedByGift[reserva.presente_id] ?? 0) +
+        (giftPriceCentsById.get(reserva.presente_id) ?? 0)
+    }
+  }
+
+  // Contribuição é sempre paga online (CLAUDE.md, seção 12): toda linha aqui é
+  // dinheiro que entrou.
+  for (const contribuicao of todasContribuicoes ?? []) {
+    ;(giversByGift[contribuicao.presente_id] ??= []).push(
+      contribuicao.nome_contribuinte ?? 'Anônimo',
+    )
+    raisedByGift[contribuicao.presente_id] =
+      (raisedByGift[contribuicao.presente_id] ?? 0) + contribuicao.valor_centavos
+  }
+
   return {
     data,
     paymentsSummary: {
@@ -130,5 +181,9 @@ export default defineEventHandler(async (event) => {
       failedCount: failedCount ?? 0,
     },
     activity,
+    /** Nomes de quem presenteou cada presente — completo, nunca recortado. */
+    giversByGift,
+    /** Quanto já entrou por presente, em centavos. */
+    raisedByGift,
   }
 })

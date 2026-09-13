@@ -40,7 +40,10 @@ const { data: wedding, status, refresh } = await getWedding()
 function rolarAteSecao(secao: string | null) {
   if (!secao) return
   nextTick(() => {
-    document.getElementById(secao)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.getElementById(secao)?.scrollIntoView({
+      behavior: scrollBehaviorPreferido(),
+      block: 'start',
+    })
   })
 }
 
@@ -77,6 +80,11 @@ watch(secaoAtual, (secao) => rolarAteSecao(secao))
         :wedding="wedding"
         :couple-names="wedding?.nomes_noivos ?? ''"
         @refresh="refresh"
+      />
+      <AdminSettingsRemindersTab
+        v-else-if="assunto.id === 'avisos'"
+        :wedding="wedding"
+        @saved="refresh"
       />
       <AdminSettingsContentTab
         v-else-if="assunto.id === 'conteudo'"

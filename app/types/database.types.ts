@@ -154,6 +154,7 @@ export type Database = {
           arquivado_em: string | null
           config_comunicacao: Json
           config_conteudo: Json | null
+          config_lembretes: Json
           config_faixas_etarias: Json
           config_tema: Json
           created_at: string
@@ -176,6 +177,7 @@ export type Database = {
           arquivado_em?: string | null
           config_comunicacao?: Json
           config_conteudo?: Json | null
+          config_lembretes?: Json
           config_faixas_etarias?: Json
           config_tema?: Json
           created_at?: string
@@ -198,6 +200,7 @@ export type Database = {
           arquivado_em?: string | null
           config_comunicacao?: Json
           config_conteudo?: Json | null
+          config_lembretes?: Json
           config_faixas_etarias?: Json
           config_tema?: Json
           created_at?: string
@@ -309,6 +312,7 @@ export type Database = {
           created_at: string
           enviado_em: string
           id: string
+          provedor_mensagem_id: string | null
           registrado_por: string | null
           tipo: string
         }
@@ -320,6 +324,7 @@ export type Database = {
           created_at?: string
           enviado_em?: string
           id?: string
+          provedor_mensagem_id?: string | null
           registrado_por?: string | null
           tipo: string
         }
@@ -331,6 +336,7 @@ export type Database = {
           created_at?: string
           enviado_em?: string
           id?: string
+          provedor_mensagem_id?: string | null
           registrado_por?: string | null
           tipo?: string
         }
@@ -685,7 +691,6 @@ export type Database = {
           codigo_interno: string
           convidado_responsavel_id: string | null
           created_at: string
-          enviado_em: string | null
           excluido_em: string | null
           id: string
           max_acompanhantes: number | null
@@ -693,7 +698,6 @@ export type Database = {
           mensagem_rsvp_em: string | null
           nome: string
           observacoes: string | null
-          status_convite: string
           updated_at: string
         }
         Insert: {
@@ -702,7 +706,6 @@ export type Database = {
           codigo_interno: string
           convidado_responsavel_id?: string | null
           created_at?: string
-          enviado_em?: string | null
           excluido_em?: string | null
           id?: string
           max_acompanhantes?: number | null
@@ -710,7 +713,6 @@ export type Database = {
           mensagem_rsvp_em?: string | null
           nome: string
           observacoes?: string | null
-          status_convite?: string
           updated_at?: string
         }
         Update: {
@@ -719,7 +721,6 @@ export type Database = {
           codigo_interno?: string
           convidado_responsavel_id?: string | null
           created_at?: string
-          enviado_em?: string | null
           excluido_em?: string | null
           id?: string
           max_acompanhantes?: number | null
@@ -727,7 +728,6 @@ export type Database = {
           mensagem_rsvp_em?: string | null
           nome?: string
           observacoes?: string | null
-          status_convite?: string
           updated_at?: string
         }
         Relationships: [
@@ -1068,6 +1068,51 @@ export type Database = {
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos_email: {
+        Row: {
+          casamento_id: string
+          comunicacao_id: string
+          created_at: string
+          id: string
+          metadados: Json
+          ocorrido_em: string
+          tipo_evento: string
+        }
+        Insert: {
+          casamento_id: string
+          comunicacao_id: string
+          created_at?: string
+          id?: string
+          metadados?: Json
+          ocorrido_em?: string
+          tipo_evento: string
+        }
+        Update: {
+          casamento_id?: string
+          comunicacao_id?: string
+          created_at?: string
+          id?: string
+          metadados?: Json
+          ocorrido_em?: string
+          tipo_evento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_email_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_email_comunicacao_id_fkey"
+            columns: ["comunicacao_id"]
+            isOneToOne: false
+            referencedRelation: "comunicacoes"
             referencedColumns: ["id"]
           },
         ]
@@ -2243,7 +2288,6 @@ export type Database = {
           codigo_interno: string
           convidado_responsavel_id: string | null
           created_at: string
-          enviado_em: string | null
           excluido_em: string | null
           id: string
           max_acompanhantes: number | null
@@ -2251,7 +2295,6 @@ export type Database = {
           mensagem_rsvp_em: string | null
           nome: string
           observacoes: string | null
-          status_convite: string
           updated_at: string
         }
         SetofOptions: {

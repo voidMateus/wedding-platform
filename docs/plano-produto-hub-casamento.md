@@ -55,8 +55,9 @@ eventos" (Fase 4).
   referência, `fornecedor_id` opcional) — não duplicada por área.
 - **Sugestões automáticas entram no escopo v1**, como motor de regras
   determinístico (prazo → categoria de tarefa sugerida), dentro do módulo
-  Planejamento. Não é IA. Fica na Fase 5, não é adiada para V2 — só entra
-  depois na ordem de construção.
+  Planejamento. Não é IA. Fica na **Fase 3**, não é adiada para V2 — só entra
+  depois na ordem de construção. (Dizia "Fase 5" até 2026-09-13: resquício da
+  ordem anterior, corrigida nesta mesma seção mas não aqui.)
 - **Comunicações entra no mapa**, dentro de Convidados — rastreio de status
   de envio (save the date/convite/lembrete), não o canal de envio em si.
 - **Ordem de construção**: Financeiro → Convidados → Planejamento →
@@ -84,7 +85,12 @@ eventos" (Fase 4).
    baixa arrastável** além da lista, e `convites.enviado_em` deixa de ser
    coluna marcada à mão para **derivar do registro de envio**.
 3. **Planejamento** — Checklist/tarefas + motor de sugestão simples por
-   regra de prazo (determinístico, sem IA).
+   regra de prazo (determinístico, sem IA). **Refinada em 2026-09-13: escopo,
+   modelo de dados e fluxos de UI em
+   [`fase3-planejamento.md`](fase3-planejamento.md)** — é lá que vivem as
+   decisões desta fase, não aqui. A decisão que define o tamanho dela: o
+   sistema usa os fatos dos outros módulos para decidir **o que oferecer**,
+   nunca **o que está feito** — nenhuma tarefa é concluída automaticamente.
 4. **Onboarding guiado** — wizard sobre dados que já existem (data, local,
    nº de convidados). Escopo: preencher dados de um casamento já criado —
    **não** é criação de conta self-service (isso é Fase 6, depende de
@@ -127,10 +133,12 @@ Destino de cada um, resolvido no refinamento de 2026-09-13
 - Convite com geração de link/QR code — **já estava entregue** quando a fase
   foi refinada (`InviteAccessLinkSection.vue`, com geração, reexibição,
   revogação e QR). O roadmap só não tinha sido atualizado.
-- Lembretes automáticos de RSVP por e-mail — **fica para a entrega seguinte**,
-  junto do envio real por e-mail: é ele que traz a única peça que trabalha
-  sozinha, e não depende de nada desta fase exceto do modelo de mensagem, que
-  ela já deixa pronto.
+- Lembretes automáticos de RSVP por e-mail — ficaram para a entrega seguinte,
+  junto do envio real por e-mail, e **saíram nela** (2026-09-13,
+  [`fase2-convidados.md`](fase2-convidados.md) seção 13): provedor atrás de
+  interface, o mesmo texto do WhatsApp dentro de um layout, o log do que
+  acontece depois do envio, e os dois avisos automáticos (RSVP ao convidado,
+  vencimento ao casal) — nascidos desligados, num cron só.
 - Confirmação por WhatsApp (link direto pré-preenchido) — **entra, e virou o
   centro de Comunicações** (F2.3), não um canal alternativo: é o canal real do
   casamento brasileiro e o telefone já está no cadastro.
@@ -151,23 +159,39 @@ Destino de cada um, resolvido no refinamento de 2026-09-13
 Não bloqueiam nenhuma fase do Hub, mas continuam existindo e precisam de
 espaço em algum sprint — sinalizados aqui pra não sumir:
 
-- `prefers-reduced-motion` não respeitado em nenhum lugar da plataforma.
+Pagos em 2026-09-13 (detalhe de cada um em `ROADMAP.md` seção 4):
+
+- ~~`prefers-reduced-motion` não respeitado em nenhum lugar da plataforma.~~
 - ~~Remover `convites.status_convite`~~ — **absorvido pela Fase 2** (F2.7):
-  sai na mesma migration que remove `convites.enviado_em`, que passa a ser
-  derivado do registro de envio.
-- Corrida entre filtro debounced e clique na linha (`useTableFilters`) —
-  bug reproduzido, causa raiz identificada, conserto pendente.
-- Trava de rolagem do painel no `<body>` em vez do `<html>`.
-- Auditoria completa de ações administrativas.
-- Testes E2E cobrindo os fluxos críticos (RSVP, reserva de presente, login).
-- Internacionalização (i18n) — inglês/espanhol.
-- Exportação de dados em CSV/PDF completa (falta presentes, e PDF para os
-  dois — convidados em CSV já está entregue).
-- Revisão de performance com dados de casamentos grandes (500+ convidados).
-- Observabilidade completa (Sentry + métricas de uso).
-- Testes de carga nos endpoints públicos (RSVP, reserva de presentes).
-- Revisão de segurança/RLS por terceiros — **pré-requisito obrigatório
-  antes da Fase 6** (abertura multi-tenant self-service), não do Hub em si.
+  saiu na migration B, junto de `convites.enviado_em`.
+- ~~Corrida entre filtro debounced e clique na linha (`useTableFilters`).~~
+- ~~Trava de rolagem do painel no `<body>` em vez do `<html>`.~~
+- ~~Auditoria completa de ações administrativas~~ — fechada por uma varredura
+  que falha quando uma rota de escrita nasce sem registro, não por uma
+  passagem manual que envelheceria no mês seguinte.
+- ~~Exportação de dados em CSV/PDF completa.~~ Presentes ganharam CSV; o PDF
+  dos dois é a folha imprimível do navegador, sem biblioteca no bundle.
+
+Em aberto:
+
+- ~~Testes E2E cobrindo os fluxos críticos~~ — o buraco era a reserva de
+  presente; RSVP e login já tinham teste.
+- Internacionalização (i18n) — inglês/espanhol. **É fase, não dívida**:
+  traduzir um produto inteiro escrito em pt-BR (textos de tela, e-mails,
+  mensagens de erro, conteúdo padrão do site do casal) não cabe num sprint
+  nem sai de um sprint sozinho — e nenhum usuário pediu ainda.
+- Revisão de performance com dados de casamentos grandes (500+ convidados), e
+  o LCP do site público — cujo alvo foi corrigido em 2026-09-13: o
+  "vazamento do bundle do admin" que constava como causa não existe (medido).
+- Observabilidade completa (Sentry + métricas de uso). Depende de escolher
+  provedor e política de retenção — a aplicação trata dado pessoal de
+  convidado, então não é decisão só de instrumentação.
+- Testes de carga nos endpoints públicos: o script existe
+  (`scripts/carga-publica.mjs`); falta rodá-lo contra dado de casamento
+  grande e registrar o resultado.
+- Revisão de segurança/RLS **por terceiros** — pré-requisito obrigatório
+  antes da Fase 6 (abertura multi-tenant self-service), não do Hub em si.
+  Não é trabalho de código: é contratar quem olhe de fora.
 
 ### 5.4 Descartado permanentemente (decisão já tomada antes, mantida)
 
@@ -210,7 +234,10 @@ registrada aqui — não como "voltar a ser proposta".
   refinamento da Fase 1 (2026-09-10): o módulo se chama **Financeiro** e é a
   5ª aba primária do painel, ao lado de Início, Convidados, Presentes e
   Configurações. Ver [`fase1-financeiro.md`](fase1-financeiro.md) seção 7.
-- Catálogo inicial de regras do motor de sugestão (quais prazos/categorias
-  entram) — resolve no refinamento da Fase 5.
+- ~~Catálogo inicial de regras do motor de sugestão (quais prazos/categorias
+  entram)~~ — resolvido no refinamento da Fase 3 (2026-09-13): dez fases de
+  prazo e ~45 tarefas derivadas do catálogo de gastos, com as sugestões
+  dispensadas por fato observado. Ver
+  [`fase3-planejamento.md`](fase3-planejamento.md) seção 6.
 - Confirmação técnica em `docs/DATABASE.md` sobre `membros_casamento` —
   resolve no início do refinamento da Fase 5.

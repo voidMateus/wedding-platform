@@ -3,7 +3,8 @@ import type {
   ComunicacaoRegistroInput,
   ModelosComunicacaoInput,
 } from '#shared/schemas/comunicacoes'
-import type { ComunicacoesResponse, MensagemPronta } from '~/types/comunicacao'
+import type { ConfigLembretes } from '#shared/schemas/lembretes'
+import type { ComunicacoesResponse, EnvioPorEmail, MensagemPronta } from '~/types/comunicacao'
 
 /**
  * Comunicações: o registro de cada envio e a mensagem pronta do WhatsApp.
@@ -45,8 +46,24 @@ export function useCommunications() {
     return $fetch<MensagemPronta>('/api/communications/message', { method: 'POST', body: input })
   }
 
+  /**
+   * Manda o e-mail e registra o envio — um gesto só, do lado do servidor.
+   *
+   * Não é `registrarEnvio({ canal: 'email' })`: registrar declara um fato que
+   * já aconteceu por fora, e aqui o envio acontece dentro da plataforma (e
+   * pode falhar por um motivo que não é do casal).
+   */
+  async function enviarPorEmail(input: ComunicacaoMensagemInput): Promise<EnvioPorEmail> {
+    return $fetch<EnvioPorEmail>('/api/communications/email', { method: 'POST', body: input })
+  }
+
   async function salvarModelos(input: ModelosComunicacaoInput) {
     return $fetch('/api/wedding/communication-templates', { method: 'PATCH', body: input })
+  }
+
+  /** O que a plataforma pode mandar sozinha (`casamentos.config_lembretes`). */
+  async function salvarLembretes(input: ConfigLembretes) {
+    return $fetch('/api/wedding/reminders', { method: 'PATCH', body: input })
   }
 
   return {
@@ -55,6 +72,8 @@ export function useCommunications() {
     registrarEnvio,
     apagarEnvio,
     prepararMensagem,
+    enviarPorEmail,
     salvarModelos,
+    salvarLembretes,
   }
 }

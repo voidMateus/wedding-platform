@@ -255,7 +255,14 @@ Um componente só é extraído para uso compartilhado após aparecer em **pelo m
 - Todo elemento interativo é acessível via teclado (`Tab`/`Enter`/`Space`), sem exceções para componentes customizados.
 - Formulários (RSVP, cadastro de convidado) com `label` associado a cada campo, mensagens de erro anunciadas via `aria-live`.
 - Imagens decorativas com `alt=""`; imagens de conteúdo (fotos do casal) com `alt` descritivo preenchido pelo casal.
+- **Movimento reduzido é respeitado** (`@media (prefers-reduced-motion: reduce)` em `main.css`, desde 2026-09-13), e em dois níveis, porque o requisito não é o mesmo para os dois casos: o que roda **sem ninguém pedir** (o `animate-bounce` da seta do Hero, o `animate-pulse` do `UiSkeleton`) é desligado de vez; o que **responde a um gesto** cai para `1ms` em vez de `0s` — zerar cancelaria o evento `transitionend`, e componente que espera por ele para desmontar ficaria preso na tela. Rolagem suave em JS (`scrollTo`/`scrollIntoView`) **não** obedece a CSS: use `scrollBehaviorPreferido()` de `app/utils/motion.ts`, nunca `behavior: 'smooth'` fixo.
 - Testado com leitor de tela (NVDA/VoiceOver) nos fluxos críticos antes de cada release maior.
+
+### 6.1 Impressão (e o PDF)
+
+O produto **não gera PDF por biblioteca**, e isso é decisão, não falta: "Salvar como PDF" é um destino de impressão em todo navegador atual, então a folha imprimível já é o PDF. Uma dependência de geração custaria centenas de KB no caminho do casal para redesenhar, pior, uma tabela que o navegador já sabe paginar.
+
+A folha é a própria tela, com a chrome escondida — o bloco `@media print` de `main.css` desfaz o app shell (a trava de rolagem do painel, o `max-height` da grade), esconde `header`/`nav`/`aside` e tudo marcado com `.no-print`, e repete o cabeçalho da tabela a cada página. Sem desfazer o shell sairia **uma** página, com a primeira dobra da tabela e nada mais. `AdminPrintButton` é o gesto; ele próprio é `.no-print`.
 
 ## 7. SEO
 

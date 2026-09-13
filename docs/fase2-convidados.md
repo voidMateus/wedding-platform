@@ -701,3 +701,180 @@ schema novo; nela, um `update` numa coluna removida falharia. A view já deriva
 `enviado_em` do registro de envio, e o `coalesce` com a coluna física cobre
 exatamente essa janela — quando ela fechar, o coalesce sai junto com a coluna.
 É o mesmo cuidado que já tinha adiado `status_convite` uma vez.
+
+**Saiu no merge seguinte** (`20260913120001_convites_sem_enviado_em_e_status.sql`),
+fechando a fase. Com o código de Comunicações já em produção, nada mais escrevia
+nas duas colunas: a view caiu, as colunas caíram (`convites_status_convite_idx`
+junto, sem linha própria) e a view voltou sem o `coalesce` — `env.enviado_em`,
+o primeiro registro do tipo `convite`, passou a ser a única origem possível do
+estágio "Enviado". `docs/DATABASE.md` foi acertado no mesmo passo, onde ainda
+descrevia `comunicacoes` pelo schema anterior à fase e usava `status_convite`
+como exemplo da convenção de enum.
+
+---
+
+## 13. A entrega seguinte — e-mail de verdade e os lembretes automáticos (2026-09-13)
+
+A seção 2.2 deixou o e-mail **nomeado**, não adiado: "é dela que dependem o
+lembrete de RSVP e o lembrete de vencimento do Financeiro, os dois já
+dependurados nesta fase". Esta é essa entrega. Ela não reabre nenhuma decisão
+da fase — usa o modelo de mensagem que a fase deixou pronto e acrescenta o
+canal que faltava, mais a única peça da plataforma que trabalha sozinha.
+
+### 13.1 O provedor, e por que atrás de uma interface
+
+**Resend**, pela análise de risco que o `ROADMAP.md` já nomeava. Mas o que
+entra no código é `server/utils/email-provider.ts` (contrato) +
+`email-resend.ts` (implementação) — o mesmo desenho de `places-provider.ts`, e
+pelos mesmos dois motivos concretos: provedor de e-mail transacional é peça de
+troca provável (preço por volume, reputação de IP), e o webhook de entrega é
+**formato proprietário**. Sem a fronteira, `email.bounced` e o cabeçalho
+`svix-signature` vazariam para dentro do endpoint e para o banco.
+
+Via `fetch`, sem o SDK: a API é um POST com JSON e um Bearer, e o pacote
+acrescentaria uma dependência de runtime para embrulhar isso — mesmo caminho já
+usado em `google-drive.ts` e `infinitepay.ts`.
+
+**Opcional, como a busca de locais.** Sem `RESEND_API_KEY` ou sem
+`EMAIL_REMETENTE`, `resolveEmailProvider()` devolve `null`: o canal some da
+tela (`emailEnabled` no runtimeConfig público), o cron não manda nada, e o
+WhatsApp assistido continua sendo o caminho completo que sempre foi. A parte
+que não se resolve no código — verificar o domínio de envio no DNS — está no
+`README.md`.
+
+### 13.2 Um texto, dois canais
+
+O e-mail **não** ganha um modelo próprio. `modelo-comunicacao.ts` continua
+sendo o único lugar onde a mensagem existe, exatamente como a fase previu ("o
+e-mail, quando chegar, usará o mesmo texto dentro do layout dele"). O layout
+acrescenta tipografia, a cor do casamento e o rodapé que diz por que aquela
+pessoa recebeu aquilo.
+
+**E não acrescenta botão de ação.** O link já está onde o casal o escreveu, no
+meio da frase dele — aqui ele só vira clicável. Um botão embaixo repetiria o
+mesmo endereço duas vezes na mesma mensagem, e movê-lo para fora da frase
+exigiria costurar o texto do casal: a mesma cirurgia que `renderizarModelo` se
+recusa a fazer, pelo mesmo motivo (exigiria entender português, e a heurística
+erra no texto que o próprio casal escreveu).
+
+### 13.3 Enviar é rota própria, e a ordem importa
+
+`POST /api/communications/email` manda e registra no mesmo gesto — e não é
+`registrarEnvio({ canal: 'email' })`. Registrar declara um fato que já
+aconteceu **por fora**; aqui o envio acontece dentro da plataforma, e esta é a
+única rota do módulo que pode falhar por um motivo que não é do casal (provedor
+fora do ar, domínio não verificado).
+
+**Manda primeiro, registra depois.** Se o provedor recusar, não há envio a
+registrar; o contrário deixaria o funil dizendo "enviado" para uma mensagem que
+nunca saiu — exatamente o erro que `convites.enviado_em` cometia. Se o registro
+falhar depois de o e-mail ter saído, o envio aconteceu e o log fica devendo: é a
+única ordem em que a inconsistência possível é a inofensiva.
+
+Destinatário é o **responsável pelo convite**, o mesmo do WhatsApp — o convite é
+a unidade de comunicação, e uma pessoa responde por ele. E-mail que não
+normaliza (`shared/utils/email.ts`) vira "sem e-mail", nunca um botão que manda
+para ninguém: é a regra do telefone, aplicada ao outro canal.
+
+### 13.4 O que acontece depois do envio é outro log
+
+`eventos_email` (nova), não uma coluna `status_entrega` em `comunicacoes`. Três
+motivos, e nenhum é estilo:
+
+1. `comunicacoes` é log append-only **sem policy de UPDATE**, de propósito. Uma
+   coluna de status ali exigiria abrir o UPDATE da tabela inteira para gravar um
+   fato que o casal não produz.
+2. Entrega não é um estado, é uma sequência: entregue hoje, reclamado amanhã.
+   Uma coluna guardaria só o último e apagaria o caminho.
+3. É a lição de `status_convite` de novo — estado que os fatos já contam nunca
+   vira coluna a sincronizar.
+
+A ponte é `comunicacoes.provedor_mensagem_id`, gravado **no instante do envio**
+(faz parte do fato, não é estado que muda depois). O webhook é
+`/api/webhooks/email` — nome do canal, não do fornecedor: o endereço fica
+registrado no painel do provedor, e trocar de provedor não deveria exigir
+reconfigurar uma URL já publicada.
+
+**A assinatura é obrigatória.** Ao contrário do webhook da InfinitePay (que não
+documenta assinatura, e por isso trata o corpo como mero ponteiro e reverifica
+tudo servidor-a-servidor), aqui não há nada a reverificar: "este e-mail voltou"
+só existe na palavra do provedor. Sem segredo configurado, a rota recusa — nunca
+"aceita porque não dá para verificar".
+
+Na tela, só **devolvido** e **reclamado** aparecem. "Entregue" e "enviado" não
+viram selo: a lista ficaria coberta de confirmações de que o normal aconteceu.
+
+### 13.5 Os dois avisos automáticos
+
+`casamentos.config_lembretes` (jsonb novo), e não mais uma chave em
+`config_comunicacao`: a diferença é de **público**. `config_comunicacao` guarda
+o texto que o casal manda ao convidado — e é o casal quem clica. Aqui mora o que
+a plataforma manda sem ninguém clicar, e uma das duas chaves (`pagamentos`) não
+vai para convidado nenhum, vai para o próprio casal.
+
+**Nascem desligados**, contra o padrão de todo o resto da plataforma — e é
+justamente por isso que a decisão é registrada: os outros padrões preenchem uma
+tela, este escreveria para oitenta caixas de entrada com o nome do casal no
+remetente.
+
+A decisão de enviar é uma comparação de datas (`marcaQueDispara`): dispara no
+dia exato de uma marca e **nunca depois que o alvo passou** — prazo vencido não
+vira cobrança diária, e parcela vencida é assunto da tela de Pagamentos, que já
+a mostra em vermelho todo dia sem precisar de e-mail todo dia.
+
+Quem não recebe lembrete de RSVP, e por quê (`conviteDeveReceberLembrete`, pura
+e testada): quem **nunca recebeu o convite** (lembrar de confirmar quem nunca
+foi convidado é a plataforma anunciando o casamento no lugar do casal), quem
+**já respondeu por inteiro** (resposta parcial continua recebendo: falta gente
+dentro do convite), quem **não tem e-mail**, e quem **já recebeu hoje**. Esta
+última é a proteção contra rodada dupla, e é **derivada do log** — as linhas de
+`comunicacoes` do dia para o RSVP, a `trilha_auditoria` com
+`tipo_autor = 'sistema'` para o financeiro. Nenhuma coluna "último lembrete".
+
+Só casamento **publicado** manda lembrete de RSVP: o lembrete leva um link para
+o site, e mandar o convidado para um site fora do ar é pior que não lembrar. O
+aviso de pagamento vale também em rascunho — o casal planeja antes de publicar.
+
+**Um cron para os dois** (`/api/cron/send-reminders`, 12h UTC = 9h de Brasília).
+Dois assuntos no mesmo endpoint é um custo de organização; um assunto sem cron
+disponível é um recurso que não existe — o plano da hospedagem limita quantos
+existem, e a sincronização da galeria já ocupa um.
+
+O aviso de pagamento é **um e-mail com todas as parcelas do dia**, nunca um por
+parcela: três contas vencendo na mesma semana são uma notícia só. E é o único
+e-mail da plataforma assinado por ela, e não pelo casal — quem recebe é o
+próprio casal, e uma mensagem com o nome deles chegando na caixa deles pareceria
+phishing.
+
+### 13.6 Onde isso mora na tela
+
+Comunicações ganhou um **seletor de canal** ao lado do de tipo, e a razão é a
+mesma que justificou o primeiro: mandar convite é uma sessão de trabalho ("hoje
+eu mando os convites, por e-mail"), e o par tipo + canal descreve essa sessão
+inteira. O canal só aparece quando existe provedor configurado.
+
+Os valores do filtro de contato passaram a ser `com_contato`/`sem_contato`, com
+o rótulo mudando por canal. Com valores distintos por canal ("com WhatsApp" vs
+"com e-mail"), trocar de canal com o filtro ativo deixaria um recorte que não
+casa com nenhuma opção visível — zero linhas e um filtro aparentemente vazio.
+
+Os avisos automáticos viraram **assunto próprio em Configurações** (não mais um
+cartão em "Geral"): o que se decide ali é de outra natureza — os outros cartões
+guardam dados do evento, este autoriza a plataforma a escrever em nome do casal
+para pessoas que não pediram nada.
+
+### 13.7 O que fica de fora, ainda de propósito
+
+- **WhatsApp Business API** (envio automático, sem humano) — a decisão de 2.2
+  continua valendo. Nada aqui a reabre.
+- **Pixel de rastreamento de abertura** — segue fora. O webhook registra
+  entrega e devolução, que são fatos do transporte; abertura continua sendo o
+  acesso real ao convite (`rsvp.first_access`).
+- **E-mail para todos os membros do convite.** O envio é para quem responde por
+  ele, como o WhatsApp. Mandar para cinco endereços do mesmo convite produziria
+  cinco registros para um envio só, e `comunicacoes.convidado_id` é um
+  destinatário, não uma lista.
+- **Reenviar em massa** ("mandar para todos os que faltam de uma vez"). O
+  seletor de canal + o filtro "Não enviado" já fazem a fila; o botão de massa
+  acrescentaria um caminho em que oitenta e-mails saem de um clique só, sem
+  nenhum ponto de arrependimento.

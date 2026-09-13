@@ -1,5 +1,7 @@
 import type { H3Event } from 'h3'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { serverSupabaseClient } from '#supabase/server'
+import type { Database, Json } from '~/types/database.types'
 
 interface AuditLogInput {
   action: string
@@ -36,5 +38,38 @@ export async function recordAuditLog(
 
   if (error) {
     console.error('[audit-log] falha ao registrar', input.action, error.message)
+  }
+}
+
+/**
+ * Registra uma ação que a PLATAFORMA tomou sozinha — `tipo_autor = 'sistema'`,
+ * sem autor (CLAUDE.md, seção 11).
+ *
+ * Recebe o client `service_role` em vez do `H3Event` porque quem chama é o
+ * cron: não há sessão, não há membro, e a RLS de `trilha_auditoria` (insert só
+ * de membro do casamento) recusaria a linha.
+ *
+ * Além de auditoria, é o que impede o envio duplicado: "já mandei o aviso de
+ * pagamento deste casamento hoje?" é respondido por esta trilha, não por uma
+ * coluna `ultimo_lembrete_em` a manter sincronizada — mesma regra que fez
+ * `enviado_em` virar derivado.
+ */
+export async function recordSystemAuditLog(
+  admin: SupabaseClient<Database>,
+  weddingId: string,
+  input: AuditLogInput,
+): Promise<void> {
+  const { error } = await admin.from('trilha_auditoria').insert({
+    casamento_id: weddingId,
+    autor_id: null,
+    tipo_autor: 'sistema',
+    acao: input.action,
+    tipo_entidade: input.entityType,
+    entidade_id: input.entityId,
+    metadados: (input.metadata ?? {}) as Json,
+  })
+
+  if (error) {
+    console.error('[audit-log:sistema] falha ao registrar', input.action, error.message)
   }
 }

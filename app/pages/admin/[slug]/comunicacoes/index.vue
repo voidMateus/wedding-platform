@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import {
-  ROTULOS_TIPO_COMUNICACAO,
-  TIPOS_COMUNICACAO,
-} from '#shared/utils/modelo-comunicacao'
+import { ROTULOS_TIPO_COMUNICACAO, TIPOS_COMUNICACAO } from '#shared/utils/modelo-comunicacao'
 import type { TipoComunicacao } from '#shared/utils/modelo-comunicacao'
 import { formatarTempoDecorrido } from '#shared/utils/format-date'
-import type { LinhaDeComunicacao } from '~/types/comunicacao'
+import type { CanalDeEnvio, EnvioRegistrado, LinhaDeComunicacao } from '~/types/comunicacao'
 import { applyTableFilters } from '~/utils/table-rows'
 
 definePageMeta({ layout: 'admin' })
@@ -13,13 +10,22 @@ definePageMeta({ layout: 'admin' })
 const slug = useActiveWeddingSlug()
 const toast = useToast()
 
-const { listCommunications, prepararMensagem, registrarEnvio } = useCommunications()
+const { listCommunications, prepararMensagem, registrarEnvio, enviarPorEmail } = useCommunications()
 const { data, status, error, refresh } = listCommunications()
 
 const linhas = computed(() => data.value?.data ?? [])
 const resumo = computed(() => data.value?.resumo ?? null)
 
-const { colunas, acessores, rotuloDoEnvio } = useCommunicationColumns()
+/**
+ * O canal só aparece quando existe: sem provedor configurado no ambiente, o
+ * WhatsApp é o único caminho e um seletor de uma opção só é ruído. É a mesma
+ * regra da busca de locais (`placesSearchEnabled`) — o recurso some da tela em
+ * vez de falhar nela.
+ */
+const emailDisponivel = useRuntimeConfig().public.emailEnabled
+const canalEmEnvio = ref<CanalDeEnvio>('whatsapp')
+
+const { colunas, acessores, rotuloDoEnvio } = useCommunicationColumns(canalEmEnvio)
 const filters = useTableFilters(colunas)
 
 const linhasFiltradas = computed(() =>
@@ -44,8 +50,18 @@ const opcoesDeTipo = TIPOS_COMUNICACAO.map((valor) => ({
   label: ROTULOS_TIPO_COMUNICACAO[valor],
 }))
 
+const opcoesDeCanal = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'email', label: 'E-mail' },
+]
+
 const faltamDoTipo = computed(
   () => linhas.value.filter((linha) => !linha.envios[tipoEmEnvio.value]).length,
+)
+
+/** Quantos não dá para alcançar pelo canal de agora — o número muda com ele. */
+const semContato = computed(() =>
+  canalEmEnvio.value === 'email' ? (resumo.value?.semEmail ?? 0) : (resumo.value?.semTelefone ?? 0),
 )
 
 const isFirstLoad = computed(() => status.value === 'pending' && !data.value)
@@ -109,6 +125,32 @@ async function enviarPorWhatsApp(linha: LinhaDeComunicacao) {
   }
 }
 
+/**
+ * O e-mail sai pelo servidor, então aqui não há aba a abrir nem gesto a
+ * preservar — e, ao contrário do WhatsApp, o envio é confirmado de verdade: só
+ * há registro se o provedor aceitou a mensagem.
+ */
+async function enviarPorEmailDaLinha(linha: LinhaDeComunicacao) {
+  if (!linha.email) return
+
+  enviandoId.value = linha.id
+  try {
+    const envio = await enviarPorEmail({ conviteId: linha.id, tipo: tipoEmEnvio.value })
+    await refresh()
+    toast.success(`${ROTULOS_TIPO_COMUNICACAO[envio.tipo]} enviado para ${envio.destinatario}.`)
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível enviar o e-mail.'))
+  } finally {
+    enviandoId.value = null
+  }
+}
+
+/** O botão da linha faz o que o canal de agora manda. */
+async function enviarDaLinha(linha: LinhaDeComunicacao) {
+  if (canalEmEnvio.value === 'email') return enviarPorEmailDaLinha(linha)
+  return enviarPorWhatsApp(linha)
+}
+
 /** Quem não tem telefone: o envio aconteceu por fora, e o casal só anota. */
 async function registrarPorFora(linha: LinhaDeComunicacao) {
   enviandoId.value = linha.id
@@ -127,15 +169,34 @@ async function registrarPorFora(linha: LinhaDeComunicacao) {
   }
 }
 
+/**
+ * Só devolvido e reclamado pedem providência do casal.
+ *
+ * `enviado` é o estado normal de quase todo envio (o provedor só avisa quando
+ * confirma entrega ou quando algo dá errado), e `adiado` costuma resolver-se
+ * sozinho na retentativa — sinalizar os dois encheria a tela de alarme falso.
+ */
+function precisaDeAtencao(envio: EnvioRegistrado | null): boolean {
+  return envio?.entrega === 'devolvido' || envio?.entrega === 'reclamado'
+}
+
 const isTemplatesOpen = ref(false)
 
 /** Leva para a lista de convidados filtrada por quem ainda não tem contato. */
 const linkParaContatos = `/admin/${slug}/convidados`
+const linkParaAvisos = `/admin/${slug}/configuracoes?secao=avisos`
 </script>
 
 <template>
   <AdminSection title="Comunicações" :meta="resumo ? `${resumo.total} convites` : undefined">
     <template #actions>
+      <!-- Só aparece quando existe canal automático: sem provedor de e-mail,
+           nada nesta plataforma manda nada sozinho, e oferecer a tela de
+           avisos seria prometer o que não acontece. -->
+      <UiButton v-if="emailDisponivel" variant="ghost" :to="linkParaAvisos">
+        <Icon name="lucide:bell" class="h-4 w-4" />
+        Avisos automáticos
+      </UiButton>
       <UiButton variant="ghost" @click="isTemplatesOpen = true">
         <Icon name="lucide:message-square-text" class="h-4 w-4" />
         Mensagens
@@ -157,15 +218,24 @@ const linkParaContatos = `/admin/${slug}/convidados`
         <span class="num font-medium text-text">{{ resumo.semNenhumEnvio }}</span>
         sem nenhum contato
       </span>
-      <!-- Convite sem telefone não é erro, é trabalho a fazer — e o atalho leva
-           direto para onde se completa o cadastro. -->
+      <!-- Convite sem contato não é erro, é trabalho a fazer — e o atalho leva
+           direto para onde se completa o cadastro. O número segue o canal: o
+           mesmo convite pode ter e-mail e não ter telefone. -->
       <NuxtLink
-        v-if="resumo.semTelefone"
+        v-if="semContato"
         :to="linkParaContatos"
         class="text-warning underline-offset-2 hover:underline"
       >
-        {{ resumo.semTelefone }} sem telefone — completar contatos
+        {{ semContato }}
+        {{ canalEmEnvio === 'email' ? 'sem e-mail' : 'sem telefone' }} — completar contatos
       </NuxtLink>
+      <!-- Devolvido é o único estado que o sistema sabe e o casal não: o
+           e-mail saiu, voltou, e ninguém o avisaria sem esta linha. -->
+      <span v-if="resumo.naoEntregues" class="text-danger">
+        ·
+        <span class="num font-medium">{{ resumo.naoEntregues }}</span>
+        não chegaram
+      </span>
     </div>
 
     <AdminPanel
@@ -173,6 +243,16 @@ const linkParaContatos = `/admin/${slug}/convidados`
       :meta="`${linhasFiltradas.length} exibidos · faltam ${faltamDoTipo} de ${ROTULOS_TIPO_COMUNICACAO[tipoEmEnvio].toLowerCase()}`"
     >
       <template #headerActions>
+        <!-- Dois seletores, e não um botão por canal em cada linha: mandar
+             convite é uma sessão de trabalho ("hoje eu mando os convites, por
+             e-mail"), e o par tipo + canal descreve essa sessão inteira. -->
+        <UiSelect
+          v-if="emailDisponivel"
+          v-model="canalEmEnvio"
+          :options="opcoesDeCanal"
+          aria-label="Por onde enviar"
+          class="w-36"
+        />
         <UiSelect
           v-model="tipoEmEnvio"
           :options="opcoesDeTipo"
@@ -220,28 +300,42 @@ const linkParaContatos = `/admin/${slug}/convidados`
           <!-- O nome de quem responde, não o telefone: número em tabela é ruído,
                e o que o casal precisa saber é SE dá para mandar. -->
           <template #cell-contato="{ row }">
-            <span v-if="row.telefoneE164" class="text-text-muted">
+            <span v-if="temContato(row, canalEmEnvio)" class="text-text-muted">
               {{ row.responsavel?.nomeCompleto ?? '—' }}
             </span>
-            <span v-else class="text-warning">Sem telefone</span>
+            <span v-else class="text-warning">
+              {{ canalEmEnvio === 'email' ? 'Sem e-mail' : 'Sem telefone' }}
+            </span>
           </template>
 
           <template v-for="tipo in TIPOS_COMUNICACAO" :key="tipo" #[`cell-${tipo}`]="{ row }">
             <span :class="row.envios[tipo] ? 'text-text-muted' : 'text-text-muted/60'">
               {{ rotuloDoEnvio(row, tipo) }}
             </span>
+            <!-- Só o que voltou ganha destaque. "Entregue" e "enviado" não
+                 viram selo: a tela ficaria coberta de confirmações de que o
+                 normal aconteceu. -->
+            <span
+              v-if="precisaDeAtencao(row.envios[tipo])"
+              class="ml-2 text-xs font-medium text-danger"
+            >
+              {{ row.envios[tipo]?.entrega === 'reclamado' ? 'marcado como spam' : 'não chegou' }}
+            </span>
           </template>
 
           <template #cell-acoes="{ row }">
             <UiButton
-              v-if="row.telefoneE164"
+              v-if="temContato(row, canalEmEnvio)"
               size="sm"
               variant="ghost"
               :disabled="enviandoId === row.id"
-              :aria-label="`Enviar ${ROTULOS_TIPO_COMUNICACAO[tipoEmEnvio].toLowerCase()} para ${row.nome} pelo WhatsApp`"
-              @click="enviarPorWhatsApp(row)"
+              :aria-label="`Enviar ${ROTULOS_TIPO_COMUNICACAO[tipoEmEnvio].toLowerCase()} para ${row.nome} por ${canalEmEnvio === 'email' ? 'e-mail' : 'WhatsApp'}`"
+              @click="enviarDaLinha(row)"
             >
-              <Icon name="lucide:message-circle" class="h-4 w-4" />
+              <Icon
+                :name="canalEmEnvio === 'email' ? 'lucide:mail' : 'lucide:message-circle'"
+                class="h-4 w-4"
+              />
               Enviar
             </UiButton>
             <!-- Sem telefone o botão não some: o envio aconteceu de outro jeito
@@ -275,9 +369,9 @@ const linkParaContatos = `/admin/${slug}/convidados`
                 size="sm"
                 variant="ghost"
                 :disabled="enviandoId === row.id"
-                @click="row.telefoneE164 ? enviarPorWhatsApp(row) : registrarPorFora(row)"
+                @click="temContato(row, canalEmEnvio) ? enviarDaLinha(row) : registrarPorFora(row)"
               >
-                {{ row.telefoneE164 ? 'Enviar' : 'Registrar' }}
+                {{ temContato(row, canalEmEnvio) ? 'Enviar' : 'Registrar' }}
               </UiButton>
             </div>
           </template>

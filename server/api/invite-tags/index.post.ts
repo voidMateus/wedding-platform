@@ -2,7 +2,7 @@ import { serverSupabaseClient } from '#supabase/server'
 import { inviteTagInputSchema } from '#shared/schemas/invites'
 
 export default defineEventHandler(async (event) => {
-  const { weddingId } = await requireWeddingContext(event)
+  const { weddingId, memberId } = await requireWeddingContext(event)
   const input = await validateBody(event, inviteTagInputSchema)
 
   const client = await serverSupabaseClient(event)
@@ -19,6 +19,13 @@ export default defineEventHandler(async (event) => {
     }
     throw badRequestError(error.message)
   }
+
+  await recordAuditLog(event, weddingId, memberId, {
+    action: 'invite_tag.create',
+    entityType: 'invite_tag',
+    entityId: data.id,
+    metadata: { nome: input.nome },
+  })
 
   setResponseStatus(event, 201)
   return data

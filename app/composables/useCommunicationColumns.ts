@@ -5,7 +5,7 @@ import {
 } from '#shared/utils/modelo-comunicacao'
 import type { TipoComunicacao } from '#shared/utils/modelo-comunicacao'
 import { formatDatePtBR } from '#shared/utils/format-date'
-import type { LinhaDeComunicacao } from '~/types/comunicacao'
+import type { CanalDeEnvio, LinhaDeComunicacao } from '~/types/comunicacao'
 import type { AdminTableColumn } from '~/types/table'
 import { compareText, type ClientColumn } from '~/utils/table-rows'
 
@@ -21,20 +21,25 @@ import { compareText, type ClientColumn } from '~/utils/table-rows'
  * Contato também é filtrável pelo mesmo motivo: "quem eu ainda não consigo
  * alcançar?" é a pergunta que leva ao trabalho de completar os cadastros.
  */
-export function useCommunicationColumns() {
-  // Sem parâmetro: diferente de Convidados, aqui NENHUMA opção de filtro sai
-  // dos dados (grupo e núcleo saíam). "Enviado / Não enviado" e "Com WhatsApp /
-  // Sem telefone" são conjuntos fechados, então as colunas não dependem da
-  // lista — e um parâmetro que não se usa é um convite a passar a usar.
+export function useCommunicationColumns(canal: Ref<CanalDeEnvio>) {
   const opcoesDeEnvio = [
     { value: 'enviado', label: 'Enviado' },
     { value: 'nao_enviado', label: 'Não enviado' },
   ]
 
-  const opcoesDeContato = [
-    { value: 'whatsapp', label: 'Com WhatsApp' },
-    { value: 'sem_telefone', label: 'Sem telefone' },
-  ]
+  /**
+   * Os VALORES do filtro de contato não dependem do canal, só os rótulos.
+   *
+   * Se "com WhatsApp" e "com e-mail" fossem valores diferentes, trocar de canal
+   * com o filtro ativo deixaria um recorte que não casa com nenhuma opção
+   * visível — a tela mostraria zero linhas e um filtro aparentemente vazio.
+   * Com um valor só, o filtro continua querendo dizer a mesma coisa: "quem eu
+   * consigo alcançar pelo canal de agora".
+   */
+  const opcoesDeContato = computed(() => [
+    { value: 'com_contato', label: canal.value === 'email' ? 'Com e-mail' : 'Com WhatsApp' },
+    { value: 'sem_contato', label: canal.value === 'email' ? 'Sem e-mail' : 'Sem telefone' },
+  ])
 
   const colunas = computed<AdminTableColumn<LinhaDeComunicacao>[]>(() => [
     {
@@ -46,7 +51,7 @@ export function useCommunicationColumns() {
     {
       key: 'contato',
       label: 'Contato',
-      filter: { type: 'select', multiple: true, options: opcoesDeContato },
+      filter: { type: 'select', multiple: true, options: opcoesDeContato.value },
     },
     ...TIPOS_COMUNICACAO.map((tipo) => ({
       key: tipo,
@@ -63,7 +68,7 @@ export function useCommunicationColumns() {
       compare: compareText((row) => row.nome),
     },
     contato: {
-      value: (row) => (row.telefoneE164 ? 'whatsapp' : 'sem_telefone'),
+      value: (row) => (temContato(row, canal.value) ? 'com_contato' : 'sem_contato'),
     },
     ...Object.fromEntries(
       TIPOS_COMUNICACAO.map((tipo) => [
@@ -88,4 +93,9 @@ export function useCommunicationColumns() {
   }
 
   return { colunas, acessores, rotuloDoEnvio }
+}
+
+/** Dá para alcançar este convite pelo canal escolhido? */
+export function temContato(linha: LinhaDeComunicacao, canal: CanalDeEnvio): boolean {
+  return canal === 'email' ? Boolean(linha.email) : Boolean(linha.telefoneE164)
 }

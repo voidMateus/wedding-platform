@@ -2,6 +2,7 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { giftCategoryInputSchema } from '#shared/schemas/gift-categories'
+import { gerarCsvPresentes, nomeDoArquivoDePresentes } from '#shared/utils/exportacao-presentes'
 import { formatCentsToBRL, formatCentsToBRLOrDash } from '#shared/utils/format-currency'
 import type { GiftCategory } from '~/types/gift-category'
 import type { Gift } from '~/types/gift'
@@ -48,20 +49,15 @@ function categoryName(categoryId: string | null): string {
 
 // --- recorte e derivações da lista ---
 //
-// "Reservado por" e o status saem de `giftsData.activity`, que já vem na mesma
-// resposta de /api/gifts (reservas + contribuições de todos os presentes) —
-// nenhuma consulta nova. Por isso também não existe o recorte "Recebidos" do
-// desenho original: não há confirmação de entrega no modelo, o que existe é
-// "pago online" por lançamento.
-const giversByGift = computed(() => {
-  const map = new Map<string, string[]>()
-  for (const entry of giftsData.value?.activity ?? []) {
-    const names = map.get(entry.giftId) ?? []
-    names.push(entry.name)
-    map.set(entry.giftId, names)
-  }
-  return map
-})
+// "Reservado por" e o status saem de `giftsData.giversByGift`, o resumo por
+// presente que o endpoint monta sobre TODOS os lançamentos. Antes saíam de
+// `activity`, que é limitada aos 20 mais recentes: um presente de cota com
+// contribuições mais antigas aparecia como "Disponível", sem nenhum nome, e o
+// filtro por status concordava com a mentira (achado de 2026-09-13).
+//
+// Não existe o recorte "Recebidos" do desenho original: não há confirmação de
+// entrega no modelo, o que existe é "pago online" por lançamento.
+const giversByGift = computed(() => new Map(Object.entries(giftsData.value?.giversByGift ?? {})))
 
 function giversOf(gift: Gift): string[] {
   return giversByGift.value.get(gift.id) ?? []
@@ -164,6 +160,37 @@ function priceCents(gift: Gift): number | null {
 
 function priceLabel(gift: Gift): string {
   return formatCentsToBRLOrDash(priceCents(gift))
+}
+
+/**
+ * Exporta o RECORTE ATUAL, a mesma promessa do botão de convidados: o arquivo
+ * casa com o que está na tela, senão os filtros logo acima dele viram enfeite.
+ *
+ * Gerado no navegador, e não num endpoint: a lista de presentes chega inteira
+ * numa requisição só e os recortes são aplicados aqui — um endpoint teria de
+ * reimplementar o status e o "presenteado por", criando duas verdades para o
+ * mesmo número. (A de convidados é paginada, por isso é do servidor.)
+ */
+function exportarPresentes() {
+  const categoriaPorId = new Map(
+    (categoriesData.value?.data ?? []).map((categoria) => [categoria.id, categoria.nome]),
+  )
+  const arrecadado = giftsData.value?.raisedByGift ?? {}
+
+  const csv = gerarCsvPresentes(
+    visibleGifts.value.map((gift) => ({
+      titulo: gift.titulo,
+      categoriaNome: gift.categoria_id ? (categoriaPorId.get(gift.categoria_id) ?? null) : null,
+      ePresenteCota: gift.e_presente_cota,
+      status: giftStatusPresentation(giftStatus(gift)).label,
+      valorCentavos: priceCents(gift),
+      arrecadadoCentavos: arrecadado[gift.id] ?? null,
+      quantidadeDisponivel: gift.quantidade_disponivel,
+      presenteadoPor: giversOf(gift),
+    })),
+  )
+
+  baixarArquivo(csv, nomeDoArquivoDePresentes(new Date()))
 }
 
 // --- categorias (CRUD compacto) ---
@@ -284,6 +311,11 @@ async function confirmDelete() {
 <template>
   <AdminSection title="Presentes" :meta="totalLabel">
     <template #actions>
+      <UiButton variant="ghost" :disabled="!visibleGifts.length" @click="exportarPresentes">
+        <Icon name="lucide:download" class="h-4 w-4" />
+        Exportar
+      </UiButton>
+      <AdminPrintButton :disabled="!visibleGifts.length" />
       <UiButton @click="openGiftModal">
         <Icon name="lucide:plus" class="h-4 w-4" />
         Adicionar presente

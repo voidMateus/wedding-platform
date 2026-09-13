@@ -111,6 +111,9 @@ const emModoLista = computed(() => route.path.endsWith('/convidados/lista'))
           <Icon name="lucide:download" class="h-4 w-4" />
           {{ exportando ? 'Exportando...' : 'Exportar' }}
         </UiButton>
+        <!-- Imprimir É o caminho para PDF ("Salvar como PDF" é um destino de
+             impressão), e por isso não existe um terceiro botão para ele. -->
+        <AdminPrintButton class="flex-1 sm:flex-none" />
       </div>
     </div>
   </div>

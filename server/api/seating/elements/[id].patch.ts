@@ -9,7 +9,7 @@ import { elementoInputSchema } from '#shared/schemas/mesas'
  * não existe o conflito que o endpoint estreito da mesa evita.
  */
 export default defineEventHandler(async (event) => {
-  const { weddingId } = await requireWeddingContext(event)
+  const { weddingId, memberId } = await requireWeddingContext(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw badRequestError('id do elemento não informado.')
 
@@ -34,6 +34,13 @@ export default defineEventHandler(async (event) => {
 
   if (error) throw badRequestError(error.message)
   if (!data) throw notFoundError('Elemento não encontrado.')
+
+  await recordAuditLog(event, weddingId, memberId, {
+    action: 'floorplan_element.update',
+    entityType: 'floorplan_element',
+    entityId: id,
+    metadata: { tipo: input.tipo },
+  })
 
   return { id }
 })

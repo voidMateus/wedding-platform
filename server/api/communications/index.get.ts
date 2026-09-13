@@ -1,7 +1,13 @@
 import { serverSupabaseClient } from '#supabase/server'
 import { normalizarTelefoneE164 } from '#shared/utils/telefone'
+import { normalizarEmail } from '#shared/utils/email'
 import type { CanalComunicacao, TipoComunicacao } from '#shared/utils/modelo-comunicacao'
-import type { ComunicacoesResponse, EnvioRegistrado, LinhaDeComunicacao } from '~/types/comunicacao'
+import type {
+  ComunicacoesResponse,
+  EnvioRegistrado,
+  EstadoDeEntrega,
+  LinhaDeComunicacao,
+} from '~/types/comunicacao'
 import type { InviteStage } from '~/types/invite'
 
 /**
@@ -35,21 +41,28 @@ export default defineEventHandler(async (event): Promise<ComunicacoesResponse> =
 
   if (convitesError) throw badRequestError(convitesError.message)
 
-  const ids = (convites ?? []).map((convite) => convite.id).filter((id): id is string => Boolean(id))
+  const ids = (convites ?? [])
+    .map((convite) => convite.id)
+    .filter((id): id is string => Boolean(id))
 
   const [{ data: envios, error: enviosError }, { data: responsaveis, error: responsaveisError }] =
     await Promise.all([
       ids.length
         ? client
             .from('comunicacoes')
-            .select('id, convite_id, tipo, canal, enviado_em')
+            // `eventos_email` embutido: o estado de entrega é derivado do
+            // evento mais recente, e uma segunda consulta por envio faria N+1
+            // numa tela que carrega a lista inteira.
+            .select(
+              'id, convite_id, tipo, canal, enviado_em, eventos_email(tipo_evento, ocorrido_em)',
+            )
             .eq('casamento_id', weddingId)
             .in('convite_id', ids)
             .order('enviado_em', { ascending: false })
         : Promise.resolve({ data: [], error: null }),
       client
         .from('convidados')
-        .select('id, nome_completo, telefone')
+        .select('id, nome_completo, telefone, email')
         .eq('casamento_id', weddingId)
         .is('excluido_em', null),
     ])
@@ -75,6 +88,7 @@ export default defineEventHandler(async (event): Promise<ComunicacoesResponse> =
       ? (pessoaPorId.get(convite.convidado_responsavel_id) ?? null)
       : null
     const telefone = normalizarTelefoneE164(responsavel?.telefone)
+    const email = normalizarEmail(responsavel?.email)
 
     function envioDe(tipo: TipoComunicacao): EnvioRegistrado | null {
       const registro = ultimoPorConviteETipo.get(`${convite.id}:${tipo}`)
@@ -83,6 +97,7 @@ export default defineEventHandler(async (event): Promise<ComunicacoesResponse> =
         id: registro.id,
         canal: registro.canal as CanalComunicacao,
         enviadoEm: registro.enviado_em,
+        entrega: registro.canal === 'email' ? estadoDeEntrega(registro.eventos_email) : null,
       }
     }
 
@@ -99,6 +114,7 @@ export default defineEventHandler(async (event): Promise<ComunicacoesResponse> =
       // `wa.me` consome, e resolver isso no servidor é o que impede a tela de
       // oferecer "Enviar" para um número que não abre conversa nenhuma.
       telefoneE164: telefone,
+      email,
       envios: {
         save_the_date: envioDe('save_the_date'),
         convite: envioDe('convite'),
@@ -117,6 +133,31 @@ export default defineEventHandler(async (event): Promise<ComunicacoesResponse> =
       // atalho "complete os contatos". Convite sem responsável entra aqui pelo
       // mesmo motivo: não há para quem mandar.
       semTelefone: linhas.filter((linha) => !linha.telefoneE164).length,
+      semEmail: linhas.filter((linha) => !linha.email).length,
+      // Conta LINHAS com algum envio que voltou, não envios — o que o casal
+      // precisa saber é de quantos convites ele tem que cuidar.
+      naoEntregues: linhas.filter((linha) =>
+        Object.values(linha.envios).some(
+          (envio) => envio?.entrega === 'devolvido' || envio?.entrega === 'reclamado',
+        ),
+      ).length,
     },
   }
 })
+
+/**
+ * O estado de entrega de um envio: o evento MAIS RECENTE, traduzido.
+ *
+ * Sem nenhum evento o estado é `enviado` — saiu e ainda não houve notícia.
+ * Isso é diferente de "entregue" (que o provedor confirma) e de "falhou", e a
+ * distinção importa: a maioria dos envios vive em `enviado` para sempre,
+ * porque só entrega confirmada e devolução geram webhook.
+ */
+function estadoDeEntrega(
+  eventos: { tipo_evento: string; ocorrido_em: string }[] | null,
+): EstadoDeEntrega {
+  if (!eventos?.length) return 'enviado'
+
+  const maisRecente = [...eventos].sort((a, b) => b.ocorrido_em.localeCompare(a.ocorrido_em))[0]
+  return (maisRecente?.tipo_evento as EstadoDeEntrega) ?? 'enviado'
+}

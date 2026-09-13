@@ -25,6 +25,32 @@ Medido contra o build de produção (`npm run build` + `node .output/server/inde
 
 **Não corrigido nesta fase** — decisão deliberada: uma investigação de code-splitting (por que o manifesto de rotas do admin entra no chunk inicial do público, se dá para lazy-carregar via `defineAsyncComponent`/rotas com `lazy: true`) é um trabalho à parte, arriscado de tentar no fim de uma fase já longa sem tempo para validar a fundo. Fica registrado aqui como o item de maior prioridade antes da Fase 4 ("Revisão de performance").
 
+### Remedição do bundle público: o "vazamento do admin" era o manifesto de rotas — 2026-09-13
+
+A entrada acima registrou, depois da Fase Editorial, que o carregamento inicial do site público baixava um chunk de ~471KB "contendo referências às rotas `/admin/**`", e concluiu que a hidratação do site do convidado estava sendo bloqueada por código do painel. Ficou marcado como "o item de maior prioridade antes da Fase 4".
+
+**Remedido contra o build de produção em 2026-09-13, e a conclusão anterior estava errada.**
+
+O que o navegador realmente baixa ao abrir a home pública (`node .output/server/index.mjs`, lendo os `modulepreload` da resposta):
+
+| | Bruto | Gzip |
+|---|---|---|
+| Chunk de entrada | 285KB | 106KB |
+| Os outros 11 chunks pré-carregados | ~168KB | ~39KB |
+| **Total** | **~453KB** | **~145KB** |
+
+E o que há de admin lá dentro:
+
+- `AdminTable`, `status_operacional`, "Registrar envio": **zero ocorrências**. Nenhum componente, endpoint ou vocabulário do painel entra no bundle do convidado.
+- `GoTrueClient`/`SupabaseClient`: **zero** — o `app/plugins/supabase-auth.client.ts` que escopa o client para `/admin` e `/login` está funcionando como previsto.
+- O que existe é o **manifesto de rotas**: 27 registros, 20 deles de `/admin`/`/plataforma`, com `path`, `name` e um `import()` preguiçoso para o componente. Medido: **1,2KB** de nomes e caminhos, num chunk de 285KB.
+
+**A conclusão que fica.** "Ver a string `convidados` dentro do chunk inicial" não é o mesmo que "carregar o painel": o Vue Router precisa da tabela de rotas inteira para casar qualquer URL, e o componente de cada uma continua atrás de `import()`. A busca por string é uma pista, nunca uma medição — e foi tomada por medição.
+
+Isso **não** absolve o LCP de 5,8s. Só move a investigação para onde ela tem chance de encontrar algo: o elemento de LCP é o `<h1>` do Hero (texto), então os suspeitos são o carregamento da fonte de exibição, o CSS que bloqueia a primeira pintura e o custo de hidratação das 13 seções da home — não a presença do admin no grafo de rotas. O item continua aberto no `ROADMAP.md`, com o alvo corrigido.
+
+**A lição de método, que vale mais que o número:** antes de registrar um achado de performance, medir o que se afirma. "O manifesto de rotas do admin entra no chunk inicial" era verdade e irrelevante; a frase seguinte ("hidratação bloqueada por JS do admin") não foi verificada e virou prioridade por oito meses.
+
 ### Achado: campo de valor de presente empurrava os dígitos para a direita da vírgula
 
 Reportado pelo usuário: ao digitar no "Preço estimado" do formulário de presente, o campo chegava a estados como `1.00000` — cada tecla nova acrescentava um dígito à direita do separador decimal, em vez de manter o formato `0,00`.

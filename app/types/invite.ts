@@ -54,6 +54,13 @@ export type InviteEventType =
   | 'rsvp.message_sent'
 
 export interface InviteListItem extends Invite {
+  /**
+   * Quando o convite saiu. DERIVADO (`convites_com_resumo`), do primeiro
+   * registro de envio do tipo `convite` — não existe mais como coluna de
+   * `convites`, e por isso precisa ser declarado aqui em vez de vir do `Row`.
+   * Em snake_case porque espelha a coluna da view 1:1 (CLAUDE.md, seção 6).
+   */
+  enviado_em: string | null
   responsibleGuestName: string | null
   memberCount: number
   stage: InviteStage
