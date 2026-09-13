@@ -327,7 +327,6 @@ async function confirmDelete() {
       <template #headerActions>
         <AdminGuestsGuestListCounters
           :total="overview?.total ?? 0"
-          :em-consideracao="overview?.emConsideracao ?? 0"
           :faixas="overview?.faixas ?? []"
           class="mr-auto"
         />

@@ -117,6 +117,39 @@ export const guestBulkUpdateSchema = z
 export type GuestBulkUpdateInput = z.infer<typeof guestBulkUpdateSchema>
 
 /**
+ * Edição de UMA pessoa, campo a campo — o que a célula da lista grava.
+ *
+ * Deliberadamente estreito, e a lista de campos é a decisão: só entra aqui o
+ * que é `update` direto numa coluna de `convidados`. Convite e núcleo de
+ * Acompanhantes ficam de fora **para sempre** — os dois exigem orquestração
+ * transacional (`sincronizar_nucleo_convidado`, `agrupar_acompanhantes`), e um
+ * PATCH de conveniência que atravessasse isso quebraria a garantia de que
+ * ninguém entra em dois convites e a de que núcleo de uma pessoa não existe.
+ * Quem precisa deles usa `PUT /api/guests/party`.
+ *
+ * Separado de `guestBulkUpdateSchema` porque as duas operações são diferentes
+ * na raiz: lá o mesmo valor vai para muita gente (e por isso nome não cabe,
+ * nunca), aqui valores diferentes vão para uma pessoa só.
+ *
+ * `undefined` é "não mexer"; `null` em `grupoId`/`faixaEtariaManual` é limpar
+ * de propósito — tirar alguém do grupo pela célula é ação real, e sem `null`
+ * explícito ela não teria representação.
+ */
+export const guestUpdateSchema = z
+  .object({
+    nomeCompleto: z.string().trim().min(1, 'Informe o nome.').max(200).optional(),
+    grupoId: z.string().uuid().nullish(),
+    faixaEtariaManual: z.enum(FAIXA_ETARIA_CHAVES).nullish(),
+    observacoes: z.string().trim().max(2000).nullish(),
+  })
+  .refine(
+    (input) => Object.values(input).some((valor) => valor !== undefined),
+    'Informe o que alterar.',
+  )
+
+export type GuestUpdateInput = z.infer<typeof guestUpdateSchema>
+
+/**
  * Agrupar os selecionados da lista como Acompanhantes.
  *
  * Só os ids: tudo o que decide o resultado — qual núcleo sobrevive ao merge,

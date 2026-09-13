@@ -20,7 +20,7 @@ const emit = defineEmits<{
   changed: []
 }>()
 
-const { fetchInvite, fetchInviteTimeline, setInviteSent, setInviteArchived } = useInvites()
+const { fetchInvite, fetchInviteTimeline, setInviteArchived } = useInvites()
 const { getWedding } = useWedding()
 const toast = useToast()
 
@@ -86,39 +86,6 @@ watch(
 async function handleChanged() {
   await load()
   emit('changed')
-}
-
-/**
- * Marca ou desmarca o envio, nos dois sentidos e sem confirmação.
- *
- * Sem diálogo de propósito: desmarcar É a recuperação de um clique errado, e
- * pedir confirmação para desfazer seria colocar atrito na frente do atrito.
- * (Arquivar confirma porque tira o convite da listagem — aqui nada desaparece.)
- *
- * Vale notar o que desmarcar NÃO faz: se o convidado já abriu o convite, o
- * estágio continua "Aberto", porque acesso é fato comprovado e envio é
- * informação do casal. Desmarcar corrige o registro, não apaga o que aconteceu.
- */
-async function toggleSent() {
-  if (!invite.value) return
-  const marcando = !invite.value.enviado_em
-  isBusy.value = true
-  try {
-    await setInviteSent(invite.value.id, marcando)
-    toast.success(marcando ? 'Convite marcado como enviado.' : 'Marcação de envio desfeita.')
-    await handleChanged()
-  } catch (err) {
-    toast.error(
-      getApiErrorMessage(
-        err,
-        marcando
-          ? 'Não foi possível marcar o convite como enviado.'
-          : 'Não foi possível desfazer a marcação de envio.',
-      ),
-    )
-  } finally {
-    isBusy.value = false
-  }
 }
 
 // Confirmação inline, não um segundo modal: o detalhe do convite já é um
@@ -193,12 +160,11 @@ async function toggleArchive() {
           <UiBadge v-if="invite.arquivado_em" tone="neutral">arquivado</UiBadge>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Sempre visível, nos dois sentidos: "enviado" é informação manual
-               do casal, e um clique errado ficava permanente — empurrando o
-               convite para um estágio falso do funil sem caminho de volta. -->
-          <UiButton size="sm" variant="ghost" :disabled="isBusy" @click="toggleSent">
-            {{ invite.enviado_em ? 'Desmarcar envio' : 'Marcar como enviado' }}
-          </UiButton>
+          <!-- "Marcar como enviado" saiu daqui: o envio deixou de ser um
+               timestamp marcado à mão e virou um REGISTRO com tipo e canal, na
+               seção "Envios" logo abaixo. Um convite recebe save the date,
+               convite e lembrete — três fatos que um botão binário não sabia
+               distinguir. -->
           <UiButton
             size="sm"
             variant="ghost"
@@ -250,6 +216,12 @@ async function toggleArchive() {
       <AdminInvitesInviteGuestsSection
         :invite="invite"
         :wedding-slug="activeSlug"
+        @changed="handleChanged"
+      />
+
+      <AdminInvitesInviteSendsSection
+        :invite-id="invite.id"
+        :envios="invite.envios"
         @changed="handleChanged"
       />
 

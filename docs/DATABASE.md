@@ -50,7 +50,7 @@
 | Tabela | Propósito |
 |---|---|
 | `credenciais_acesso_convite` | Credencial estável de acesso ao convite (hash do código), sempre por `convite_id` — independente de quantas comunicações foram enviadas |
-| `comunicacoes` | Log de cada envio (convite, lembrete, confirmação) por canal — 1:N em relação à credencial de acesso |
+| `comunicacoes` | Log **append-only** de cada envio (save the date/convite/lembrete) por canal (`whatsapp`/`email`/`outro`), sempre por `convite_id`. **Fonte única de `convites_com_resumo.enviado_em`** — o estágio "Enviado" do funil é derivado daqui, nunca de coluna marcada à mão. Sem policy de UPDATE (log não se edita); DELETE só de canal `outro`, que é declaração do casal e precisa ter volta |
 
 **Financeiro (Fase 1 do Hub — ver [`fase1-financeiro.md`](fase1-financeiro.md))**
 
@@ -61,6 +61,15 @@
 | `parcelas_despesa` | Parcela de uma despesa: `vence_em`, `valor_centavos` e `pago_em` — a única fonte do estado de pagamento |
 | `fornecedores` | Contato, etapa da negociação (`estagio`: pesquisando → contato_feito → cotacao_recebida → em_negociacao → contratado, com descartado fora da linha) e cotação para **um gasto** (`despesa_id`) — é o que agrupa as propostas concorrentes. O vínculo é gravado nos dois sentidos ao contratar. O valor do contrato **nunca** mora aqui, mora em `despesas` |
 | `documentos` | Contrato/comprovante/referência — entidade única compartilhada, com arquivo no bucket privado **ou** link externo (XOR) |
+
+**Mesas e planta do salão (Fase 2 do Hub — ver [`fase2-convidados.md`](fase2-convidados.md))**
+
+| Tabela | Propósito |
+|---|---|
+| `mesas` | Mesa da recepção: nome, capacidade, formato (`redonda`/`retangular`), medidas e posição **em centímetros** na planta. Ocupação é sempre contagem, nunca coluna; capacidade excedida é exibida, nunca bloqueada. Exclusão **física** (é rascunho de layout, sem valor histórico próprio) — `on delete set null` devolve os ocupantes à fila sozinho |
+| `elementos_planta` | Referências do salão que não sentam ninguém (pista, palco, buffet, bolo, entrada, bar) — é por causa delas que "não coloque a tia Cléia colada na caixa de som" vira decisão possível |
+
+Sentar é uma **coluna** (`convidados.mesa_id` e `acompanhantes_avulsos.mesa_id`), não uma tabela de junção: uma pessoa senta em no máximo uma mesa, então a junção modelaria um N:N que o domínio não tem. É o quarto vínculo do convidado, independente de convite, grupo e núcleo — mesa nunca se deriva de convite.
 
 **Mídia e operação**
 

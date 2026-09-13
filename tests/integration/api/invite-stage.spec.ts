@@ -68,11 +68,18 @@ describe('api: funil de estágios do convite', () => {
     expect(await stageOf(invite.id)).toBe('not_sent')
   })
 
-  it('vira sent quando o casal marca como enviado', async () => {
+  it('vira sent quando o casal registra o envio do convite', async () => {
+    // "Marcar como enviado" virou "registrar envio", com tipo e canal: o fato
+    // ganhou uma linha própria em `comunicacoes`, e `enviado_em` voltou a ser
+    // uma LEITURA dos fatos (Fase 2 do Hub, migration 20260913100001).
     const { invite } = await novoConvite('Estagio Enviado', 2)
     const client = createTestApiClient({ cookie })
 
-    const res = await client.post(`/api/invites/${invite.id}/send`)
+    const res = await client.post('/api/communications', {
+      conviteId: invite.id,
+      tipo: 'convite',
+      canal: 'outro',
+    })
     expect(res.status).toBe(200)
 
     expect(await stageOf(invite.id)).toBe('sent')
@@ -201,29 +208,37 @@ describe('api: funil de estágios do convite', () => {
     expect(res.status).toBe(401)
   })
 
-  it('desmarcar o envio devolve o convite ao estágio anterior', async () => {
-    // "Enviado" é informação manual do casal, não entrega comprovada: um
-    // clique errado ficava permanente e empurrava o convite para um estágio
-    // falso, sem caminho de volta pela interface.
+  it('apagar o registro de canal "outro" devolve o convite ao estágio anterior', async () => {
+    // Registro de canal `outro` é DECLARAÇÃO do casal, não entrega comprovada:
+    // declarar por engano precisa ter saída, e o estágio acompanha a correção.
     const { invite } = await novoConvite('Desmarcar Envio', 2)
     const client = createTestApiClient({ cookie })
 
-    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+    const criado = await client.post('/api/communications', {
+      conviteId: invite.id,
+      tipo: 'convite',
+      canal: 'outro',
+    })
+    const { id } = await criado.json()
     expect(await stageOf(invite.id)).toBe('sent')
 
-    const res = await client.post(`/api/invites/${invite.id}/send`, { sent: false })
+    const res = await client.del(`/api/communications/${id}`)
     expect(res.status).toBe(200)
-    expect((await res.json()).enviado_em).toBeNull()
     expect(await stageOf(invite.id)).toBe('not_sent')
   })
 
-  it('desmarcar o envio não apaga o acesso: quem abriu continua em opened', async () => {
+  it('apagar o registro não apaga o acesso: quem abriu continua em opened', async () => {
     // Envio é informação do casal; acesso é fato comprovado pelo sistema.
-    // Desmarcar corrige o registro, nunca reescreve o que aconteceu.
+    // Corrigir o registro nunca reescreve o que aconteceu.
     const { invite } = await novoConvite('Desmarcar Com Acesso', 2)
     const client = createTestApiClient({ cookie })
 
-    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+    const criado = await client.post('/api/communications', {
+      conviteId: invite.id,
+      tipo: 'convite',
+      canal: 'outro',
+    })
+    const { id } = await criado.json()
     await admin.from('historico_convite').insert({
       casamento_id: wedding.id,
       convite_id: invite.id,
@@ -231,26 +246,32 @@ describe('api: funil de estágios do convite', () => {
     })
     expect(await stageOf(invite.id)).toBe('opened')
 
-    await client.post(`/api/invites/${invite.id}/send`, { sent: false })
+    await client.del(`/api/communications/${id}`)
     expect(await stageOf(invite.id)).toBe('opened')
   })
 
-  it('os dois sentidos entram na Linha do Tempo', async () => {
+  it('o envio entra na Linha do Tempo com tipo e canal', async () => {
+    // O status responde "onde este convite está agora"; a Linha do Tempo, "o
+    // que aconteceu para ele chegar aqui" — e um envio é um acontecimento.
     const { invite } = await novoConvite('Historico do Envio', 1)
     const client = createTestApiClient({ cookie })
 
-    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
-    await client.post(`/api/invites/${invite.id}/send`, { sent: false })
+    await client.post('/api/communications', {
+      conviteId: invite.id,
+      tipo: 'convite',
+      canal: 'whatsapp',
+    })
 
     const { data: eventos } = await admin
       .from('historico_convite')
-      .select('tipo_evento')
+      .select('tipo_evento, metadados')
       .eq('convite_id', invite.id)
-      .in('tipo_evento', ['token.sent', 'token.unsent'])
+      .eq('tipo_evento', 'comunicacao.enviada')
 
-    const tipos = (eventos ?? []).map((e) => e.tipo_evento)
-    expect(tipos).toContain('token.sent')
-    expect(tipos).toContain('token.unsent')
+    expect(eventos).toHaveLength(1)
+    const metadados = eventos?.[0]?.metadados as Record<string, unknown>
+    expect(metadados?.tipo).toBe('convite')
+    expect(metadados?.canal).toBe('whatsapp')
   })
 
   it('a listagem de convidados devolve o estágio do convite de cada pessoa', async () => {
@@ -260,7 +281,11 @@ describe('api: funil de estágios do convite', () => {
     const solto = await createTestGuest(admin, wedding.id, { nome_completo: 'Pessoa Sem Convite' })
     const client = createTestApiClient({ cookie })
 
-    await client.post(`/api/invites/${invite.id}/send`, { sent: true })
+    await client.post('/api/communications', {
+      conviteId: invite.id,
+      tipo: 'convite',
+      canal: 'outro',
+    })
 
     // 100 é o teto de `pageSize` (server/utils/schemas/pagination.ts) — acima
     // dele o endpoint responde 400, e o teste morria com TypeError ao ler

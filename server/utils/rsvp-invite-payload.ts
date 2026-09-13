@@ -76,6 +76,13 @@ export async function buildRsvpInvitePayload(
       guestId: guest.id,
       fullName: guest.nome_completo,
       nickname: guest.apelido,
+      // O núcleo de Acompanhantes vai junto para a tela do convidado AGRUPAR
+      // os cartões — quem abre um convite de 6 pessoas via 6 nomes soltos, sem
+      // nada dizer que dois deles são um casal. É só isso: a resposta continua
+      // sendo por pessoa (CLAUDE.md, seção 12), e o RÓTULO do núcleo ("João e
+      // Maria") nunca sai daqui — ele é linguagem do painel, e para o convidado
+      // o agrupamento já se explica pelos nomes dentro do cartão.
+      partyId: guest.nucleo_id,
       status: (statusByGuest.get(guest.id) ?? 'pendente') as
         'pendente' | 'confirmado' | 'recusado' | 'lista_espera',
     })),

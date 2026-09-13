@@ -117,21 +117,22 @@ test('registrar a resposta pelo casal move o convite no funil', async ({ page })
       .eq('tipo_evento', 'rsvp.first_access')
     expect(count).toBe(0)
 
-    // --- desmarcar o envio, para o clique errado ter volta ---
+    // --- registrar o envio, e desfazer, para o clique errado ter volta ---
     //
-    // "Enviado" é informação manual do casal, não entrega comprovada. Marcar
-    // sem querer ficava permanente e empurrava o convite para um estágio falso
-    // do funil, sem caminho de volta pela interface.
-    const desmarcado = dialogo.getByRole('button', { name: 'Desmarcar envio' })
-    await expect(desmarcado).toBeHidden()
+    // "Marcar como enviado" virou "Registrar envio", com tipo e canal: o fato
+    // ganhou uma linha própria em `comunicacoes` e `enviado_em` passou a ser
+    // derivado dela. Registro de canal `outro` é DECLARAÇÃO do casal, e
+    // declarar por engano precisa ter saída — daí o "Desfazer" na linha.
+    await expect(dialogo.getByText('Nenhum envio registrado')).toBeVisible()
 
-    await dialogo.getByRole('button', { name: 'Marcar como enviado' }).click()
-    await expect(desmarcado).toBeVisible({ timeout: 20_000 })
+    await dialogo.getByRole('button', { name: 'Registrar envio' }).click()
+    await dialogo.getByRole('button', { name: 'Registrar', exact: true }).click()
 
-    await desmarcado.click()
-    await expect(dialogo.getByRole('button', { name: 'Marcar como enviado' })).toBeVisible({
-      timeout: 20_000,
-    })
+    const desfazer = dialogo.getByRole('button', { name: 'Desfazer' })
+    await expect(desfazer).toBeVisible({ timeout: 20_000 })
+
+    await desfazer.click()
+    await expect(dialogo.getByText('Nenhum envio registrado')).toBeVisible({ timeout: 20_000 })
 
     // --- a listagem por trás acompanha ---
     await page.keyboard.press('Escape')

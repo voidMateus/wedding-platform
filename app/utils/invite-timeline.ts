@@ -1,3 +1,9 @@
+import {
+  ROTULOS_CANAL_COMUNICACAO,
+  ROTULOS_TIPO_COMUNICACAO,
+  type CanalComunicacao,
+  type TipoComunicacao,
+} from '#shared/utils/modelo-comunicacao'
 import type { InviteEvent, InviteEventType, InviteMember } from '~/types/invite'
 
 /** Como uma linha da Linha do Tempo do convite é apresentada ao casal. */
@@ -31,6 +37,9 @@ export const INVITE_EVENT_PRESENTATION: Record<InviteEventType, InviteEventPrese
     icon: 'lucide:undo-2',
     tone: 'muted',
   },
+  // O envio de hoje: tipo e canal vêm nos metadados e a frase é reescrita em
+  // `describeInviteEvent` — este texto só sobrevive se eles vierem incompletos.
+  'comunicacao.enviada': { label: 'Envio registrado', icon: 'lucide:send', tone: 'muted' },
   'rsvp.first_access': {
     label: 'Convite aberto pela primeira vez',
     icon: 'lucide:eye',
@@ -82,6 +91,20 @@ export function describeInviteEvent(
   members: readonly InviteMember[],
 ): InviteEventPresentation {
   const base = INVITE_EVENT_PRESENTATION[event.tipo_evento as InviteEventType] ?? UNKNOWN_EVENT
+
+  // "Convite enviado pelo WhatsApp" diz o que aconteceu; "Envio registrado"
+  // obriga o casal a abrir os metadados que ele não vê.
+  if (event.tipo_evento === 'comunicacao.enviada') {
+    const tipo = readString(event.metadados, 'tipo')
+    const canal = readString(event.metadados, 'canal')
+    const rotuloTipo = tipo ? ROTULOS_TIPO_COMUNICACAO[tipo as TipoComunicacao] : null
+    const rotuloCanal = canal ? ROTULOS_CANAL_COMUNICACAO[canal as CanalComunicacao] : null
+    if (!rotuloTipo) return base
+    return {
+      ...base,
+      label: rotuloCanal ? `${rotuloTipo} enviado — ${rotuloCanal}` : `${rotuloTipo} enviado`,
+    }
+  }
 
   if (event.tipo_evento !== 'rsvp.guest_status_changed') return base
 

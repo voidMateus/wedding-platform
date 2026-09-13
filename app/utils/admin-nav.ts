@@ -52,7 +52,13 @@ export interface AdminMenuGroup {
  * nelas). Escrita duas vezes, uma rota nova entraria só num dos dois lados e a
  * tela apareceria sem menu, ou com menu e sem aba acesa.
  */
-const ROTAS_DO_MODULO_CONVIDADOS = ['/convidados', '/grupos', '/convites'] as const
+const ROTAS_DO_MODULO_CONVIDADOS = [
+  '/convidados',
+  '/grupos',
+  '/convites',
+  '/comunicacoes',
+  '/mesas',
+] as const
 
 /**
  * Rotas do módulo Configurações. Cronograma e Galeria entram aqui: as duas são
@@ -222,13 +228,27 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
         itens: [
           { to: `${base}/grupos`, label: 'Grupos', icon: 'lucide:users-round' },
           { to: `${base}/convites`, label: 'Convites', icon: 'lucide:mail' },
-          // Núcleos de Acompanhantes hoje só se editam dentro do wizard de
-          // convidado; a tela própria não existe.
-          {
-            label: 'Núcleos',
-            icon: 'lucide:user-round-plus',
-            indisponivel: 'Núcleos são editados no cadastro do convidado — tela própria em breve.',
-          },
+          // Comunicações é OUTRO EIXO do mesmo convite — o do contato, não o do
+          // conteúdo: "quem já recebeu o quê, e quem falta". Tela nova se
+          // justifica por eixo novo (mesmo critério do Financeiro, onde
+          // Pagamentos sobrevive por ser o eixo do tempo).
+          { to: `${base}/comunicacoes`, label: 'Comunicações', icon: 'lucide:send' },
+          // Mesas é a SAÍDA do ciclo do convidado — avisar, acompanhar,
+          // acomodar. Fica em Gerenciar junto de Grupos, Convites e
+          // Comunicações: os quatro são recortes da mesma lista de pessoas.
+          { to: `${base}/mesas`, label: 'Mesas', icon: 'lucide:armchair' },
+          // "Núcleos" ficava aqui, inerte, prometendo "tela própria em breve".
+          // A tela foi DESCARTADA, não adiada (docs/PRODUCT.md seção 3.7): o
+          // núcleo não tem nome gravado e o rótulo dele muda quando alguém
+          // entra ou sai, então uma tela listando linhas sem nome, cujo título
+          // se mexe sozinho, não serve de referência para ninguém. Ele aparece
+          // onde significa algo — na linha, no cadastro, no convite, no filtro.
+          //
+          // Saíram junto "Formulários" e "Integrações", que eram dois itens de
+          // menu sem nada por trás. Item que promete e não entrega é pior que
+          // item ausente: ele gasta a atenção de quem procura o recurso e
+          // devolve um `title` explicando que não existe.
+          //
           // A classificação etária existe: é uma seção de Configurações, e o
           // item leva até lá em vez de prometer uma tela.
           {
@@ -237,13 +257,6 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
             label: 'Faixas etárias',
             icon: 'lucide:chart-no-axes-column',
           },
-        ],
-      },
-      {
-        label: 'Configurações',
-        itens: [
-          { label: 'Formulários', icon: 'lucide:clipboard-list', indisponivel: 'Em breve.' },
-          { label: 'Integrações', icon: 'lucide:plug', indisponivel: 'Em breve.' },
         ],
       },
     ]

@@ -143,12 +143,18 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     await expect(page.getByText('Joao e Maria +1').first()).toBeVisible()
 
     // Rascunho fica fora da lista e fora do total: o cabeçalho anuncia os 4
-    // convidados e o rascunho separado, nunca somados.
+    // convidados, e quem está em consideração não aparece em lugar nenhum.
     // Os contadores vivem na linha do painel, ao lado do "N exibidas": um
     // descreve a lista inteira, o outro o recorte.
     await expect(page.getByText('4 convidados')).toBeVisible()
-    await expect(page.getByText('1 em consideração')).toBeVisible()
     await expect(page.getByText('Marcelo da Academia')).toBeHidden()
+
+    // O "+ 1 em consideração" SAIU da faixa: a tela do rascunho foi descartada
+    // (docs/ROADMAP.md seção 3) e nenhuma parte do produto marca alguém como em
+    // consideração, então o número era sempre zero e não levava a lugar nenhum.
+    // Esta massa de teste ainda cria um rascunho direto no banco — e é isso que
+    // faz esta asserção significar alguma coisa.
+    await expect(page.getByText('em consideração')).toBeHidden()
 
     // A entrada rápida mora dentro do bloco e leva o grupo consigo.
     await expect(
@@ -205,8 +211,11 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     // criado" depois de o convite já existir, e um segundo Salvar falhava com
     // "já pertence a outro convite". Hoje quem fecha é a modal, que é quem sabe
     // que o salvamento deu certo.
+    // O cadastro completo abre pelo lápis da linha, não mais pelo nome: o nome
+    // virou um campo editável, e com ele o clique na linha saiu também — numa
+    // linha cheia de campos, clicar nela é para editar, não para navegar.
     await expect(async () => {
-      await page.getByRole('button', { name: 'Joao da Silva', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Abrir cadastro de Joao da Silva' }).first().click()
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
     }).toPass({ timeout: 15_000 })
 
@@ -251,6 +260,35 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     await menuDaSecao.getByRole('link', { name: 'Modo lista' }).click()
     await expect(page).toHaveURL(new RegExp(`/convidados/lista$`), { timeout: 10_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Lista de convidados' })).toBeVisible()
+
+    // --- a linha é editável no lugar ---
+    //
+    // A promessa da tela é "planilha inteligente", e até aqui só a Categoria se
+    // editava na linha. O que este trecho prova é o mecanismo inteiro: o campo
+    // guarda um rascunho local, a saída do FOCO DA LINHA (não do campo) dispara
+    // o salvamento, e a lista recarregada traz o valor do servidor.
+    const observacaoDoJoao = page.getByRole('textbox', {
+      name: 'Observação sobre Joao da Silva',
+    })
+    const nomeDoJoao = page.getByRole('textbox', { name: 'Nome de Joao da Silva' })
+    await expect(nomeDoJoao).toHaveValue('Joao da Silva')
+
+    await expect(async () => {
+      await observacaoDoJoao.fill('chega mais cedo')
+      // Sair da LINHA: o foco vai para um campo de outra linha, que é
+      // exatamente o gesto que o `@row-blur` existe para distinguir de passar
+      // do nome para o grupo dentro da mesma linha.
+      await page.getByRole('textbox', { name: 'Nome de Carlos Direto' }).focus()
+      await expect(observacaoDoJoao).toHaveValue('chega mais cedo', { timeout: 5_000 })
+    }).toPass({ timeout: 20_000 })
+
+    // Recarregar é o que separa "o campo guardou o que eu digitei" de "o
+    // servidor gravou": sem isto, o rascunho local passaria no teste sozinho.
+    await page.reload()
+    await expect(page.getByRole('textbox', { name: 'Observação sobre Joao da Silva' })).toHaveValue(
+      'chega mais cedo',
+      { timeout: 20_000 },
+    )
   } finally {
     await deleteTestWedding(admin, wedding.id)
     await admin.auth.admin.deleteUser(userId)

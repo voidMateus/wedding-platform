@@ -9,17 +9,22 @@
   Descreve a lista INTEIRA (`GET /api/guests/overview`), nunca o recorte — por
   isso convive com o "N exibidas" do painel sem competir com ele: um responde
   "qual o tamanho da minha lista", o outro "quanto o filtro está mostrando".
+
+  O "+ N em consideração" saiu daqui: a tela do rascunho foi descartada
+  (docs/ROADMAP.md seção 3), e sem ela nenhuma parte do produto marca alguém
+  como em consideração — o número era sempre zero e não levava a lugar nenhum.
+  O recorte continua existindo na API (`emConsideracao`), na coluna e no CHECK,
+  para quem retomar não começar do zero.
 -->
 <script setup lang="ts">
 import { FAIXA_ETARIA_ROTULOS_PLURAL } from '#shared/utils/faixa-etaria'
 
 interface Props {
   total: number
-  emConsideracao: number
   faixas: readonly { chave: string; total: number }[]
 }
 
-const { total, emConsideracao, faixas } = defineProps<Props>()
+const { total, faixas } = defineProps<Props>()
 
 /** Só as faixas com gente: um "0 idosos" ocuparia espaço para não dizer nada. */
 const faixasVisiveis = computed(() =>
@@ -42,11 +47,6 @@ const faixasVisiveis = computed(() =>
     <span>
       <span class="num font-medium text-text">{{ total }}</span
       >&nbsp;{{ total === 1 ? 'convidado' : 'convidados' }}
-    </span>
-
-    <span v-if="emConsideracao" class="text-text-muted">
-      +&nbsp;<span class="num">{{ emConsideracao }}</span
-      >&nbsp;em consideração
     </span>
 
     <span v-for="faixa in faixasVisiveis" :key="faixa.chave" class="flex items-center gap-1.5">

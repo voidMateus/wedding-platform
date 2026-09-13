@@ -170,9 +170,19 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await expect(page.getByText(primaryName)).toBeVisible({ timeout: 10_000 })
   await expect(page.getByText(companionName)).toBeVisible()
 
-  const guestCards = page.locator('div.rounded-lg.border')
-  await guestCards.nth(0).getByRole('button', { name: 'Estarei lá' }).click()
-  await guestCards.nth(1).getByRole('button', { name: 'Não poderei ir' }).click()
+  // Os dois botões de cada pessoa são encontrados pelo NOME dela, não pela
+  // posição de um cartão. Aqui havia `div.rounded-lg.border` e índice — e o
+  // teste quebrou quando a tela passou a agrupar o núcleo de Acompanhantes num
+  // cartão só (as duas pessoas deste convite formam um), porque os dois "Estarei
+  // lá" passaram a viver dentro do mesmo `div`.
+  //
+  // A quebra apontou um defeito de acessibilidade que já existia antes do
+  // agrupamento: com um cartão por pessoa, quem enxerga se orientava pelo nome
+  // logo acima, mas quem navega botão a botão ouvia "Estarei lá" repetido, sem
+  // dono. Os botões ganharam `aria-label` com o nome, e este teste passou a usar
+  // exatamente o mesmo caminho que um leitor de tela usa.
+  await page.getByRole('button', { name: `Estarei lá — ${primaryName}` }).click()
+  await page.getByRole('button', { name: `Não poderei ir — ${companionName}` }).click()
 
   await page.getByRole('button', { name: 'Revisar e enviar' }).click()
   await page.getByRole('button', { name: 'Confirmar presença' }).click()

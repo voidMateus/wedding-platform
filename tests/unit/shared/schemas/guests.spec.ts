@@ -3,6 +3,7 @@ import {
   guestPartyGroupSchema,
   guestPartySyncSchema,
   guestPersonSchema,
+  guestUpdateSchema,
 } from '#shared/schemas/guests'
 
 const validGroupId = '11111111-1111-1111-1111-111111111111'
@@ -123,5 +124,47 @@ describe('guestPartyGroupSchema', () => {
     const result = guestPartyGroupSchema.safeParse({ ids: [validGroupId, 'nao-e-uuid'] })
 
     expect(result.success).toBe(false)
+  })
+})
+
+describe('guestUpdateSchema — a edição na linha da lista', () => {
+  it('aceita um campo só: a linha manda o que mudou, não a pessoa inteira', () => {
+    const result = guestUpdateSchema.safeParse({ nomeCompleto: 'Ana Cláudia' })
+
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.grupoId).toBeUndefined()
+  })
+
+  // `undefined` é "não mexer" e `null` é "limpar de propósito". Sem os dois,
+  // tirar alguém de um grupo pela célula não teria representação nenhuma.
+  it('distingue ausente de nulo em grupo e categoria', () => {
+    const ausente = guestUpdateSchema.safeParse({ nomeCompleto: 'Ana' })
+    const limpando = guestUpdateSchema.safeParse({ grupoId: null, faixaEtariaManual: null })
+
+    expect(ausente.success && 'grupoId' in ausente.data).toBe(false)
+    expect(limpando.success && limpando.data.grupoId).toBeNull()
+    expect(limpando.success && limpando.data.faixaEtariaManual).toBeNull()
+  })
+
+  it('recusa corpo vazio — um PATCH que não altera nada é engano, não operação', () => {
+    expect(guestUpdateSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('recusa nome vazio: apagar o nome não é como se exclui alguém', () => {
+    expect(guestUpdateSchema.safeParse({ nomeCompleto: '   ' }).success).toBe(false)
+  })
+
+  // Convite e núcleo exigem orquestração transacional e nunca entram aqui —
+  // o schema ignora o que não declara, então o teste registra a intenção.
+  it('ignora convite e núcleo, que não são deste caminho', () => {
+    const result = guestUpdateSchema.safeParse({
+      nomeCompleto: 'Ana',
+      conviteId: validGroupId,
+      nucleoId: otherGuestId,
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.success && 'conviteId' in result.data).toBe(false)
+    expect(result.success && 'nucleoId' in result.data).toBe(false)
   })
 })

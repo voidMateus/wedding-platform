@@ -103,6 +103,7 @@ Consequências de desenho que decorrem disso:
 
 - Cadastro de convidado via wizard (dados pessoais, Acompanhantes, vínculo com convite) — persistência em lote numa única transação (`sincronizar_nucleo_convidado()`).
 - **Modo lista**: a lista inteira agrupada em blocos recolhíveis por grupo e subdivisão, com busca, filtro por núcleo/categoria/RSVP e contagem por categoria — ver seção 3.1.1.
+- **Edição na linha** (Modo lista): nome, categoria e observação são campos da própria célula. Os três salvam de uma vez, quando o foco deixa a **linha** — não o campo: passar do nome para a observação é continuar na mesma linha, e salvar ali recarregaria a lista no meio da digitação. Nome apagado volta ao que era (excluir é ação explícita). **Grupo não é coluna aqui**, e a razão é de leitura: esta tela agrupa a lista em blocos por grupo, então a pessoa já está dentro do bloco dela e uma coluna repetiria linha a linha o que o cabeçalho acabou de dizer — gastando a largura de que o nome precisa. Mover de grupo é a seleção em massa e o cadastro; o recorte por grupo é da Visão Geral, que é paginada e não tem blocos. Convite e Acompanhantes também ficam **fora** da célula: os dois exigem orquestração transacional, e agrupar exige dizer *com quem*. O cadastro completo abre pelo lápis da linha.
 - Entrada rápida (`POST /api/guests`): cria um convidado com **só o nome**, para montar a lista digitando em sequência sem abrir formulário. Caminho deliberadamente separado do wizard — não orquestra acompanhante, convite nem limite algum, e é o que mantém o "digitar e apertar Enter" instantâneo. O resto do cadastro é preenchido depois.
 - Perfil do convidado: apelido, sexo, data de nascimento (opcional), faixa etária (opcional, informada à mão), e-mail e telefone (opcionais), foto, papel de padrinho/madrinha, observações internas.
 - Importação em massa (CSV) em três passos — arquivo, conferência das colunas, revisão — sem escrever nada antes do último (ver seção 3.5).
@@ -249,6 +250,8 @@ RSVP (*répondez s'il vous plaît*) é o fluxo pelo qual o convidado confirma ou
 - Mensagem opcional ao casal — uma por **convite** (`convites.mensagem_rsvp`, preenchida na revisão final), não por convidado individual.
 - Timestamp de resposta (`respondido_em`) por convidado, permitindo reenvio de lembrete apenas para quem ainda está `pendente`.
 
+**Apresentação: quem vai junto aparece junto.** Os membros do convite são exibidos em cartões por **núcleo de Acompanhantes** — quem abre um convite de 6 pessoas via 6 cartões idênticos e tinha que descobrir sozinho que dois deles eram o casal de tios. O agrupamento é só visual: a resposta continua sendo por pessoa, e cada nome mantém os próprios botões dentro do cartão. O rótulo derivado do núcleo ("João e Maria") **não** aparece para o convidado — é linguagem do painel, e para quem responde os nomes dentro do cartão já dizem o que ele significa.
+
 ### 4.4 Regras de negócio
 
 - Resposta de cada convidado é **editável** até `prazo_rsvp` — `salvar_rsvp_convidado()` atualiza o registro existente (não cria duplicata), gravando o evento em `historico_convite` na mesma transação.
@@ -338,6 +341,38 @@ Duas decisões sobre o que conta como resposta:
 - **`removido` deixou de existir.** Era valor morto do vocabulário — nada no produto o gravava ("Remover do convite" apenas desfaz o vínculo) e o fluxo do convidado já o lia como pendente. Como *Respondido* significa "todos os membros têm resposta", um `removido` gravado por acidente contaria como resposta e um convite sem ninguém confirmado passaria a dizer *Respondido*. Saiu do CHECK de `respostas_rsvp` em 2026-09-10, o que torna esse estado impossível em vez de apenas escondido.
 
 **O prazo de RSVP não se aplica a este caminho.** Ele bloqueia o convidado (`/api/rsvp/**`), não o casal: depois do prazo é exatamente quando se está ligando para quem não respondeu, e travar aqui deixaria essas respostas sem lugar para existir.
+
+### 5.4 Comunicações — o envio deixa de ser um checkbox
+
+**O princípio:** o fato "mandei o convite" tem uma linha própria, com canal e tipo, e o estágio do funil é uma **leitura** dela. Antes era um timestamp que o casal marcava à mão — sem canal, sem destinatário e sem repetição, apesar de um convite receber save the date, convite e lembrete.
+
+**Três tipos de envio**, e só um define o estágio: *save the date*, *convite* e *lembrete*. `convites_com_resumo.enviado_em` deriva do **primeiro registro do tipo convite** — um save the date avisa que a data existe, não convida ninguém, e fazê-lo mover o funil seria o sistema dizendo que o convite saiu quando ele não saiu. O último envio de qualquer tipo é outro número (`ultimo_contato`), que responde "faz quanto tempo que falamos com essas pessoas?".
+
+**Três canais: WhatsApp, e-mail e "outro".** O WhatsApp é o canal real do casamento brasileiro e o único que a v1 opera: o botão abre a conversa com a mensagem pronta e o link do convite, e **abrir o WhatsApp É a declaração de envio** — o registro é gravado no mesmo gesto. Voltar da aba para confirmar cada um dobraria os gestos numa tarefa que se faz oitenta vezes, e o sistema nunca comprovou entrega, nem antes. O canal `outro` é o convite entregue em mãos, mandado pela cerimonialista ou pelo correio: **registrar um envio feito fora da plataforma é caminho de primeira classe**, pelo mesmo motivo que a resposta registrada pelo casal é (seção 5.2) — o funil nunca exigiu jornada digital. E-mail já existe no vocabulário, mas o envio automático é a entrega seguinte.
+
+**Registro de canal `outro` tem volta; envio feito pelo sistema não.** Declarar por engano precisa ter saída; apagar um WhatsApp que saiu seria reescrever a história. A assimetria é a mesma de "*Aberto* é o único estágio comprovado pelo sistema", e mora na policy de RLS, não só na ausência de um botão.
+
+**Uma mensagem por tipo, compartilhada entre canais**, editável pelo casal com um catálogo fechado de variáveis (`{{nome}}`, `{{casal}}`, `{{data}}`, `{{local}}`, `{{prazo}}`, `{{link}}`). Texto em branco usa o padrão da plataforma, que é conteúdo de verdade e não placeholder — quem nunca abrir o editor manda uma mensagem que se sustenta. Variável fora do catálogo fica literal no texto (visível e corrigível); variável conhecida sem valor vira vazio, porque um casamento sem local cadastrado não pode travar o envio do convite.
+
+**O envio gera o link que falta e nunca troca o que existe.** Exigir que o casal passe antes pela tela do convite para "gerar o link" seria um pedágio inútil; rotacionar uma credencial existente invalidaria um QR que pode estar impresso.
+
+**Convite sem telefone não é erro, é trabalho a fazer.** A tela conta quantos são e leva para completar os contatos; o botão da linha vira "Registrar" em vez de sumir.
+
+### 5.5 Mesas — quem senta onde
+
+**O princípio:** mesa é o **quarto vínculo** do convidado, independente de convite, grupo e núcleo. Mesa nunca se deriva de convite — parentes do mesmo convite sentam separados o tempo todo, e uma mesa junta gente de convites diferentes.
+
+**Ocupação é sempre contagem, nunca coluna.** Sentar e tirar acontecem em vários caminhos (a mesa, a lista, a exclusão de um convidado), e um contador materializado erraria no primeiro que esquecesse de atualizá-lo.
+
+**Capacidade excedida é avisada, nunca bloqueada.** Dez pessoas numa mesa de oito é um estado real do planejamento ("depois eu resolvo"), e o produto que recusa gravar isso obriga o casal a sair dele para pensar. O piso em zero é aplicado **por mesa, antes de somar**: com uma mesa sobrando dois lugares e outra com duas pessoas a mais, somar primeiro daria "nada demais" e apagaria as duas anomalias.
+
+**Quem recusou continua sentado**, sinalizado na mesa, e sai só de "falta acomodar". Retirar sozinho apagaria trabalho do casal por causa de uma resposta que ainda pode mudar. **Acompanhante avulso ocupa lugar** — sem ele a ocupação mente justamente no evento em lista aberta. **Rascunho da lista nunca senta**, pelo mesmo motivo de nunca receber convite.
+
+**Duas vistas, um objeto.** A **lista** faz tudo — criar, renomear, sentar, tirar, ver ocupação — e é ela que funciona no celular e com leitor de tela. A **planta** acrescenta a camada espacial: as mesas em coordenadas reais (centímetros, nunca pixels), arrastáveis no desktop, com o teclado fazendo o que o arrasto faz (setas movem 10 cm, Shift 1 cm). **Arrastar posiciona a mesa; sentar é atributo da pessoa** — arrastar gente para dentro de círculos seria um segundo caminho para a mesma mutação, que só funciona no desktop. Elementos do salão (pista, palco, buffet, bolo, entrada, bar) não sentam ninguém, mas são o que transforma a planta de um punhado de círculos numa decisão possível.
+
+**As medidas do salão são opcionais**: sem elas a planta se ajusta ao conteúdo, e é assim que ela funciona no primeiro dia, antes de o casal saber quanto mede o lugar.
+
+**A mesa existe para virar papel no dia**, então o mapa sai em CSV — uma linha por pessoa, com quem ainda não sentou no fim. Nenhum dado de Mesas tem rota pública nesta versão: quem senta com quem é informação social delicada, e publicá-la é decisão própria.
 
 ## 6. Sistema de Presentes
 

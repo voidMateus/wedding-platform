@@ -109,6 +109,17 @@ const {
 
 const emit = defineEmits<{
   'row-click': [row: Row]
+  /**
+   * O foco deixou a linha inteira — para a tabela cujas células são editáveis
+   * no lugar, que salva ao sair da LINHA e não do campo: passar do nome para o
+   * grupo é continuar na mesma linha, e salvar ali dispararia um refetch no
+   * meio da digitação.
+   *
+   * Emitido só quando o próximo alvo de foco está fora da `<tr>` — é por isso
+   * que o guarda mora aqui e não em cada página: `relatedTarget` contido na
+   * linha é navegação interna dela.
+   */
+  'row-blur': [row: Row]
   'toggle-section': [id: string]
 }>()
 
@@ -165,6 +176,21 @@ function handleRowClick(row: Row, event: MouseEvent): void {
   const target = event.target as HTMLElement | null
   if (target?.closest('a, button, input, select, textarea, label, [role="button"]')) return
   emit('row-click', row)
+}
+
+/**
+ * Saída de foco da linha. `relatedTarget` dentro da própria `<tr>` é troca de
+ * campo, não saída — e é essa distinção que faz a página salvar uma vez por
+ * linha em vez de uma vez por campo.
+ *
+ * `relatedTarget` nulo (clique fora de qualquer elemento focável, `Esc`, aba
+ * do navegador perdendo o foco) conta como saída: o casal foi embora da linha.
+ */
+function handleRowFocusOut(row: Row, event: FocusEvent): void {
+  const linha = event.currentTarget as HTMLElement
+  const proximo = event.relatedTarget as Node | null
+  if (proximo && linha.contains(proximo)) return
+  emit('row-blur', row)
 }
 
 function headClass(column: AdminTableColumn<Row>): string {
@@ -456,6 +482,7 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                   temLinhaDeCelular && 'hidden md:table-row',
                 ]"
                 @click="handleRowClick(row, $event)"
+                @focusout="handleRowFocusOut(row, $event)"
               >
                 <td
                   v-for="column in columns"
