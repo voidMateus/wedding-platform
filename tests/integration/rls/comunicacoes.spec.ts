@@ -4,15 +4,18 @@ import { cleanupAll } from '../helpers/cleanup'
 import { createTestWedding, deleteTestWedding } from '../../factories/wedding'
 import { createTestMember, deleteTestMember, type TestMember } from '../../factories/member'
 import { createTestInvite } from '../../factories/invite'
-import { createTestAccessToken } from '../../factories/access-token'
 import { createTestCommunication } from '../../factories/communication'
 
 /**
  * Suíte de isolamento entre tenants (docs/ARCHITECTURE.md, seção 9.1/9.2) —
- * mesmo padrão de `convidados.spec.ts`. `comunicacoes` é o log de envio por
- * canal (CLAUDE.md, seção 12.2): tem select/insert/update, mas NUNCA existe
- * policy de DELETE — o log não é apagado mesmo quando a credencial associada
- * é revogada (supabase/migrations/20260730120014_communications.sql).
+ * mesmo padrão de `convidados.spec.ts`.
+ *
+ * `comunicacoes` foi remodelada na Fase 2 do Hub (migration 20260913100001), e
+ * as policies mudaram junto: não existe UPDATE (é log append-only), e o DELETE
+ * passou a existir **só para canal `outro`**. A assimetria é o ponto —
+ * registro de canal `outro` é uma declaração do casal ("entreguei em mãos"), e
+ * declarar por engano precisa ter saída; envio feito pelo sistema (WhatsApp,
+ * e-mail) é um fato que aconteceu, e apagá-lo seria reescrever a história.
  */
 describe('RLS: comunicacoes', () => {
   const admin = getServiceRoleClient()
@@ -22,8 +25,7 @@ describe('RLS: comunicacoes', () => {
   let memberA: TestMember
   let memberB: TestMember
   let inviteA: Awaited<ReturnType<typeof createTestInvite>>
-  let credentialAId: string
-  let communicationA: Awaited<ReturnType<typeof createTestCommunication>>
+  let comunicacaoWhatsApp: Awaited<ReturnType<typeof createTestCommunication>>
 
   beforeAll(async () => {
     weddingA = await createTestWedding(admin)
@@ -31,19 +33,8 @@ describe('RLS: comunicacoes', () => {
     memberA = await createTestMember(admin, weddingA.id)
     memberB = await createTestMember(admin, weddingB.id)
     inviteA = await createTestInvite(admin, weddingA.id)
-    await createTestAccessToken(admin, weddingA.id, inviteA.id)
 
-    const { data: credential, error } = await admin
-      .from('credenciais_acesso_convite')
-      .select('id')
-      .eq('convite_id', inviteA.id)
-      .single()
-    if (error || !credential) {
-      throw new Error(`Falha ao buscar credencial de teste: ${error?.message}`)
-    }
-    credentialAId = credential.id
-
-    communicationA = await createTestCommunication(admin, weddingA.id, credentialAId)
+    comunicacaoWhatsApp = await createTestCommunication(admin, weddingA.id, inviteA.id)
   })
 
   afterAll(async () => {
@@ -59,38 +50,20 @@ describe('RLS: comunicacoes', () => {
     const { data, error } = await memberA.client
       .from('comunicacoes')
       .select('*')
-      .eq('id', communicationA.id)
+      .eq('id', comunicacaoWhatsApp.id)
       .maybeSingle()
     expect(error).toBeNull()
-    expect(data?.id).toBe(communicationA.id)
+    expect(data?.id).toBe(comunicacaoWhatsApp.id)
   })
 
   it('membro de outro casamento não lê a comunicação (RLS filtra a linha)', async () => {
     const { data, error } = await memberB.client
       .from('comunicacoes')
       .select('*')
-      .eq('id', communicationA.id)
+      .eq('id', comunicacaoWhatsApp.id)
       .maybeSingle()
     expect(error).toBeNull()
     expect(data).toBeNull()
-  })
-
-  it('membro de outro casamento não consegue atualizar a comunicação', async () => {
-    const { data, error } = await memberB.client
-      .from('comunicacoes')
-      .update({ aberto_em: new Date().toISOString() })
-      .eq('id', communicationA.id)
-      .select()
-
-    expect(error).toBeNull()
-    expect(data).toEqual([])
-
-    const { data: unchanged } = await admin
-      .from('comunicacoes')
-      .select('aberto_em')
-      .eq('id', communicationA.id)
-      .single()
-    expect(unchanged?.aberto_em).toBeNull()
   })
 
   it('membro de outro casamento não consegue inserir comunicação no casamento A', async () => {
@@ -98,7 +71,7 @@ describe('RLS: comunicacoes', () => {
       .from('comunicacoes')
       .insert({
         casamento_id: weddingA.id,
-        credencial_id: credentialAId,
+        convite_id: inviteA.id,
         tipo: 'lembrete',
         canal: 'email',
       })
@@ -108,14 +81,61 @@ describe('RLS: comunicacoes', () => {
     expect(error).not.toBeNull()
   })
 
-  it('não existe policy de DELETE — nem o próprio membro do casamento consegue excluir a comunicação', async () => {
-    await memberA.client.from('comunicacoes').delete().eq('id', communicationA.id)
+  // Sem policy de UPDATE: um envio não se edita. Corrigir é apagar o registro
+  // (quando ele é declaração do casal) e registrar de novo.
+  it('nem o próprio membro consegue editar um envio', async () => {
+    await memberA.client
+      .from('comunicacoes')
+      .update({ tipo: 'lembrete' })
+      .eq('id', comunicacaoWhatsApp.id)
 
-    const { data: stillThere } = await admin
+    const { data } = await admin
+      .from('comunicacoes')
+      .select('tipo')
+      .eq('id', comunicacaoWhatsApp.id)
+      .single()
+    expect(data?.tipo).toBe('convite')
+  })
+
+  // A regra central desta tabela, e o motivo de ela ter policy de DELETE.
+  it('envio feito pelo sistema (whatsapp) não pode ser apagado nem pelo dono', async () => {
+    await memberA.client.from('comunicacoes').delete().eq('id', comunicacaoWhatsApp.id)
+
+    const { data } = await admin
       .from('comunicacoes')
       .select('id')
-      .eq('id', communicationA.id)
+      .eq('id', comunicacaoWhatsApp.id)
       .maybeSingle()
-    expect(stillThere?.id).toBe(communicationA.id)
+    expect(data?.id).toBe(comunicacaoWhatsApp.id)
+  })
+
+  it('registro de canal "outro" pode ser apagado pelo membro — declarar por engano tem saída', async () => {
+    const declarado = await createTestCommunication(admin, weddingA.id, inviteA.id, {
+      canal: 'outro',
+    })
+
+    await memberA.client.from('comunicacoes').delete().eq('id', declarado.id)
+
+    const { data } = await admin
+      .from('comunicacoes')
+      .select('id')
+      .eq('id', declarado.id)
+      .maybeSingle()
+    expect(data).toBeNull()
+  })
+
+  it('membro de outro casamento não apaga nem o registro de canal "outro"', async () => {
+    const declarado = await createTestCommunication(admin, weddingA.id, inviteA.id, {
+      canal: 'outro',
+    })
+
+    await memberB.client.from('comunicacoes').delete().eq('id', declarado.id)
+
+    const { data } = await admin
+      .from('comunicacoes')
+      .select('id')
+      .eq('id', declarado.id)
+      .maybeSingle()
+    expect(data?.id).toBe(declarado.id)
   })
 })

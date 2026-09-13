@@ -74,9 +74,15 @@ eventos" (Fase 4).
    escopo, modelo de dados e fluxos de UI em
    [`fase1-financeiro.md`](fase1-financeiro.md)** — é lá que vivem as
    decisões desta fase, não aqui.
-2. **Convidados (o que falta)** — Mesas (extensão de grupos/acompanhantes
-   existentes) e Comunicações. Absorve também débitos do roadmap atual (ver
-   seção 5.1).
+2. **Convidados (o que falta)** — Mesas e Comunicações. Absorve também
+   débitos do roadmap atual (ver seção 5.1). **Refinada em 2026-09-13:
+   escopo, modelo de dados e fluxos de UI em
+   [`fase2-convidados.md`](fase2-convidados.md)** — é lá que vivem as
+   decisões desta fase, não aqui. Três decisões definem o tamanho dela: a v1
+   de Comunicações é **WhatsApp assistido + registro** (e-mail de verdade,
+   com o lembrete automático, é a entrega seguinte), Mesas entrega **planta
+   baixa arrastável** além da lista, e `convites.enviado_em` deixa de ser
+   coluna marcada à mão para **derivar do registro de envio**.
 3. **Planejamento** — Checklist/tarefas + motor de sugestão simples por
    regra de prazo (determinístico, sem IA).
 4. **Onboarding guiado** — wizard sobre dados que já existem (data, local,
@@ -109,16 +115,28 @@ paralelo, fora da numeração de fases).
 
 ### 5.1 Absorvidos pela Fase 2 (Convidados)
 
-- Edição inline completa na lista de convidados (hoje só a coluna Categoria
-  tem; falta Nome, grupo, acompanhantes, observação).
+Destino de cada um, resolvido no refinamento de 2026-09-13
+([`fase2-convidados.md`](fase2-convidados.md)):
+
+- Edição inline na lista de convidados — **entra** (F2.1), para Nome, grupo e
+  observação. Acompanhantes fica de fora: agrupar exige dizer *com quem*, o
+  que não cabe numa célula — a seleção múltipla já cobre.
 - Agrupar visualmente os membros por núcleo na tela do convidado (RSVP) —
-  estava "à espera de decisão" no roadmap; decisão: **entra nesta fase**.
-- Convite com geração de link/QR code.
-- Lembretes automáticos de RSVP por e-mail.
-- Confirmação por WhatsApp (link direto pré-preenchido) como canal
-  alternativo ao e-mail.
-- Desagrupar em massa (núcleo de acompanhantes) — avaliar nesta fase se a
-  necessidade real já apareceu; se não, permanece fora.
+  estava "à espera de decisão" no roadmap; decisão: **entra nesta fase**
+  (F2.1).
+- Convite com geração de link/QR code — **já estava entregue** quando a fase
+  foi refinada (`InviteAccessLinkSection.vue`, com geração, reexibição,
+  revogação e QR). O roadmap só não tinha sido atualizado.
+- Lembretes automáticos de RSVP por e-mail — **fica para a entrega seguinte**,
+  junto do envio real por e-mail: é ele que traz a única peça que trabalha
+  sozinha, e não depende de nada desta fase exceto do modelo de mensagem, que
+  ela já deixa pronto.
+- Confirmação por WhatsApp (link direto pré-preenchido) — **entra, e virou o
+  centro de Comunicações** (F2.3), não um canal alternativo: é o canal real do
+  casamento brasileiro e o telefone já está no cadastro.
+- Desagrupar em massa (núcleo de acompanhantes) — avaliado: **continua fora**.
+  Agrupar em massa existe porque a lista nasce solta; desagrupar não tem gesto
+  de origem equivalente.
 
 ### 5.2 Absorvidos pela Fase 5 (Multi-evento/Planejador)
 
@@ -134,8 +152,9 @@ Não bloqueiam nenhuma fase do Hub, mas continuam existindo e precisam de
 espaço em algum sprint — sinalizados aqui pra não sumir:
 
 - `prefers-reduced-motion` não respeitado em nenhum lugar da plataforma.
-- Remover `convites.status_convite` (coluna obsoleta, precisa de migration
-  própria por causa da janela de deploy).
+- ~~Remover `convites.status_convite`~~ — **absorvido pela Fase 2** (F2.7):
+  sai na mesma migration que remove `convites.enviado_em`, que passa a ser
+  derivado do registro de envio.
 - Corrida entre filtro debounced e clique na linha (`useTableFilters`) —
   bug reproduzido, causa raiz identificada, conserto pendente.
 - Trava de rolagem do painel no `<body>` em vez do `<html>`.

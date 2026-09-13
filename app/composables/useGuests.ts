@@ -4,6 +4,7 @@ import type {
   GuestPartyGroupInput,
   GuestPartySyncInput,
   GuestQuickCreateInput,
+  GuestUpdateInput,
 } from '#shared/schemas/guests'
 import type { RsvpAdminStatusInput } from '#shared/schemas/rsvp'
 import type { FaixaEtariaFiltro } from '#shared/utils/faixa-etaria'
@@ -157,6 +158,15 @@ export function useGuests() {
     return $fetch<{ atualizados: number }>('/api/guests/bulk', { method: 'PATCH', body: input })
   }
 
+  /**
+   * Edita uma pessoa, campo a campo — o que a célula da lista grava ao sair da
+   * linha. Só campos de `update` direto; convite e Acompanhantes continuam em
+   * `syncGuestParty`/`groupGuestsAsParty`, que são transacionais.
+   */
+  async function updateGuest(id: string, input: GuestUpdateInput): Promise<{ id: string }> {
+    return $fetch<{ id: string }>(`/api/guests/${id}`, { method: 'PATCH', body: input })
+  }
+
   async function deleteGuest(id: string): Promise<{ id: string }> {
     return $fetch<{ id: string }>(`/api/guests/${id}`, { method: 'DELETE' })
   }
@@ -203,6 +213,7 @@ export function useGuests() {
     fetchGuestDetail,
     createGuest,
     bulkUpdateGuests,
+    updateGuest,
     syncGuestParty,
     groupGuestsAsParty,
     setGuestRsvp,

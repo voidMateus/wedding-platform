@@ -27,6 +27,19 @@ interface Props {
   /** 'muted' assenta o campo sobre a superfície de faixa/chip, para o campo não competir com o conteúdo (busca do header do admin). */
   tone?: 'default' | 'muted'
   /**
+   * 'campo' (default) é o campo de formulário com moldura. 'quiet' tira a
+   * borda e o fundo até o hover/foco — mesmo contrato do `UiSelect`, e pelo
+   * mesmo motivo: numa tabela onde a célula é editável linha a linha, a
+   * moldura repetida vira o elemento mais pesado da tela e compete com o
+   * conteúdo (os nomes das pessoas). Continua o mesmo controle, com o mesmo
+   * alvo de clique; só para de se anunciar quando não está em uso.
+   *
+   * Como a do `UiSelect`, a variante existe só para tabela de desktop — no
+   * celular a linha vira o slot `#stacked`, que não desenha campo nenhum —,
+   * então a altura de 32px não tira alvo de toque de ninguém.
+   */
+  variant?: 'campo' | 'quiet'
+  /**
    * Põe o cursor no campo assim que ele monta — para o campo que É o motivo de
    * a área ter aberto (a busca do rascunho de acompanhante, que abre já
    * esperando um nome).
@@ -50,6 +63,7 @@ const {
   disabled = false,
   icon,
   tone = 'default',
+  variant = 'campo',
   autofocus = false,
 } = defineProps<Props>()
 
@@ -61,6 +75,20 @@ onMounted(() => {
 const toneClasses: Record<NonNullable<Props['tone']>, string> = {
   default: 'bg-surface',
   muted: 'bg-surface-muted/70',
+}
+
+const variantClasses: Record<NonNullable<Props['variant']>, string> = {
+  campo: 'h-10 border-border px-3',
+  // `bg-transparent` depois do tom, para vencer o `bg-surface` do default: a
+  // variante quiet não tem fundo próprio até encostarem nela.
+  //
+  // `w-full min-w-0` não é enfeite: um `<input>` sem `size` tem largura
+  // intrínseca de ~20 caracteres, e numa `<table>` de layout automático é ela
+  // que define a largura da coluna. Sem isto, duas colunas de campo empurravam
+  // a tabela 130px além da área visível e jogavam a coluna de ações para fora
+  // da vista — a largura do campo tem que vir da coluna, não o contrário.
+  quiet:
+    'h-8 w-full min-w-0 border-transparent bg-transparent px-2 hover:border-border hover:bg-surface focus:border-border focus:bg-surface',
 }
 
 const emit = defineEmits<{
@@ -98,8 +126,8 @@ const describedBy = computed(() => {
         :aria-label="ariaLabel"
         :aria-invalid="Boolean(error)"
         :aria-describedby="describedBy"
-        class="h-10 rounded-md border border-border px-3 text-sm text-text placeholder:text-text-muted transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-        :class="[toneClasses[tone], icon && 'pl-9']"
+        class="rounded-md border text-sm text-text placeholder:text-text-muted transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+        :class="[toneClasses[tone], variantClasses[variant], icon && 'pl-9']"
         @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
     </div>

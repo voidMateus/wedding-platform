@@ -18,6 +18,7 @@ const backToSiteLink = computed(() => `/${slug}`)
 interface GuestState {
   guestId: string
   fullName: string
+  partyId: string | null
   status: 'pendente' | 'confirmado' | 'recusado'
 }
 
@@ -25,12 +26,20 @@ const guestStates = ref<GuestState[]>(
   props.payload.members.map((m) => ({
     guestId: m.guestId,
     fullName: m.fullName,
+    partyId: m.partyId,
     // `lista_espera` é decisão do casal, não resposta do convidado: para ele a
     // pergunta segue aberta. (`removido` saía daqui também, e foi aposentado do
     // vocabulário em 2026-09-10 por ser valor morto.)
     status: m.status === 'lista_espera' ? 'pendente' : m.status,
   })),
 )
+
+/**
+ * Os membros em blocos: cada núcleo de Acompanhantes num cartão só, quem não
+ * tem núcleo num cartão de um. A regra (e o porquê dela) mora em
+ * `agruparMembrosPorNucleo`.
+ */
+const blocos = computed(() => agruparMembrosPorNucleo(guestStates.value))
 
 const isPastDeadline = props.payload.isPastDeadline
 const step = ref<'guests' | 'review' | 'success'>('guests')
@@ -115,36 +124,51 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
     </p>
 
     <template v-if="step === 'guests'">
+      <!-- Um cartão por BLOCO: o núcleo de Acompanhantes inteiro junto, quem
+           não tem núcleo sozinho. Cada pessoa continua com os seus dois botões
+           — o que mudou é só quem divide a moldura com quem. -->
       <div
-        v-for="guest in guestStates"
-        :key="guest.guestId"
-        class="rounded-lg border border-border bg-surface-elevated p-5 shadow-sm"
+        v-for="bloco in blocos"
+        :key="bloco.id"
+        class="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface-elevated p-5 shadow-sm"
       >
-        <p class="mb-4 font-display text-lg font-semibold text-heading">{{ guest.fullName }}</p>
-        <div class="flex flex-col gap-2 sm:flex-row">
-          <UiButton
-            type="button"
-            class="flex-1 whitespace-nowrap"
-            rounded="full"
-            :variant="guest.status === 'confirmado' ? 'primary' : 'outline'"
-            :disabled="isPastDeadline"
-            @click="setStatus(guest, 'confirmado')"
-          >
-            <Icon name="lucide:check" class="h-4 w-4" />
-            Estarei lá
-          </UiButton>
-          <UiButton
-            type="button"
-            class="flex-1 whitespace-nowrap"
-            rounded="full"
-            variant="outline"
-            :class="guest.status === 'recusado' ? '!border-text !bg-text !text-surface' : ''"
-            :disabled="isPastDeadline"
-            @click="setStatus(guest, 'recusado')"
-          >
-            <Icon name="lucide:x" class="h-4 w-4" />
-            Não poderei ir
-          </UiButton>
+        <div
+          v-for="(guest, indice) in bloco.membros"
+          :key="guest.guestId"
+          :class="indice > 0 && 'pt-5'"
+        >
+          <p class="mb-4 font-display text-lg font-semibold text-heading">{{ guest.fullName }}</p>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <!-- O nome entra no rótulo acessível, depois do texto visível (WCAG
+                 2.5.3): num convite de seis pessoas há doze botões, e "Estarei
+                 lá" repetido não diz de quem. O nome logo acima resolve isso
+                 para quem enxerga, nunca para quem navega botão a botão. -->
+            <UiButton
+              type="button"
+              class="flex-1 whitespace-nowrap"
+              rounded="full"
+              :aria-label="`Estarei lá — ${guest.fullName}`"
+              :variant="guest.status === 'confirmado' ? 'primary' : 'outline'"
+              :disabled="isPastDeadline"
+              @click="setStatus(guest, 'confirmado')"
+            >
+              <Icon name="lucide:check" class="h-4 w-4" />
+              Estarei lá
+            </UiButton>
+            <UiButton
+              type="button"
+              class="flex-1 whitespace-nowrap"
+              rounded="full"
+              variant="outline"
+              :aria-label="`Não poderei ir — ${guest.fullName}`"
+              :class="guest.status === 'recusado' ? '!border-text !bg-text !text-surface' : ''"
+              :disabled="isPastDeadline"
+              @click="setStatus(guest, 'recusado')"
+            >
+              <Icon name="lucide:x" class="h-4 w-4" />
+              Não poderei ir
+            </UiButton>
+          </div>
         </div>
       </div>
 

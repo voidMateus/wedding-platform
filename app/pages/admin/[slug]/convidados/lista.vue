@@ -2,6 +2,7 @@
 import { useDebounceFn } from '@vueuse/core'
 import { FAIXA_ETARIA_NAO_INFORMADA } from '#shared/utils/faixa-etaria'
 import type { FaixaEtariaChave } from '#shared/utils/faixa-etaria'
+import type { GuestUpdateInput } from '#shared/schemas/guests'
 import type { GuestListItem } from '~/types/guest'
 import { applyTableFilters } from '~/utils/table-rows'
 
@@ -12,8 +13,14 @@ const router = useRouter()
 const slug = useActiveWeddingSlug()
 const toast = useToast()
 
-const { deleteGuest, exportGuests, bulkUpdateGuests, groupGuestsAsParty, getGuestOverview } =
-  useGuests()
+const {
+  deleteGuest,
+  exportGuests,
+  bulkUpdateGuests,
+  updateGuest,
+  groupGuestsAsParty,
+  getGuestOverview,
+} = useGuests()
 const { listGroups } = useGroups()
 
 // A lista INTEIRA, não uma página: o agrupamento em blocos e os contadores
@@ -27,7 +34,7 @@ const { data: overview, refresh: refreshOverview } = getGuestOverview()
 const convidados = computed(() => data.value?.convidados ?? [])
 const grupos = computed(() => gruposData.value?.data ?? [])
 
-const { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo, rotuloDoConvite } =
+const { colunas, acessores, categorias, opcoesDeGrupo, rotuloDeNucleo, rotuloDoConvite } =
   useGuestListModeColumns(convidados, grupos)
 
 const filters = useTableFilters(colunas)
@@ -243,21 +250,114 @@ function excluirSelecionados() {
   )
 }
 
-// --- categoria inline ---
+// --- edição na linha ---
 //
-// Grava SÓ `faixa_etaria_manual`, e a célula fica travada para quem tem data de
-// nascimento: a faixa é sempre derivada (CLAUDE.md, seção 12), e a manual perde
-// para uma data válida. Um seletor destravado ali aceitaria a escolha e não
-// mudaria nada na tela — o pior desfecho possível.
-async function definirCategoria(convidado: GuestListItem, faixa: string) {
+// A tela se propõe "planilha inteligente" e só a Categoria se editava aqui:
+// trocar um nome exigia abrir a modal, que é exatamente a fricção que empurra a
+// lista de volta para o Excel. Agora nome, categoria e observação são campos da
+// própria célula — digita, Tab, pronto.
+//
+// Três campos e **um** salvamento por linha: a linha inteira é uma transação, e
+// o que decide é a saída do FOCO DELA (`@row-blur` da AdminTable), nunca a saída
+// do campo. Passar do nome para a observação é continuar na mesma linha, e
+// salvar ali dispararia um refetch da lista inteira no meio da digitação.
+//
+// É também por isso que a Categoria deixou de gravar no `@update:model-value`
+// como fazia: com um comportamento por célula, a mesma linha salvava em
+// momentos diferentes e o casal não tinha como saber qual valia.
+//
+// GRUPO não está aqui, e a razão é de leitura, não de escrita: esta tela agrupa
+// a lista em blocos por grupo, então a pessoa já está dentro do bloco dela, e
+// uma coluna repetindo isso linha a linha gastava largura para dizer o que o
+// cabeçalho acabou de dizer — truncado, ainda por cima. Mover de grupo continua
+// na seleção em massa e no cadastro; o recorte por grupo continua na Visão
+// Geral, que é paginada e não tem blocos.
+//
+// Convite e Acompanhantes continuam FORA daqui, de propósito: os dois exigem
+// orquestração transacional (CLAUDE.md, seção 12), e agrupar exige dizer *com
+// quem* — o que não cabe numa célula. Para esses, a seleção múltipla e o
+// cadastro.
+
+interface RascunhoDaLinha {
+  nome: string
+  faixa: string
+  observacao: string
+}
+
+/**
+ * O que está sendo digitado, por convidado.
+ *
+ * Sem isto, o refetch que cada salvamento dispara jogaria fora o que o casal
+ * acabou de escrever na linha vizinha — a mesma armadilha que a edição no lugar
+ * do Financeiro já tinha resolvido (docs/fase1-financeiro.md, seção 24.3).
+ */
+const rascunhos = ref<Record<string, RascunhoDaLinha>>({})
+
+function valoresGravados(convidado: GuestListItem): RascunhoDaLinha {
+  return {
+    nome: convidado.nome_completo,
+    faixa: categoriaDaLinha(convidado),
+    observacao: convidado.observacoes ?? '',
+  }
+}
+
+function rascunho(convidado: GuestListItem): RascunhoDaLinha {
+  return rascunhos.value[convidado.id] ?? valoresGravados(convidado)
+}
+
+function editar<K extends keyof RascunhoDaLinha>(
+  convidado: GuestListItem,
+  campo: K,
+  valor: RascunhoDaLinha[K],
+) {
+  rascunhos.value = {
+    ...rascunhos.value,
+    [convidado.id]: { ...rascunho(convidado), [campo]: valor },
+  }
+}
+
+/** Descarta o rascunho da linha — os campos voltam a vir do servidor. */
+function esquecer(id: string) {
+  rascunhos.value = Object.fromEntries(
+    Object.entries(rascunhos.value).filter(([chave]) => chave !== id),
+  )
+}
+
+async function salvarLinha(convidado: GuestListItem) {
+  const atual = rascunhos.value[convidado.id]
+  if (!atual) return
+
+  const gravado = valoresGravados(convidado)
+  const patch: GuestUpdateInput = {}
+
+  // Nome vazio é engano de digitação, não intenção de apagar a pessoa: o campo
+  // volta ao que era. Excluir é ação explícita, com confirmação.
+  const nome = atual.nome.trim()
+  if (nome && nome !== gravado.nome) patch.nomeCompleto = nome
+
+  if (atual.faixa !== gravado.faixa) {
+    patch.faixaEtariaManual = (atual.faixa || null) as FaixaEtariaChave | null
+  }
+  if (atual.observacao.trim() !== gravado.observacao) patch.observacoes = atual.observacao.trim()
+
+  if (!Object.keys(patch).length) {
+    esquecer(convidado.id)
+    return
+  }
+
   try {
-    await bulkUpdateGuests({
-      ids: [convidado.id],
-      faixaEtariaManual: (faixa || null) as FaixaEtariaChave | null,
-    })
-    await refresh()
-  } catch {
-    toast.error('Não foi possível alterar a categoria.')
+    await updateGuest(convidado.id, patch)
+    // Categoria mexe na faixa de números do cabeçalho; nome e observação não
+    // mexem em nada além da própria linha, e recarregar grupos e overview a cada
+    // nome corrigido seriam duas requisições que nunca mudariam de resposta.
+    await (patch.faixaEtariaManual !== undefined ? recarregarTudo() : refresh())
+    esquecer(convidado.id)
+  } catch (erro) {
+    // O rascunho é descartado TAMBÉM no erro: manter no campo um valor que o
+    // servidor recusou é pior que voltar ao anterior, porque o casal continua
+    // lendo como salvo.
+    esquecer(convidado.id)
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar a alteração.'))
   }
 }
 
@@ -349,11 +449,13 @@ const isExporting = ref(false)
 async function exportar() {
   isExporting.value = true
   try {
-    // Segue o recorte que a tabela mostra — o filtro de grupo agora vem do
-    // menu do cabeçalho, e aceita mais de um valor.
+    // Segue o recorte que a tabela mostra. Sem `groupId`: esta tela deixou de
+    // ter coluna (e filtro) de grupo — ela agrupa a lista em blocos, e o
+    // recorte por grupo vive na Visão Geral. Mandar um filtro que a tela não
+    // tem faria o arquivo divergir do que está à vista, que é justamente o que
+    // a regra da exportação existe para impedir.
     await exportGuests({
       search: filters.valuesOf('nome')[0] || undefined,
-      groupId: filters.valuesOf('grupo').length ? filters.valuesOf('grupo') : undefined,
     })
   } finally {
     isExporting.value = false
@@ -444,7 +546,6 @@ async function confirmarExclusao() {
           <template #headerActions>
             <AdminGuestsGuestListCounters
               :total="overview?.total ?? 0"
-              :em-consideracao="overview?.emConsideracao ?? 0"
               :faixas="overview?.faixas ?? []"
               class="mr-auto"
             />
@@ -468,9 +569,8 @@ async function confirmarExclusao() {
               :collapsed-ids="recolhidos"
               :filters="filters"
               empty-label="Nenhuma pessoa com esses filtros."
-              row-clickable
               @toggle-section="alternarBloco"
-              @row-click="abrirEdicao"
+              @row-blur="salvarLinha"
             >
               <template #cell-selecao="{ row }">
                 <UiCheckbox
@@ -480,25 +580,19 @@ async function confirmarExclusao() {
                 />
               </template>
 
+              <!-- Campo, não mais um botão que abre a modal: o nome é o dado
+                   que mais se corrige numa lista ("Ana Claudia" → "Ana
+                   Cláudia"), e mandar isso para um formulário de nove campos
+                   era o pedágio mais caro da tela. Abrir o cadastro completo
+                   virou o ícone da coluna Ações — um caminho, não três. -->
               <template #cell-nome="{ row }">
-                <button
-                  type="button"
-                  class="text-left font-medium text-text transition-brand hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  @click="abrirEdicao(row)"
-                >
-                  {{ row.nome_completo }}
-                </button>
-              </template>
-
-              <!-- Texto, não chip: a pessoa já está DENTRO da faixa do grupo
-                   dela, então o chip repetia em pílula, linha a linha, o que o
-                   cabeçalho do bloco acabou de dizer — vinte e nove pílulas de
-                   peso visual sem uma informação nova. A coluna continua aqui
-                   (é ela que sustenta o filtro por grupo), só para de gritar. -->
-              <template #cell-grupo="{ row }">
-                <span class="block truncate text-text-muted" :title="nomeDoGrupo(row)">
-                  {{ row.grupo_id ? nomeDoGrupo(row) : '—' }}
-                </span>
+                <UiInput
+                  variant="quiet"
+                  class="w-full min-w-56 font-medium"
+                  :model-value="rascunho(row).nome"
+                  :aria-label="`Nome de ${row.nome_completo}`"
+                  @update:model-value="editar(row, 'nome', $event)"
+                />
               </template>
 
               <template #cell-nucleo="{ row }">
@@ -508,13 +602,13 @@ async function confirmarExclusao() {
               <template #cell-faixa="{ row }">
                 <UiSelect
                   v-if="!categoriaTravada(row)"
-                  :model-value="categoriaDaLinha(row)"
+                  :model-value="rascunho(row).faixa"
                   :options="opcoesDeCategoriaManual"
                   placeholder="—"
                   :aria-label="`Categoria de ${row.nome_completo}`"
                   variant="quiet"
-                  class="w-32"
-                  @update:model-value="definirCategoria(row, $event)"
+                  class="w-full"
+                  @update:model-value="editar(row, 'faixa', $event)"
                 />
                 <!-- Travada com data de nascimento: a faixa é calculada na data
                      do evento e a manual sempre perde. Um seletor aqui
@@ -560,19 +654,38 @@ async function confirmarExclusao() {
                 </UiBadge>
               </template>
 
-              <!-- Só a lixeira. O lápis foi um terceiro caminho para o mesmo
-                   formulário: o NOME já é um `<button>` que abre a edição — e é
-                   ele o alvo acessível, porque `row-click` é conveniência de
-                   mouse (uma `<tr>` não é focável nem anunciada como botão).
-                   Três controles para uma ação, repetidos linha a linha, são
-                   peso visual sem capacidade nova. -->
-              <template #cell-acoes="{ row }">
-                <AdminRowAction
-                  icon="lucide:trash-2"
-                  :label="`Excluir ${row.nome_completo}`"
-                  tone="danger"
-                  @click="abrirExclusao(row)"
+              <!-- Observação era o campo mais "de planilha" que só existia na
+                   modal: "não come glúten", "confirmar com a mãe". Truncada, e
+                   a primeira a sair quando faltar largura. -->
+              <template #cell-observacao="{ row }">
+                <UiInput
+                  variant="quiet"
+                  class="w-full min-w-24"
+                  :model-value="rascunho(row).observacao"
+                  :aria-label="`Observação sobre ${row.nome_completo}`"
+                  placeholder="—"
+                  @update:model-value="editar(row, 'observacao', $event)"
                 />
+              </template>
+
+              <!-- O lápis voltou, e agora ele é o ÚNICO caminho para o cadastro
+                   completo: o nome virou campo, e `row-click` saiu junto — numa
+                   linha cheia de campos, clicar nela é para editar, não para
+                   navegar. Dois controles, duas ações distintas. -->
+              <template #cell-acoes="{ row }">
+                <div class="flex items-center justify-end gap-1">
+                  <AdminRowAction
+                    icon="lucide:pencil"
+                    :label="`Abrir cadastro de ${row.nome_completo}`"
+                    @click="abrirEdicao(row)"
+                  />
+                  <AdminRowAction
+                    icon="lucide:trash-2"
+                    :label="`Excluir ${row.nome_completo}`"
+                    tone="danger"
+                    @click="abrirExclusao(row)"
+                  />
+                </div>
               </template>
 
               <!-- Linha do celular: nome dominante e o essencial em duas
@@ -629,7 +742,7 @@ async function confirmarExclusao() {
 
         <AdminGuestsGuestListModeBulkBar
           :selecionados="selecionados.length"
-          :grupos-disponiveis="montarOpcoesDeGrupo(grupos)"
+          :grupos-disponiveis="opcoesDeGrupo"
           :categorias-disponiveis="opcoesDeCategoriaManual"
           :aplicando="aplicandoEmMassa"
           :todos-selecionados="todosSelecionados"

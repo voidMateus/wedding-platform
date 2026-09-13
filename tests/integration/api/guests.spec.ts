@@ -14,8 +14,8 @@ import { createTestInvite } from '../../factories/invite'
  * real no servidor de build (tests/integration/global-setup.ts), com uma
  * sessão administrativa real (tests/integration/helpers/admin-session.ts).
  *
- * Cobre PUT /api/guests/party, POST /api/guests/party/group e
- * DELETE /api/guests/[id].
+ * Cobre PUT /api/guests/party, POST /api/guests/party/group,
+ * PATCH /api/guests/[id] e DELETE /api/guests/[id].
  */
 describe('api: PUT /api/guests/party', () => {
   const admin = getServiceRoleClient()
@@ -493,6 +493,126 @@ describe('api: DELETE /api/guests/[id]', () => {
     const guest = await createTestGuest(admin, wedding.id)
     const client = createTestApiClient()
     const res = await client.del(`/api/guests/${guest.id}`)
+    expect(res.status).toBe(401)
+  })
+})
+
+/**
+ * A edição na linha do Modo Lista. O que este bloco protege não é o `update`
+ * em si — é o ALCANCE dele: campo ausente não pode encostar em coluna nenhuma,
+ * e o endpoint não pode virar uma porta lateral para convite/núcleo.
+ */
+describe('api: PATCH /api/guests/[id]', () => {
+  const admin = getServiceRoleClient()
+
+  let wedding: Awaited<ReturnType<typeof createTestWedding>>
+  let member: Awaited<ReturnType<typeof createTestMember>>
+  let cookie: string
+
+  beforeAll(async () => {
+    wedding = await createTestWedding(admin)
+    member = await createTestMember(admin, wedding.id)
+    cookie = await getAdminSessionCookie(member.email, TEST_MEMBER_PASSWORD)
+  })
+
+  afterAll(async () => {
+    await cleanupAll([
+      () => deleteTestMember(admin, member.userId),
+      () => deleteTestWedding(admin, wedding.id),
+    ])
+  })
+
+  it('caminho feliz: grava o nome novo', async () => {
+    const guest = await createTestGuest(admin, wedding.id, { nome_completo: 'Ana Claudia' })
+    const res = await createTestApiClient({ cookie }).patch(`/api/guests/${guest.id}`, {
+      nomeCompleto: 'Ana Cláudia',
+    })
+    expect(res.status).toBe(200)
+
+    const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+    expect(stored?.nome_completo).toBe('Ana Cláudia')
+  })
+
+  // A regra que a lista depende: a célula manda só o que mudou, e o resto da
+  // pessoa não pode ser apagado por omissão.
+  it('campo ausente não encosta nas outras colunas', async () => {
+    const guest = await createTestGuest(admin, wedding.id, {
+      nome_completo: 'Pedro',
+      email: 'pedro@exemplo.com',
+      observacoes: 'chega mais cedo',
+    })
+
+    const res = await createTestApiClient({ cookie }).patch(`/api/guests/${guest.id}`, {
+      nomeCompleto: 'Pedro Henrique',
+    })
+    expect(res.status).toBe(200)
+
+    const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+    expect(stored?.email).toBe('pedro@exemplo.com')
+    expect(stored?.observacoes).toBe('chega mais cedo')
+  })
+
+  // Observação apagada na célula chega como string vazia; gravá-la deixaria a
+  // coluna "preenchida com nada" — dois estados para uma informação só.
+  it('observação vazia vira null, não string vazia', async () => {
+    const guest = await createTestGuest(admin, wedding.id, { observacoes: 'algo' })
+
+    const res = await createTestApiClient({ cookie }).patch(`/api/guests/${guest.id}`, {
+      observacoes: '',
+    })
+    expect(res.status).toBe(200)
+
+    const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+    expect(stored?.observacoes).toBeNull()
+  })
+
+  it('erro de domínio: corpo vazio é rejeitado com 400', async () => {
+    const guest = await createTestGuest(admin, wedding.id)
+    const res = await createTestApiClient({ cookie }).patch(`/api/guests/${guest.id}`, {})
+    expect(res.status).toBe(400)
+  })
+
+  it('erro de domínio: nome vazio é rejeitado com 400 e nada muda', async () => {
+    const guest = await createTestGuest(admin, wedding.id, { nome_completo: 'Original' })
+    const res = await createTestApiClient({ cookie }).patch(`/api/guests/${guest.id}`, {
+      nomeCompleto: '   ',
+    })
+    expect(res.status).toBe(400)
+
+    const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+    expect(stored?.nome_completo).toBe('Original')
+  })
+
+  // Convite e núcleo exigem orquestração transacional e nunca passam por aqui:
+  // o schema descarta o que não declara, então a linha continua como estava.
+  it('convite e núcleo enviados no corpo são ignorados', async () => {
+    const invite = await createTestInvite(admin, wedding.id)
+    const guest = await createTestGuest(admin, wedding.id)
+
+    const res = await createTestApiClient({ cookie }).patch(`/api/guests/${guest.id}`, {
+      nomeCompleto: 'Continua Editável',
+      conviteId: invite.id,
+    })
+    expect(res.status).toBe(200)
+
+    const { data: stored } = await admin.from('convidados').select('*').eq('id', guest.id).single()
+    expect(stored?.nome_completo).toBe('Continua Editável')
+    expect(stored?.convite_id).toBeNull()
+  })
+
+  it('erro de domínio: id inexistente retorna 404', async () => {
+    const res = await createTestApiClient({ cookie }).patch(
+      '/api/guests/00000000-0000-0000-0000-000000000000',
+      { nomeCompleto: 'Ninguém' },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  it('sem sessão nenhuma, a requisição é rejeitada com 401', async () => {
+    const guest = await createTestGuest(admin, wedding.id)
+    const res = await createTestApiClient().patch(`/api/guests/${guest.id}`, {
+      nomeCompleto: 'Qualquer',
+    })
     expect(res.status).toBe(401)
   })
 })

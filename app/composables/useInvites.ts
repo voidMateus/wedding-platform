@@ -68,15 +68,6 @@ export function useInvites() {
     return $fetch<{ id: string }>(`/api/invites/${id}/guests/${guestId}`, { method: 'DELETE' })
   }
 
-  /**
-   * Marca/desmarca o envio. Dois sentidos, como `setInviteArchived`: enviado
-   * e informacao manual do casal, nao fato comprovado pelo sistema — e um
-   * clique errado precisa ter volta.
-   */
-  async function setInviteSent(id: string, sent: boolean): Promise<Invite> {
-    return $fetch<Invite>(`/api/invites/${id}/send`, { method: 'POST', body: { sent } })
-  }
-
   async function setInviteArchived(id: string, archived: boolean): Promise<Invite> {
     return $fetch<Invite>(`/api/invites/${id}/archive`, { method: 'POST', body: { archived } })
   }
@@ -97,7 +88,6 @@ export function useInvites() {
     deleteInvite,
     addGuestsToInvite,
     removeGuestFromInvite,
-    setInviteSent,
     setInviteArchived,
     getInviteTimeline,
   }

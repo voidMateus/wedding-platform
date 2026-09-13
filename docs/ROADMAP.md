@@ -29,9 +29,13 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 
 ### Fase 2 — Consolidação
 - [x] Importação de convidados via CSV — wizard de três passos, catálogo central de campos e gerador de modelo; ver [`PRODUCT.md`](PRODUCT.md) seções 3.5 e 3.6. Acompanhantes ficaram deliberadamente fora.
-- [ ] Lembretes automáticos de RSVP por e-mail.
+- [ ] Lembretes automáticos de RSVP por e-mail — depende da infraestrutura de e-mail, que a Fase 2 do Hub deixou nomeada como a entrega seguinte à v1 de Comunicações (`fase2-convidados.md` seção 2.2).
 - [ ] Exportação de dados em CSV/PDF — **convidados em CSV entregue** (segue os filtros da tela, colunas do catálogo central; ver [`PRODUCT.md`](PRODUCT.md) seção 3.5). Falta presentes, e PDF em qualquer um dos dois.
-- [ ] Convite com geração de link/QR code.
+- [x] Convite com geração de link/QR code — entregue em
+      `InviteAccessLinkSection.vue`: gerar, reexibir sem invalidar o já
+      compartilhado, revogar e QR renderizado no navegador. A linha só não
+      tinha sido marcada; constatado no refinamento da Fase 2 do Hub
+      ([`fase2-convidados.md`](fase2-convidados.md)).
 - [x] Colaboradores — convite/remoção com papel binário `dono`/`colaborador`, checagem de `owner` no servidor (ver [`PRODUCT.md`](PRODUCT.md) seção 7.3), tela em Configurações → Colaboradores. Implementado no Passo 3 do `docs/PLANO-SAAS.md`.
 - [ ] Permissões granulares por funcionalidade (ex.: colaborador que só edita convidados, não presentes/configurações) — decisão consciente de manter o modelo binário por ora (2026-08-24); schema novo fica pra quando houver demanda real.
 - [ ] Auditoria completa de ações administrativas.
@@ -42,7 +46,7 @@ Um fato de estado atual (o que o produto faz hoje) vai em [`PRODUCT.md`](PRODUCT
 - [x] Temas visuais pré-configurados (`shared/theme-presets.ts`) selecionáveis pelo casal.
 - [x] Cronograma detalhado do evento — cada `event_segment` vira sua própria seção em destaque na home pública.
 - [x] Mapa/localização integrada — embed do Google Maps por segmento do cronograma.
-- [ ] Confirmação por WhatsApp (link direto pré-preenchido) como canal alternativo ao e-mail.
+- [x] Confirmação por WhatsApp (link direto pré-preenchido) — **entregue na Fase 2 do Hub** (F2.3), e lá ele deixou de ser "canal alternativo ao e-mail" para ser o canal principal: é o do casamento brasileiro, e o telefone já está no cadastro. A mensagem sai pronta com o link do convite, e abrir o WhatsApp registra o envio.
 - [ ] Internacionalização (i18n) — suporte a inglês/espanhol.
 
 ### Fases fora da sequência numerada (concluídas, salvo onde indicado)
@@ -61,6 +65,7 @@ Cada uma tem histórico completo em `docs/CHANGELOG.md` — resumo de uma linha 
 - **Fase Classificação Etária**: faixa etária do convidado deixou de ser propriedade da pessoa — passou a ser derivada da idade na data do evento contra faixas configuráveis por casamento (`casamentos.config_faixas_etarias`), com faixa manual opcional para quem não tem data de nascimento. Estado atual em [`PRODUCT.md`](PRODUCT.md) seção 3.4.
 - **Fase Filtros por Coluna**: recorte de lista deixou de ser fileira de chips e virou filtro/ordenação da própria coluna, com o estado na URL, cabeçalho fixo, grade rolável e múltipla escolha onde faz sentido (dois status, duas faixas). Cobre as quatro telas com tabela — Convidados, Convites, Presentes e Plataforma (esta migrada para `AdminTable`, o que aposentou a `UiTable`). Grupos não entra: é lista com barra de andamento, não tabela. Duas views nasceram aqui (`convidados_com_status`, `convites_com_resumo`), pelo mesmo motivo: estado consolidado que precisa existir antes de paginar.
 - **Hub, Fase 1 — Financeiro (2026-09-10, redesenhado em 2026-09-11)**: primeiro módulo do plano de Hub (`docs/plano-produto-hub-casamento.md`). Três telas para três momentos do dinheiro — Orçamento (planejar, com custo estimado por gasto e teto por categoria), Fornecedores (cotar e contratar) e Pagamentos (o que sai e quando) —, mais Documentos no primeiro bucket **privado** do projeto. Nenhum estado de pagamento é gravado: tudo deriva de `pago_em`, e é o custo final que transforma planejamento em compromisso. Refinamento e decisões em [`fase1-financeiro.md`](fase1-financeiro.md).
+- **Hub, Fase 2 — Convidados (2026-09-13)**: fecha o que ficou pela metade no módulo e acrescenta Mesas e Comunicações. Refinamento e decisões em [`fase2-convidados.md`](fase2-convidados.md). **F2.1 a F2.6 entregues**: a linha do Modo Lista virou planilha de verdade e o RSVP passou a agrupar quem vai junto (F2.1); o envio do convite deixou de ser um checkbox e virou registro com canal e tipo, com `enviado_em` derivado dele, mais o WhatsApp assistido e o editor de mensagens (F2.2–F2.3); e Mesas nasceu com lista, planta arrastável em centímetros, elementos do salão e exportação do mapa (F2.4–F2.6). Falta só a **migration B** da costura — remover `convites.enviado_em` e `convites.status_convite` —, que sai num merge posterior por causa da janela de deploy.
 - **Reorganização de documentação (2026-08)**: CLAUDE.md reduzido a índice operacional; conteúdo de produto/banco/design system/roadmap movido para `docs/PRODUCT.md`, `docs/DATABASE.md`, `docs/DESIGN-SYSTEM.md` e este arquivo. `docs/ARCHITECTURE.md` e `docs/CHANGELOG.md` mantidos como já estavam (já tinham o escopo certo).
 
 ## 3. Modo Lista de convidados — o que falta
@@ -69,19 +74,25 @@ O grosso saiu no PR #99; a entrada rápida e o colar da planilha saíram na
 sequência. O que resta:
 
 **Tela do rascunho "Em consideração" — descartada por ora** (decisão do usuário,
-2026-09-10: "não vejo necessidade alguma de fazer, talvez no futuro"). O
-`GuestListDraftPanel.vue` segue no repositório com zero usuários, e a coluna, o
-CHECK, o filtro na API e o contador continuam prontos — quem retomar não começa
-do zero. O que fica sem caminho é marcar alguém como em consideração, ver quem
-está e promover um rascunho: o contador aparece e não leva a lugar nenhum.
+2026-09-10: "não vejo necessidade alguma de fazer, talvez no futuro"). A coluna,
+o CHECK e o filtro na API continuam prontos — quem retomar não começa do zero.
+Na Fase 2 do Hub (F2.1) saíram as duas pontas soltas que a decisão deixou: o
+`GuestListDraftPanel.vue`, que estava no repositório com zero usuários, e o
+"+ N em consideração" da faixa de números, que era sempre zero (nenhuma tela
+grava `em_consideracao`) e não levava a lugar nenhum.
 
-Inertes por decisão, com o motivo no `title` de cada um:
+- [x] **Formulários e Integrações** — eram dois itens de menu sem nada por trás,
+      e **saíram do menu na Fase 2 do Hub** (`fase2-convidados.md`, F2.1): item
+      que promete e não entrega é pior que item ausente. "Formulários"
+      (perguntas extras no RSVP) fica como direção nomeada para uma rodada
+      própria. "Núcleos" saiu junto, por motivo diferente: a tela foi
+      descartada, não adiada, e o item continuava prometendo-a "em breve".
 
-- [ ] **Formulários e Integrações** — dois itens de menu sem nada por trás.
-
-E uma lacuna de acabamento: **edição inline só existe na coluna Categoria**.
-Nome, grupo, acompanhantes e observação ainda exigem abrir a modal, o que é o
-buraco mais visível numa tela que se propõe "planilha inteligente".
+E uma lacuna de acabamento que era o buraco mais visível numa tela que se propõe
+"planilha inteligente": **edição inline só existia na coluna Categoria**.
+**Resolvida na Fase 2 do Hub** (F2.1) para nome, grupo, categoria e observação,
+com um salvamento por linha; acompanhantes fica de fora de propósito (agrupar
+exige dizer *com quem*, o que não cabe numa célula).
 
 Resolvido na **Fase Acompanhantes** (2026-09-10; decisões de produto em
 [`PRODUCT.md`](PRODUCT.md) seção 3.7): "Agrupar como acompanhantes" saiu do
@@ -96,17 +107,20 @@ ordenar convite (`server/utils/membros-do-convite.ts`) e
 `PATCH /api/guests/party/reorder` foi removido — nunca teve chamador, porque a
 ordem sempre foi gravada pelo próprio cadastro.
 
-Fica de fora, à espera de decisão: **agrupar visualmente os membros por núcleo
-na tela do convidado (RSVP)**. Quem abre um convite de 6 pessoas vê 6 nomes
-soltos; agrupar ajudaria e não feriria o invariante (a resposta continua por
-pessoa), mas é mexer no fluxo do convidado, não só no admin. E **desagrupar em
-massa** não existe: desfazer é remover o acompanhante pelo cadastro, que com
-dois membros dissolve o núcleo.
+Estava à espera de decisão, e as duas foram resolvidas na Fase 2 do Hub
+(2026-09-13, `fase2-convidados.md`): **agrupar visualmente os membros por núcleo
+na tela do convidado (RSVP)** — quem abria um convite de 6 pessoas via 6 nomes
+soltos — está **entregue** (F2.1): um cartão por núcleo, sem rótulo (o "João e
+Maria" é linguagem do painel), com a resposta continuando por pessoa. E
+**desagrupar em massa continua fora**:
+agrupar em massa existe porque a lista nasce solta, desagrupar não tem gesto
+de origem equivalente, e desfazer é remover o acompanhante pelo cadastro, que
+com dois membros dissolve o núcleo.
 
 ## 4. Dívidas conhecidas (fora de fase — pequenas e independentes)
 
 - [ ] **`prefers-reduced-motion` não é respeitado em lugar nenhum da plataforma** (levantado em 2026-09-09). Quem liga "Reduzir movimento" no sistema normalmente tem distúrbio vestibular — enjoo ou tontura de verdade com movimento que acontece sozinho. O inventário real é pequeno: o `animate-bounce` da seta "role para descobrir" no Hero do site público (loop infinito, na primeira tela que todo convidado vê) e o `animate-pulse` do `UiSkeleton` são os dois casos que rodam **sem ninguém pedir**; o resto (`.transition-brand`, o `scale` do `UiModal`, o `translateX` da linha de tabela) responde a clique ou hover, o que é aceitável. O conserto é um bloco `@media (prefers-reduced-motion: reduce)` no `main.css` zerando `animation-duration`/`iteration-count` e o `--transition-duration` — a vantagem de o movimento sair de um token só. Duas ressalvas para não dar falsa sensação de resolvido: o `duration-200` do `UiModal` está escrito na classe e não no token (precisa migrar ou ganhar regra própria), e `scrollIntoView({ behavior: 'smooth' })` em JS **ignora** o CSS — só respeita se o código consultar `matchMedia` antes, o que são 2 lugares hoje.
-- [ ] **Remover `convites.status_convite`** (obsoleta desde 2026-09-10). O mesmo fato é `enviado_em`, e nada no código a lê ou escreve mais. Não foi removida junto porque as migrations são aplicadas em prod no merge, em paralelo com o deploy da Vercel: existe uma janela em que o código antigo roda contra o schema novo, e nela um `update` na coluna removida falharia. Entra numa migration própria, quando nenhuma versão em voo a escrever.
+- [ ] **Remover `convites.status_convite` e `convites.enviado_em`** — **a migration B da Fase 2 do Hub** (`fase2-convidados.md`, F2.7), a única peça da fase que ficou de fora do merge de propósito. O mesmo fato é `enviado_em`, e nada no código a lê ou escreve mais. Não foi removida junto porque as migrations são aplicadas em prod no merge, em paralelo com o deploy da Vercel: existe uma janela em que o código antigo roda contra o schema novo, e nela um `update` na coluna removida falharia. Sai na mesma migration tardia que remove `enviado_em`, que por sua vez passa a derivar do registro de envio em `comunicacoes`.
 - [ ] **Corrida entre o filtro debounced e o clique na linha** (`useTableFilters`, encontrada em 2026-09-09, reproduzida com precisão em 2026-09-10). Digitar no filtro e clicar numa linha dentro da janela do debounce (300ms) faz o modal não abrir: o clique dispara `router.push` com `?editar=<id>` e, com a navegação ainda em voo, o `router.replace` do filtro **aborta** a anterior — o Vue Router cancela a navegação pendente, e o `editar` nunca chega. O merge em `applyQuery` **não** é o problema (ele monta o destino a partir de `route.query` no flush e preserva as chaves alheias); o problema é o aborto da navegação.
 
       Só aparece sob carga: com a máquina folgada o `push` completa antes do flush, e é por isso que a primeira medição do dia concluiu, errado, que a dívida estava paga. Reprodução: rodar a suíte E2E inteira em 4 workers e, num teste que digita no filtro e clica na linha em seguida, o modal falha em ~1 de 3 execuções. Um teste dedicado foi escrito e **descartado** por ser instável por construção (falha só sob contenção) — vale mais esta receita que um teste que ninguém confia.

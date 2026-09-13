@@ -1,3 +1,4 @@
+import type { CanalComunicacao, TipoComunicacao } from '#shared/utils/modelo-comunicacao'
 import type { Database } from './database.types'
 
 export type Invite = Database['public']['Tables']['convites']['Row']
@@ -40,8 +41,14 @@ export type InviteEventType =
   | 'invite.archived'
   | 'invite.unarchived'
   | 'token.generated'
+  // `token.sent`/`token.unsent` não são mais GRAVADOS: o envio deixou de ser um
+  // timestamp marcado à mão e virou `comunicacao.enviada`, com tipo e canal. Os
+  // dois continuam aqui porque o log é append-only — eventos gravados antes da
+  // Fase 2 seguem no banco e precisam de frase própria, senão a Linha do Tempo
+  // de um convite antigo passaria a exibir "Evento registrado" no lugar deles.
   | 'token.sent'
   | 'token.unsent'
+  | 'comunicacao.enviada'
   | 'rsvp.first_access'
   | 'rsvp.guest_status_changed'
   | 'rsvp.message_sent'
@@ -83,4 +90,17 @@ export interface InviteDetail extends Invite {
   stageSince: string | null
   members: InviteMember[]
   tags: InviteTag[]
+  /**
+   * Os envios registrados deste convite, do mais recente para o mais antigo.
+   *
+   * É daqui que sai o estágio "Enviado" do funil (via `convites_com_resumo`),
+   * e é aqui que "Marcar como enviado" virou "Registrar envio": o fato ganhou
+   * uma linha própria, com tipo e canal, em vez de um timestamp marcado à mão.
+   */
+  envios: {
+    id: string
+    tipo: TipoComunicacao
+    canal: CanalComunicacao
+    enviadoEm: string
+  }[]
 }

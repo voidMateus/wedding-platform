@@ -46,6 +46,7 @@ export type Database = {
           created_at: string
           excluido_em: string | null
           id: string
+          mesa_id: string | null
           nome_completo: string
           restricoes_alimentares: string | null
           updated_at: string
@@ -56,6 +57,7 @@ export type Database = {
           created_at?: string
           excluido_em?: string | null
           id?: string
+          mesa_id?: string | null
           nome_completo: string
           restricoes_alimentares?: string | null
           updated_at?: string
@@ -66,16 +68,31 @@ export type Database = {
           created_at?: string
           excluido_em?: string | null
           id?: string
+          mesa_id?: string | null
           nome_completo?: string
           restricoes_alimentares?: string | null
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "acompanhantes_avulsos_mesa_id_fkey"
+            columns: ["mesa_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "companions_invite_id_fkey"
             columns: ["convite_id"]
             isOneToOne: false
             referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companions_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
             referencedColumns: ["id"]
           },
           {
@@ -135,6 +152,7 @@ export type Database = {
       casamentos: {
         Row: {
           arquivado_em: string | null
+          config_comunicacao: Json
           config_conteudo: Json | null
           config_faixas_etarias: Json
           config_tema: Json
@@ -147,6 +165,8 @@ export type Database = {
           modo_lista_convidados: string
           nomes_noivos: string
           orcamento_total_centavos: number | null
+          planta_largura_cm: number | null
+          planta_profundidade_cm: number | null
           prazo_rsvp: string | null
           slug: string
           status_ciclo_vida: string
@@ -154,6 +174,7 @@ export type Database = {
         }
         Insert: {
           arquivado_em?: string | null
+          config_comunicacao?: Json
           config_conteudo?: Json | null
           config_faixas_etarias?: Json
           config_tema?: Json
@@ -166,6 +187,8 @@ export type Database = {
           modo_lista_convidados?: string
           nomes_noivos: string
           orcamento_total_centavos?: number | null
+          planta_largura_cm?: number | null
+          planta_profundidade_cm?: number | null
           prazo_rsvp?: string | null
           slug: string
           status_ciclo_vida?: string
@@ -173,6 +196,7 @@ export type Database = {
         }
         Update: {
           arquivado_em?: string | null
+          config_comunicacao?: Json
           config_conteudo?: Json | null
           config_faixas_etarias?: Json
           config_tema?: Json
@@ -185,6 +209,8 @@ export type Database = {
           modo_lista_convidados?: string
           nomes_noivos?: string
           orcamento_total_centavos?: number | null
+          planta_largura_cm?: number | null
+          planta_profundidade_cm?: number | null
           prazo_rsvp?: string | null
           slug?: string
           status_ciclo_vida?: string
@@ -276,51 +302,79 @@ export type Database = {
       }
       comunicacoes: {
         Row: {
-          aberto_em: string | null
           canal: string
           casamento_id: string
+          convidado_id: string | null
+          convite_id: string
           created_at: string
-          credencial_id: string
-          enviado_em: string | null
+          enviado_em: string
           id: string
+          registrado_por: string | null
           tipo: string
-          updated_at: string
         }
         Insert: {
-          aberto_em?: string | null
           canal: string
           casamento_id: string
+          convidado_id?: string | null
+          convite_id: string
           created_at?: string
-          credencial_id: string
-          enviado_em?: string | null
+          enviado_em?: string
           id?: string
+          registrado_por?: string | null
           tipo: string
-          updated_at?: string
         }
         Update: {
-          aberto_em?: string | null
           canal?: string
           casamento_id?: string
+          convidado_id?: string | null
+          convite_id?: string
           created_at?: string
-          credencial_id?: string
-          enviado_em?: string | null
+          enviado_em?: string
           id?: string
+          registrado_por?: string | null
           tipo?: string
-          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "communications_access_token_id_fkey"
-            columns: ["credencial_id"]
-            isOneToOne: false
-            referencedRelation: "credenciais_acesso_convite"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "communications_wedding_id_fkey"
+            foreignKeyName: "comunicacoes_casamento_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicacoes_convidado_id_fkey"
+            columns: ["convidado_id"]
+            isOneToOne: false
+            referencedRelation: "convidados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicacoes_convidado_id_fkey"
+            columns: ["convidado_id"]
+            isOneToOne: false
+            referencedRelation: "convidados_com_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicacoes_convite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicacoes_convite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicacoes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "membros_casamento"
             referencedColumns: ["id"]
           },
         ]
@@ -520,6 +574,7 @@ export type Database = {
           faixa_etaria_manual: string | null
           grupo_id: string | null
           id: string
+          mesa_id: string | null
           nome_completo: string
           nucleo_id: string | null
           observacoes: string | null
@@ -543,6 +598,7 @@ export type Database = {
           faixa_etaria_manual?: string | null
           grupo_id?: string | null
           id?: string
+          mesa_id?: string | null
           nome_completo: string
           nucleo_id?: string | null
           observacoes?: string | null
@@ -566,6 +622,7 @@ export type Database = {
           faixa_etaria_manual?: string | null
           grupo_id?: string | null
           id?: string
+          mesa_id?: string | null
           nome_completo?: string
           nucleo_id?: string | null
           observacoes?: string | null
@@ -578,6 +635,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "convidados_mesa_id_fkey"
+            columns: ["mesa_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guests_group_id_fkey"
             columns: ["grupo_id"]
             isOneToOne: false
@@ -589,6 +653,13 @@ export type Database = {
             columns: ["convite_id"]
             isOneToOne: false
             referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
             referencedColumns: ["id"]
           },
           {
@@ -784,6 +855,56 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elementos_planta: {
+        Row: {
+          casamento_id: string
+          created_at: string
+          id: string
+          largura_cm: number
+          nome: string | null
+          posicao_x_cm: number
+          posicao_y_cm: number
+          profundidade_cm: number
+          rotacao_graus: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          casamento_id: string
+          created_at?: string
+          id?: string
+          largura_cm?: number
+          nome?: string | null
+          posicao_x_cm?: number
+          posicao_y_cm?: number
+          profundidade_cm?: number
+          rotacao_graus?: number
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          casamento_id?: string
+          created_at?: string
+          id?: string
+          largura_cm?: number
+          nome?: string | null
+          posicao_x_cm?: number
+          posicao_y_cm?: number
+          profundidade_cm?: number
+          rotacao_graus?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elementos_planta_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
             referencedColumns: ["id"]
           },
         ]
@@ -1288,6 +1409,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "wedding_members_wedding_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mesas: {
+        Row: {
+          capacidade: number
+          casamento_id: string
+          created_at: string
+          formato: string
+          id: string
+          largura_cm: number
+          nome: string
+          observacao: string | null
+          posicao_x_cm: number
+          posicao_y_cm: number
+          profundidade_cm: number
+          rotacao_graus: number
+          updated_at: string
+        }
+        Insert: {
+          capacidade: number
+          casamento_id: string
+          created_at?: string
+          formato?: string
+          id?: string
+          largura_cm?: number
+          nome: string
+          observacao?: string | null
+          posicao_x_cm?: number
+          posicao_y_cm?: number
+          profundidade_cm?: number
+          rotacao_graus?: number
+          updated_at?: string
+        }
+        Update: {
+          capacidade?: number
+          casamento_id?: string
+          created_at?: string
+          formato?: string
+          id?: string
+          largura_cm?: number
+          nome?: string
+          observacao?: string | null
+          posicao_x_cm?: number
+          posicao_y_cm?: number
+          profundidade_cm?: number
+          rotacao_graus?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mesas_casamento_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
@@ -1888,6 +2065,7 @@ export type Database = {
           faixa_etaria_manual: string | null
           grupo_id: string | null
           id: string | null
+          mesa_id: string | null
           nome_completo: string | null
           nucleo_id: string | null
           observacoes: string | null
@@ -1901,6 +2079,13 @@ export type Database = {
           updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "convidados_mesa_id_fkey"
+            columns: ["mesa_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "guests_group_id_fkey"
             columns: ["grupo_id"]
@@ -1946,6 +2131,7 @@ export type Database = {
           convidado_responsavel_id: string | null
           created_at: string | null
           enviado_em: string | null
+          estagio_desde: string | null
           excluido_em: string | null
           id: string | null
           max_acompanhantes: number | null
@@ -1953,11 +2139,10 @@ export type Database = {
           mensagem_rsvp_em: string | null
           nome: string | null
           observacoes: string | null
-          status_convite: string | null
-          estagio_desde: string | null
           status_operacional: string | null
           total_membros: number | null
           total_respondidos: number | null
+          ultimo_contato: string | null
           updated_at: string | null
         }
         Relationships: [

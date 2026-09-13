@@ -275,30 +275,10 @@ describe('api: /api/invites', () => {
     })
   })
 
-  describe('POST /api/invites/[id]/send', () => {
-    it('caminho feliz: marca o convite como enviado (enviado_em) — não envia e-mail/SMS de verdade (Fase 2)', async () => {
-      const client = createTestApiClient({ cookie })
-      const createRes = await client.post('/api/invites', { nome: 'Convite Para Enviar' })
-      const invite = await createRes.json()
-      expect(invite.enviado_em).toBeNull()
-
-      const res = await client.post(`/api/invites/${invite.id}/send`, {})
-      expect(res.status).toBe(200)
-
-      // `enviado_em`, e não `status_convite`: os dois diziam o mesmo fato, e a
-      // coluna ficou obsoleta com o funil de estágios — nada no código a lê ou
-      // escreve mais (ver 20260910090001_status_operacional_do_convite.sql).
-      const body = await res.json()
-      expect(body.enviado_em).not.toBeNull()
-
-      const { data: stored } = await admin.from('convites').select('*').eq('id', invite.id).single()
-      expect(stored?.enviado_em).not.toBeNull()
-    })
-
-    it('domínio: enviar um convite inexistente retorna 404', async () => {
-      const client = createTestApiClient({ cookie })
-      const res = await client.post('/api/invites/00000000-0000-0000-0000-000000000000/send', {})
-      expect(res.status).toBe(404)
-    })
-  })
+  // `POST /api/invites/[id]/send` SAIU na Fase 2 do Hub: "marcar como enviado"
+  // deixou de gravar `convites.enviado_em` à mão e virou um registro em
+  // `comunicacoes`, com tipo e canal. O que era testado aqui — o convite passar
+  // a contar como enviado — passou para `communications.spec.ts`, onde a
+  // verificação é a que importa agora: a VIEW derivando `enviado_em` do
+  // primeiro envio do tipo convite.
 })

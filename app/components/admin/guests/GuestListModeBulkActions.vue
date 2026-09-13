@@ -29,6 +29,11 @@ interface Props {
    * 'coluna' é o modal do celular: cada controle em largura cheia, porque em
    * fileira eles embrulhavam um por linha e os seletores truncavam o próprio
    * rótulo ("Mover para gru...").
+   *
+   * Truncar o rótulo é o defeito a evitar nos DOIS layouts: o placeholder é o
+   * que diz o que o controle faz, e cortado ele deixa de dizer. Por isso as
+   * larguras da fileira são as do texto por extenso, não um número redondo —
+   * "Mover para grupo" não cabia em `w-40`.
    */
   layout?: 'fileira' | 'coluna'
   /** Quantos estão marcados — agrupar como acompanhantes precisa de dois. */
@@ -76,7 +81,7 @@ function alterarCategoria(valor: string) {
       aria-label="Mover selecionados para grupo"
       placeholder="Mover para grupo"
       :options="gruposDisponiveis"
-      :class="emColuna ? 'w-full' : 'w-40'"
+      :class="emColuna ? 'w-full' : 'w-48'"
       @update:model-value="moverParaGrupo"
     />
 

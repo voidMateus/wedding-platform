@@ -89,7 +89,8 @@ describe('menu da seção', () => {
     expect(gerenciar?.itens.map((i) => i.label)).toEqual([
       'Grupos',
       'Convites',
-      'Núcleos',
+      'Comunicações',
+      'Mesas',
       'Faixas etárias',
     ])
   })
@@ -115,13 +116,22 @@ describe('menu da seção', () => {
   })
 
   it('item sem destino nunca acende', () => {
-    const gerenciar = adminSectionMenu(SLUG, `${BASE}/convidados`).find(
-      (g) => g.label === 'Gerenciar',
-    )!
-    const nucleos = gerenciar.itens.find((i) => i.label === 'Núcleos')!
+    // Item sintético: o menu de Convidados não tem mais nenhum inerte (ver o
+    // teste abaixo), mas a regra continua valendo para quem criar um.
+    const semDestino = { label: 'Em breve', icon: 'lucide:plug', indisponivel: 'Em breve.' }
 
-    expect(nucleos.to).toBeUndefined()
-    expect(ehItemAtivo(nucleos, rota(`${BASE}/convidados`))).toBe(false)
+    expect(ehItemAtivo(semDestino, rota(`${BASE}/convidados`))).toBe(false)
+  })
+
+  // Três itens inertes viveram aqui — "Núcleos" (tela descartada, não adiada),
+  // "Formulários" e "Integrações" (nada por trás). Item que promete e não
+  // entrega gasta a atenção de quem procura o recurso e devolve um `title`
+  // explicando que não existe.
+  it('nenhum item do módulo Convidados promete tela que não existe', () => {
+    const itens = adminSectionMenu(SLUG, `${BASE}/convidados`).flatMap((grupo) => grupo.itens)
+
+    expect(itens.filter((item) => !item.to)).toEqual([])
+    expect(itens.filter((item) => item.indisponivel)).toEqual([])
   })
 })
 

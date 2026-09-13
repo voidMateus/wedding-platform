@@ -71,12 +71,12 @@ export function useGuestListModeColumns(
       filter: { type: 'text', placeholder: 'Buscar nome' },
       sort: 'alpha',
     },
-    {
-      key: 'grupo',
-      label: 'Grupo',
-      sort: 'alpha',
-      filter: { type: 'select', multiple: true, options: opcoesDeGrupo.value },
-    },
+    // Grupo NÃO é coluna aqui: esta tela agrupa a lista em blocos por grupo, e
+    // a pessoa já está dentro do bloco dela — a coluna repetia linha a linha o
+    // que o cabeçalho acabou de dizer, e ainda truncava ("Amigos do ...") o que
+    // o cabeçalho mostra por extenso. O recorte "quem está no grupo X?"
+    // continua na Visão Geral, que é paginada e não tem blocos, e mover de
+    // grupo continua na seleção em massa e no cadastro.
     {
       key: 'nucleo',
       // "Acompanhantes" na tela, "núcleo" só no código: a Visão Geral já
@@ -104,29 +104,20 @@ export function useGuestListModeColumns(
       sort: 'alpha',
       filter: { type: 'select', multiple: true, options: opcoesDeStatus },
     },
+    // Sem filtro nem ordenação: é texto livre, e nenhuma das duas perguntas
+    // ("quem tem observação com tal palavra?", "ordene por observação") é uma
+    // pergunta real do casal. A coluna existe porque a observação passou a ser
+    // editável na linha, e editar no lugar algo invisível não é editar no
+    // lugar — é adivinhar.
+    { key: 'observacao', label: 'Observação' },
     { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
   ])
 
   const acessores = computed<Record<string, ClientColumn<GuestListItem>>>(() => {
-    const paiPorGrupo = new Map(listaDeGrupos.value.map((grupo) => [grupo.id, grupo.grupo_pai_id]))
-    const nomePorGrupo = new Map(opcoesDeGrupo.value.map((opcao) => [opcao.value, opcao.label]))
-
     return {
       nome: {
         value: (row) => row.nome_completo,
         compare: compareText((row) => row.nome_completo),
-      },
-      // Devolve a folha E o grupo-pai: escolher "Família do Mateus" no filtro
-      // tem que alcançar quem está em "Tios paternos", como `/api/guests` já
-      // faz na Visão organizada (`expandirGruposComSubdivisoes`). Sem isso o
-      // mesmo recorte daria resultados diferentes nas duas telas.
-      grupo: {
-        value: (row) => {
-          if (!row.grupo_id) return []
-          const pai = paiPorGrupo.get(row.grupo_id)
-          return pai ? [row.grupo_id, pai] : [row.grupo_id]
-        },
-        compare: compareText((row) => (row.grupo_id ? nomePorGrupo.get(row.grupo_id) : '')),
       },
       nucleo: {
         value: (row) => row.nucleo_id,
@@ -172,15 +163,21 @@ export function useGuestListModeColumns(
     return inviteStagePresentation(convidado.inviteStage)
   }
 
-  function nomeDoGrupo(convidado: GuestListItem): string {
-    if (!convidado.grupo_id) return '—'
-    return opcoesDeGrupo.value.find((opcao) => opcao.value === convidado.grupo_id)?.label ?? '—'
-  }
-
   function rotuloDeNucleo(convidado: GuestListItem): string {
     if (!convidado.nucleo_id) return '—'
     return rotulosDeNucleo.value.get(convidado.nucleo_id) ?? '—'
   }
 
-  return { colunas, acessores, categorias, nomeDoGrupo, rotuloDeNucleo, rotuloDoConvite }
+  return {
+    colunas,
+    acessores,
+    categorias,
+    // Sai daqui, e não de um segundo `montarOpcoesDeGrupo` na página: a célula
+    // de grupo agora é um seletor, e as opções dele têm que ser exatamente as
+    // mesmas do filtro da coluna — duas listas em paralelo para a mesma coisa
+    // é como uma delas fica errada sem nada acusar.
+    opcoesDeGrupo,
+    rotuloDeNucleo,
+    rotuloDoConvite,
+  }
 }

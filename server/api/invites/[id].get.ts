@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
   const { total_membros, total_respondidos, status_operacional, estagio_desde, ...invite } =
     inviteRow
 
-  const [guestsResult, responsesResult, tagLinksResult] = await Promise.all([
+  const [guestsResult, responsesResult, tagLinksResult, enviosResult] = await Promise.all([
     client
       .from('convidados')
       .select('id, nome_completo, apelido, nucleo_id, ordem_nucleo')
@@ -43,11 +43,20 @@ export default defineEventHandler(async (event) => {
       .from('vinculos_convite_etiqueta')
       .select('etiqueta_id, etiquetas_convite(id, casamento_id, nome, created_at, updated_at)')
       .eq('convite_id', id),
+    // Os envios vêm com o convite, e não numa requisição própria do componente:
+    // é a mesma entidade, aberta na mesma tela, e "quantas vezes já falamos com
+    // essas pessoas?" é parte de saber onde o convite está.
+    client
+      .from('comunicacoes')
+      .select('id, tipo, canal, enviado_em')
+      .eq('convite_id', id)
+      .order('enviado_em', { ascending: false }),
   ])
 
   if (guestsResult.error) throw badRequestError(guestsResult.error.message)
   if (responsesResult.error) throw badRequestError(responsesResult.error.message)
   if (tagLinksResult.error) throw badRequestError(tagLinksResult.error.message)
+  if (enviosResult.error) throw badRequestError(enviosResult.error.message)
 
   const statusByGuest = new Map(
     responsesResult.data?.map((r) => [r.convidado_id, r.status_rsvp]) ?? [],
@@ -74,6 +83,12 @@ export default defineEventHandler(async (event) => {
     stageSince: estagio_desde,
     members,
     tags,
+    envios: (enviosResult.data ?? []).map((envio) => ({
+      id: envio.id,
+      tipo: envio.tipo as InviteDetail['envios'][number]['tipo'],
+      canal: envio.canal as InviteDetail['envios'][number]['canal'],
+      enviadoEm: envio.enviado_em,
+    })),
   }
 
   return result

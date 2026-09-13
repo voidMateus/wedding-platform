@@ -930,3 +930,254 @@ Ao tornar o envio reversível, o endpoint ganhou `validateBody` com `z.object({ 
 As outras três eram dos testes: dois `pageSize=200` acima do teto de 100 (o endpoint respondia 400 e o teste morria com TypeError ao ler `.data` de um corpo de erro), e a suíte antiga de convites ainda afirmando `status_convite = 'enviado'`, coluna que este trabalho aposentou.
 
 A lição não é sobre Zod: é que **eu documentei como garantia uma suposição que nunca tinha executado**. O comentário dizia "mantém funcionando" sobre um caminho que nenhum teste local exercitava.
+
+---
+
+## Hub, Fase 2 — Convidados: acabamento da lista (2026-09-13)
+
+Primeira entrega da Fase 2 do Hub (`docs/fase2-convidados.md`, F2.1). Nada de
+tabela nova: é o que já existia terminando de funcionar.
+
+### A linha virou planilha, e isso reabriu uma decisão de quatro meses atrás
+
+A tela se chama "Modo lista" e se propõe planilha inteligente, mas só a coluna
+Categoria se editava no lugar. Corrigir "Ana Claudia" para "Ana Cláudia" — a
+correção mais comum que existe numa lista de casamento — exigia abrir uma modal
+de nove campos. O mecanismo veio pronto do Financeiro (`fase1-financeiro.md`
+seção 24): rascunho local por linha, salvamento ao sair da LINHA e não do campo,
+rascunho descartado também no erro.
+
+O que essa mudança forçou a rever, e que não estava previsto:
+
+- **A Categoria parou de gravar sozinha.** Ela salvava no `@update:model-value`
+  desde que nasceu; com nome, grupo e observação salvando ao sair da linha, a
+  mesma linha passaria a gravar em três momentos diferentes, e o casal não teria
+  como saber qual valia. Agora os quatro campos são uma transação só.
+- **O nome deixou de ser o caminho para o cadastro.** Ele era um `<button>` — e
+  era ele o alvo acessível, porque `row-click` é só conveniência de mouse.
+  Virando campo, o lápis voltou à coluna Ações, e o `row-clickable` saiu junto:
+  numa linha cheia de campos, clicar nela é para editar, não para navegar. O
+  comentário que justificava a ausência do lápis ("três controles para uma
+  ação") deixou de valer quando um dos três virou outra coisa.
+- **Mudar de grupo abre o bloco de destino.** Sem isso, mover alguém para um
+  grupo recolhido fazia a linha desaparecer no instante seguinte ao salvamento,
+  sem nada dizer para onde ela foi. Com subdivisão é preciso abrir o pai
+  também: a `AdminTable` nem chega a receber o bloco filho de um pai fechado.
+- **Nem toda alteração recarrega tudo.** Grupo e categoria mexem nas contagens
+  dos blocos e da faixa de números; nome e observação não mexem em nada além da
+  própria linha. Recarregar grupos e overview a cada nome corrigido seriam duas
+  requisições que nunca mudariam de resposta.
+
+Entrou junto `PATCH /api/guests/[id]`, deliberadamente estreito: só colunas de
+`update` direto. Convite e núcleo continuam fora — os dois exigem orquestração
+transacional, e um PATCH de conveniência que os atravessasse quebraria a
+garantia de que ninguém entra em dois convites. O teste de integração registra
+isso mandando `conviteId` no corpo e conferindo que a coluna continua nula.
+
+`AdminTable` ganhou `row-blur`, com o guarda de `relatedTarget` dentro do
+componente e não em cada página: foco que vai para outro campo da mesma `<tr>`
+é navegação interna dela, e essa distinção é o que faz salvar uma vez por linha
+em vez de uma por campo. `UiInput` ganhou a variante `quiet` que o `UiSelect` já
+tinha, pelo mesmo motivo já escrito lá: com moldura, vinte e nove caixas vazias
+viram o elemento mais pesado da tela e competem com os nomes das pessoas.
+
+### O RSVP passou a agrupar quem vai junto
+
+Quem abria um convite de 6 pessoas via 6 cartões idênticos e tinha que descobrir
+sozinho que dois deles eram o casal de tios. O item estava no roadmap "à espera
+de decisão" porque mexe no fluxo do convidado, não só no admin.
+
+A implementação é pequena porque o servidor já entregava cada núcleo junto
+(`ordenarMembrosDoConvite`): bastou levar `nucleo_id` ao payload e juntar os
+consecutivos. Refazer o agrupamento por `Map` no client seria uma segunda
+ordenação, capaz de discordar da primeira.
+
+Duas decisões no caminho. **A chave do bloco é o `guestId` do primeiro membro,
+nunca o `partyId`** — se a ordem chegar com um núcleo partido em dois trechos, o
+id do núcleo apareceria duas vezes e o `v-for` teria chaves duplicadas: um
+defeito de renderização escondido atrás de um defeito de ordenação. Há teste só
+para esse caso. E **o cartão não tem título**: o rótulo derivado ("João e
+Maria") é linguagem do painel, e para quem responde os nomes dentro do cartão já
+dizem o que ele significa.
+
+### Três promessas que a interface fazia e não cumpria
+
+- **"Núcleos", no menu de Convidados**, com o `title` dizendo "tela própria em
+  breve". A tela foi **descartada, não adiada** (`PRODUCT.md` 3.7) — o núcleo
+  não tem nome gravado e o rótulo dele muda quando alguém entra ou sai. O item
+  contradizia uma decisão de produto já tomada, em silêncio, desde então.
+- **"Formulários" e "Integrações"**, dois itens de menu sem nada por trás. Item
+  que promete e não entrega gasta a atenção de quem procura o recurso e devolve
+  um `title` explicando que não existe. O grupo "Configurações" do menu da seção
+  saiu com eles. "Formulários" (perguntas extras no RSVP) ficou nomeado como
+  direção para uma rodada própria.
+- **O "+ N em consideração"** na faixa de números, e o `GuestListDraftPanel.vue`
+  com zero usuários. A tela do rascunho foi descartada em 2026-09-10; sem ela,
+  nenhuma parte do produto marca alguém como em consideração, então o contador
+  era sempre zero e não levava a lugar nenhum. O recorte continua existindo na
+  API, na coluna e no CHECK, para quem retomar não começar do zero.
+
+O teste de navegação que cobria "item sem destino nunca acende" usava o
+"Núcleos" real como cobaia e quebrou junto. Virou item sintético, mais um teste
+novo com o invariante que a limpeza cria: nenhum item do módulo Convidados
+promete tela que não existe.
+
+### Dois achados que só a verificação no navegador daria
+
+**O RSVP tinha um defeito de acessibilidade anterior a esta fase.** Os botões
+"Estarei lá" e "Não poderei ir" são idênticos para todas as pessoas do convite —
+num convite de seis, são doze botões com dois rótulos. Com um cartão por pessoa,
+quem enxerga se orientava pelo nome logo acima; quem navega botão a botão ouvia
+o mesmo rótulo sem dono. O agrupamento não criou o problema, **tornou-o
+visível**: o teste E2E do fluxo ponta a ponta quebrou com *strict mode
+violation* porque os dois "Estarei lá" do casal passaram a viver no mesmo `div`.
+Os botões ganharam `aria-label` com o nome depois do texto visível (WCAG 2.5.3),
+e o teste passou a localizá-los pelo mesmo caminho que um leitor de tela usa —
+em vez de por `div.rounded-lg.border` e índice, que era o que o prendia ao
+desenho anterior.
+
+**A coluna nova empurrou as ações para fora da tela.** Com Observação, a tabela
+foi a 1312px contra 1182 de área visível, e o lápis e a lixeira ficaram na parte
+rolável. A causa não era espaçamento: um `<input>` sem atributo `size` tem
+largura intrínseca de cerca de 20 caracteres, e numa `<table>` de layout
+automático é essa largura que define a coluna — reduzir `min-width` não mudou
+nada (1312 → 1296), porque o `min-width` nunca foi o fator. `w-full min-w-0` na
+variante `quiet` do `UiInput` fez a largura do campo vir da coluna, e a tabela
+caiu para 1181px. Medido no navegador antes e depois, não estimado.
+
+### A coluna Grupo saiu, e a tela passou a caber
+
+Pedido do usuário ao ver a tela pronta, e ele estava certo: **esta tela agrupa a
+lista em blocos por grupo**, então a pessoa já está dentro do bloco dela. A
+coluna repetia linha a linha — truncada em "Amigos do ..." — o que o cabeçalho
+do bloco mostra por extenso, e gastava 160px numa tabela que já não cabia na
+largura visível.
+
+O refinamento previa nome, grupo e observação na célula. A tela desmentiu a
+parte do grupo: é redundância de leitura, não conveniência de escrita. O que a
+remoção não custou — mover de grupo continua na seleção em massa e no cadastro,
+e o recorte "quem está no grupo X?" continua na **Visão Geral**, que é paginada,
+não tem blocos e filtra por grupo no servidor. É a mesma divisão que as duas
+telas já tinham: "quem é esta pessoa?" contra "como está a minha lista?".
+
+A exportação desta tela deixou de mandar `groupId`: um filtro que a tela não tem
+faria o arquivo divergir do que está à vista, que é justamente o que a regra da
+exportação existe para impedir.
+
+Resultado medido: a tabela caiu de 1312px para **1182px — exatamente a largura
+visível, sem rolagem horizontal** — e a coluna de nome subiu de 212 para 256px.
+Dois rótulos cortados saíram junto: "Mover para gru..." na barra de seleção
+(`w-40` não comporta "Mover para grupo") e "Adolescen..." na célula de
+categoria, que passou a ocupar a coluna em vez de uma largura fixa. Sobrou
+truncamento só em nomes artificiais de 28 caracteres da massa de teste, dentro
+do campo — onde o texto rola, e não se perde.
+
+---
+
+## Hub, Fase 2 — Comunicações e Mesas (2026-09-13)
+
+Segunda e terceira entregas da Fase 2 (`docs/fase2-convidados.md`, F2.2 a
+F2.6). Duas tabelas novas, uma remodelada, e o fim do "Marcar como enviado".
+
+### O envio virou um fato, e `enviado_em` virou uma leitura
+
+`convites.enviado_em` era um timestamp que o casal marcava à mão: sem canal,
+sem destinatário, sem repetição — apesar de um convite receber save the date,
+convite e lembrete, três envios que uma coluna não sabe distinguir. Agora o
+fato tem uma linha em `comunicacoes`, e a view deriva o resto.
+
+A tabela existia desde a Fase 0 e **nunca teve uma linha escrita**, o que
+tornou a remodelagem livre — e o que ela tinha estava errado para o uso real:
+presa à credencial (rotacionar o código dispersaria o histórico), com
+`aberto_em` que só se preencheria por pixel de rastreamento, e com `updated_at`
+num log que não se edita. `convite_id`, `convidado_id` opcional e `canal` de
+três valores no lugar.
+
+Duas decisões que o resto seguiu:
+
+- **Só o tipo `convite` define o estágio "Enviado".** Um save the date avisa
+  que a data existe, não convida ninguém, e movê-lo pelo funil seria o sistema
+  dizendo que o convite saiu quando não saiu. O último envio de qualquer tipo é
+  outro número (`ultimo_contato`), que responde outra pergunta.
+- **Registro de canal `outro` é removível; envio feito pelo sistema não.** Um é
+  declaração do casal ("entreguei em mãos"), e declarar por engano precisa ter
+  saída; o outro é fato que aconteceu. A regra mora na **policy de RLS**, não só
+  na ausência de um botão — e o endpoint responde 409 com o motivo, porque 404
+  mandaria o casal procurar um bug que não existe.
+
+A view passou a listar as colunas uma a uma (não dá para ter `c.*` e um
+`enviado_em` derivado no mesmo SELECT) e usa `coalesce(derivado, coluna
+física)` — que cobre exatamente a janela de deploy em que o código antigo ainda
+grava na coluna. A remoção das duas colunas obsoletas ficou para o merge
+seguinte, pelo mesmo motivo que já a tinha adiado uma vez.
+
+### O WhatsApp, e a aba que precisa abrir antes da resposta
+
+O botão abre a conversa com a mensagem pronta e registra o envio no mesmo
+gesto. O detalhe que decidiu a implementação: **navegador só permite abrir aba
+durante o gesto do usuário**. Abrir depois do `await` cairia no bloqueador de
+pop-up, e o casal veria "enviado" sem nada ter aberto — então a janela é aberta
+vazia no clique e recebe o endereço quando a mensagem fica pronta. Quando nem
+isso passa pelo bloqueador, **o envio não é registrado**: marcar como enviado
+algo que nunca saiu é pior que não registrar.
+
+A mensagem é um modelo por tipo, compartilhado entre canais — é o que impede o
+e-mail de nascer, na entrega seguinte, com um segundo texto que diverge no
+primeiro ajuste. O padrão da plataforma é conteúdo de verdade, não placeholder,
+e o campo vazio o exibe como `placeholder` em vez de copiá-lo para dentro:
+copiar congelaria uma versão, e uma melhoria futura nunca alcançaria quem abriu
+a tela uma vez.
+
+A fila de envio não existe como mecanismo: é o **filtro da coluna** ("Convite:
+não enviado"). O casal manda para a primeira linha, ela sai do recorte no
+refetch e a próxima sobe. Uma fila com estado, posição e "próximo" seria um
+segundo jeito de dizer o que o filtro já diz.
+
+### Mesas: uma coluna, não uma tabela de junção
+
+Uma pessoa senta em no máximo uma mesa, então uma tabela de assentos modelaria
+um N:N que o domínio não tem — e o XOR entre convidado e acompanhante avulso
+seria cerimônia para guardar a mesma informação. `convidados.mesa_id` e
+`acompanhantes_avulsos.mesa_id`, no desenho de `grupo_id`: o quarto vínculo,
+independente dos outros três.
+
+Exclusão de mesa é **física**, contra a convenção de soft delete do projeto, e
+com o motivo escrito na migration: a mesa é rascunho de layout, criada e
+desfeita dezenas de vezes, e o dado que importa nunca mora nela. Soft delete
+criaria estado fantasma — pessoas apontando para uma mesa invisível, fora da
+ocupação e fora de "falta acomodar". Com `on delete set null`, o banco devolve
+essas pessoas à fila sozinho.
+
+Coordenadas em **centímetros**, nunca pixels: é a comparação entre a medida do
+salão e a da mesa que responde "cabe?", e em pixels a planta mudaria de
+significado junto com o tamanho da tela. Pixel é `cm × zoom`, só na
+renderização.
+
+### Três defeitos que só o navegador mostrou
+
+**Mesa nova nascia em (0,0).** Doze criadas em sequência ficavam empilhadas no
+mesmo ponto, e o casal teria que arrastar uma a uma só para descobrir que
+existem doze. Passaram a nascer na próxima vaga de uma grade.
+
+**"Ajustar à tela" olhava só a largura.** Um salão de 10 × 8 m cabia na
+horizontal e descia oitocentos pixels abaixo da dobra. E a medição precisava de
+um `nextTick`: no `onMounted` o contêiner ainda não tem largura final, então a
+conta caía na escala inicial — a planta abria com as mesas do tamanho de moedas
+e o botão parecia não fazer nada, porque já estava "ajustada".
+
+**Soltar a mesa abria o painel dela.** Um arrasto termina em `click` também.
+A marca de "moveu" é medida em centímetros, não em pixels, para não depender do
+zoom — a mesma tremida de mão vale mais pixels com a planta aproximada.
+
+### Dois testes existentes cobraram o que faltava
+
+O de Linha do Tempo não compila sem uma frase para cada `tipo_evento` que o
+servidor grava (`Record<InviteEventType, ...>`), e cobrou a de
+`comunicacao.enviada` — sem ela, o envio apareceria como "Evento registrado" na
+tela. O de navegação cobrou os itens novos do menu.
+
+Um terceiro buraco foi meu e o CI não teria pego: o teste de "quem recusou"
+inseria `respostas_rsvp` sem `convite_id`, que é obrigatório. O insert falhava
+em silêncio e o teste passava a afirmar que ninguém tinha recusado — verdade,
+mas por acidente. O erro do setup agora é conferido, que é a diferença entre
+testar a regra e testar o próprio setup.
