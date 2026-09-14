@@ -12,8 +12,9 @@
 >
 > É a primeira fase que não constrói um módulo. Financeiro, Convidados e
 > Planejamento acrescentaram telas; esta acrescenta uma **porta** — e, para que
-> ela tenha onde chegar, paga duas dívidas que só aparecem quando se olha o
-> produto do ponto de vista de quem entra nele pela primeira vez.
+> ela tenha onde chegar, paga a dívida que só aparece quando se olha o produto
+> do ponto de vista de quem entra nele pela primeira vez: o site já está no ar
+> e ninguém publicou nada.
 
 ---
 
@@ -33,7 +34,7 @@ O que está faltando, e que ninguém avisa:
 | Nenhuma `etapas_evento` | A linha da data no Hero não tem local, e não existe mapa |
 | `prazo_rsvp` nulo | O RSVP fica aberto até o dia do evento, e o painel escreve "Sem prazo definido" |
 | `config_tema` no default | O site tem a cara da plataforma, não a do casal |
-| `orcamento_total_centavos` nulo | E **não existe tela que o defina** — ver 1.4 |
+| `orcamento_total_centavos` nulo | O cabeçalho de Gastos abre sem régua, e a sugestão "definir o orçamento" do Planejamento segue de pé |
 | Nenhuma categoria, convidado, presente ou mesa | Cada módulo abre no próprio estado vazio, cada um com um começo diferente |
 
 Nada disso é um erro: é o estado correto de um casamento que acabou de nascer.
@@ -81,26 +82,24 @@ nasce** — com o tema da plataforma, sem local, sem foto — e o casal não sab
 E o momento que todo onboarding precisa ter, o "agora está pronto", não existe
 no produto.
 
-### 1.4 Segundo achado: o teto do orçamento não tem tela
+### 1.4 O teto do orçamento: uma correção, não um achado
 
-`PATCH /api/finance/budget-total` existe. `useFinance().definirTetoDoOrcamento()`
-existe. **Nenhum componente chama nenhum dos dois** — a busca por chamador
-devolve só a própria definição no composable.
+O teto global (`casamentos.orcamento_total_centavos`) **tem tela**, e ela está
+no lugar certo: o cabeçalho de totais de Gastos mostra o valor com um botão
+"Definir"/"Editar" (`FinanceTotalsHeader`), que abre `FinanceBudgetTotalModal`
+e salva por `useFinance().definirTetoDoOrcamento()`.
 
-Isso fecha um ciclo defeituoso: o fato `orcamento_definido` do Planejamento é
-`orcamento_total_centavos > 0`, então a sugestão "definir o orçamento" é, hoje,
-**impossível de dispensar** — ela volta para sempre, porque não há caminho na
-interface que a resolva.
+Isto aqui dizia o contrário até 2026-09-14, e a correção fica registrada
+porque a conclusão errada quase virou trabalho: uma varredura minha procurou
+por nomes que não existem (`updateBudgetTotal`, `tetoGlobal`) em vez do nome
+real da ação, não achou chamador, e daí saiu um "achado" de que a Fase 1 teria
+fechado com endpoint órfão. Não fechou. A Fase 4 **não precisa** dar casa a
+esse campo — ele já tem uma, e é ela que o wizard renderiza, como manda a regra
+de 2.3.
 
-O onboarding é quem naturalmente pergunta isso. Mas perguntar num wizard um
-valor que nenhuma tela edita criaria um campo que só existe onde não se volta.
-Por isso o campo ganha casa fixa nesta fase, e o wizard renderiza **essa** casa.
-
-E a lacuna é de processo, não de descuido: a Fase 1 fechou com endpoint e
-composable escritos, testados e sem um único chamador na interface, e nada
-acusou. A guarda contra a repetição é a mesma que fechou a dívida de auditoria
-em 2026-09-13 — **uma varredura que falha quando acontece de novo**, não uma
-conferência manual que envelhece no mês seguinte. Ela sai na F4.5.
+O que sobra de verdadeiro, e que importa para o desenho: a etapa do orçamento
+existe porque o fato `orcamento_definido` é um dos sete passos, não porque
+faltava onde editá-lo.
 
 ## 2. Escopo da v1
 
@@ -112,7 +111,6 @@ conferência manual que envelhece no mês seguinte. Ela sai na F4.5.
 | **O wizard** | Rota própria (`/comecar`), aberta só pelo roteiro. Um campo por etapa, nenhum obrigatório, salvo ao avançar. Termina **no roteiro**, nunca numa tela de parabéns |
 | **Publicar** | `status_ciclo_vida` ganha o primeiro escritor, e `rascunho` passa a barrar o site público de verdade. Situação do site com casa fixa em Configurações → O evento |
 | **A prévia do rascunho** | O casal continua vendo o próprio site não publicado — cai da RLS, não de um modo de prévia |
-| **O teto do orçamento** | O campo que falta há uma fase (1.4), no agregado do topo de Gastos. É ele que o wizard renderiza |
 
 ### 2.2 Fica de fora — decisão, não esquecimento
 
@@ -183,7 +181,8 @@ nenhuma.
 
 4. **O wizard não é dono de campo nenhum** (2.3). A consequência prática é uma
    ordem de trabalho: um passo só pode entrar no wizard depois de o campo ter
-   casa fixa em algum lugar. Foi o que revelou 1.4.
+   casa fixa em algum lugar — e os cinco já têm, incluindo o teto do orçamento
+   (1.4).
 
 5. **Autosave é read-modify-write sobre o objeto inteiro.**
    `PATCH /api/wedding` substitui a linha de propósito — a validação de
@@ -522,9 +521,9 @@ de `resolveHomeSections()`.
 - **Nav primária**: sem mudança. Nenhuma aba nova, nem no topo nem na barra do
   celular.
 - **Configurações → O evento**: ganha a Situação do site.
-- **Financeiro → Gastos**: o agregado do topo ganha o campo do teto global —
-  editável no lugar, como o resto do módulo (Fase 1, "planejar é digitar, não
-  abrir formulário"). É o campo que o wizard renderiza.
+- **Financeiro → Gastos**: sem mudança. O teto global já é editável pelo
+  cabeçalho de totais ( → ), e é
+  esse controle que a etapa do wizard renderiza.
 - **A etapa do orçamento pergunta um número, não abre um módulo.** O rótulo é
   "Quanto vocês pretendem gastar no total?", nunca "Defina seu orçamento" —
   que promete uma tela de planejamento inteira e faz quem não tem resposta
@@ -570,7 +569,7 @@ de `resolveHomeSections()`.
 | **F4.1** | Publicar: a conferência dos rascunhos em produção (seção 4), a migration (policy + promoção com dono), `PATCH /api/wedding/lifecycle`, `garantirCasamentoPublicado()` nas rotas `service_role` com as duas dispensas declaradas, Situação do site em Configurações | É o único item com migration e o único que muda comportamento público — sai primeiro, sozinho, para poder ser verificado sozinho. A conferência vem antes da migration, não depois |
 | **F4.2** | Fatos: `shared/fatos-do-casamento.ts`, `observarFatosDoCasamento()`, os três fatos novos | Mexe em código da Fase 3; separado do resto para que o diff dela seja legível |
 | **F4.3** | O roteiro: `shared/onboarding-passos.ts`, `GET /api/onboarding/summary`, o bloco no Início | Já se sustenta sem wizard nenhum — cada linha leva à tela que resolve |
-| **F4.4** | O teto do orçamento em Gastos, e então o wizard: rota, casca de etapas, autosave, retomada derivada | O campo antes da etapa que o renderiza (decisão 4) |
+| **F4.4** | O wizard: rota, casca de etapas, autosave, retomada derivada, aviso de etapa pulada | Depende do catálogo e do roteiro existirem |
 | **F4.5** | Testes, incluindo as duas varreduras | |
 
 **F4.3 e F4.4 vão ao ar juntas.** A ordem acima é de trabalho, não de deploy:
@@ -588,9 +587,15 @@ Os testes de F4.5, nomeados:
 - **Integração/RLS** — a leitura pública de um casamento em rascunho volta
   vazia; a do mesmo casamento por um membro, não. É o teste que trava a decisão
   8, e o único que verifica a policy de verdade.
-- **E2E** — `/slug` de rascunho responde 404 e, depois de publicar, 200; e o
-  caminho "roteiro → wizard → pular uma etapa → sair no meio → voltar e
-  encontrar o que foi salvo".
+- **E2E do wizard** (`onboarding.spec.ts`, entregue) — abrir na etapa pedida,
+  pular sem travar, voltar, e o caminho que só o navegador percorre: sair no
+  meio e voltar encontrando o que já tinha sido salvo, com a etapa certa aberta
+  sem nenhuma "última etapa visitada" gravada.
+- **E2E do portão** — `/slug` de rascunho responde 404 e, depois de publicar,
+  200. **Fica para quando a migration estiver aplicada no banco de dev**: hoje
+  todos os casamentos de lá estão em `rascunho` (nunca houve escritor), então
+  o teste descreveria um estado que o ambiente ainda não tem. Escrevê-lo antes
+  seria entregar uma suíte vermelha por motivo de infraestrutura.
 - **Varredura do portão** (`rotas-publicas-com-portao.spec.ts`) — percorre
   `server/api/public/**` e `server/api/rsvp/**` e falha quando uma rota nasce
   sem portão: ou ela resolve `casamentos` antes de tocar em tabela filha (e aí
@@ -598,13 +603,11 @@ Os testes de F4.5, nomeados:
   dispensa no próprio arquivo com o motivo. É o que faz a verificação da seção
   4 continuar verdadeira depois de amanhã, em vez de ser um parágrafo sobre o
   código de hoje.
-- **Varredura do consumidor** (`endpoint-sem-consumidor.spec.ts`) — percorre as
-  rotas de escrita do caminho administrativo e falha quando uma não tem nenhum
-  chamador em `app/composables/**`. É a guarda de 1.4: um endpoint que ninguém
-  chama é trabalho entregue que não existe para o casal, e hoje só se descobre
-  por acaso, uma fase depois. Mesma forma da varredura de auditoria, incluindo
-  a dispensa declarada no arquivo — o webhook e o cron não têm composable, e
-  nunca terão.
+- **A varredura do consumidor** ("todo endpoint tem tela que o chama") foi
+  considerada e **não entra**: a motivação era o achado de 1.4, que se
+  revelou falso. Sem nenhum caso real, ela seria exatamente a abstração
+  especulativa que o projeto recusa — a varredura da auditoria existe porque
+  fechou uma dívida que existia.
 
 ## 13. Em aberto
 
@@ -613,6 +616,13 @@ Os testes de F4.5, nomeados:
 - **Despublicar depois do convite enviado** fica permitido com aviso (8.2). Se
   aparecer um caso real de casal que despublicou sem entender o efeito, a saída
   é o aviso ficar mais forte — nunca o bloqueio, que decide pelo dono do evento.
+- **A migration precisa ir junto do código, não depois.** As duas metades do
+  portão vivem em lugares diferentes: a policy barra as rotas de anon key, a
+  checagem em TypeScript barra as de `service_role`. Com o código no ar e a
+  migration pendente, o casamento em rascunho responde **200 na home e 404 nos
+  presentes** — foi exatamente o que aconteceu no ambiente local ao validar
+  esta fase, e é o estado que a promoção de linhas resolve. Em produção isso
+  significa: um único deploy, com a conferência da seção 4 antes.
 - **O slug continua sendo escolhido pela equipe**, e o casal não o vê no
   roteiro. Muda quando a criação virar self-service (Fase 6), que é quem
   precisa perguntar isso.
