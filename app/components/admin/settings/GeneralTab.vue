@@ -2,7 +2,6 @@
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { weddingSettingsSchema } from '#shared/schemas/wedding'
-import { resolverFaixasEtarias } from '#shared/utils/faixa-etaria'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
 
@@ -18,12 +17,6 @@ const emit = defineEmits<{
 
 /** Hora usada quando o casal escolhe a data do prazo e não mexe no horário. */
 const DEFAULT_RSVP_DEADLINE_TIME = '23:59'
-
-function isoToDatetimeLocal(iso: string): string {
-  const date = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
 
 const toast = useToast()
 const { updateWedding } = useWedding()
@@ -80,19 +73,10 @@ const prazoRsvpTime = computed({
 function applyWeddingToForm() {
   const value = props.wedding
   if (!value) return
-  resetForm({
-    values: {
-      nomesNoivos: value.nomes_noivos,
-      dataEvento: value.data_evento,
-      horarioEvento: value.horario_evento ? value.horario_evento.slice(0, 5) : '',
-      prazoRsvp: value.prazo_rsvp ? isoToDatetimeLocal(value.prazo_rsvp) : '',
-      faixasEtarias: resolverFaixasEtarias(value.config_faixas_etarias),
-      modoListaConvidados: value.modo_lista_convidados as 'fechada' | 'aberta',
-      handleInfinitepay: value.handle_infinitepay ?? '',
-      modoEntregaPresenteFisico: value.modo_entrega_presente_fisico as
-        'ambos' | 'somente_compra_propria' | 'somente_pagamento',
-    },
-  })
+  // O mapa linha -> formulário vive em app/utils/wedding-settings.ts: o wizard
+  // do onboarding precisa exatamente do mesmo, para reenviar o conjunto
+  // completo ao mudar um campo só.
+  resetForm({ values: weddingSettingsFromRow(value) })
 }
 
 watch(() => props.wedding, applyWeddingToForm, { immediate: true })
@@ -132,6 +116,11 @@ const onSubmit = handleSubmit(
           :error="errors.horarioEvento"
         />
       </div>
+
+      <!-- Fora do <form>/vee-validate de propósito: publicar tem endpoint
+           próprio e salva no clique, sem passar pela barra de salvamento
+           (docs/fase4-onboarding.md 8.2). -->
+      <AdminSettingsSitePublication :wedding="props.wedding" @saved="emit('saved')" />
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard

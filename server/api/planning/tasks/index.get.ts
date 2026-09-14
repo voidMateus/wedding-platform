@@ -27,7 +27,7 @@ export default defineEventHandler(async (event): Promise<TarefasResponse> => {
       // a ordem estável é daqui.
       .order('prazo', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true }),
-    observarFatosDoPlanejamento(client, weddingId),
+    observarFatosDoCasamento(client, weddingId),
   ])
 
   if (tarefas.error) {

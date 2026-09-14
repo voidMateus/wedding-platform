@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import NavBar from '~/components/public/NavBar.vue'
 import Button from '~/components/ui/Button.vue'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
+import { HOME_SECTION_CATALOG } from '#shared/home-sections'
 
 const SLUG = 'ana-e-joao'
 
@@ -15,9 +16,18 @@ const SLUG = 'ana-e-joao'
 // teste anterior.
 let wrapper: ReturnType<typeof mount> | null = null
 
+/**
+ * Todas as seções ligadas — o estado de quem já montou o site.
+ *
+ * Desde a inversão para opt-in (docs/fase4-onboarding.md 3.2), a barra filtra
+ * pelas seções LIGADAS: sem esta prop, um casamento recém-criado não tem
+ * destino nenhum no menu, que é o comportamento correto e tem teste próprio.
+ */
+const TODAS_AS_SECOES = HOME_SECTION_CATALOG.map((secao) => secao.id)
+
 function mountNavBar(props: Record<string, unknown> = {}) {
   wrapper = mount(NavBar, {
-    props: { slug: SLUG, ...props },
+    props: { slug: SLUG, activeSections: TODAS_AS_SECOES, ...props },
     global: {
       components: { UiButton: Button },
       stubs: { ...ICON_STUBS, NuxtLink: { template: '<a :href="to"><slot /></a>', props: ['to'] } },

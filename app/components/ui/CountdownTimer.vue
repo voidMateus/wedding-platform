@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useNow } from '@vueuse/core'
+import { computeCountdownParts } from '#shared/countdown-units'
 
 interface Props {
   targetDateTime: string
@@ -11,9 +12,15 @@ interface Props {
    * quem compõe a tela, aqui é só a contagem.
    */
   variant?: 'cards' | 'inline' | 'hero'
+  /**
+   * Unidades exibidas, da maior para a menor (`config_tema.countdownUnits`).
+   * Ausente = as quatro de sempre. A variante 'hero' ignora esta prop: ela é
+   * o número de dias do dashboard admin, não a faixa do casal.
+   */
+  units?: string[]
 }
 
-const { targetDateTime, variant = 'cards' } = defineProps<Props>()
+const { targetDateTime, variant = 'cards', units = undefined } = defineProps<Props>()
 
 const now = useNow({ interval: 1000 })
 
@@ -22,16 +29,12 @@ const diffMs = computed(() => Math.max(0, target.value.getTime() - now.value.get
 const isPast = computed(() => target.value.getTime() - now.value.getTime() <= 0)
 
 const days = computed(() => Math.floor(diffMs.value / (1000 * 60 * 60 * 24)))
-const hours = computed(() => Math.floor((diffMs.value / (1000 * 60 * 60)) % 24))
-const minutes = computed(() => Math.floor((diffMs.value / (1000 * 60)) % 60))
-const seconds = computed(() => Math.floor((diffMs.value / 1000) % 60))
 
-const units = computed(() => [
-  { label: 'dias', value: days.value },
-  { label: 'horas', value: hours.value },
-  { label: 'minutos', value: minutes.value },
-  { label: 'segundos', value: seconds.value },
-])
+// Quais números aparecem e quanto cada um vale sai inteiro do catálogo
+// (shared/countdown-units.ts): é lá que mora a cascata — inclusive o mês, que
+// é calendário e não "30 dias" — e a costura que impede um vão no meio da
+// faixa engolir tempo em silêncio.
+const parts = computed(() => computeCountdownParts(units, now.value, target.value))
 
 /**
  * O que um leitor de tela realmente anuncia no lugar da grade de números.
@@ -40,7 +43,9 @@ const units = computed(() => [
  * lida célula a célula, a grade sai como "459 dias 02 horas 33 minutos 32
  * segundos" sem pontuação nenhuma; e, atualizando a cada segundo, ela seria
  * relida sem parar. Só os dias entram — é a informação que importa a quem não
- * está olhando o relógio na tela, e é a única que não muda a cada segundo.
+ * está olhando o relógio na tela, é a única que não muda a cada segundo, e ela
+ * independe das unidades que o casal escolheu exibir (quem escolhe "meses" não
+ * deixa de querer saber que faltam 243 dias).
  */
 const accessibleLabel = computed(() => {
   if (isPast.value) return 'O grande dia chegou!'
@@ -81,7 +86,7 @@ const accessibleLabel = computed(() => {
       contagem seria reanunciada a cada segundo. A frase acessível acima diz a
       mesma coisa uma vez só.
     -->
-    <template v-for="(unit, index) in units" :key="unit.label">
+    <template v-for="(part, index) in parts" :key="part.id">
       <span
         v-if="index > 0"
         data-test="countdown-separator"
@@ -90,12 +95,12 @@ const accessibleLabel = computed(() => {
       />
       <div class="flex flex-col items-center gap-1" aria-hidden="true">
         <span class="font-display text-2xl leading-none text-heading tabular-nums sm:text-3xl">
-          {{ String(unit.value).padStart(2, '0') }}
+          {{ String(part.value).padStart(2, '0') }}
         </span>
         <span
           class="mt-1 text-[9px] tracking-[0.15em] text-text-muted uppercase sm:text-[10px] sm:tracking-[0.3em]"
         >
-          {{ unit.label }}
+          {{ part.label }}
         </span>
       </div>
     </template>
@@ -111,15 +116,15 @@ const accessibleLabel = computed(() => {
   >
     <p class="sr-only">{{ accessibleLabel }}</p>
     <div
-      v-for="unit in units"
-      :key="unit.label"
+      v-for="part in parts"
+      :key="part.id"
       aria-hidden="true"
       class="flex w-16 flex-col items-center gap-1 rounded-lg border border-border bg-surface px-2 py-3 shadow-sm sm:w-20"
     >
       <span class="font-display text-2xl font-semibold text-primary tabular-nums sm:text-3xl">
-        {{ String(unit.value).padStart(2, '0') }}
+        {{ String(part.value).padStart(2, '0') }}
       </span>
-      <span class="text-xs uppercase tracking-wide text-text-muted">{{ unit.label }}</span>
+      <span class="text-xs uppercase tracking-wide text-text-muted">{{ part.label }}</span>
     </div>
   </div>
 </template>

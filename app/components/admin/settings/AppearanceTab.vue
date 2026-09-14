@@ -6,6 +6,8 @@ import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from '#shared/utils/co
 import { DEFAULT_FONT_PAIR_ID, findThemePreset } from '#shared/theme-presets'
 import { DEFAULT_HERO_BUTTONS, DEFAULT_HERO_FEATURED_BUTTON } from '#shared/hero-buttons'
 import { resolveHomeSectionOrder } from '#shared/home-sections'
+import { DEFAULT_COUNTDOWN_UNITS } from '#shared/countdown-units'
+import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import { hasVerseContent, resolveWeddingContent } from '#shared/wedding-content'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
@@ -51,6 +53,15 @@ const verseActive = computed(() =>
   hasVerseContent(resolveWeddingContent(props.wedding?.config_conteudo).verse),
 )
 
+// Data/hora do evento para a PRÉVIA da contagem regressiva — o casal vê os
+// números dele, não um exemplo inventado. Sem casamento carregado ainda, o
+// campo simplesmente não mostra prévia.
+const eventDateTime = computed(() =>
+  props.wedding
+    ? resolveEventDateTime(props.wedding.data_evento, props.wedding.horario_evento).toISOString()
+    : null,
+)
+
 const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = useForm({
   validationSchema: toTypedSchema(themeConfigSchema),
 })
@@ -65,10 +76,11 @@ const [fontPairId] = defineField('fontPairId')
 const [headingStyle] = defineField('headingStyle')
 const [ornamentFrame] = defineField('ornamentFrame')
 const [showCountdown] = defineField('showCountdown')
+const [countdownUnits] = defineField('countdownUnits')
 const [heroButtons] = defineField('heroButtons')
 const [heroFeaturedButton] = defineField('heroFeaturedButton')
 const [sectionOrder] = defineField('sectionOrder')
-const [hiddenSections] = defineField('hiddenSections')
+const [activeSections] = defineField('activeSections')
 
 // Caixa alta com espaçamento largo é o tratamento do convite impresso; a
 // escolha aparece como duas opções nomeadas, não como um interruptor
@@ -102,6 +114,7 @@ function applyWeddingToForm() {
       headingStyle: theme.headingStyle ?? 'classic',
       ornamentFrame: theme.ornamentFrame ?? false,
       showCountdown: theme.showCountdown ?? true,
+      countdownUnits: theme.countdownUnits ?? DEFAULT_COUNTDOWN_UNITS,
       heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
       heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
       // Resolvido (não o valor cru do banco): a lista precisa chegar completa
@@ -109,7 +122,7 @@ function applyWeddingToForm() {
       // casal salvou a ordem sumiria da tela — e sumiria do site no próximo
       // salvamento, agora de forma persistida.
       sectionOrder: resolveHomeSectionOrder(theme.sectionOrder),
-      hiddenSections: theme.hiddenSections ?? [],
+      activeSections: theme.activeSections ?? [],
     },
   })
   advancedColorEnabled.value = Boolean(theme.titleColor || theme.bodyColor)
@@ -134,6 +147,11 @@ function applyPreset(id: string) {
   // deixaria filetes dourados atravessados numa paleta verde, e o casal não
   // teria como adivinhar de onde aquilo veio.
   ornamentColor.value = preset.ornamentColor ?? ''
+  // Mesma regra do ornamento. E a seção avançada ABRE quando o preset traz um
+  // título: uma cor aplicada que o casal não vê é estado escondido, e o
+  // próprio interruptor a apagaria em silêncio no próximo clique.
+  titleColor.value = preset.titleColor ?? ''
+  if (preset.titleColor) advancedColorEnabled.value = true
   fontPairId.value = preset.fontPairId
   nextTick(() => {
     isApplyingPreset.value = false
@@ -235,7 +253,12 @@ const onSubmit = handleSubmit(
       title="Opções de tema"
       description="Um preset pronto já define a tipografia e as cores do site de uma vez."
     >
-      <AdminThemePresetPicker :model-value="activePresetId" @update:model-value="applyPreset" />
+      <AdminThemePresetPicker
+        :model-value="activePresetId"
+        :nomes-noivos="props.coupleNames"
+        :data-evento="props.wedding?.data_evento ?? ''"
+        @update:model-value="applyPreset"
+      />
 
       <p class="flex items-center gap-1.5 text-xs text-text-muted">
         <Icon
@@ -316,10 +339,12 @@ const onSubmit = handleSubmit(
       title="Experiência"
       description="Recursos opcionais exibidos para os convidados."
     >
-      <AdminSettingsToggleRow
-        v-model="showCountdown"
-        label="Contagem regressiva"
-        hint="Mostra dias, horas e minutos até o evento no topo do site."
+      <AdminSettingsCountdownUnitsField
+        :enabled="showCountdown ?? true"
+        :model-value="countdownUnits"
+        :target-date-time="eventDateTime"
+        @update:enabled="(value) => (showCountdown = value)"
+        @update:model-value="(value) => (countdownUnits = value)"
       />
 
       <AdminSettingsHeroShortcutsField
@@ -337,9 +362,9 @@ const onSubmit = handleSubmit(
     >
       <AdminSettingsSectionOrderField
         :model-value="sectionOrder ?? []"
-        :hidden="hiddenSections ?? []"
+        :active="activeSections ?? []"
         @update:model-value="(value) => (sectionOrder = value)"
-        @update:hidden="(value) => (hiddenSections = value)"
+        @update:active="(value) => (activeSections = value)"
       />
     </AdminSettingsSectionCard>
 

@@ -16,6 +16,11 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Link inválido ou expirado.')
   }
 
+  // Antes de registrar o primeiro acesso: um convite aberto enquanto o site
+  // está em rascunho marcaria o funil com um acesso que o convidado não pôde
+  // concluir.
+  await garantirCasamentoPublicado(event, client, token.casamentoId)
+
   await recordFirstAccessIfNeeded(client, token.casamentoId, token.conviteId)
   issueRsvpSession(event, { casamentoId: token.casamentoId, conviteId: token.conviteId })
 

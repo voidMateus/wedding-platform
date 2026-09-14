@@ -24,6 +24,8 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Casamento não encontrado.')
   }
 
+  await garantirCasamentoPublicado(event, client, wedding.id)
+
   const { data, error } = await client.rpc('buscar_convidados_por_nome', {
     p_casamento_id: wedding.id,
     p_busca: q,

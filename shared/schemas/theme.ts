@@ -2,6 +2,11 @@ import { z } from 'zod'
 import { checkColorContrast, isValidHexColor } from '../utils/contrast'
 import { DEFAULT_HERO_BUTTONS, HERO_BUTTON_CATALOG, normalizeHeroButtonId } from '../hero-buttons'
 import { DEFAULT_SECTION_ORDER, HOME_SECTION_CATALOG } from '../home-sections'
+import {
+  COUNTDOWN_UNIT_CATALOG,
+  COUNTDOWN_UNIT_IDS,
+  DEFAULT_COUNTDOWN_UNITS,
+} from '../countdown-units'
 
 const HERO_BUTTON_ID_SET = new Set(HERO_BUTTON_CATALOG.map((button) => button.id))
 
@@ -18,6 +23,11 @@ const HOME_SECTION_ID_SET = new Set(HOME_SECTION_CATALOG.map((section) => sectio
 const homeSectionIdSchema = z
   .string()
   .refine((id) => HOME_SECTION_ID_SET.has(id), 'Seção desconhecida.')
+
+const COUNTDOWN_UNIT_ID_SET = new Set<string>(COUNTDOWN_UNIT_IDS)
+const countdownUnitIdSchema = z
+  .string()
+  .refine((id) => COUNTDOWN_UNIT_ID_SET.has(id), 'Unidade desconhecida.')
 
 /**
  * Estilo tipográfico dos títulos de seção do site público (Fase Rebrand do
@@ -122,6 +132,21 @@ export const themeConfigSchema = z.object({
   ornamentFrame: z.boolean().default(false),
   showCountdown: z.boolean(),
   /**
+   * Unidades exibidas na faixa, da maior para a menor — ids de
+   * shared/countdown-units.ts. A seleção é sempre um intervalo CONTÍNUO do
+   * catálogo, mas quem costura o vão é `resolveCountdownUnits()` na
+   * renderização, não este schema: barrar aqui uma seleção com buraco
+   * devolveria um erro de formulário para uma situação que tem uma leitura
+   * óbvia e correta. Aqui só barramos unidade inventada e faixa vazia — vazia
+   * seria uma contagem sem número nenhum, e desligar a contagem é
+   * `showCountdown`.
+   */
+  countdownUnits: z
+    .array(countdownUnitIdSchema)
+    .min(1, 'Escolha ao menos uma unidade.')
+    .max(COUNTDOWN_UNIT_CATALOG.length)
+    .default(DEFAULT_COUNTDOWN_UNITS),
+  /**
    * Ordem dos capítulos da home. Ids validados contra o catálogo
    * (shared/home-sections.ts) — uma lista salva ainda passa por
    * resolveHomeSectionOrder() na renderização, que é quem completa seções
@@ -137,7 +162,15 @@ export const themeConfigSchema = z.object({
    * uma seção que TEM conteúdo — o casal que preencheu o dress code mas não
    * quer exibi-lo agora não precisa apagar o texto para isso.
    */
-  hiddenSections: z.array(homeSectionIdSchema).max(HOME_SECTION_CATALOG.length).default([]),
+  /**
+   * As seções da home que o casal LIGOU — opt-in, nunca opt-out.
+   *
+   * Vazio é o estado de nascimento e significa **nenhuma**: o site de um casal
+   * recém-criado é só a capa com nomes, data e contagem. Até 2026-09-14 isto
+   * era `hiddenSections` (nascia tudo ligado), e o resultado era sete seções no
+   * ar com o texto padrão da plataforma antes de o casal escrever uma linha.
+   */
+  activeSections: z.array(homeSectionIdSchema).max(HOME_SECTION_CATALOG.length).default([]),
   // Atalhos do Hero (CLAUDE.md, seção 21 — "Fase Vermelho Clássico"): o
   // casal escolhe quais botões aparecem e qual fica em destaque (cor
   // preenchida); os demais ficam em outline. Catálogo fixo em
@@ -187,7 +220,7 @@ export interface ThemeConfig {
   /** Ordem dos capítulos da home — ids de shared/home-sections.ts. Ausente = DEFAULT_SECTION_ORDER. */
   sectionOrder?: string[]
   /** Seções desligadas pelo casal — ids de shared/home-sections.ts. Ausente = nenhuma. */
-  hiddenSections?: string[]
+  activeSections?: string[]
   coverImageUrl?: string
   /**
    * Monograma próprio do casal (PNG/WebP transparente), gerido pelos
@@ -211,6 +244,8 @@ export interface ThemeConfig {
   storyFocalX?: number
   storyFocalY?: number
   showCountdown: boolean
+  /** Unidades da contagem regressiva — ids de shared/countdown-units.ts. Ausente = DEFAULT_COUNTDOWN_UNITS. */
+  countdownUnits?: string[]
   /** Atalhos selecionados para o Hero — ids do catálogo em shared/hero-buttons.ts. */
   heroButtons?: string[]
   /** Id do atalho em destaque (cor preenchida) — os demais ficam em outline. */

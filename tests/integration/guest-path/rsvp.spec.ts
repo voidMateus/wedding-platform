@@ -29,14 +29,23 @@ describe('guest-path: RSVP por link/QR (/api/rsvp/[code])', () => {
     weddingB = await createTestWedding(admin)
     inviteA = await createTestInvite(admin, weddingA.id)
     inviteB = await createTestInvite(admin, weddingB.id)
-    guestA = await createTestGuest(admin, weddingA.id, { convite_id: inviteA.id, nome_completo: 'Convidado A' })
-    guestB = await createTestGuest(admin, weddingB.id, { convite_id: inviteB.id, nome_completo: 'Convidado B' })
+    guestA = await createTestGuest(admin, weddingA.id, {
+      convite_id: inviteA.id,
+      nome_completo: 'Convidado A',
+    })
+    guestB = await createTestGuest(admin, weddingB.id, {
+      convite_id: inviteB.id,
+      nome_completo: 'Convidado B',
+    })
     const token = await createTestAccessToken(admin, weddingA.id, inviteA.id)
     codeA = token.plainCode
   })
 
   afterAll(async () => {
-    await cleanupAll([() => deleteTestWedding(admin, weddingA.id), () => deleteTestWedding(admin, weddingB.id)])
+    await cleanupAll([
+      () => deleteTestWedding(admin, weddingA.id),
+      () => deleteTestWedding(admin, weddingB.id),
+    ])
   })
 
   it('código válido retorna o payload do convite certo e emite sessão', async () => {
@@ -70,7 +79,11 @@ describe('guest-path: RSVP por link/QR (/api/rsvp/[code])', () => {
     const res = await client.put(`/api/rsvp/guests/${guestB.id}`, { status: 'confirmado' })
     expect(res.status).toBe(403)
 
-    const { data: unchanged } = await admin.from('convidados').select('*').eq('id', guestB.id).single()
+    const { data: unchanged } = await admin
+      .from('convidados')
+      .select('*')
+      .eq('id', guestB.id)
+      .single()
     expect(unchanged).not.toBeNull()
   })
 
@@ -78,5 +91,26 @@ describe('guest-path: RSVP por link/QR (/api/rsvp/[code])', () => {
     const client = createTestApiClient()
     const res = await client.put(`/api/rsvp/guests/${guestA.id}`, { status: 'confirmado' })
     expect(res.status).toBe(403)
+  })
+
+  it('site em rascunho não abre o convite — 404, e nunca 403', async () => {
+    // O caminho do convidado usa service_role, que IGNORA RLS: aqui o portão é
+    // `garantirCasamentoPublicado()`, checado em TypeScript
+    // (docs/fase4-onboarding.md seção 8.1). E responde 404, nunca 403: "existe,
+    // mas você não pode ver" é informação que o caminho público não deve dar.
+    //
+    // A checagem vem ANTES de registrar o primeiro acesso: um convite aberto
+    // enquanto o site está fora do ar marcaria o funil com um acesso que o
+    // convidado não pôde concluir.
+    const rascunho = await createTestWedding(admin, { status_ciclo_vida: 'rascunho' })
+    try {
+      const convite = await createTestInvite(admin, rascunho.id)
+      const token = await createTestAccessToken(admin, rascunho.id, convite.id)
+
+      const res = await createTestApiClient().get(`/api/rsvp/${token.plainCode}`)
+      expect(res.status).toBe(404)
+    } finally {
+      await deleteTestWedding(admin, rascunho.id)
+    }
   })
 })

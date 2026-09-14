@@ -6,6 +6,17 @@ import CountdownTimer from '~/components/ui/CountdownTimer.vue'
 import type { EventSegment } from '~/types/event-segment'
 import type { Wedding } from '~/types/wedding'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
+import { HOME_SECTION_CATALOG } from '#shared/home-sections'
+
+/**
+ * Tema de um casamento com o site já montado.
+ *
+ * Desde a inversão para opt-in (docs/fase4-onboarding.md 3.2), `config_tema`
+ * vazio significa NENHUMA seção ligada — e portanto nenhum atalho no Hero.
+ * Esse é o estado de quem acabou de criar o casamento, coberto por teste
+ * próprio; os demais testes descrevem um site em uso.
+ */
+const TEMA_ATIVO = { activeSections: HOME_SECTION_CATALOG.map((secao) => secao.id) }
 
 function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
   return {
@@ -17,7 +28,7 @@ function makeWedding(overrides: Partial<Wedding> = {}): Wedding {
     modo_lista_convidados: 'fechada',
     modo_entrega_presente_fisico: 'ambos',
     prazo_rsvp: null,
-    config_tema: {},
+    config_tema: { ...TEMA_ATIVO },
     config_conteudo: null,
     handle_infinitepay: null,
     status_ciclo_vida: 'publicado',
@@ -112,17 +123,30 @@ describe('PublicHero', () => {
   })
 
   it('mostra a contagem regressiva por padrão (showCountdown ausente = true)', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ config_tema: {} }) })
+    const wrapper = mountHero({ wedding: makeWedding({ config_tema: { ...TEMA_ATIVO } }) })
     expect(wrapper.text()).toContain('dias')
   })
 
+  it('usa as unidades escolhidas pelo casal (config_tema.countdownUnits)', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({
+        config_tema: { ...TEMA_ATIVO, countdownUnits: ['meses', 'dias', 'horas'] },
+      }),
+    })
+    const text = wrapper.text()
+    expect(text).toContain('meses')
+    expect(text).not.toContain('segundos')
+  })
+
   it('esconde a contagem regressiva quando showCountdown=false', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ config_tema: { showCountdown: false } }) })
+    const wrapper = mountHero({
+      wedding: makeWedding({ config_tema: { ...TEMA_ATIVO, showCountdown: false } }),
+    })
     expect(wrapper.text()).not.toContain('dias')
   })
 
   it('renderiza os 4 atalhos de navegação (sem foto de capa)', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ config_tema: {} }) })
+    const wrapper = mountHero({ wedding: makeWedding({ config_tema: { ...TEMA_ATIVO } }) })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).toContain(href)
@@ -131,7 +155,9 @@ describe('PublicHero', () => {
 
   it('com foto de capa, a foto vira fundo-ambiente sob véu e o texto mantém as cores do tema', () => {
     const wrapper = mountHero({
-      wedding: makeWedding({ config_tema: { coverImageUrl: 'https://example.com/cover.jpg' } }),
+      wedding: makeWedding({
+        config_tema: { ...TEMA_ATIVO, coverImageUrl: 'https://example.com/cover.jpg' },
+      }),
     })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     for (const href of QUICK_LINK_HREFS) {
@@ -166,10 +192,19 @@ describe('PublicHero', () => {
     expect(hrefs).not.toContain('/ana-e-joao/#confirmar-presenca')
   })
 
+  it('um casamento recém-criado não tem atalho nenhum — só nomes, data e contagem', () => {
+    // `config_tema` vazio significa nenhuma seção ligada desde a inversão para
+    // opt-in: o Hero é a capa, e não há para onde os atalhos apontarem porque
+    // a home ainda não tem seção nenhuma (docs/fase4-onboarding.md 3.2).
+    const wrapper = mountHero({ wedding: makeWedding({ config_tema: {} }) })
+    expect(wrapper.findAll('a')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Ana')
+  })
+
   it('respeita a seleção customizada de atalhos do casal (config_tema.heroButtons)', () => {
     const wrapper = mountHero({
       wedding: makeWedding({
-        config_tema: { heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' },
+        config_tema: { ...TEMA_ATIVO, heroButtons: ['galeria', 'faq'], heroFeaturedButton: 'faq' },
       }),
     })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
@@ -186,7 +221,9 @@ describe('PublicHero', () => {
   })
 
   it('não renderiza a linha de atalhos quando o casal desmarca todos', () => {
-    const wrapper = mountHero({ wedding: makeWedding({ config_tema: { heroButtons: [] } }) })
+    const wrapper = mountHero({
+      wedding: makeWedding({ config_tema: { ...TEMA_ATIVO, heroButtons: [] } }),
+    })
     const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
     for (const href of QUICK_LINK_HREFS) {
       expect(hrefs).not.toContain(href)

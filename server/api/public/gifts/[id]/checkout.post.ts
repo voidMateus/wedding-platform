@@ -29,7 +29,9 @@ export default defineEventHandler(async (event) => {
 
   const { data: gift, error: giftError } = await client
     .from('presentes')
-    .select('id, casamento_id, titulo, e_presente_cota, preco_centavos, quantidade_disponivel, valor_cota_centavos')
+    .select(
+      'id, casamento_id, titulo, e_presente_cota, preco_centavos, quantidade_disponivel, valor_cota_centavos',
+    )
     .eq('id', giftId)
     .eq('esta_ativo', true)
     .is('excluido_em', null)
@@ -40,6 +42,8 @@ export default defineEventHandler(async (event) => {
   if (!gift) {
     throw notFoundError('Presente não encontrado.')
   }
+
+  await garantirCasamentoPublicado(event, client, gift.casamento_id)
 
   const { data: wedding, error: weddingError } = await client
     .from('casamentos')
@@ -101,7 +105,10 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!checkout.ok) {
-    throw createError({ statusCode: 502, message: 'Não foi possível iniciar o pagamento. Tente novamente.' })
+    throw createError({
+      statusCode: 502,
+      message: 'Não foi possível iniciar o pagamento. Tente novamente.',
+    })
   }
 
   const { error: insertError } = await client.from('pagamentos_presentes').insert({

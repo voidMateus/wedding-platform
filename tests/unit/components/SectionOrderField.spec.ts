@@ -5,9 +5,14 @@ import Button from '~/components/ui/Button.vue'
 import { DEFAULT_SECTION_ORDER } from '#shared/home-sections'
 import { ICON_STUBS } from '../test-utils/icon-stubs'
 
-function mountField(modelValue: string[] = [...DEFAULT_SECTION_ORDER], hidden: string[] = []) {
+function mountField(
+  modelValue: string[] = [...DEFAULT_SECTION_ORDER],
+  // Todas ligadas por padrão aqui dentro: é o estado de quem já montou o site.
+  // No produto, casamento novo nasce com NENHUMA (docs/fase4-onboarding.md 3.2).
+  active: string[] = [...DEFAULT_SECTION_ORDER],
+) {
   return mount(SectionOrderField, {
-    props: { modelValue, hidden },
+    props: { modelValue, active },
     global: { components: { UiButton: Button }, stubs: ICON_STUBS },
   })
 }
@@ -100,28 +105,36 @@ describe('AdminSettingsSectionOrderField', () => {
     // Desligada, a seção continua visível no admin, na posição dela — só some
     // da página do convidado. Tirá-la da lista faria o casal perder de vista
     // que ela existe e em que ordem voltaria.
-    const wrapper = mountField(['boas-vindas', 'versiculo'])
-    wrapper.get('[aria-label="Ocultar Versículo do site"]').trigger('click')
-    expect(wrapper.emitted('update:hidden')?.at(-1)?.[0]).toEqual(['versiculo'])
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['boas-vindas', 'versiculo'])
+    wrapper.get('[aria-label="Tirar Versículo do site"]').trigger('click')
+    expect(wrapper.emitted('update:active')?.at(-1)?.[0]).toEqual(['boas-vindas'])
     expect(wrapper.findAll('li')).toHaveLength(2)
   })
 
   it('clicar de novo religa a seção', () => {
-    const wrapper = mountField(['boas-vindas', 'versiculo'], ['versiculo'])
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['boas-vindas'])
     wrapper.get('[aria-label="Mostrar Versículo no site"]').trigger('click')
-    expect(wrapper.emitted('update:hidden')?.at(-1)?.[0]).toEqual([])
+    expect(wrapper.emitted('update:active')?.at(-1)?.[0]).toEqual(['boas-vindas', 'versiculo'])
   })
 
   it('linha desligada anuncia o estado, não só o tom esmaecido', () => {
-    const wrapper = mountField(['boas-vindas', 'versiculo'], ['versiculo'])
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['boas-vindas'])
     expect(wrapper.text()).toContain('Não aparece no site.')
     expect(wrapper.get('[aria-label="Mostrar Versículo no site"]').attributes('aria-pressed')).toBe(
-      'true',
+      'false',
     )
   })
 
+  it('sem nenhuma ligada, todas as linhas anunciam que não aparecem', () => {
+    // O estado de um casamento recém-criado: o catálogo inteiro continua
+    // listado — é dele que sai a resposta para "o que mais posso pôr no site?".
+    const wrapper = mountField(['boas-vindas', 'versiculo'], [])
+    expect(wrapper.findAll('li')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Não aparece no site.')
+  })
+
   it('ocultar não mexe na ordem', () => {
-    const wrapper = mountField(['boas-vindas', 'versiculo'], ['versiculo'])
+    const wrapper = mountField(['boas-vindas', 'versiculo'], ['boas-vindas'])
     wrapper.get('[aria-label="Mostrar Versículo no site"]').trigger('click')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })

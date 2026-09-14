@@ -24,6 +24,8 @@ export default defineEventHandler(async (event) => {
   if (guestError) throw badRequestError(guestError.message)
   if (!guest) throw notFoundError('Convidado não encontrado.')
 
+  await garantirCasamentoPublicado(event, client, guest.casamento_id)
+
   requireRsvpSessionForInvite(event, guest.convite_id)
 
   const { data: wedding, error: weddingError } = await client

@@ -28,23 +28,29 @@ import { HOME_SECTION_CATALOG, findHomeSection } from '#shared/home-sections'
 interface Props {
   /** `config_tema.sectionOrder` já resolvido pelo pai (nunca uma lista parcial). */
   modelValue: string[]
-  /** `config_tema.hiddenSections` — as que o casal desligou. */
-  hidden: string[]
+  /**
+   * `config_tema.activeSections` — as que o casal LIGOU.
+   *
+   * Opt-in desde 2026-09-14: casamento novo nasce sem nenhuma, e o site é só a
+   * capa. A lista aqui continua mostrando o catálogo inteiro — é dela que sai a
+   * resposta para "o que mais posso pôr no meu site?".
+   */
+  active: string[]
 }
 
-const { modelValue, hidden } = defineProps<Props>()
+const { modelValue, active } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string[]]
-  'update:hidden': [value: string[]]
+  'update:active': [value: string[]]
 }>()
 
-function isHidden(id: string): boolean {
-  return hidden.includes(id)
+function estaAtiva(id: string): boolean {
+  return active.includes(id)
 }
 
-function toggleHidden(id: string) {
-  emit('update:hidden', isHidden(id) ? hidden.filter((item) => item !== id) : [...hidden, id])
+function alternarAtiva(id: string) {
+  emit('update:active', estaAtiva(id) ? active.filter((item) => item !== id) : [...active, id])
 }
 
 const sections = computed(() =>
@@ -121,7 +127,7 @@ const isDefaultOrder = computed(() =>
         draggable="true"
         class="flex items-center gap-3 rounded-md border p-2.5 transition-brand"
         :class="[
-          isHidden(section.id) ? 'bg-surface-muted/40' : 'bg-surface-elevated',
+          estaAtiva(section.id) ? 'bg-surface-elevated' : 'bg-surface-muted/40',
           draggingIndex === index ? 'opacity-50' : '',
           dropTargetIndex === index && draggingIndex !== index
             ? 'border-primary bg-primary/5'
@@ -140,10 +146,10 @@ const isDefaultOrder = computed(() =>
 
         <span class="w-5 shrink-0 text-xs tabular-nums text-text-muted">{{ index + 1 }}</span>
 
-        <span class="min-w-0 flex-1" :class="isHidden(section.id) ? 'opacity-50' : ''">
+        <span class="min-w-0 flex-1" :class="estaAtiva(section.id) ? '' : 'opacity-50'">
           <span class="block truncate text-sm font-medium text-text">{{ section.label }}</span>
           <span class="block truncate text-xs text-text-muted">
-            {{ isHidden(section.id) ? 'Não aparece no site.' : section.hint }}
+            {{ estaAtiva(section.id) ? section.hint : 'Não aparece no site.' }}
           </span>
         </span>
 
@@ -152,18 +158,18 @@ const isDefaultOrder = computed(() =>
             type="button"
             size="sm"
             variant="ghost"
-            :aria-pressed="isHidden(section.id)"
+            :aria-pressed="estaAtiva(section.id)"
             :aria-label="
-              isHidden(section.id)
-                ? `Mostrar ${section.label} no site`
-                : `Ocultar ${section.label} do site`
+              estaAtiva(section.id)
+                ? `Tirar ${section.label} do site`
+                : `Mostrar ${section.label} no site`
             "
-            @click="toggleHidden(section.id)"
+            @click="alternarAtiva(section.id)"
           >
             <Icon
-              :name="isHidden(section.id) ? 'lucide:eye-off' : 'lucide:eye'"
+              :name="estaAtiva(section.id) ? 'lucide:eye' : 'lucide:eye-off'"
               class="h-4 w-4"
-              :class="isHidden(section.id) ? 'text-text-muted' : ''"
+              :class="estaAtiva(section.id) ? '' : 'text-text-muted'"
             />
           </UiButton>
           <UiButton

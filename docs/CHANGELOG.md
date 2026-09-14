@@ -1207,3 +1207,75 @@ inseria `respostas_rsvp` sem `convite_id`, que é obrigatório. O insert falhava
 em silêncio e o teste passava a afirmar que ninguém tinha recusado — verdade,
 mas por acidente. O erro do setup agora é conferido, que é a diferença entre
 testar a regra e testar o próprio setup.
+
+---
+
+## Hub, Fase 4 — Onboarding guiado (2026-09-14)
+
+Refinamento e decisões em [`fase4-onboarding.md`](fase4-onboarding.md). Primeira
+fase do Hub que não constrói um módulo: acrescenta uma porta. O relato abaixo é
+o que só se descobre usando.
+
+### O site já estava no ar, e ninguém tinha publicado nada
+
+`casamentos.status_ciclo_vida` existia desde agosto **sem nenhum escritor**, e
+nenhuma rota pública o lia. O site do casal ia ao ar no instante em que a linha
+nascia — e a medição contra uma conta limpa mostrou **sete seções publicadas**
+(Boas-vindas, Nossa História, Confirme sua Presença, Dress Code, Manual dos
+Convidados, Lista de Presentes e FAQ), todas com o texto padrão da plataforma.
+Um casal recém-criado tinha um site contando uma história que ele não escreveu.
+
+### Um achado meu que era falso, e ficou registrado como tal
+
+O refinamento afirmava que o teto do orçamento não tinha tela, e disso saiu uma
+tarefa e uma varredura nova. Era erro de investigação: procurei por nomes que
+não existem (`updateBudgetTotal`, `tetoGlobal`) em vez do nome real da ação
+(`definirTetoDoOrcamento`), que tem chamador desde a Fase 1. A seção 1.4 do
+documento registra o erro em vez de escondê-lo, e a varredura que a premissa
+falsa justificava foi descartada — sem caso real, seria a abstração
+especulativa que o projeto recusa.
+
+### Três defeitos que só o uso real encontrou
+
+**A saudação afirmava o que a tela ainda perguntava.** "Faltam 453 dias para o
+grande dia" aparecia enquanto o primeiro passo pedia ao casal que preenchesse
+*Data e horário*. A data existe (é obrigatória na criação), mas quem a digitou
+foi a equipe. Puxando o fio apareceu a causa: a etapa 1 mostrava só o campo de
+horário — um passo chamado "Data e horário" que entrega só o horário mente
+sobre o próprio rótulo.
+
+**A etapa da aparência falhava em casamento novo.** "Não foi possível salvar
+esta etapa", sem nenhuma requisição ter saído: `themeConfigSchema` exige
+`showCountdown`, o único obrigatório sem default, e o wizard montava o tema à
+mão sobre um `config_tema` que é `{}` numa conta recém-criada. A correção não
+foi acrescentar o campo onde quebrou, e sim `aplicarPresetNoTema()` — testado
+contra o schema com todos os presets do catálogo.
+
+**Publicar o site apagava o Início.** Duas regras se somaram: o modo acolhimento
+esconde os blocos de relatório contando que o roteiro ocupe a tela, e o roteiro
+some quando completa. Com os quatro passos feitos e a lista vazia, não sobrava
+nada para desenhar — e publicar é o último passo. Foi um buraco aberto pelo
+próprio acolhimento, no estado mais provável de quem acabou de terminar.
+
+### O catálogo de temas era cinco vezes a mesma coisa
+
+Medido: **seis das oito primárias num arco de 40°** (todo o vermelho-vinho-
+marrom) e **quatro dividindo o mesmo dourado** de secundária. Borgonha
+Editorial e Convite de Luxo eram quase a mesma cor. E nenhum preset definia
+`titleColor`, então os nomes do casal — o maior elemento da página — saíam do
+mesmo `#2b221a` em todos eles: a paleta só pintava o botão de CTA e o ornamento.
+
+São nove agora, uma família de cor cada, com duas regras travadas em teste (no
+máximo três primárias por sextante ocupando ao menos cinco dos seis; nenhuma
+secundária repetida mais de duas vezes). O teste de espalhamento foi escrito
+antes da versão final e **reprovou a proposta original**, que tinha cinco no
+arco quente e o mesmo nude em três secundárias.
+
+### O CI pegou o que o ambiente local não tinha como pegar
+
+Os testes de integração rodam contra um Postgres real com as migrations
+aplicadas — e lá o portão do rascunho já valia. Três falhas, todas descrevendo
+o contrato antigo: a fábrica de casamento criava com o default da coluna
+(`rascunho`), então a leitura pública voltava vazia e o caminho do convidado
+respondia 404 onde o teste esperava 403. A fábrica passou a criar publicado, e
+quem testa o portão pede rascunho explicitamente.

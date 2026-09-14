@@ -52,14 +52,23 @@ describe('normalizeHeroButtonId', () => {
 })
 
 describe('resolveHeroButtons', () => {
+  /**
+   * Todas as seções ligadas — o estado de quem já montou o site.
+   *
+   * Desde a inversão para opt-in (docs/fase4-onboarding.md 3.2) este argumento
+   * deixou de ser "o que está escondido" e passou a ser "o que está ligado",
+   * então omiti-lo significa NENHUM atalho, não todos.
+   */
+  const todasAtivas = HOME_SECTION_CATALOG.map((secao) => secao.id)
+
   it('usa o default quando não há seleção salva', () => {
-    const result = resolveHeroButtons(undefined, undefined)
+    const result = resolveHeroButtons(undefined, undefined, todasAtivas)
     expect(result.map((b) => b.id)).toEqual(DEFAULT_HERO_BUTTONS)
     expect(result.find((b) => b.featured)?.id).toBe(DEFAULT_HERO_FEATURED_BUTTON)
   })
 
   it('resolve a seleção customizada do casal, na ordem escolhida', () => {
-    const result = resolveHeroButtons(['nossos-momentos', 'faq'], 'faq')
+    const result = resolveHeroButtons(['nossos-momentos', 'faq'], 'faq', todasAtivas)
     expect(result.map((b) => b.id)).toEqual(['nossos-momentos', 'faq'])
     expect(result.find((b) => b.id === 'faq')?.featured).toBe(true)
     expect(result.find((b) => b.id === 'nossos-momentos')?.featured).toBe(false)
@@ -68,35 +77,44 @@ describe('resolveHeroButtons', () => {
   it('uma seleção salva com os ids antigos continua valendo', () => {
     // Sem a normalização o casal perderia os dois atalhos em silêncio, porque
     // id desconhecido é (corretamente) descartado.
-    const result = resolveHeroButtons(['cronograma', 'galeria'], 'cronograma')
+    const result = resolveHeroButtons(['cronograma', 'galeria'], 'cronograma', todasAtivas)
     expect(result.map((b) => b.id)).toEqual(['grande-dia', 'nossos-momentos'])
     expect(result.find((b) => b.id === 'grande-dia')?.featured).toBe(true)
   })
 
   it('ignora ids desconhecidos sem quebrar', () => {
-    const result = resolveHeroButtons(['nossos-momentos', 'não-existe'], 'nossos-momentos')
+    const result = resolveHeroButtons(
+      ['nossos-momentos', 'não-existe'],
+      'nossos-momentos',
+      todasAtivas,
+    )
     expect(result.map((b) => b.id)).toEqual(['nossos-momentos'])
   })
 
   it('não oferece atalho para seção desligada — seria um link para lugar nenhum', () => {
-    const result = resolveHeroButtons(['presentes', 'dress-code', 'faq'], 'presentes', [
-      'dress-code',
-    ])
+    const result = resolveHeroButtons(
+      ['presentes', 'dress-code', 'faq'],
+      'presentes',
+      todasAtivas.filter((id) => id !== 'dress-code'),
+    )
     expect(result.map((b) => b.id)).toEqual(['presentes', 'faq'])
   })
 
-  it('sem seções ocultas, nada é filtrado', () => {
-    const result = resolveHeroButtons(['presentes', 'faq'], 'presentes', [])
-    expect(result.map((b) => b.id)).toEqual(['presentes', 'faq'])
+  it('sem nenhuma seção ligada não há atalho — o site de um casal novo', () => {
+    // Antes da inversão, `[]` significava "nada escondido" e devolvia tudo.
+    // Agora significa "nada ligado", e o Hero de um casamento recém-criado é
+    // só nomes, data e contagem.
+    expect(resolveHeroButtons(['presentes', 'faq'], 'presentes', [])).toEqual([])
+    expect(resolveHeroButtons(undefined, undefined)).toEqual([])
   })
 
   it('retorna lista vazia quando o casal desmarca todos os atalhos', () => {
-    const result = resolveHeroButtons([], undefined)
+    const result = resolveHeroButtons([], undefined, todasAtivas)
     expect(result).toEqual([])
   })
 
   it('nenhum item fica featured quando heroFeaturedButton não corresponde a nenhum selecionado', () => {
-    const result = resolveHeroButtons(['nossos-momentos'], 'faq')
+    const result = resolveHeroButtons(['nossos-momentos'], 'faq', todasAtivas)
     expect(result.every((b) => !b.featured)).toBe(true)
   })
 })

@@ -83,6 +83,40 @@ const metrics = computed(() => {
   ]
 })
 
+// --- roteiro de Primeiros passos ---
+//
+// Primeiro bloco da tela até terminar: os alertas abaixo falam de um casamento
+// em andamento, e este fala de um que ainda não começou. Some sozinho quando os
+// sete passos estão cumpridos (docs/fase4-onboarding.md seção 6).
+const { getRoteiro } = useOnboarding()
+const { data: onboarding, roteiro } = getRoteiro()
+
+// Enquanto não há ninguém na lista, o painel não tem o que RELATAR: a barra de
+// RSVP desenha 0%, as três métricas mostram zero, as faixas etárias mostram
+// zero e a tabela de convites fica vazia. É a mesma regra que o Financeiro já
+// aplica — indicador sem base é omitido, jamais exibido como 0%; o resumo
+// degrada, nunca mente — e o Início era o único lugar que a violava. Com os
+// blocos fora, o roteiro deixa de ser mais um cartão e vira a tela: o
+// acolhimento de quem acabou de chegar.
+const semNinguemNaLista = computed(() => (data.value?.people.total ?? 0) === 0)
+
+// Modo acolhimento: o roteiro É a tela, e os relatórios saem de cena.
+//
+// Ele exige as DUAS condições. Só "sem ninguém na lista" deixava o Início
+// literalmente em branco no instante em que o casal terminava os quatro
+// passos: o roteiro some quando completa, e sem convidados todo o resto já
+// estava escondido. Publicar o site — o último passo — apagava a tela inteira.
+const modoAcolhimento = computed(() => semNinguemNaLista.value && !roteiro.value.completo)
+
+// A contagem de convidados o painel já tem — e é ela que dá à linha cumprida um
+// valor de verdade em vez de "pronto".
+const valoresDoRoteiro = computed(() => ({
+  ...(onboarding.value?.valores ?? {}),
+  ...(data.value && data.value.people.total > 0
+    ? { convidados: `${data.value.people.total} na lista` }
+    : {}),
+}))
+
 // --- alerta do Financeiro ---
 //
 // Vencidos primeiro, "vence em 30 dias" como segunda opção: o painel mostra no
@@ -289,7 +323,17 @@ function statusOf(invite: InviteListItem) {
     </UiEmptyState>
 
     <template v-else-if="data">
-      <AdminPanel>
+      <AdminOnboardingRoteiro
+        :roteiro="roteiro"
+        :valores="valoresDoRoteiro"
+        :destaque="modoAcolhimento"
+        :nomes-noivos="wedding?.nomes_noivos ?? ''"
+      />
+
+      <!-- A contagem é verdadeira com ou sem lista: a data existe desde que o
+           casamento nasce. Só sai de cena no acolhimento, onde a tela inteira
+           é do roteiro. -->
+      <AdminPanel v-if="!modoAcolhimento">
         <div class="flex flex-wrap items-end gap-x-12 gap-y-6 p-5 sm:p-7">
           <div class="min-w-48">
             <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -411,9 +455,12 @@ function statusOf(invite: InviteListItem) {
         <span class="ml-auto text-xs text-text-muted">ver no Planejamento</span>
       </NuxtLink>
 
-      <div class="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <AdminMetricStrip :metrics="metrics" class="lg:col-span-8" />
-        <div class="flex flex-col gap-3 lg:col-span-4">
+      <div v-if="!modoAcolhimento" class="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <AdminMetricStrip v-if="!semNinguemNaLista" :metrics="metrics" class="lg:col-span-8" />
+        <div
+          class="flex flex-col gap-3"
+          :class="semNinguemNaLista ? 'lg:col-span-12 sm:flex-row' : 'lg:col-span-4'"
+        >
           <UiButton class="w-full" :to="`/admin/${slug}/convidados?novo=1`">
             <Icon name="lucide:plus" class="h-4 w-4" />
             Adicionar convidado
@@ -430,7 +477,34 @@ function statusOf(invite: InviteListItem) {
         </div>
       </div>
 
-      <AdminPanel title="Pessoas por faixa etária" meta="Calculada na data do casamento">
+      <!-- Configuração pronta e lista vazia: o painel não tem o que relatar,
+           mas tem o que DIZER. Sem este bloco a tela ficava em branco, que foi
+           exatamente o defeito que o modo acolhimento introduziu ao esconder
+           os relatórios. -->
+      <AdminPanel v-if="semNinguemNaLista && !modoAcolhimento">
+        <UiEmptyState
+          icon="lucide:users"
+          title="A lista de convidados ainda está vazia"
+          description="É por aqui que o painel começa a trabalhar: com a lista montada, os convites saem, as confirmações chegam e as mesas se organizam."
+        >
+          <div class="flex flex-wrap justify-center gap-2">
+            <UiButton :to="`/admin/${slug}/convidados?novo=1`">
+              <Icon name="lucide:plus" class="h-4 w-4" />
+              Adicionar convidado
+            </UiButton>
+            <UiButton variant="outline" :to="`/admin/${slug}/convidados?importar=1`">
+              <Icon name="lucide:upload" class="h-4 w-4" />
+              Importar de uma planilha
+            </UiButton>
+          </div>
+        </UiEmptyState>
+      </AdminPanel>
+
+      <AdminPanel
+        v-if="!semNinguemNaLista"
+        title="Pessoas por faixa etária"
+        meta="Calculada na data do casamento"
+      >
         <template #headerActions>
           <NuxtLink
             :to="`/admin/${slug}/configuracoes#faixas-etarias`"
@@ -456,7 +530,7 @@ function statusOf(invite: InviteListItem) {
         </dl>
       </AdminPanel>
 
-      <AdminPanel title="Convites recentes" :meta="invitesPanelMeta">
+      <AdminPanel v-if="!semNinguemNaLista" title="Convites recentes" :meta="invitesPanelMeta">
         <template #headerActions>
           <AdminFilterChips
             v-model="inviteFilter"

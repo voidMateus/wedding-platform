@@ -9,6 +9,11 @@ import { giftPaymentStatusQuerySchema } from '#shared/schemas/gift-payments'
  * checkout, nunca listado publicamente) já funciona como credencial de
  * acesso a este status, mesmo padrão de link de acompanhamento de pedido
  * usado em checkouts de convidado no e-commerce em geral.
+ *
+ * portão dispensado: pelo mesmo motivo do webhook (docs/fase4-onboarding.md
+ * 8.1.1) — é o convidado, na tela de retorno do checkout, perguntando se o
+ * pagamento DELE deu certo. O pagamento já aconteceu; despublicar o site não
+ * pode deixá-lo sem resposta.
  */
 export default defineEventHandler(async (event) => {
   const paymentId = getRouterParam(event, 'id')
@@ -40,7 +45,11 @@ export default defineEventHandler(async (event) => {
         })
       : payment
 
-  const { data: gift } = await client.from('presentes').select('titulo').eq('id', payment.presente_id).maybeSingle()
+  const { data: gift } = await client
+    .from('presentes')
+    .select('titulo')
+    .eq('id', payment.presente_id)
+    .maybeSingle()
 
   return {
     status: resolved?.status_pagamento ?? payment.status_pagamento,

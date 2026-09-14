@@ -20,6 +20,8 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Casamento não encontrado.')
   }
 
+  await garantirCasamentoPublicado(event, client, wedding.id)
+
   const { data: gifts, error: giftsError } = await client
     .from('presentes')
     .select('*')
@@ -66,9 +68,7 @@ export default defineEventHandler(async (event) => {
 
   const hasPixOption = Boolean(wedding.handle_infinitepay)
   const physicalDeliveryMode = wedding.modo_entrega_presente_fisico as
-    | 'ambos'
-    | 'somente_compra_propria'
-    | 'somente_pagamento'
+    'ambos' | 'somente_compra_propria' | 'somente_pagamento'
 
   const data = gifts.map((gift) => ({
     id: gift.id,

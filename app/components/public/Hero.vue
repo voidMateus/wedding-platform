@@ -69,6 +69,12 @@ const primaryVenueName = computed(
 // Contagem regressiva embutida no Hero (antes era uma seção própria mais
 // abaixo na página) — mesma regra de exibição de sempre.
 const showCountdown = computed(() => theme.value.showCountdown ?? true)
+// Quais unidades a faixa mostra (meses/semanas/dias/horas/minutos/segundos) —
+// seleção do casal em /admin/configuracoes. O valor cru vai direto ao
+// componente: quem normaliza (ordena, descarta id extinto, costura vão) é o
+// catálogo, e duplicar essa resolução aqui criaria uma segunda resposta para a
+// mesma pergunta.
+const countdownUnits = computed(() => theme.value.countdownUnits)
 const targetDateTime = computed(() =>
   resolveEventDateTime(wedding.data_evento, wedding.horario_evento).toISOString(),
 )
@@ -96,12 +102,12 @@ const coverFocalPosition = computed(
 // slug do casamento (CLAUDE.md, seção 4.4/33) prefixado aqui para navegar
 // para a home certa em vez de cair na raiz neutra sem casamento nenhum.
 const heroButtons = computed(() =>
-  // `hiddenSections` entra aqui porque um atalho para uma seção desligada é um
+  // `activeSections` entra aqui porque um atalho para uma seção desligada é um
   // link para lugar nenhum: o convidado clica e a página não se move.
   resolveHeroButtons(
     theme.value.heroButtons,
     theme.value.heroFeaturedButton,
-    theme.value.hiddenSections,
+    theme.value.activeSections,
   ).map((button) => {
     // 'presentes' é o único atalho que navega pra uma página de verdade
     // (não uma âncora na home) — precisa preservar ?code=, senão o
@@ -222,7 +228,11 @@ const heroButtons = computed(() =>
       </p>
 
       <div v-if="showCountdown" class="mt-3 flex justify-center">
-        <UiCountdownTimer :target-date-time="targetDateTime" variant="inline">
+        <UiCountdownTimer
+          :target-date-time="targetDateTime"
+          :units="countdownUnits"
+          variant="inline"
+        >
           <template #past>
             <p class="text-lg font-medium text-primary">O grande dia chegou!</p>
           </template>

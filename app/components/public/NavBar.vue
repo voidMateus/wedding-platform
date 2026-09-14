@@ -31,11 +31,12 @@ interface Props {
    */
   featuredButtonId?: string
   /**
-   * `config_tema.hiddenSections` — seções desligadas pelo casal. O menu filtra
+   * `config_tema.activeSections` — seções ligadas pelo casal. O menu filtra
    * por elas pelo mesmo motivo do Hero: âncora para seção que não existe na
-   * página é um link que não faz nada quando clicado.
+   * página é um link que não faz nada quando clicado. Vazio = nenhum destino,
+   * que é o estado de um casamento recém-criado.
    */
-  hiddenSections?: string[]
+  activeSections?: string[]
   /**
    * Caminho da rota atual (`route.path`), resolvido pelo layout. Alimenta o
    * `aria-current` dos links — ver isCurrent().
@@ -55,7 +56,7 @@ const {
   code,
   featuredButtonId,
   monogramImageUrl,
-  hiddenSections = [],
+  activeSections = [],
   currentPath,
 } = defineProps<Props>()
 
@@ -84,7 +85,7 @@ const NAV_LINKS = computed(() =>
     { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
     { id: 'confirmar-presenca', to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
     { id: 'nossos-momentos', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
-  ].filter((link) => !hiddenSections.includes(link.id)),
+  ].filter((link) => activeSections.includes(link.id)),
 )
 
 /**
@@ -112,13 +113,13 @@ const homeLink = computed(() => `/${slug}`)
  *
  * Cai no padrão do catálogo quando não há escolha salva, e some junto se a
  * seção correspondente estiver desligada (resolveHeroButtons já filtra por
- * `hiddenSections`).
+ * `activeSections`).
  */
 const featuredShortcut = computed(() => {
   const [primeiro] = resolveHeroButtons(
     [featuredButtonId ?? DEFAULT_HERO_FEATURED_BUTTON],
     featuredButtonId ?? DEFAULT_HERO_FEATURED_BUTTON,
-    hiddenSections,
+    activeSections,
   )
   if (!primeiro) return null
   // 'presentes' é o único destino que troca de rota de verdade e por isso

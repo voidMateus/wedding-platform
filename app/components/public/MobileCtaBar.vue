@@ -12,13 +12,13 @@
 // insistindo nisso contraria a escolha dele.
 interface Props {
   slug: string
-  /** `config_tema.hiddenSections` — desligar o RSVP também apaga esta barra. */
-  hiddenSections?: string[]
+  /** `config_tema.activeSections` — sem o RSVP ligado, esta barra não existe. */
+  activeSections?: string[]
 }
 
-const { slug, hiddenSections = [] } = defineProps<Props>()
+const { slug, activeSections = [] } = defineProps<Props>()
 
-const isVisible = computed(() => !hiddenSections.includes('confirmar-presenca'))
+const isVisible = computed(() => activeSections.includes('confirmar-presenca'))
 const rsvpLink = computed(() => `/${slug}/rsvp`)
 </script>
 
