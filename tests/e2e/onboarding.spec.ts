@@ -27,32 +27,51 @@ async function entrar(page: import('@playwright/test').Page): Promise<string> {
 }
 
 test.describe('onboarding — o roteiro e o wizard', () => {
+  test('o Início nunca fica em branco, em nenhum estado', async ({ page }) => {
+    const slug = await entrar(page)
+    await page.goto(`/admin/${slug}`)
+
+    // O modo acolhimento esconde os blocos de relatório contando que o roteiro
+    // ocupe a tela — mas o roteiro SOME quando completa. Num casamento com os
+    // quatro passos feitos e a lista ainda vazia, as duas regras se somavam e o
+    // painel ficava literalmente em branco: publicar o site, que é o último
+    // passo, apagava a tela inteira.
+    //
+    // A promessa guardada aqui vale para QUALQUER estado da conta de teste: ou
+    // o Início mostra os Primeiros passos, ou mostra a contagem regressiva.
+    const roteiro = page.getByRole('heading', { name: 'Primeiros passos' })
+    const contagem = page.getByText('Faltam para o grande dia')
+
+    await expect
+      .poll(async () => (await roteiro.count()) + (await contagem.count()), {
+        timeout: 20_000,
+        message: 'o Início não desenhou nem o roteiro nem a contagem',
+      })
+      .toBeGreaterThan(0)
+  })
+
   test('o wizard abre na etapa pedida e salva ao avançar', async ({ page }) => {
     const slug = await entrar(page)
 
     // O roteiro leva DIRETO à etapa clicada, não ao começo: quem clicou em
-    // "Prazo de RSVP" pediu aquilo, não um passeio pelas cinco.
-    await page.goto(`/admin/${slug}/comecar?passo=prazo-rsvp`)
-    await expect(
-      page.getByRole('heading', { name: /Até quando dá para confirmar presença/ }),
-    ).toBeVisible({ timeout: 20_000 })
+    // "Onde vai ser" pediu aquilo, não um passeio pelas três.
+    await page.goto(`/admin/${slug}/comecar?passo=local`)
+    await expect(page.getByRole('heading', { name: 'Onde vai ser?' })).toBeVisible({
+      timeout: 20_000,
+    })
+    await expect(page.getByText('Etapa 2 de 3')).toBeVisible()
 
-    await expect(page.getByText('Etapa 3 de 5')).toBeVisible()
-
-    // Pular não salva e não trava: leva à etapa seguinte com a resposta em
-    // branco continuando em branco.
+    // Pular não salva e não trava: leva à etapa seguinte sem escrever nada.
     await expect(async () => {
       await page.getByRole('button', { name: 'Pular' }).click({ timeout: 3_000 })
-      await expect(page).toHaveURL(/passo=orcamento/, { timeout: 5_000 })
+      await expect(page).toHaveURL(/passo=aparencia/, { timeout: 5_000 })
     }).toPass({ timeout: 30_000 })
 
-    await expect(
-      page.getByRole('heading', { name: /Quanto vocês pretendem gastar no total/ }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Escolham a cara do site' })).toBeVisible()
 
     // Voltar mostra o que estava lá — a etapa pulada não sumiu do caminho.
     await page.getByRole('button', { name: 'Voltar' }).click()
-    await expect(page).toHaveURL(/passo=prazo-rsvp/, { timeout: 10_000 })
+    await expect(page).toHaveURL(/passo=local/, { timeout: 10_000 })
   })
 
   test('a última etapa termina no roteiro, nunca numa tela de parabéns', async ({ page }) => {
@@ -65,8 +84,7 @@ test.describe('onboarding — o roteiro e o wizard', () => {
 
     // O botão da última etapa diz "Concluir" — é a única confirmação de
     // chegada que existe, e ela é uma palavra, não uma tela.
-    const concluir = page.getByRole('button', { name: 'Concluir' })
-    await expect(concluir).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Concluir' })).toBeVisible()
 
     await expect(async () => {
       await page.getByRole('button', { name: 'Pular' }).click({ timeout: 3_000 })
@@ -74,15 +92,31 @@ test.describe('onboarding — o roteiro e o wizard', () => {
     }).toPass({ timeout: 30_000 })
   })
 
+  test('a escolha de tema mostra a capa do site, não dois pontos de cor', async ({ page }) => {
+    const slug = await entrar(page)
+
+    await page.goto(`/admin/${slug}/comecar?passo=aparencia`)
+    await expect(page.getByRole('heading', { name: 'Escolham a cara do site' })).toBeVisible({
+      timeout: 20_000,
+    })
+
+    // Cada cartão é a capa com os nomes reais do casal, e a classe é o que
+    // desfaz o escopo tipográfico do painel — sem ela os nove presets sairiam
+    // na mesma fonte e no mesmo cinza.
+    const previas = page.locator('.previa-do-site')
+    await expect(previas.first()).toBeVisible()
+    expect(await previas.count()).toBeGreaterThanOrEqual(5)
+  })
+
   test('sair no meio não perde o que já foi salvo', async ({ page }) => {
     const slug = await entrar(page)
 
     await page.goto(`/admin/${slug}/comecar?passo=data-horario`)
-    await expect(page.getByRole('heading', { name: 'Que horas começa?' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Quando vai ser?' })).toBeVisible({
       timeout: 20_000,
     })
 
-    const horario = page.getByLabel('Horário do casamento')
+    const horario = page.getByLabel('Horário', { exact: true })
     await expect(async () => {
       await horario.fill('16:30', { timeout: 3_000 })
       await page.getByRole('button', { name: 'Continuar' }).click({ timeout: 3_000 })
@@ -92,6 +126,8 @@ test.describe('onboarding — o roteiro e o wizard', () => {
     // Sai no meio, volta depois: o valor veio do BANCO, não de estado de tela.
     await page.goto(`/admin/${slug}`)
     await page.goto(`/admin/${slug}/comecar?passo=data-horario`)
-    await expect(page.getByLabel('Horário do casamento')).toHaveValue('16:30', { timeout: 20_000 })
+    await expect(page.getByLabel('Horário', { exact: true })).toHaveValue('16:30', {
+      timeout: 20_000,
+    })
   })
 })

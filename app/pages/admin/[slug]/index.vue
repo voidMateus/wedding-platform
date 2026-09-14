@@ -100,6 +100,14 @@ const { data: onboarding, roteiro } = getRoteiro()
 // acolhimento de quem acabou de chegar.
 const semNinguemNaLista = computed(() => (data.value?.people.total ?? 0) === 0)
 
+// Modo acolhimento: o roteiro É a tela, e os relatórios saem de cena.
+//
+// Ele exige as DUAS condições. Só "sem ninguém na lista" deixava o Início
+// literalmente em branco no instante em que o casal terminava os quatro
+// passos: o roteiro some quando completa, e sem convidados todo o resto já
+// estava escondido. Publicar o site — o último passo — apagava a tela inteira.
+const modoAcolhimento = computed(() => semNinguemNaLista.value && !roteiro.value.completo)
+
 // A contagem de convidados o painel já tem — e é ela que dá à linha cumprida um
 // valor de verdade em vez de "pronto".
 const valoresDoRoteiro = computed(() => ({
@@ -318,11 +326,14 @@ function statusOf(invite: InviteListItem) {
       <AdminOnboardingRoteiro
         :roteiro="roteiro"
         :valores="valoresDoRoteiro"
-        :destaque="semNinguemNaLista"
+        :destaque="modoAcolhimento"
         :nomes-noivos="wedding?.nomes_noivos ?? ''"
       />
 
-      <AdminPanel v-if="!semNinguemNaLista">
+      <!-- A contagem é verdadeira com ou sem lista: a data existe desde que o
+           casamento nasce. Só sai de cena no acolhimento, onde a tela inteira
+           é do roteiro. -->
+      <AdminPanel v-if="!modoAcolhimento">
         <div class="flex flex-wrap items-end gap-x-12 gap-y-6 p-5 sm:p-7">
           <div class="min-w-48">
             <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -444,9 +455,12 @@ function statusOf(invite: InviteListItem) {
         <span class="ml-auto text-xs text-text-muted">ver no Planejamento</span>
       </NuxtLink>
 
-      <div v-if="!semNinguemNaLista" class="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <AdminMetricStrip :metrics="metrics" class="lg:col-span-8" />
-        <div class="flex flex-col gap-3 lg:col-span-4">
+      <div v-if="!modoAcolhimento" class="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <AdminMetricStrip v-if="!semNinguemNaLista" :metrics="metrics" class="lg:col-span-8" />
+        <div
+          class="flex flex-col gap-3"
+          :class="semNinguemNaLista ? 'lg:col-span-12 sm:flex-row' : 'lg:col-span-4'"
+        >
           <UiButton class="w-full" :to="`/admin/${slug}/convidados?novo=1`">
             <Icon name="lucide:plus" class="h-4 w-4" />
             Adicionar convidado
@@ -462,6 +476,29 @@ function statusOf(invite: InviteListItem) {
           </UiButton>
         </div>
       </div>
+
+      <!-- Configuração pronta e lista vazia: o painel não tem o que relatar,
+           mas tem o que DIZER. Sem este bloco a tela ficava em branco, que foi
+           exatamente o defeito que o modo acolhimento introduziu ao esconder
+           os relatórios. -->
+      <AdminPanel v-if="semNinguemNaLista && !modoAcolhimento">
+        <UiEmptyState
+          icon="lucide:users"
+          title="A lista de convidados ainda está vazia"
+          description="É por aqui que o painel começa a trabalhar: com a lista montada, os convites saem, as confirmações chegam e as mesas se organizam."
+        >
+          <div class="flex flex-wrap justify-center gap-2">
+            <UiButton :to="`/admin/${slug}/convidados?novo=1`">
+              <Icon name="lucide:plus" class="h-4 w-4" />
+              Adicionar convidado
+            </UiButton>
+            <UiButton variant="outline" :to="`/admin/${slug}/convidados?importar=1`">
+              <Icon name="lucide:upload" class="h-4 w-4" />
+              Importar de uma planilha
+            </UiButton>
+          </div>
+        </UiEmptyState>
+      </AdminPanel>
 
       <AdminPanel
         v-if="!semNinguemNaLista"

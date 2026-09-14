@@ -267,6 +267,18 @@ A correção não é uma tela nova — é a página no seu estado vazio:
 - **Os blocos de relatório saem de cena** até terem o que dizer, e voltam
   sozinhos quando a lista tem gente. Derivado, como tudo o mais: um casamento
   que perdesse todos os convidados também não mostraria uma barra em 0%.
+- **O modo acolhimento exige DUAS condições**: lista vazia **e** roteiro
+  incompleto. Com só a primeira, o Início ficava literalmente em branco no
+  instante em que o casal terminava os quatro passos — o roteiro some quando
+  completa, e sem convidados todo o resto já estava escondido. Publicar o site,
+  que é o último passo, apagava a tela inteira. Fora do acolhimento, a contagem
+  regressiva volta sempre: ela é verdadeira com ou sem lista, porque a data
+  existe desde que o casamento nasce.
+- **Configuração pronta e lista vazia tem tela própria**: um estado vazio
+  convidando a montar a lista, com o cadastro e a importação lado a lado. O
+  painel não tem o que relatar ali, mas tem o que dizer — e a regra que a fase
+  inteira segue é que um indicador sem base é omitido, nunca que a tela fique
+  sem nada.
 - **A saudação some no instante em que existir alguém na lista.** "Bem-vindo" é
   para quem está chegando; quem já está trabalhando não precisa ser recebido de
   novo. Não há coluna "já viu as boas-vindas" — a condição é a mesma que
