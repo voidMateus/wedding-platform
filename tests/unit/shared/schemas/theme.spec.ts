@@ -69,6 +69,27 @@ describe('themeConfigSchema', () => {
     }
   })
 
+  it('usa as quatro unidades de sempre quando countdownUnits está ausente', () => {
+    const result = themeConfigSchema.safeParse(BASE)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.countdownUnits).toEqual(['dias', 'horas', 'minutos', 'segundos'])
+    }
+  })
+
+  it('aceita uma seleção customizada de countdownUnits', () => {
+    const result = themeConfigSchema.safeParse({ ...BASE, countdownUnits: ['meses', 'dias'] })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.countdownUnits).toEqual(['meses', 'dias'])
+    }
+  })
+
+  it('rejeita unidade de contagem inventada e faixa vazia', () => {
+    expect(themeConfigSchema.safeParse({ ...BASE, countdownUnits: ['luas'] }).success).toBe(false)
+    expect(themeConfigSchema.safeParse({ ...BASE, countdownUnits: [] }).success).toBe(false)
+  })
+
   it('aceita uma seleção customizada de heroButtons/heroFeaturedButton', () => {
     const result = themeConfigSchema.safeParse({
       ...BASE,

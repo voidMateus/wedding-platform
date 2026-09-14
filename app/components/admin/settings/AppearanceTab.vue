@@ -6,6 +6,8 @@ import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from '#shared/utils/co
 import { DEFAULT_FONT_PAIR_ID, findThemePreset } from '#shared/theme-presets'
 import { DEFAULT_HERO_BUTTONS, DEFAULT_HERO_FEATURED_BUTTON } from '#shared/hero-buttons'
 import { resolveHomeSectionOrder } from '#shared/home-sections'
+import { DEFAULT_COUNTDOWN_UNITS } from '#shared/countdown-units'
+import { resolveEventDateTime } from '#shared/utils/event-datetime'
 import { hasVerseContent, resolveWeddingContent } from '#shared/wedding-content'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { Wedding } from '~/types/wedding'
@@ -51,6 +53,15 @@ const verseActive = computed(() =>
   hasVerseContent(resolveWeddingContent(props.wedding?.config_conteudo).verse),
 )
 
+// Data/hora do evento para a PRÉVIA da contagem regressiva — o casal vê os
+// números dele, não um exemplo inventado. Sem casamento carregado ainda, o
+// campo simplesmente não mostra prévia.
+const eventDateTime = computed(() =>
+  props.wedding
+    ? resolveEventDateTime(props.wedding.data_evento, props.wedding.horario_evento).toISOString()
+    : null,
+)
+
 const { handleSubmit, defineField, errors, resetForm, isSubmitting, meta } = useForm({
   validationSchema: toTypedSchema(themeConfigSchema),
 })
@@ -65,6 +76,7 @@ const [fontPairId] = defineField('fontPairId')
 const [headingStyle] = defineField('headingStyle')
 const [ornamentFrame] = defineField('ornamentFrame')
 const [showCountdown] = defineField('showCountdown')
+const [countdownUnits] = defineField('countdownUnits')
 const [heroButtons] = defineField('heroButtons')
 const [heroFeaturedButton] = defineField('heroFeaturedButton')
 const [sectionOrder] = defineField('sectionOrder')
@@ -102,6 +114,7 @@ function applyWeddingToForm() {
       headingStyle: theme.headingStyle ?? 'classic',
       ornamentFrame: theme.ornamentFrame ?? false,
       showCountdown: theme.showCountdown ?? true,
+      countdownUnits: theme.countdownUnits ?? DEFAULT_COUNTDOWN_UNITS,
       heroButtons: theme.heroButtons ?? DEFAULT_HERO_BUTTONS,
       heroFeaturedButton: theme.heroFeaturedButton ?? DEFAULT_HERO_FEATURED_BUTTON,
       // Resolvido (não o valor cru do banco): a lista precisa chegar completa
@@ -316,10 +329,12 @@ const onSubmit = handleSubmit(
       title="Experiência"
       description="Recursos opcionais exibidos para os convidados."
     >
-      <AdminSettingsToggleRow
-        v-model="showCountdown"
-        label="Contagem regressiva"
-        hint="Mostra dias, horas e minutos até o evento no topo do site."
+      <AdminSettingsCountdownUnitsField
+        :enabled="showCountdown ?? true"
+        :model-value="countdownUnits"
+        :target-date-time="eventDateTime"
+        @update:enabled="(value) => (showCountdown = value)"
+        @update:model-value="(value) => (countdownUnits = value)"
       />
 
       <AdminSettingsHeroShortcutsField

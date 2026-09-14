@@ -116,6 +116,15 @@ describe('PublicHero', () => {
     expect(wrapper.text()).toContain('dias')
   })
 
+  it('usa as unidades escolhidas pelo casal (config_tema.countdownUnits)', () => {
+    const wrapper = mountHero({
+      wedding: makeWedding({ config_tema: { countdownUnits: ['meses', 'dias', 'horas'] } }),
+    })
+    const text = wrapper.text()
+    expect(text).toContain('meses')
+    expect(text).not.toContain('segundos')
+  })
+
   it('esconde a contagem regressiva quando showCountdown=false', () => {
     const wrapper = mountHero({ wedding: makeWedding({ config_tema: { showCountdown: false } }) })
     expect(wrapper.text()).not.toContain('dias')
