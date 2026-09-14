@@ -220,8 +220,19 @@ export interface ResolvedHomeSection {
 export interface ResolveHomeSectionsInput {
   /** `config_tema.sectionOrder`. */
   order: string[] | undefined
-  /** `config_tema.hiddenSections` — seções que o casal desligou explicitamente. */
-  hidden: string[] | undefined
+  /**
+   * `config_tema.activeSections` — as seções que o casal LIGOU.
+   *
+   * Opt-in, e não opt-out: ausente ou vazio significa **nenhuma**, e o site é
+   * só a capa com os nomes, a data e a contagem — um save the date legítimo.
+   * Era o contrário até 2026-09-14, e o contrário significava que um casal
+   * recém-criado já tinha no ar sete seções de texto padrão contando uma
+   * história que ele não escreveu (docs/fase4-onboarding.md 3.2).
+   *
+   * A inversão também conserta o outro lado: seção nova no catálogo deixa de
+   * aparecer sozinha no site de todo mundo.
+   */
+  active: string[] | undefined
   /**
    * Por id: a seção tem o que mostrar? Só precisa listar as que podem ficar
    * vazias (Manual, FAQ, Galeria, Versículo, Manual dos Padrinhos, O Grande
@@ -249,14 +260,14 @@ export interface ResolveHomeSectionsInput {
  * escura entre elas não muda esse risco.
  */
 export function resolveHomeSections(input: ResolveHomeSectionsInput): ResolvedHomeSection[] {
-  const hidden = new Set(input.hidden ?? [])
+  const ativas = new Set(input.active ?? [])
   const resolved: ResolvedHomeSection[] = []
   let alternatingIndex = 0
 
   for (const id of resolveHomeSectionOrder(input.order)) {
     const definition = findHomeSection(id)
     if (!definition) continue
-    if (hidden.has(id)) continue
+    if (!ativas.has(id)) continue
     if (input.hasContent[id] === false) continue
 
     if (definition.toneMode === 'alternating') {

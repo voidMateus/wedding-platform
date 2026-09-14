@@ -80,7 +80,7 @@ const [countdownUnits] = defineField('countdownUnits')
 const [heroButtons] = defineField('heroButtons')
 const [heroFeaturedButton] = defineField('heroFeaturedButton')
 const [sectionOrder] = defineField('sectionOrder')
-const [hiddenSections] = defineField('hiddenSections')
+const [activeSections] = defineField('activeSections')
 
 // Caixa alta com espaçamento largo é o tratamento do convite impresso; a
 // escolha aparece como duas opções nomeadas, não como um interruptor
@@ -122,7 +122,7 @@ function applyWeddingToForm() {
       // casal salvou a ordem sumiria da tela — e sumiria do site no próximo
       // salvamento, agora de forma persistida.
       sectionOrder: resolveHomeSectionOrder(theme.sectionOrder),
-      hiddenSections: theme.hiddenSections ?? [],
+      activeSections: theme.activeSections ?? [],
     },
   })
   advancedColorEnabled.value = Boolean(theme.titleColor || theme.bodyColor)
@@ -352,9 +352,9 @@ const onSubmit = handleSubmit(
     >
       <AdminSettingsSectionOrderField
         :model-value="sectionOrder ?? []"
-        :hidden="hiddenSections ?? []"
+        :active="activeSections ?? []"
         @update:model-value="(value) => (sectionOrder = value)"
-        @update:hidden="(value) => (hiddenSections = value)"
+        @update:active="(value) => (activeSections = value)"
       />
     </AdminSettingsSectionCard>
 

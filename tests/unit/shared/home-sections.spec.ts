@@ -89,13 +89,15 @@ describe('resolveHomeSectionOrder', () => {
 
 describe('resolveHomeSections — alternância de fundo', () => {
   const allVisible: Record<string, boolean> = {}
+  /** Todas ligadas — o estado de quem já montou o site, não o de quem chegou. */
+  const todasAtivas = [...DEFAULT_SECTION_ORDER]
 
   it('nunca deixa duas seções claras seguidas com o mesmo fundo', () => {
     // A razão de o tom sair daqui e não de dentro de cada componente: com a
     // ordem nas mãos do casal, qualquer par pode acabar adjacente.
     const resolved = resolveHomeSections({
       order: undefined,
-      hidden: undefined,
+      active: todasAtivas,
       hasContent: allVisible,
     })
     const alternantes = resolved.filter((s) => s.tone === 'default' || s.tone === 'muted')
@@ -114,7 +116,7 @@ describe('resolveHomeSections — alternância de fundo', () => {
     // vizinhas viram adjacentes e precisam de tons diferentes.
     const resolved = resolveHomeSections({
       order: undefined,
-      hidden: undefined,
+      active: todasAtivas,
       hasContent: { 'manual-convidados': false },
     })
     expect(resolved.map((s) => s.id)).not.toContain('manual-convidados')
@@ -127,7 +129,7 @@ describe('resolveHomeSections — alternância de fundo', () => {
   it('continua alternando depois de uma seção ser desligada', () => {
     const resolved = resolveHomeSections({
       order: undefined,
-      hidden: ['dress-code'],
+      active: todasAtivas.filter((id) => id !== 'dress-code'),
       hasContent: allVisible,
     })
     expect(resolved.map((s) => s.id)).not.toContain('dress-code')
@@ -140,7 +142,7 @@ describe('resolveHomeSections — alternância de fundo', () => {
   it('Versículo e RSVP têm tom próprio e não entram no revezamento', () => {
     const resolved = resolveHomeSections({
       order: ['historia', 'versiculo', 'confirmar-presenca', 'dress-code'],
-      hidden: undefined,
+      active: todasAtivas,
       hasContent: allVisible,
     })
     const byId = Object.fromEntries(resolved.map((s) => [s.id, s.tone]))
@@ -153,7 +155,7 @@ describe('resolveHomeSections — alternância de fundo', () => {
   it('a primeira seção clara é sempre a mais clara', () => {
     const resolved = resolveHomeSections({
       order: ['versiculo', 'historia'],
-      hidden: undefined,
+      active: todasAtivas,
       hasContent: allVisible,
     })
     expect(resolved.find((s) => s.id === 'historia')?.tone).toBe('default')
@@ -161,10 +163,10 @@ describe('resolveHomeSections — alternância de fundo', () => {
 })
 
 describe('resolveHomeSections — visibilidade', () => {
-  it('remove as seções desligadas pelo casal', () => {
+  it('mostra só as seções que o casal ligou', () => {
     const resolved = resolveHomeSections({
       order: undefined,
-      hidden: ['dress-code', 'faq'],
+      active: [...DEFAULT_SECTION_ORDER].filter((id) => id !== 'dress-code' && id !== 'faq'),
       hasContent: {},
     })
     const ids = resolved.map((s) => s.id)
@@ -176,7 +178,7 @@ describe('resolveHomeSections — visibilidade', () => {
   it('remove as seções sem conteúdo, mesmo ligadas', () => {
     const resolved = resolveHomeSections({
       order: undefined,
-      hidden: [],
+      active: [...DEFAULT_SECTION_ORDER],
       hasContent: { versiculo: false, 'manual-padrinhos': false },
     })
     const ids = resolved.map((s) => s.id)
@@ -188,33 +190,42 @@ describe('resolveHomeSections — visibilidade', () => {
     // Um mapa vazio não esconde nada: só quem responde `false` explicitamente
     // é removido. É o que permite listar ali apenas as seções que podem ficar
     // vazias, em vez de as onze.
-    const resolved = resolveHomeSections({ order: undefined, hidden: [], hasContent: {} })
+    const resolved = resolveHomeSections({
+      order: undefined,
+      active: [...DEFAULT_SECTION_ORDER],
+      hasContent: {},
+    })
     expect(resolved).toHaveLength(HOME_SECTION_CATALOG.length)
   })
 
-  it('desligar tudo devolve uma lista vazia sem quebrar', () => {
-    const resolved = resolveHomeSections({
-      order: undefined,
-      hidden: [...DEFAULT_SECTION_ORDER],
-      hasContent: {},
-    })
-    expect(resolved).toEqual([])
+  it('sem nenhuma ligada devolve lista vazia — o estado de um casamento novo', () => {
+    // É o site logo depois de criado: só a capa, com nomes, data e contagem.
+    // `undefined` e `[]` significam a mesma coisa, e é a diferença entre o
+    // casal receber um site em branco e receber sete seções de texto padrão
+    // que ele não escreveu (docs/fase4-onboarding.md 3.2).
+    for (const active of [undefined, []]) {
+      expect(resolveHomeSections({ order: undefined, active, hasContent: {} })).toEqual([])
+    }
   })
 
   it('respeita a ordem do casal, não a do catálogo', () => {
     // `order` define a SEQUÊNCIA, nunca o conjunto: as seções não citadas
     // continuam entrando no fim (ver resolveHomeSectionOrder). Para restringir
-    // o conjunto é `hidden` que serve.
+    // o conjunto é `active` que serve.
     const resolved = resolveHomeSections({
       order: ['faq', 'historia'],
-      hidden: [...DEFAULT_SECTION_ORDER].filter((id) => id !== 'faq' && id !== 'historia'),
+      active: ['faq', 'historia'],
       hasContent: {},
     })
     expect(resolved.map((s) => s.id)).toEqual(['faq', 'historia'])
   })
 
   it('uma ordem parcial não esconde as seções que ela não cita', () => {
-    const resolved = resolveHomeSections({ order: ['faq'], hidden: [], hasContent: {} })
+    const resolved = resolveHomeSections({
+      order: ['faq'],
+      active: [...DEFAULT_SECTION_ORDER],
+      hasContent: {},
+    })
     expect(resolved[0]!.id).toBe('faq')
     expect(resolved).toHaveLength(HOME_SECTION_CATALOG.length)
   })

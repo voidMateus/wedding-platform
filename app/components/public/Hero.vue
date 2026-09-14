@@ -102,12 +102,12 @@ const coverFocalPosition = computed(
 // slug do casamento (CLAUDE.md, seção 4.4/33) prefixado aqui para navegar
 // para a home certa em vez de cair na raiz neutra sem casamento nenhum.
 const heroButtons = computed(() =>
-  // `hiddenSections` entra aqui porque um atalho para uma seção desligada é um
+  // `activeSections` entra aqui porque um atalho para uma seção desligada é um
   // link para lugar nenhum: o convidado clica e a página não se move.
   resolveHeroButtons(
     theme.value.heroButtons,
     theme.value.heroFeaturedButton,
-    theme.value.hiddenSections,
+    theme.value.activeSections,
   ).map((button) => {
     // 'presentes' é o único atalho que navega pra uma página de verdade
     // (não uma âncora na home) — precisa preservar ?code=, senão o

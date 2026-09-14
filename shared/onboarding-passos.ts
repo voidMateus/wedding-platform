@@ -15,44 +15,41 @@ import type { FatoObservado, FatoSimples } from '#shared/fatos-do-casamento'
  * objeto. Por isso o roteiro se marca sozinho, não tem botão de concluir, e
  * some quando acaba.
  *
+ ## O básico do básico, e nada além
+ *
+ * Quatro passos: quando, onde, a cara do site, e publicar — agora ou depois.
+ * Saíram, em 2026-09-14, o prazo de RSVP, o teto do orçamento e montar a lista
+ * de convidados: os três são trabalho de MÓDULO, e cobrá-los de quem acabou de
+ * entrar é pedir decisão sobre fluxos que ainda não existem para o casal. O
+ * módulo correspondente pede cada um deles na hora certa, no próprio estado
+ * vazio.
+ *
  * ## A ordem é esta, e é a única
  *
- * O roteiro desenha os sete na ordem desta lista; o wizard é um FILTRO sobre
+ * O roteiro desenha os quatro na ordem desta lista; o wizard é um FILTRO sobre
  * ela (`PASSOS_DO_WIZARD`), na mesma sequência. Não existe uma segunda lista
  * para divergir — é a lição de `home-sections.ts`, onde um catálogo paralelo
  * ficou com 8 entradas para 11 seções sem nada acusar a falta.
+ *
+ * Não há agrupamento: com quatro linhas, um cabeçalho sobre "Publicar o site"
+ * sozinho ocuparia mais do que explica — a mesma razão que descartou a versão
+ * de três grupos quando eram sete passos.
  *
  * Nada aqui vira linha no banco: o progresso é sempre derivado dos fatos
  * observados (`server/utils/fatos-do-casamento.ts`), nunca de uma coluna de
  * estado a manter sincronizada.
  */
 
-/**
- * Os dois grupos do roteiro.
- *
- * A divisão é a mesma que decide quem entra no wizard: *Configurar* é campo
- * (uma pergunta, uma resposta), *Começar a usar* é trabalho e ato. O
- * agrupamento só torna visível uma distinção que o desenho já tinha — sem ele,
- * "Publicar o site" parece a sétima pergunta de um formulário.
- */
-export const GRUPOS_DO_ROTEIRO = [
-  { id: 'configurar', rotulo: 'Configurar' },
-  { id: 'comecar', rotulo: 'Começar a usar' },
-] as const
-
-export type GrupoDoRoteiroId = (typeof GRUPOS_DO_ROTEIRO)[number]['id']
-
 export interface PassoDoOnboarding {
   /** Chave estável — usada na URL do wizard (`?passo=`) e nos testes. */
   id: string
   rotulo: string
-  grupo: GrupoDoRoteiroId
   /** O fato que marca este passo como cumprido. */
   fato: FatoSimples
   /**
-   * É uma etapa do wizard? Só passo que é CAMPO entra: montar a lista é
-   * trabalho (tem tela, importador e entrada rápida) e publicar é ato — os
-   * dois vivem no roteiro e levam ao lugar certo.
+   * É uma etapa do wizard? Só passo que é CAMPO entra — publicar é ATO, e
+   * decidir publicar agora ou depois não é preencher um formulário: vive no
+   * roteiro e leva à Situação do site, em Configurações.
    */
   noWizard: boolean
   /** Texto do link quando o passo ainda não está cumprido. */
@@ -74,7 +71,6 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
   {
     id: 'data-horario',
     rotulo: 'Data e horário',
-    grupo: 'configurar',
     // A DATA não é um passo: é obrigatória na criação do casamento, então um
     // passo que nasce cumprido para todo mundo só encheria a lista. O que
     // falta de verdade é o horário — que a contagem regressiva, o convite e o
@@ -87,58 +83,30 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
   {
     id: 'local',
     rotulo: 'Onde vai ser',
-    grupo: 'configurar',
     fato: 'local_definido',
     noWizard: true,
     acao: 'definir',
     chamada: 'por onde vai ser',
   },
   {
-    id: 'prazo-rsvp',
-    rotulo: 'Prazo de RSVP',
-    grupo: 'configurar',
-    fato: 'prazo_rsvp_definido',
-    noWizard: true,
-    acao: 'definir',
-    chamada: 'pelo prazo de RSVP',
-  },
-  {
-    id: 'orcamento',
-    rotulo: 'Teto do orçamento',
-    grupo: 'configurar',
-    fato: 'orcamento_definido',
-    noWizard: true,
-    acao: 'definir',
-    chamada: 'pelo teto do orçamento',
-  },
-  {
     id: 'aparencia',
     rotulo: 'A cara do site',
-    grupo: 'configurar',
     // Última etapa do wizard de propósito: é a única em que errar não custa
-    // nada, e por isso a certa para terminar.
+    // nada — e o casal troca o tema quantas vezes quiser depois.
     fato: 'identidade_visual_definida',
     noWizard: true,
     acao: 'escolher',
     chamada: 'pela cara do site',
   },
   {
-    id: 'convidados',
-    rotulo: 'Lista de convidados',
-    grupo: 'comecar',
-    fato: 'tem_convidado',
-    noWizard: false,
-    acao: 'ir para a lista',
-    chamada: 'pela lista de convidados',
-    destino: '/convidados',
-  },
-  {
     id: 'publicar',
     rotulo: 'Publicar o site',
-    grupo: 'comecar',
     fato: 'site_publicado',
     noWizard: false,
-    acao: 'publicar',
+    // "agora ou depois" e não "publicar": publicar é escolha, não pendência. O
+    // casal que prefere deixar para quando o site estiver do jeito dele não
+    // está atrasado em nada.
+    acao: 'agora ou depois',
     chamada: 'publicando o site',
     destino: '/configuracoes?secao=evento',
   },

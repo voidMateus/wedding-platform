@@ -30,7 +30,7 @@ const monogramImageUrl = computed(() => theme.value.monogramImageUrl ?? null)
 
 // Seções desligadas pelo casal — o menu não pode oferecer âncora para uma
 // seção que não existe na página (mesma regra dos atalhos do Hero).
-const hiddenSections = computed(() => theme.value.hiddenSections ?? [])
+const activeSections = computed(() => theme.value.activeSections ?? [])
 
 // Estilo tipográfico dos títulos (config_tema.headingStyle). Vai como atributo
 // no wrapper DESTE layout, não em <html>: o painel administrativo compartilha
@@ -87,7 +87,7 @@ useHead({
       :code="code"
       :featured-button-id="heroFeaturedButton"
       :monogram-image-url="monogramImageUrl"
-      :hidden-sections="hiddenSections"
+      :active-sections="activeSections"
       :current-path="route.path"
     />
     <!--
@@ -104,6 +104,6 @@ useHead({
       :monogram-image-url="monogramImageUrl"
     />
     <PublicScrollToTopButton />
-    <PublicMobileCtaBar :slug="slug" :hidden-sections="hiddenSections" />
+    <PublicMobileCtaBar :slug="slug" :active-sections="activeSections" />
   </div>
 </template>

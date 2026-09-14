@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  GRUPOS_DO_ROTEIRO,
   PASSOS_DO_ONBOARDING,
   PASSOS_DO_WIZARD,
   resolverPassosDoOnboarding,
@@ -26,12 +25,27 @@ describe('catálogo do roteiro', () => {
     expect(new Set(fatos).size).toBe(fatos.length)
   })
 
-  it('usa só grupos do catálogo, e todo passo fora do wizard tem destino', () => {
-    const grupos = GRUPOS_DO_ROTEIRO.map((grupo) => grupo.id)
+  it('todo passo fora do wizard tem destino', () => {
     for (const passo of PASSOS_DO_ONBOARDING) {
-      expect(grupos).toContain(passo.grupo)
       if (!passo.noWizard) expect(passo.destino).toBeTruthy()
     }
+  })
+
+  it('é o básico do básico: quatro passos, e publicar não é etapa de wizard', () => {
+    // Prazo de RSVP, teto do orçamento e montar a lista saíram em 2026-09-14:
+    // são trabalho de MÓDULO, e cobrá-los de quem acabou de entrar é pedir
+    // decisão sobre fluxos que ainda não existem para o casal.
+    expect(PASSOS_DO_ONBOARDING.map((passo) => passo.id)).toEqual([
+      'data-horario',
+      'local',
+      'aparencia',
+      'publicar',
+    ])
+    expect(PASSOS_DO_WIZARD.map((passo) => passo.id)).toEqual([
+      'data-horario',
+      'local',
+      'aparencia',
+    ])
   })
 
   it('o wizard é um FILTRO do roteiro, na mesma ordem', () => {
@@ -69,15 +83,13 @@ describe('resolverPassosDoOnboarding', () => {
   })
 
   it('marca como PULADO o passo vazio que tem um posterior cumprido', () => {
-    // O casal respondeu horário e aparência, e passou batido por local, prazo e
-    // orçamento: os três só podem ter sido pulados. Nada disso está no banco —
-    // é derivado da posição.
+    // O casal respondeu horário e aparência, e passou batido pelo local: ele só
+    // pode ter sido pulado. Nada disso está no banco — é derivado da posição.
     const roteiro = resolverPassosDoOnboarding(['horario_definido', 'identidade_visual_definida'])
     const porId = Object.fromEntries(roteiro.passos.map((passo) => [passo.id, passo]))
 
     expect(porId.local!.pulado).toBe(true)
-    expect(porId['prazo-rsvp']!.pulado).toBe(true)
-    expect(porId.orcamento!.pulado).toBe(true)
+    expect(porId.publicar!.pulado).toBe(false)
   })
 
   it('não marca como pulado o passo onde o casal simplesmente parou', () => {
@@ -86,9 +98,9 @@ describe('resolverPassosDoOnboarding', () => {
     const roteiro = resolverPassosDoOnboarding(['horario_definido', 'local_definido'])
     const porId = Object.fromEntries(roteiro.passos.map((passo) => [passo.id, passo]))
 
-    expect(porId['prazo-rsvp']!.pulado).toBe(false)
+    expect(porId.aparencia!.pulado).toBe(false)
     expect(porId.publicar!.pulado).toBe(false)
-    expect(roteiro.proximaEtapaDoWizard?.id).toBe('prazo-rsvp')
+    expect(roteiro.proximaEtapaDoWizard?.id).toBe('aparencia')
   })
 
   it('passo cumprido nunca é pulado', () => {
@@ -98,9 +110,9 @@ describe('resolverPassosDoOnboarding', () => {
   })
 
   it('a próxima etapa ignora os passos que não são do wizard', () => {
-    // Montar a lista e publicar não são etapas: o casal que só tem convidados
-    // cadastrados continua sendo levado à primeira PERGUNTA em aberto.
-    const roteiro = resolverPassosDoOnboarding(['tem_convidado'])
+    // Publicar é ATO, não pergunta: quem já publicou continua sendo levado à
+    // primeira PERGUNTA em aberto.
+    const roteiro = resolverPassosDoOnboarding(['site_publicado'])
 
     expect(roteiro.proximaEtapaDoWizard?.id).toBe('data-horario')
   })
@@ -122,18 +134,16 @@ describe('resolverPassosDoOnboarding', () => {
 
 describe('o próximo passo que o acolhimento nomeia', () => {
   it('é o primeiro em aberto, mesmo quando não é etapa do wizard', () => {
-    // Cinco perguntas respondidas, lista ainda vazia: "Começar" precisa apontar
-    // para a lista de convidados — e não sumir por não haver mais etapa.
+    // As três perguntas respondidas e o site ainda em rascunho: "Começar"
+    // precisa apontar para a publicação — e não sumir por não haver mais etapa.
     const roteiro = resolverPassosDoOnboarding([
       'horario_definido',
       'local_definido',
-      'prazo_rsvp_definido',
-      'orcamento_definido',
       'identidade_visual_definida',
     ])
 
     expect(roteiro.proximaEtapaDoWizard).toBeNull()
-    expect(roteiro.proximoPasso?.id).toBe('convidados')
+    expect(roteiro.proximoPasso?.id).toBe('publicar')
   })
 
   it('some junto com o roteiro quando tudo está cumprido', () => {

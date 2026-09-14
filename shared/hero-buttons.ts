@@ -80,15 +80,21 @@ export function findHeroButton(id: string): HeroButtonDefinition | undefined {
 export function resolveHeroButtons(
   selectedIds: string[] | undefined,
   featuredId: string | undefined,
-  hiddenSections: string[] = [],
+  /**
+   * `config_tema.activeSections` — as seções LIGADAS. Atalho para seção
+   * desligada é link para lugar nenhum: o convidado clica e a página não se
+   * move. Opt-in desde 2026-09-14 (docs/fase4-onboarding.md 3.2), então lista
+   * vazia significa nenhum atalho — e é o estado de um casamento novo.
+   */
+  activeSections: string[] = [],
 ): Array<HeroButtonDefinition & { featured: boolean }> {
-  const hidden = new Set(hiddenSections)
+  const ativas = new Set(activeSections)
   const ids = selectedIds ?? DEFAULT_HERO_BUTTONS
   const featured = normalizeHeroButtonId(featuredId ?? DEFAULT_HERO_FEATURED_BUTTON)
 
   return ids
     .map((id) => findHeroButton(id))
     .filter((button): button is HeroButtonDefinition => Boolean(button))
-    .filter((button) => !hidden.has(button.id))
+    .filter((button) => ativas.has(button.id))
     .map((button) => ({ ...button, featured: button.id === featured }))
 }

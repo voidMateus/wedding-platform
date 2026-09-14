@@ -162,7 +162,15 @@ export const themeConfigSchema = z.object({
    * uma seção que TEM conteúdo — o casal que preencheu o dress code mas não
    * quer exibi-lo agora não precisa apagar o texto para isso.
    */
-  hiddenSections: z.array(homeSectionIdSchema).max(HOME_SECTION_CATALOG.length).default([]),
+  /**
+   * As seções da home que o casal LIGOU — opt-in, nunca opt-out.
+   *
+   * Vazio é o estado de nascimento e significa **nenhuma**: o site de um casal
+   * recém-criado é só a capa com nomes, data e contagem. Até 2026-09-14 isto
+   * era `hiddenSections` (nascia tudo ligado), e o resultado era sete seções no
+   * ar com o texto padrão da plataforma antes de o casal escrever uma linha.
+   */
+  activeSections: z.array(homeSectionIdSchema).max(HOME_SECTION_CATALOG.length).default([]),
   // Atalhos do Hero (CLAUDE.md, seção 21 — "Fase Vermelho Clássico"): o
   // casal escolhe quais botões aparecem e qual fica em destaque (cor
   // preenchida); os demais ficam em outline. Catálogo fixo em
@@ -212,7 +220,7 @@ export interface ThemeConfig {
   /** Ordem dos capítulos da home — ids de shared/home-sections.ts. Ausente = DEFAULT_SECTION_ORDER. */
   sectionOrder?: string[]
   /** Seções desligadas pelo casal — ids de shared/home-sections.ts. Ausente = nenhuma. */
-  hiddenSections?: string[]
+  activeSections?: string[]
   coverImageUrl?: string
   /**
    * Monograma próprio do casal (PNG/WebP transparente), gerido pelos

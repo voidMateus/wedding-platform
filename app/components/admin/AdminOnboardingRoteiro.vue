@@ -15,12 +15,11 @@
   3. Cumprido mostra o VALOR, não um selo: "Espaço Villa Rosa" confirma que o
      sistema entendeu o que o casal quis dizer; "Concluído" só repete o ícone.
 
-  O bloco some inteiro quando os sete terminam (e volta se um fato deixar de
+  O bloco some inteiro quando os quatro terminam (e volta se um fato deixar de
   valer) — diferente do bloco do Planejamento, que fica para sempre porque
   acompanha um processo contínuo. Este fecha uma porta.
 -->
 <script setup lang="ts">
-import { GRUPOS_DO_ROTEIRO } from '#shared/onboarding-passos'
 import type { PassoResolvido, RoteiroDoOnboarding } from '#shared/onboarding-passos'
 
 interface Props {
@@ -85,13 +84,6 @@ const O_QUE_TEM_AQUI = [
 const slug = useActiveWeddingSlug()
 const base = computed(() => `/admin/${slug}`)
 
-const grupos = computed(() =>
-  GRUPOS_DO_ROTEIRO.map((grupo) => ({
-    ...grupo,
-    passos: roteiro.passos.filter((passo) => passo.grupo === grupo.id),
-  })).filter((grupo) => grupo.passos.length > 0),
-)
-
 /**
  * Para onde a linha leva. Passo do wizard abre o wizard NAQUELA etapa — o
  * casal clicou naquilo, não em "começar do início".
@@ -151,10 +143,26 @@ const proximo = computed(() => roteiro.proximoPasso)
           </ul>
         </div>
 
+        <div class="flex flex-col gap-2 rounded-md bg-surface-muted/50 px-4 py-3">
+          <p class="text-sm font-medium text-text">
+            O site de vocês começa vazio — e é de propósito
+          </p>
+          <p class="text-sm leading-relaxed text-text-muted">
+            Por enquanto ele mostra só a capa: os nomes de vocês, a data e a contagem regressiva.
+            Cada seção — a história, o cronograma, a lista de presentes, a confirmação de presença —
+            entra no site quando vocês quiserem, em
+            <NuxtLink
+              :to="`${base}/configuracoes?secao=ordem`"
+              class="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Configurações › Seções do site</NuxtLink
+            >.
+          </p>
+        </div>
+
         <p class="max-w-2xl text-sm leading-relaxed text-text">
-          Nada disso precisa ser feito hoje. Comece pelos primeiros passos abaixo: eles são o que o
-          sistema ainda não sabe sobre o casamento de vocês, e é o que deixa o site pronto para
-          receber os convidados.
+          Comece pelos primeiros passos abaixo — são quatro, e é só o básico do básico. Nada aqui é
+          definitivo: data, local, aparência e a decisão de publicar mudam quando vocês quiserem.
         </p>
       </div>
 
@@ -180,13 +188,9 @@ const proximo = computed(() => roteiro.proximoPasso)
         </div>
       </div>
 
-      <div v-for="grupo in grupos" :key="grupo.id" class="flex flex-col gap-1">
-        <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-          {{ grupo.rotulo }}
-        </p>
-
+      <div class="flex flex-col gap-1">
         <ul class="flex flex-col">
-          <li v-for="passo in grupo.passos" :key="passo.id">
+          <li v-for="passo in roteiro.passos" :key="passo.id">
             <NuxtLink
               :to="destinoDoPasso(passo)"
               class="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-surface-muted/60"

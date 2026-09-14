@@ -55,7 +55,7 @@ const sections = computed(() => {
   const theme = (wedding.value?.config_tema ?? {}) as Partial<ThemeConfig>
   return resolveHomeSections({
     order: theme.sectionOrder,
-    hidden: theme.hiddenSections,
+    active: theme.activeSections,
     hasContent: resolveHomeSectionContent({
       contentConfig: wedding.value?.config_conteudo,
       eventSegmentCount: eventSegmentGroups.value.length,

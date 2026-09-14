@@ -153,8 +153,6 @@ o mesmo schema Zod e o mesmo composable** da tela que já é dona daquele dado:
 |---|---|---|---|
 | Data e horário | `UiDatePicker` + `UiTimePicker` (a data vem preenchida e segue editável) | `weddingSettingsSchema` | `useWedding().updateWedding` |
 | Onde vai ser | `AdminLocationField` | `eventSegmentInputSchema` | `useEventSegments().create/update` |
-| Prazo de RSVP | `UiDatePicker` + `UiTimePicker` | `weddingSettingsSchema` | `useWedding().updateWedding` |
-| Teto do orçamento | o campo novo do topo de Gastos | `budgetTotalSchema` | `useFinance().definirTetoDoOrcamento` |
 | A cara do site | `AdminThemePresetPicker` | `themeConfigSchema` | `useWedding().updateWeddingTheme` |
 
 O wizard é a casca: barra de progresso, navegação, "Pular". Lógica de campo,
@@ -277,6 +275,57 @@ A correção não é uma tela nova — é a página no seu estado vazio:
 O que **não** mudou: nada intercepta, não existe tela de parabéns, e o roteiro
 continua sendo o que sobrevive ao wizard. A diferença é que agora ele tem a
 tela inteira enquanto ela não tem outro uso.
+
+### 3.2 O básico do básico, e o site que começa vazio (2026-09-14, terceira rodada)
+
+Duas decisões do usuário depois de usar a conta limpa, e a segunda muda o
+produto para todo casamento.
+
+**O roteiro cai para quatro passos**: quando, onde, a cara do site, e publicar
+— agora ou depois. Saem o prazo de RSVP, o teto do orçamento e montar a lista
+de convidados. Os três são **trabalho de módulo**, não cadastro básico: cobrá-los
+de quem acabou de entrar é pedir decisão sobre fluxos que ainda não existem para
+o casal, e cada módulo já os pede na hora certa, no próprio estado vazio. A
+cópia diz explicitamente que nada é definitivo.
+
+Some junto o agrupamento (*Configurar* / *Começar a usar*): com quatro linhas,
+um cabeçalho sobre "Publicar o site" sozinho ocuparia mais do que explica — a
+mesma razão que descartou a versão de três grupos quando eram sete passos.
+
+**Publicar deixa de ser pendência e vira escolha.** A ação na linha diz "agora
+ou depois", não "publicar": o casal que prefere esperar o site ficar do jeito
+dele não está atrasado em nada.
+
+#### As seções da home viram opt-in
+
+O achado que motivou: medido no site de um casamento recém-criado, **sete
+seções já estavam no ar** — Boas-vindas, Nossa História, Confirme sua Presença,
+Dress Code, Manual dos Convidados, Lista de Presentes e FAQ —, todas com o
+texto padrão da plataforma. Um casal que acabou de entrar tinha um site público
+contando uma história que ele não escreveu.
+
+A causa era a semântica: `config_tema.hiddenSections` guardava o que o casal
+**desligou**, então tudo nascia ligado. Agora `config_tema.activeSections`
+guarda o que ele **ligou**, e ausente/vazio significa nenhuma:
+
+- **O site de um casal novo é só a capa** — nomes, data e contagem regressiva.
+  É um save the date legítimo, e é exatamente o que um casamento recém-criado
+  tem a dizer. Sem atalhos no Hero, sem menu na barra, sem a barra de RSVP do
+  celular: todos derivam da mesma lista.
+- **Cada seção entra quando o casal quiser**, em Configurações › Aparência ›
+  Ordem das seções — que continua listando o catálogo inteiro, porque é dela
+  que sai a resposta para "o que mais posso pôr no meu site?".
+- **O acolhimento avisa**, em vez de deixar o casal descobrir sozinho que o
+  site está vazio: um bloco explica que é de propósito e linka para onde ligar
+  cada uma.
+- **Nenhum site no ar perde seção**: a migration converte `hiddenSections` em
+  `activeSections` preservando a escolha de cada casal (ativas = catálogo menos
+  o que ele já tinha desligado). A lista de ids no SQL é um **snapshot** da data
+  da conversão, não uma segunda fonte de verdade — seção criada depois não entra
+  lá, porque nascer desligada para todo mundo é justamente o comportamento novo.
+- **Bônus da inversão**: seção nova no catálogo deixa de aparecer sozinha no
+  site de todo mundo. Antes, acrescentar um capítulo ao catálogo o publicava em
+  todos os casamentos no mesmo deploy.
 
 ## 4. Modelo de dados
 
