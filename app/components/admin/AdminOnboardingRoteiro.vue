@@ -35,46 +35,55 @@ interface Props {
   destaque?: boolean
   /** Só no modo destaque — "Ana & João". */
   nomesNoivos?: string
-  /** Só no modo destaque — `YYYY-MM-DD`, para a frase de quantos dias faltam. */
-  dataEvento?: string
 }
 
-const {
-  roteiro,
-  valores = {},
-  destaque = false,
-  nomesNoivos = '',
-  dataEvento = '',
-} = defineProps<Props>()
+const { roteiro, valores = {}, destaque = false, nomesNoivos = '' } = defineProps<Props>()
+
+/**
+ * O que o casal tem aqui dentro, em uma linha cada.
+ *
+ * Só aparece no primeiro acesso, e é DESCRIÇÃO, não menu: nenhum item leva a
+ * lugar nenhum. A nav do topo é por onde se explora; aqui a única ação é o
+ * botão do próximo passo, porque quem acabou de chegar pediu para saber onde
+ * olhar — e seis destinos concorrentes é o contrário de uma resposta.
+ */
+const O_QUE_TEM_AQUI = [
+  {
+    icone: 'lucide:globe',
+    titulo: 'O site do casamento',
+    texto:
+      'A página que os convidados abrem: a história de vocês, o cronograma, o local no mapa e as fotos.',
+  },
+  {
+    icone: 'lucide:users',
+    titulo: 'Convidados e confirmações',
+    texto: 'A lista, os convites com link e QR code, e quem já confirmou presença — sem planilha.',
+  },
+  {
+    icone: 'lucide:gift',
+    titulo: 'Lista de presentes',
+    texto:
+      'Os presentes que vocês querem, com contribuição em Pix caindo direto na conta de vocês.',
+  },
+  {
+    icone: 'lucide:wallet',
+    titulo: 'Financeiro',
+    texto: 'Quanto vai custar, o que já foi contratado e o que vence este mês.',
+  },
+  {
+    icone: 'lucide:list-checks',
+    titulo: 'Planejamento',
+    texto: 'A checklist do que fazer e quando, já sugerindo o que todo casamento precisa resolver.',
+  },
+  {
+    icone: 'lucide:armchair',
+    titulo: 'Mesas',
+    texto: 'A planta do salão, para decidir quem senta com quem antes do dia.',
+  },
+] as const
 
 const slug = useActiveWeddingSlug()
 const base = computed(() => `/admin/${slug}`)
-
-const MS_POR_DIA = 24 * 60 * 60 * 1000
-
-/**
- * Quantos dias faltam, em prosa.
- *
- * Meia-noite local explícita nos dois lados (mesmo cuidado do rótulo da data no
- * painel e do Hero público): `new Date('2027-12-11')` seria lido como UTC e
- * voltaria um dia em fuso negativo, fazendo a saudação errar por um.
- */
-const diasQueFaltam = computed(() => {
-  if (!dataEvento) return null
-  const evento = new Date(`${dataEvento}T00:00:00`)
-  const agora = new Date()
-  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
-  return Math.round((evento.getTime() - hoje.getTime()) / MS_POR_DIA)
-})
-
-const fraseDoPrazo = computed(() => {
-  const dias = diasQueFaltam.value
-  if (dias === null) return 'Este é o painel de vocês.'
-  if (dias > 1) return `Este é o painel de vocês, e faltam ${dias} dias para o grande dia.`
-  if (dias === 1) return 'Este é o painel de vocês, e o casamento é amanhã.'
-  if (dias === 0) return 'Este é o painel de vocês, e o grande dia é hoje.'
-  return 'Este é o painel de vocês.'
-})
 
 const grupos = computed(() =>
   GRUPOS_DO_ROTEIRO.map((grupo) => ({
@@ -107,12 +116,44 @@ const proximo = computed(() => roteiro.proximoPasso)
            relatar, então este bloco É a tela. A saudação some sozinha no
            instante em que existir alguém na lista — quem já está trabalhando
            não precisa ser recebido de novo. -->
-      <div v-if="destaque" class="flex flex-col gap-1 border-b border-border pb-5">
-        <h2 class="font-display text-2xl font-semibold text-text sm:text-3xl">
-          Bem-vindos<template v-if="nomesNoivos">, {{ nomesNoivos }}</template>
-        </h2>
-        <p class="text-sm text-text-muted">
-          {{ fraseDoPrazo }} Comece pelos primeiros passos abaixo — eles deixam o site pronto para
+      <div v-if="destaque" class="flex flex-col gap-6 border-b border-border pb-6">
+        <div class="flex flex-col gap-2">
+          <h2 class="font-display text-2xl font-semibold text-text sm:text-3xl">
+            Bem-vindos<template v-if="nomesNoivos">, {{ nomesNoivos }}</template>
+          </h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-text-muted">
+            Este é o painel de vocês — o lugar onde o casamento inteiro se organiza, do primeiro
+            convidado ao último pagamento. Sem planilha solta, sem PDF perdido no e-mail e sem
+            "quanto mesmo a gente já pagou nisso?".
+          </p>
+        </div>
+
+        <!-- Descrição, não menu: nenhum item é link. Quem acabou de chegar
+             pediu para saber onde olhar, e seis destinos concorrentes é o
+             contrário de uma resposta — a única ação da tela é o botão do
+             próximo passo, lá embaixo. -->
+        <div class="flex flex-col gap-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            O que vocês têm aqui
+          </p>
+          <ul class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <li v-for="item in O_QUE_TEM_AQUI" :key="item.titulo" class="flex gap-3">
+              <Icon
+                :name="item.icone"
+                class="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                aria-hidden="true"
+              />
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-text">{{ item.titulo }}</p>
+                <p class="mt-0.5 text-xs leading-relaxed text-text-muted">{{ item.texto }}</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <p class="max-w-2xl text-sm leading-relaxed text-text">
+          Nada disso precisa ser feito hoje. Comece pelos primeiros passos abaixo: eles são o que o
+          sistema ainda não sabe sobre o casamento de vocês, e é o que deixa o site pronto para
           receber os convidados.
         </p>
       </div>

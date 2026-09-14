@@ -105,7 +105,7 @@ async function continuar() {
 
 async function salvarEtapaAtual() {
   if (!wedding.value) return
-  if (passo.value.id === 'data-horario') return salvarHorario()
+  if (passo.value.id === 'data-horario') return salvarDataEHorario()
   if (passo.value.id === 'local') return salvarLocal()
   if (passo.value.id === 'prazo-rsvp') return salvarPrazo()
   if (passo.value.id === 'orcamento') return salvarOrcamento()
@@ -114,13 +114,21 @@ async function salvarEtapaAtual() {
 
 // --- etapa 1: data e horário ---
 //
-// A data não é perguntada: é obrigatória na criação do casamento. O que falta
-// é o horário — que a contagem regressiva, o convite e o cronograma usam.
+// A data VEM PREENCHIDA (é obrigatória na criação, e quem a digitou foi a
+// equipe), mas continua editável: o passo se chama "Data e horário", e um
+// passo que promete a data e só entrega o horário mente sobre o próprio
+// rótulo. O que costuma faltar de fato é a hora — que a contagem regressiva, o
+// convite e o cronograma usam.
+const data = ref('')
 const horario = ref('')
 
-async function salvarHorario() {
+async function salvarDataEHorario() {
   if (!wedding.value) return
-  await updateWedding({ ...weddingSettingsFromRow(wedding.value), horarioEvento: horario.value })
+  await updateWedding({
+    ...weddingSettingsFromRow(wedding.value),
+    dataEvento: data.value,
+    horarioEvento: horario.value,
+  })
   await recarregarCasamento()
 }
 
@@ -214,6 +222,7 @@ watch(
   () => {
     const valor = wedding.value
     if (!valor) return
+    data.value = valor.data_evento
     horario.value = valor.horario_evento ? valor.horario_evento.slice(0, 5) : ''
     const prazo = valor.prazo_rsvp ? isoParaDatetimeLocal(valor.prazo_rsvp) : ''
     prazoData.value = prazo.split('T')[0] ?? ''
@@ -269,11 +278,15 @@ watch(
 
         <!-- --- etapa 1: data e horário --- -->
         <div v-if="passo.id === 'data-horario'" class="flex flex-col gap-3">
-          <h2 class="font-display text-xl font-semibold text-text">Que horas começa?</h2>
+          <h2 class="font-display text-xl font-semibold text-text">Quando vai ser?</h2>
           <p class="text-sm text-text-muted">
-            A data já está no sistema. O horário é o que a contagem regressiva e o convite usam.
+            A data já veio preenchida — confiram se está certa. O horário é o que a contagem
+            regressiva e o convite usam.
           </p>
-          <UiTimePicker v-model="horario" label="Horário do casamento" class="max-w-xs" />
+          <div class="grid max-w-md gap-4 sm:grid-cols-2">
+            <UiDatePicker v-model="data" label="Data do casamento" />
+            <UiTimePicker v-model="horario" label="Horário" />
+          </div>
         </div>
 
         <!-- --- etapa 2: onde vai ser --- -->

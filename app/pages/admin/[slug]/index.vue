@@ -320,7 +320,6 @@ function statusOf(invite: InviteListItem) {
         :valores="valoresDoRoteiro"
         :destaque="semNinguemNaLista"
         :nomes-noivos="wedding?.nomes_noivos ?? ''"
-        :data-evento="wedding?.data_evento ?? ''"
       />
 
       <AdminPanel v-if="!semNinguemNaLista">

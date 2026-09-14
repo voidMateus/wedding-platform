@@ -151,7 +151,7 @@ o mesmo schema Zod e o mesmo composable** da tela que já é dona daquele dado:
 
 | Passo | Controle reaproveitado | Schema | Ação |
 |---|---|---|---|
-| Data e horário | `UiDatePicker` + `UiTimePicker` | `weddingSettingsSchema` | `useWedding().updateWedding` |
+| Data e horário | `UiDatePicker` + `UiTimePicker` (a data vem preenchida e segue editável) | `weddingSettingsSchema` | `useWedding().updateWedding` |
 | Onde vai ser | `AdminLocationField` | `eventSegmentInputSchema` | `useEventSegments().create/update` |
 | Prazo de RSVP | `UiDatePicker` + `UiTimePicker` | `weddingSettingsSchema` | `useWedding().updateWedding` |
 | Teto do orçamento | o campo novo do topo de Gastos | `budgetTotalSchema` | `useFinance().definirTetoDoOrcamento` |
@@ -250,11 +250,22 @@ violava.
 
 A correção não é uma tela nova — é a página no seu estado vazio:
 
-- **Enquanto não existe ninguém na lista** (), o roteiro
-  ganha a saudação ("Bem-vindos, Ana & João", com quantos dias faltam em prosa)
-  e um botão que **nomeia o próximo passo** ("Começar pelo horário do
-  casamento"), em vez de um "Começar" solto num canto. A primeira decisão de
-  quem entra não deveria ser adivinhar o que o botão faz.
+- **Enquanto não existe ninguém na lista** (`people.total === 0`), o roteiro
+  ganha o acolhimento e um botão que **nomeia o próximo passo** ("Começar pelo
+  horário do casamento"), em vez de um "Começar" solto num canto. A primeira
+  decisão de quem entra não deveria ser adivinhar o que o botão faz.
+- **O acolhimento explica o produto, não só cumprimenta.** Saudação com o nome
+  do casal, uma frase dizendo o que é este lugar, e **o que vocês têm aqui** —
+  as seis coisas que o sistema faz, uma linha cada. É descrição, não menu:
+  nenhum item é link. Quem acabou de chegar pediu para saber onde olhar, e seis
+  destinos concorrentes é o contrário de uma resposta; a única ação da tela é o
+  botão do próximo passo.
+- **A saudação nunca afirma a contagem regressiva.** A primeira versão dizia
+  "faltam 453 dias para o grande dia" enquanto o primeiro passo pedia ao casal
+  que preenchesse *Data e horário* — o painel dando como certo exatamente o que
+  estava perguntando. A data existe (é obrigatória na criação), mas quem a
+  digitou foi a equipe: afirmá-la como acordada, antes de o casal confirmar, é
+  o mesmo erro de confiança que a fase evita em todo o resto.
 - **Os blocos de relatório saem de cena** até terem o que dizer, e voltam
   sozinhos quando a lista tem gente. Derivado, como tudo o mais: um casamento
   que perdesse todos os convidados também não mostraria uma barra em 0%.
@@ -358,9 +369,13 @@ reordena nada, e não existe uma segunda lista para divergir — é a lição de
 11 seções sem nada acusar a falta. Os dois passos que não entram no wizard
 ficam onde caem, no fim: montar a lista é trabalho, publicar é ato.
 
-A data do evento **não** é um passo: ela é obrigatória na criação, então um
-passo que nasce cumprido para todo mundo só enche a lista. O que falta de
+A data do evento não é o que o passo VERIFICA: ela é obrigatória na criação,
+então um fato que nasce verdadeiro para todo mundo não mede nada. O que falta de
 verdade é o horário — que a contagem regressiva, o convite e o cronograma usam.
+Mas a etapa **mostra a data mesmo assim, preenchida e editável**: o passo se
+chama "Data e horário", e um passo que promete a data e entrega só o horário
+mente sobre o próprio rótulo. Quem digitou aquela data foi a equipe; confirmá-la
+é parte do que o casal faz aqui.
 
 `identidade_visual_definida` é o único fato com alguma folga: "o casal mexeu na
 aparência" não tem uma marca exata, e a que existe (`presetId`, gravado ao
