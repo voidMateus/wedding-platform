@@ -248,7 +248,12 @@ const onSubmit = handleSubmit(
       title="Opções de tema"
       description="Um preset pronto já define a tipografia e as cores do site de uma vez."
     >
-      <AdminThemePresetPicker :model-value="activePresetId" @update:model-value="applyPreset" />
+      <AdminThemePresetPicker
+        :model-value="activePresetId"
+        :nomes-noivos="props.coupleNames"
+        :data-evento="props.wedding?.data_evento ?? ''"
+        @update:model-value="applyPreset"
+      />
 
       <p class="flex items-center gap-1.5 text-xs text-text-muted">
         <Icon

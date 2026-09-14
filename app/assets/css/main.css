@@ -412,6 +412,28 @@ body {
   letter-spacing: 0.12em;
 }
 
+/* Prévia do site DENTRO do painel (escolha de tema no wizard e em Aparência).
+
+   Desfaz o escopo `.admin-ui` para o pedaço da tela que promete mostrar o site
+   público: sem isto, a prévia herda os neutros cinzas e a tipografia do painel
+   — e mente exatamente sobre as duas coisas que ela existe para mostrar. Os
+   valores repetem os do `:root` de propósito: uma vez sobrescritos pelo escopo
+   do admin, os originais não são mais alcançáveis por variável.
+
+   `--color-primary`, `--color-secondary`, `--color-ornament` e
+   `--font-display` NÃO entram aqui: são justamente o que a prévia recebe por
+   `style` inline, de cada preset. */
+.previa-do-site {
+  --color-surface: #fcfaf4;
+  --color-surface-elevated: #fffdfa;
+  --color-surface-muted: #f7f3e9;
+  --color-border: #e3ddd3;
+  --color-text: #2b221a;
+  --color-text-muted: #7b6f66;
+  --color-heading: var(--color-text);
+  font-family: var(--font-sans);
+}
+
 /* Escopo tipográfico do admin. Reaponta as MESMAS variáveis que as utilities
    do Tailwind já consomem (font-display, font-sans, .num, --font-button), em
    vez de criar utilities paralelas — assim qualquer componente compartilhado

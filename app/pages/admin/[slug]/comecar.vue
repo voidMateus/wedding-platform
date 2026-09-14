@@ -328,7 +328,11 @@ watch(
             Cor e tipografia de uma vez. Nada aqui é definitivo — em Configurações → Aparência você
             muda cada detalhe.
           </p>
-          <AdminThemePresetPicker v-model="presetId" />
+          <AdminThemePresetPicker
+            v-model="presetId"
+            :nomes-noivos="wedding?.nomes_noivos ?? ''"
+            :data-evento="wedding?.data_evento ?? ''"
+          />
         </div>
 
         <!-- Navegação. "Pular" é botão de primeira classe, do lado de
