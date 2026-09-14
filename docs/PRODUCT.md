@@ -456,6 +456,7 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Grupos** | Organização de convidados em grupos, definição de limites de acompanhantes |
 | **Presentes** | CRUD de itens, categorias, visão de reservas/contribuições por item (com identificação de quem presenteou, mensagem e status de pagamento), resumo mínimo do arrecadado online e uma atividade recente cross-presente — tudo na própria página `/admin/presentes` |
 | **Financeiro** | Orçamento (planejar), Fornecedores (contratar), Pagamentos (pagar) e Documentos — ver 7.9. Refinamento completo em [`fase1-financeiro.md`](fase1-financeiro.md) |
+| **Planejamento** | A checklist do casal: o que falta fazer até o casamento, agrupado por prazo, com sugestões que o sistema deixa de oferecer quando os outros módulos já resolveram — ver 7.10. Refinamento completo em [`fase3-planejamento.md`](fase3-planejamento.md) |
 | **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
 | **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, ordem das seções da home, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
@@ -547,6 +548,18 @@ Primeiro módulo do Hub (`docs/plano-produto-hub-casamento.md`), inteiramente ad
 - **Bloco de atenção**: vencidos, a vencer em 30 dias e categorias acima do planejado, sempre com valor e quantidade. Nenhuma ocorrência, nenhum bloco — a ausência é a informação. É também o único número que o módulo empurra para a home do painel, e só quando há urgência.
 - **Fornecedor guarda cotação, não contrato**: comparar três propostas não pode inflar o orçamento. O compromisso é sempre uma despesa, e "pago" nunca é estágio de negociação — a situação financeira do fornecedor é derivada das parcelas.
 - **Entradas da lista de presentes** aparecem em bloco separado e só leitura: é dinheiro que entrou, não despesa que saiu, e não abate orçamento nenhum. Fontes de recursos editáveis (aporte dos pais, reserva do casal) são direção da V2, não desta versão.
+
+### 7.10 Planejamento
+
+Terceiro módulo do Hub, também inteiramente administrativo. Responde a pergunta que vem antes de todas as outras — *o que eu faço agora, e estou atrasado?* — e que, até aqui, o produto só começava a servir depois que o casal já tinha se organizado em outro lugar. Escopo e decisões completas em [`fase3-planejamento.md`](fase3-planejamento.md); o essencial de produto:
+
+- **O sistema sugere; o casal conclui.** O produto sabe coisas que nenhuma checklist de mercado sabe (a data do evento, quais gastos estão contratados, quais convites saíram), e esse saber decide **o que oferecer** — nunca o que está feito. "Contratar o buffet" só se resolveria por heurística, e uma checklist que marca sozinha (ou pior, que *desmarca* quando o casal reclassifica um gasto) perde a confiança que a torna útil.
+- **O eixo é o tempo, e as janelas são derivadas**: vencidas, esta semana, este mês, mais adiante, sem prazo — calculadas de `prazo` contra hoje, no fuso do evento. Sem prazo é estado válido ("quero fazer, não sei quando"), não pendência.
+- **Sugestão nunca é linha no banco.** Um catálogo de ~45 tarefas comuns, com prazo relativo à data do evento, aparece apagado no rodapé da janela a que pertenceria; só o clique cria. E não se esgota: volta se a tarefa for excluída, ou se o fato que a dispensava deixar de valer.
+- **Quem chega tarde não recebe um mural vermelho.** Sugestão de fase já passada fica num grupo próprio ("o que costuma já estar resolvido") e, quando criada, nasce sem prazo — o sistema não inventa um atraso que o casal talvez não tenha.
+- **Uma tarefa por decisão, não por linha de gasto.** "Contratar o buffet" é uma tarefa; garçom, mesa de entradas e lanche da madrugada são detalhes dela, que vivem no orçamento. Uma caixinha por item produziria uma lista que ninguém termina.
+- **Criar é digitar, não abrir formulário** — uma linha no topo da lista, e as tarefas se editam no lugar. **Responsável é texto livre** ("Mãe da noiva", "Carol (cerimonial)"): quem executa tarefa de casamento quase nunca tem login no painel.
+- **O módulo não repete o que outro responde melhor.** Parcela a vencer é assunto de Pagamentos; o painel já alerta sobre ela. O Planejamento empurra para a home **um** número — vencidas, senão as desta semana, senão o progresso.
 
 
 ---

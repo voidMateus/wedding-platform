@@ -71,6 +71,14 @@
 
 Sentar é uma **coluna** (`convidados.mesa_id` e `acompanhantes_avulsos.mesa_id`), não uma tabela de junção: uma pessoa senta em no máximo uma mesa, então a junção modelaria um N:N que o domínio não tem. É o quarto vínculo do convidado, independente de convite, grupo e núcleo — mesa nunca se deriva de convite.
 
+**Planejamento (Fase 3 do Hub — ver [`fase3-planejamento.md`](fase3-planejamento.md))**
+
+| Tabela | Propósito |
+|---|---|
+| `tarefas` | A checklist do casal: título, prazo (nulo é estado válido), responsável em texto livre e `concluida_em` — a **única** fonte de "feita". Nenhuma linha nasce de sugestão: o catálogo vive em `shared/planejamento-tarefas.ts` e só o clique do casal cria. Exclusão **física**, como `mesas` |
+
+O módulo não tem nenhum vínculo de dado com Financeiro, Convidados ou Comunicações: os fatos desses módulos decidem **o que oferecer** como sugestão, nunca **o que está feito**. A única marca de origem é `origem_catalogo`, e ela existe para a sugestão sumir do rodapé.
+
 **Mídia e operação**
 
 | Tabela | Propósito |
@@ -78,7 +86,7 @@ Sentar é uma **coluna** (`convidados.mesa_id` e `acompanhantes_avulsos.mesa_id`
 | `fotos` | Itens da galeria de fotos do casal. Referencia um arquivo de uma fonte externa espelhada (`conexao_id` → `conexoes_galeria`, `id_arquivo_origem`, `url_miniatura_origem`, `tipo_mime_origem`), servido direto do Google (thumbnail do Drive), nunca copiado — `caminho_storage` é coluna legada (nullable, não mais escrita). Policy de leitura pública (`fotos_select_publico`) além da de membros; `foco_x`/`foco_y` (ponto de foco, ver [`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md)) |
 | `eventos_email` | Log **append-only** do que aconteceu com um e-mail depois de enviado (entregue/devolvido/reclamado/adiado), alimentado pelo webhook do provedor. O estado de entrega de um envio é o evento mais recente — nunca uma coluna em `comunicacoes`, que não tem policy de UPDATE |
 | `conexoes_galeria` | Conexão do casamento com a fonte externa da galeria (Google Drive hoje). Uma por `casamento_id`. Modo `oauth` (tokens cifrados em repouso — AES-256-GCM) ou `public_link` (URL de pasta pública). `provedor` é ponto de extensão pra outras fontes sem migration estrutural. Sem policy pública (guarda segredo) |
-| `tarefas` | Fila de processamento assíncrono (importação de CSV, envio de e-mail em lote) — **ainda não implementada**, ver [`ARCHITECTURE.md`](ARCHITECTURE.md) seção 3.4 |
+| `fila_processamento` | Fila de processamento assíncrono (importação de CSV, envio de e-mail em lote) — **ainda não implementada**, ver [`ARCHITECTURE.md`](ARCHITECTURE.md) seção 3.4. Chamava-se `tarefas` até a Fase 3 do Hub, que deu esse nome à checklist do casal: no vocabulário do produto, tarefa é o que o casal faz, e as duas convivendo seriam armadilha permanente de leitura |
 | `trilha_auditoria` | Trilha de auditoria de ações administrativas sensíveis |
 
 **Billing e limites (estrutura embrionária — design completo ainda não fechado, ver [`ROADMAP.md`](ROADMAP.md))**
@@ -158,6 +166,12 @@ Nenhuma dessas quatro tabelas tem cobrança real integrada ainda (sem gateway de
 | `elementos_planta` | `casamento_id` | Referência do salão que não senta ninguém (pista, palco, buffet, bolo, entrada, bar) — `tipo`, rótulo, medidas e posição em centímetros |
 
 Sentar é **coluna**, não tabela de junção: `convidados.mesa_id` e `acompanhantes_avulsos.mesa_id`, ambas `on delete set null`.
+
+**Planejamento (Fase 3 do Hub)**
+
+| Tabela | FK principal | O que é |
+|---|---|---|
+| `tarefas` | `casamento_id` | Uma tarefa da checklist — `titulo`, `observacao`, `prazo` (date, nulo permitido), `responsavel` (texto livre, nunca FK), `concluida_em` e `origem_catalogo` (chave estável da sugestão, com índice único parcial por casamento). Sem soft delete |
 
 **Billing (estrutura embrionária)**
 

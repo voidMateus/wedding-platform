@@ -117,6 +117,55 @@ const alertaFinanceiro = computed(() => {
   return null
 })
 
+// --- alerta do Planejamento ---
+//
+// Mesma regra do Financeiro: UM número do módulo, o que pede providência hoje.
+// Vencidas primeiro; sem vencidas, as desta semana; sem nenhuma das duas, o
+// progresso — que é o único caso tranquilizador e por isso não usa cor de
+// estado. A decisão de qual mostrar vem do endpoint, não daqui: a regra é do
+// módulo, não do desenho desta tela.
+const { getResumo: getResumoPlanejamento } = usePlanning()
+const { data: resumoPlanejamento } = getResumoPlanejamento()
+
+const alertaPlanejamento = computed(() => {
+  const destaque = resumoPlanejamento.value?.destaque
+  if (!destaque) return null
+
+  const destino = `/admin/${slug}/planejamento`
+  const plural = (quantidade: number) => (quantidade === 1 ? 'tarefa' : 'tarefas')
+
+  if (destaque.tipo === 'vencidas') {
+    return {
+      valor: String(destaque.quantidade),
+      descricao: `${plural(destaque.quantidade)} com prazo vencido`,
+      destino,
+      tone: 'danger' as const,
+    }
+  }
+
+  if (destaque.tipo === 'esta_semana') {
+    return {
+      valor: String(destaque.quantidade),
+      descricao: `${plural(destaque.quantidade)} para esta semana`,
+      destino,
+      tone: 'warning' as const,
+    }
+  }
+
+  return {
+    valor: `${destaque.concluidas} de ${destaque.total}`,
+    descricao: 'tarefas concluídas',
+    destino,
+    tone: 'neutro' as const,
+  }
+})
+
+const TOM_DO_ALERTA_PLANEJAMENTO = {
+  danger: 'text-danger',
+  warning: 'text-warning',
+  neutro: 'text-text',
+} as const
+
 // --- pessoas por faixa etária ---
 //
 // Cada número é derivado a cada carregamento (idade na data do casamento x
@@ -332,6 +381,34 @@ function statusOf(invite: InviteListItem) {
         </span>
         <span class="text-sm text-text">{{ alertaFinanceiro.descricao }}</span>
         <span class="ml-auto text-xs text-text-muted">ver no Financeiro</span>
+      </NuxtLink>
+
+      <!--
+        O Planejamento empurra UM número pelo mesmo contrato: o que pede
+        providência hoje. Diferente do Financeiro, ele também aparece quando
+        não há urgência nenhuma — aí mostra o progresso, que é a resposta curta
+        para "estamos em dia?". Só some de vez quando não existe nenhuma
+        tarefa: um painel que insiste em falar de uma lista vazia não informa,
+        cobra.
+      -->
+      <NuxtLink
+        v-if="alertaPlanejamento"
+        :to="alertaPlanejamento.destino"
+        class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-elevated px-4 py-3 transition-colors hover:bg-surface-muted/60 sm:px-5"
+      >
+        <Icon
+          name="lucide:list-checks"
+          class="h-4 w-4 shrink-0"
+          :class="TOM_DO_ALERTA_PLANEJAMENTO[alertaPlanejamento.tone]"
+        />
+        <span
+          class="font-display text-lg font-semibold tabular-nums"
+          :class="TOM_DO_ALERTA_PLANEJAMENTO[alertaPlanejamento.tone]"
+        >
+          {{ alertaPlanejamento.valor }}
+        </span>
+        <span class="text-sm text-text">{{ alertaPlanejamento.descricao }}</span>
+        <span class="ml-auto text-xs text-text-muted">ver no Planejamento</span>
       </NuxtLink>
 
       <div class="grid grid-cols-1 gap-5 lg:grid-cols-12">

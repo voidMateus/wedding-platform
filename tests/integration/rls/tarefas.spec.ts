@@ -6,22 +6,24 @@ import { createTestMember, deleteTestMember, type TestMember } from '../../facto
 
 /**
  * Suíte de isolamento entre tenants (docs/ARCHITECTURE.md, seção 9.1/9.2) —
- * `tarefas` (fila de processamento assíncrono) só tem policy de SELECT e
- * INSERT (supabase/policies/README.md) — transições de status são
- * exclusivas do worker, que roda com `service_role` e ignora RLS. Além do
- * isolamento cross-tenant padrão, esta suíte confirma que nem o próprio
- * membro dono da tarefa consegue UPDATE/DELETE (não existe essa policy pra
- * ninguém além de `service_role`). Nunca usa o client `service_role` para
- * as asserções em si — só para criar/verificar a massa de dados.
+ * `tarefas` é a checklist do casal (Fase 3 do Hub), com as quatro policies de
+ * membro: quem é do casamento faz tudo, quem não é não vê nada.
+ *
+ * Diferente da fila de processamento (`fila-processamento.spec.ts`, que já se
+ * chamou `tarefas`), aqui o próprio membro PRECISA conseguir alterar e excluir
+ * — a lista é dele, e concluir uma tarefa é o gesto mais repetido do módulo.
+ *
+ * Nunca usa o client `service_role` para as asserções em si — só para criar e
+ * verificar a massa de dados.
  */
-describe('RLS: tarefas', () => {
+describe('RLS: tarefas (checklist)', () => {
   const admin = getServiceRoleClient()
 
   let weddingA: Awaited<ReturnType<typeof createTestWedding>>
   let weddingB: Awaited<ReturnType<typeof createTestWedding>>
   let memberA: TestMember
   let memberB: TestMember
-  let taskA: { id: string }
+  let tarefaA: { id: string }
 
   beforeAll(async () => {
     weddingA = await createTestWedding(admin)
@@ -31,20 +33,16 @@ describe('RLS: tarefas', () => {
 
     const { data, error } = await admin
       .from('tarefas')
-      .insert({ casamento_id: weddingA.id, tipo: 'teste_integracao' })
+      .insert({ casamento_id: weddingA.id, titulo: 'Contratar o buffet' })
       .select()
       .single()
     if (error || !data) {
       throw new Error(`Falha ao criar tarefa de teste: ${error?.message}`)
     }
-    taskA = data
+    tarefaA = data
   })
 
   afterAll(async () => {
-    // Defensivo contra falha parcial do beforeAll (ex.: rate limit do
-    // Supabase Auth ao criar um dos usuários de teste) — cada recurso só
-    // entra na limpeza se realmente chegou a ser criado, pra nunca deixar
-    // uma linha órfã por causa de um `throw` no meio do setup.
     await cleanupAll([
       ...(memberA ? [() => deleteTestMember(admin, memberA.userId)] : []),
       ...(memberB ? [() => deleteTestMember(admin, memberB.userId)] : []),
@@ -53,94 +51,115 @@ describe('RLS: tarefas', () => {
     ])
   })
 
-  it('membro do próprio casamento lê a tarefa normalmente', async () => {
+  it('membro do próprio casamento lê a tarefa', async () => {
     const { data, error } = await memberA.client
       .from('tarefas')
       .select('*')
-      .eq('id', taskA.id)
+      .eq('id', tarefaA.id)
       .maybeSingle()
     expect(error).toBeNull()
-    expect(data?.id).toBe(taskA.id)
+    expect(data?.id).toBe(tarefaA.id)
   })
 
-  it('membro do próprio casamento consegue enfileirar (inserir) uma nova tarefa', async () => {
-    const { data, error } = await memberA.client
+  it('membro do próprio casamento cria, conclui e exclui', async () => {
+    const { data: criada, error: erroCriar } = await memberA.client
       .from('tarefas')
-      .insert({ casamento_id: weddingA.id, tipo: 'teste_integracao_insercao_membro' })
+      .insert({ casamento_id: weddingA.id, titulo: 'Provar o vestido' })
       .select()
+      .single()
+    expect(erroCriar).toBeNull()
+    expect(criada?.titulo).toBe('Provar o vestido')
 
-    expect(error).toBeNull()
-    expect(data).toHaveLength(1)
+    const { data: concluida, error: erroConcluir } = await memberA.client
+      .from('tarefas')
+      .update({ concluida_em: new Date().toISOString() })
+      .eq('id', criada!.id)
+      .select()
+      .single()
+    expect(erroConcluir).toBeNull()
+    expect(concluida?.concluida_em).not.toBeNull()
+
+    await memberA.client.from('tarefas').delete().eq('id', criada!.id)
+    const { data: sumiu } = await admin
+      .from('tarefas')
+      .select('id')
+      .eq('id', criada!.id)
+      .maybeSingle()
+    // Exclusão FÍSICA: a linha some de verdade, e é isso que devolve a
+    // sugestão ao rodapé.
+    expect(sumiu).toBeNull()
   })
 
-  it('membro de outro casamento não lê a tarefa (RLS filtra a linha)', async () => {
+  it('membro de outro casamento não lê a tarefa', async () => {
     const { data, error } = await memberB.client
       .from('tarefas')
       .select('*')
-      .eq('id', taskA.id)
+      .eq('id', tarefaA.id)
       .maybeSingle()
     expect(error).toBeNull()
     expect(data).toBeNull()
   })
 
-  it('membro de outro casamento não consegue inserir tarefa no casamento A', async () => {
+  it('membro de outro casamento não cria tarefa no casamento A', async () => {
     const { data, error } = await memberB.client
       .from('tarefas')
-      .insert({ casamento_id: weddingA.id, tipo: 'tarefa_intrusa' })
+      .insert({ casamento_id: weddingA.id, titulo: 'Tarefa intrusa' })
       .select()
 
     expect(data).toBeNull()
     expect(error).not.toBeNull()
   })
 
-  it('membro de outro casamento não consegue atualizar a tarefa', async () => {
+  it('membro de outro casamento não conclui nem exclui a tarefa alheia', async () => {
     const { data, error } = await memberB.client
       .from('tarefas')
-      .update({ status_tarefa: 'concluida' })
-      .eq('id', taskA.id)
+      .update({ concluida_em: new Date().toISOString() })
+      .eq('id', tarefaA.id)
       .select()
-
     expect(error).toBeNull()
     expect(data).toEqual([])
-  })
 
-  it('membro de outro casamento não consegue excluir a tarefa', async () => {
-    await memberB.client.from('tarefas').delete().eq('id', taskA.id)
-
-    const { data: stillThere } = await admin
+    await memberB.client.from('tarefas').delete().eq('id', tarefaA.id)
+    const { data: continua } = await admin
       .from('tarefas')
-      .select('id')
-      .eq('id', taskA.id)
+      .select('id, concluida_em')
+      .eq('id', tarefaA.id)
       .maybeSingle()
-    expect(stillThere?.id).toBe(taskA.id)
+    expect(continua?.id).toBe(tarefaA.id)
+    expect(continua?.concluida_em).toBeNull()
   })
 
-  it('nem o próprio membro do casamento consegue atualizar a tarefa (sem policy de update pra ninguém além de service_role)', async () => {
-    const { data, error } = await memberA.client
+  it('a mesma sugestão não vira duas tarefas (índice único parcial)', async () => {
+    const primeira = await admin
       .from('tarefas')
-      .update({ status_tarefa: 'concluida' })
-      .eq('id', taskA.id)
+      .insert({
+        casamento_id: weddingA.id,
+        titulo: 'Enviar os convites',
+        origem_catalogo: 'enviar-convites',
+      })
       .select()
-
-    expect(error).toBeNull()
-    expect(data).toEqual([])
-
-    const { data: unchanged } = await admin
-      .from('tarefas')
-      .select('status_tarefa')
-      .eq('id', taskA.id)
       .single()
-    expect(unchanged?.status_tarefa).toBe('pendente')
-  })
+    expect(primeira.error).toBeNull()
 
-  it('nem o próprio membro do casamento consegue excluir a tarefa (sem policy de delete pra ninguém além de service_role)', async () => {
-    await memberA.client.from('tarefas').delete().eq('id', taskA.id)
-
-    const { data: stillThere } = await admin
+    const segunda = await admin
       .from('tarefas')
-      .select('id')
-      .eq('id', taskA.id)
-      .maybeSingle()
-    expect(stillThere?.id).toBe(taskA.id)
+      .insert({
+        casamento_id: weddingA.id,
+        titulo: 'Enviar os convites',
+        origem_catalogo: 'enviar-convites',
+      })
+      .select()
+    expect(segunda.error?.code).toBe('23505')
+
+    // O índice é PARCIAL: duas tarefas digitadas à mão, sem origem, convivem.
+    const semOrigem = await admin
+      .from('tarefas')
+      .insert([
+        { casamento_id: weddingA.id, titulo: 'Ligar para a tia' },
+        { casamento_id: weddingA.id, titulo: 'Ligar para a tia' },
+      ])
+      .select()
+    expect(semOrigem.error).toBeNull()
+    expect(semOrigem.data).toHaveLength(2)
   })
 })

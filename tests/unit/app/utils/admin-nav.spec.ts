@@ -36,17 +36,30 @@ describe('nav primária do admin', () => {
   })
 
   // Convites entrou em Convidados; Cronograma e Galeria, em Configurações. Com
-  // a chegada do Financeiro são cinco destinos: a barra do celular mostra os
-  // quatro primeiros e joga Configurações no "Mais" — por isso a ORDEM aqui é
-  // parte do contrato, não detalhe de escrita.
-  it('mantém as cinco abas de módulo no topo, nesta ordem', () => {
+  // Planejamento (Fase 3 do Hub) são seis destinos, e a barra do celular mostra
+  // só os QUATRO primeiros — então a ORDEM aqui é parte do contrato, não
+  // detalhe de escrita: ela é que decide quem fica na barra e quem desce para o
+  // "Mais" (hoje, Presentes e Configurações).
+  it('mantém as seis abas de módulo no topo, nesta ordem', () => {
     expect(adminPrimaryNav(SLUG).map((i) => i.label)).toEqual([
       'Início',
+      'Planejamento',
       'Convidados',
-      'Presentes',
       'Financeiro',
+      'Presentes',
       'Configurações',
     ])
+  })
+
+  it('Planejamento acende na tela dele', () => {
+    expect(ehItemAtivo(itemPrimario('Planejamento'), rota(`${BASE}/planejamento`))).toBe(true)
+    expect(ehItemAtivo(itemPrimario('Planejamento'), rota(`${BASE}/financeiro`))).toBe(false)
+  })
+
+  // Uma tela, um eixo: sem menu de seção, a coluna não existe e o conteúdo fica
+  // com a largura toda — como já acontece em Presentes.
+  it('Planejamento não desenha menu de seção', () => {
+    expect(adminSectionMenu(SLUG, `${BASE}/planejamento`)).toEqual([])
   })
 
   it.each(['/financeiro', '/financeiro/pagamentos', '/financeiro/gastos/abc'])(

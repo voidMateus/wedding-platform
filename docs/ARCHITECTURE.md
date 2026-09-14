@@ -125,7 +125,7 @@ meusitecasamento/
 └── CLAUDE.md
 ```
 
-**Nota sobre `tarefas`/worker assíncrono**: a tabela `tarefas` (docs/DATABASE.md seção 2) e o worker descrito na seção 3.4 abaixo permanecem como desenho de arquitetura para a Fase 2 (importação de CSV, lembretes em lote) — `server/utils/jobs/` e um processo/rota de worker dedicado **ainda não foram implementados**; hoje não há nenhuma fila assíncrona real no código. Tratar a seção 3.4 como especificação a implementar, não como descrição do estado atual. `comunicacoes` (docs/DATABASE.md seção 2) é a mesma situação — tabela reservada no schema, sem `server/api/communications/` ainda.
+**Nota sobre `fila_processamento`/worker assíncrono**: a tabela `fila_processamento` (docs/DATABASE.md seção 2 — chamava-se `tarefas` até a Fase 3 do Hub, que deu esse nome à checklist do casal) e o worker descrito na seção 3.4 abaixo permanecem como desenho de arquitetura para a Fase 2 (importação de CSV, lembretes em lote) — `server/utils/jobs/` e um processo/rota de worker dedicado **ainda não foram implementados**; hoje não há nenhuma fila assíncrona real no código. Tratar a seção 3.4 como especificação a implementar, não como descrição do estado atual. `comunicacoes` (docs/DATABASE.md seção 2) é a mesma situação — tabela reservada no schema, sem `server/api/communications/` ainda.
 
 ### 1.1 Notas sobre a estrutura
 
@@ -233,12 +233,12 @@ Reflete a lista de tabelas do docs/DATABASE.md (seção 2), com uma pasta por re
 | `supabase-admin.ts` | Único ponto de criação do client com `service_role key`; qualquer novo uso passa por revisão explícita, já que é a credencial mais crítica (CLAUDE.md seção 11) |
 | `wedding-context.ts` | Resolve casamento_id/papel do usuário autenticado via `membros_casamento`, usando o client da própria requisição (RLS como defesa em profundidade, não o client admin) — chamada explicitamente pelos handlers do caminho administrativo, não é middleware |
 | `errors.ts` | Vocabulário fechado de erros de domínio (`NotFoundError`, `ValidationError`, `ConcurrencyConflictError`, `TokenRevokedError`, `RateLimitedError`) mapeado para status HTTP de forma consistente em todos os endpoints |
-| `jobs/enqueue.ts` | Único ponto de escrita na tabela `tarefas` — nenhum endpoint insere na fila diretamente sem passar por essa função (garante formato de `dados` consistente) |
-| `jobs/handlers/` | Um handler por `tarefas.tipo`; o worker apenas despacha para o handler correspondente, sem lógica de negócio própria |
+| `jobs/enqueue.ts` | Único ponto de escrita na tabela `fila_processamento` — nenhum endpoint insere na fila diretamente sem passar por essa função (garante formato de `dados` consistente) |
+| `jobs/handlers/` | Um handler por `fila_processamento.tipo`; o worker apenas despacha para o handler correspondente, sem lógica de negócio própria |
 
 ### 3.4 Worker de jobs assíncronos
 
-Processo (ou rota Nitro protegida, disparada por cron do provedor de hosting) que consulta `tarefas` por linhas `pendente` com `executar_em <= now()`, marca como `processando`, executa o handler correspondente, e atualiza para `concluida`/`falhou` com contagem de tentativas. Usado para: importação de CSV (docs/DESIGN-SYSTEM.md seção 8), envio de lembretes em lote (docs/PRODUCT.md seção 4.4/7), e, futuramente, qualquer integração de billing (docs/ROADMAP.md). Mantém os endpoints HTTP síncronos curtos, compatíveis com o tempo de vida de uma função serverless.
+Processo (ou rota Nitro protegida, disparada por cron do provedor de hosting) que consulta `fila_processamento` por linhas `pendente` com `executar_em <= now()`, marca como `processando`, executa o handler correspondente, e atualiza para `concluida`/`falhou` com contagem de tentativas. Usado para: importação de CSV (docs/DESIGN-SYSTEM.md seção 8), envio de lembretes em lote (docs/PRODUCT.md seção 4.4/7), e, futuramente, qualquer integração de billing (docs/ROADMAP.md). Mantém os endpoints HTTP síncronos curtos, compatíveis com o tempo de vida de uma função serverless.
 
 ### 3.5 Formato de erro padronizado
 
