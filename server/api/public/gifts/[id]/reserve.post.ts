@@ -32,6 +32,8 @@ export default defineEventHandler(async (event) => {
   if (giftError) throw badRequestError(giftError.message)
   if (!gift) throw notFoundError('Presente não encontrado.')
 
+  await garantirCasamentoPublicado(event, client, gift.casamento_id)
+
   const { data: wedding, error: weddingError } = await client
     .from('casamentos')
     .select('modo_entrega_presente_fisico')

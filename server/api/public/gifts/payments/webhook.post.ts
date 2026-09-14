@@ -9,6 +9,12 @@
  * Sempre responde 200 rapidamente, mesmo se a confirmação falhar
  * internamente — um não-200 causa reenvio agressivo pela InfinitePay, e um
  * erro nosso não deve virar um loop de retries.
+ *
+ * portão dispensado: o portão da publicação barra quem está COMEÇANDO algo,
+ * nunca quem está terminando o que já começou (docs/fase4-onboarding.md
+ * 8.1.1). Aqui o dinheiro já saiu da conta do convidado; barrar não impediria
+ * nada, só faria o efeito de negócio nunca nascer — e um casal que
+ * despublicasse o site por um dia perderia a reserva de quem pagou na véspera.
  */
 export default defineEventHandler(async (event) => {
   setResponseStatus(event, 200)

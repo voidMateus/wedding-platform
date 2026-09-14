@@ -1,4 +1,4 @@
-import type { WeddingSettingsInput } from '#shared/schemas/wedding'
+import type { WeddingLifecycleInput, WeddingSettingsInput } from '#shared/schemas/wedding'
 import type { ThemeConfigInput } from '#shared/schemas/theme'
 import type { WeddingContentConfigInput } from '#shared/schemas/content'
 import type { Wedding } from '~/types/wedding'
@@ -29,5 +29,24 @@ export function useWedding() {
     return $fetch<Wedding>('/api/wedding/content', { method: 'PATCH', body: input })
   }
 
-  return { getWedding, updateWedding, updateWeddingTheme, updateWeddingContent }
+  /**
+   * Publicar/despublicar o site — endpoint próprio, nunca um campo do
+   * formulário de configurações: quem chama isto é tanto a tela de
+   * Configurações quanto o roteiro de Primeiros passos, que não tem
+   * formulário (docs/fase4-onboarding.md seção 8.2).
+   */
+  async function updateWeddingLifecycle(input: WeddingLifecycleInput) {
+    return $fetch<{ status_ciclo_vida: string }>('/api/wedding/lifecycle', {
+      method: 'PATCH',
+      body: input,
+    })
+  }
+
+  return {
+    getWedding,
+    updateWedding,
+    updateWeddingTheme,
+    updateWeddingContent,
+    updateWeddingLifecycle,
+  }
 }

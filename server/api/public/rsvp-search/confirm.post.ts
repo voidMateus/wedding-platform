@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
     throw notFoundError('Convidado não encontrado.')
   }
 
+  await garantirCasamentoPublicado(event, client, guest.casamento_id)
+
   await recordFirstAccessIfNeeded(client, guest.casamento_id, guest.convite_id)
   issueRsvpSession(event, { casamentoId: guest.casamento_id, conviteId: guest.convite_id })
 

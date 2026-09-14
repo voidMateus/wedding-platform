@@ -163,3 +163,19 @@ export const weddingSettingsSchema = z.object({
 })
 
 export type WeddingSettingsInput = z.infer<typeof weddingSettingsSchema>
+
+/**
+ * Publicar e despublicar o site (`casamentos.status_ciclo_vida`).
+ *
+ * `arquivado` é um valor válido da coluna e fica **fora** deste schema de
+ * propósito: arquivar precisa decidir o que acontece com o site, com os links
+ * já compartilhados e com a retenção do dado (docs/fase4-onboarding.md 2.2), e
+ * um valor aceito pela API sem nenhuma tela que o produza é uma porta sem
+ * corredor. Quando a rodada do arquivamento chegar, ele entra aqui junto da
+ * tela.
+ */
+export const weddingLifecycleSchema = z.object({
+  statusCicloVida: z.enum(['rascunho', 'publicado']),
+})
+
+export type WeddingLifecycleInput = z.infer<typeof weddingLifecycleSchema>

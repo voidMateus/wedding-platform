@@ -92,10 +92,20 @@ eventos" (Fase 4).
    sistema usa os fatos dos outros módulos para decidir **o que oferecer**,
    nunca **o que está feito** — nenhuma tarefa é concluída automaticamente.
 4. **Onboarding guiado** — wizard sobre dados que já existem (data, local,
-   nº de convidados). Escopo: preencher dados de um casamento já criado —
-   **não** é criação de conta self-service (isso é Fase 6, depende de
-   decisão de billing ainda não tomada). Pode já alimentar o motor de
-   sugestão da Fase 3, já que roda depois dela.
+   prazo de RSVP, teto do orçamento, aparência). Escopo: preencher dados de
+   um casamento já criado — **não** é criação de conta self-service (isso é
+   Fase 6, depende de decisão de billing ainda não tomada). Alimenta o motor
+   de sugestão da Fase 3, já que roda depois dela. **Refinada em 2026-09-14:
+   escopo, modelo de dados e fluxos de UI em
+   [`fase4-onboarding.md`](fase4-onboarding.md)** — é lá que vivem as
+   decisões desta fase, não aqui. Três decisões definem o tamanho dela: o
+   progresso é **derivado dos fatos** que o Planejamento já observa (nenhuma
+   coluna, nenhum botão de concluir), o wizard **não é dono de campo nenhum**
+   (cada etapa renderiza o controle, o schema e o endpoint da tela
+   definitiva), e `rascunho` passa a **barrar o site público de verdade** —
+   hoje `status_ciclo_vida` não tem nenhum escritor e o site do casal está no
+   ar desde que a linha nasce. O número estimado de convidados saiu do
+   escopo: nada o consome.
 5. **Multi-evento / Planejador profissional** — camada de UI para múltiplos
    `casamento_id` por login + dashboard agregado entre eventos. Absorve o
    item "papel de planejador" que já estava no roadmap de SaaS. Pré-requisito

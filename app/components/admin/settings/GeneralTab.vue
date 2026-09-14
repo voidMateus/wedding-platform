@@ -132,6 +132,11 @@ const onSubmit = handleSubmit(
           :error="errors.horarioEvento"
         />
       </div>
+
+      <!-- Fora do <form>/vee-validate de propósito: publicar tem endpoint
+           próprio e salva no clique, sem passar pela barra de salvamento
+           (docs/fase4-onboarding.md 8.2). -->
+      <AdminSettingsSitePublication :wedding="props.wedding" @saved="emit('saved')" />
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard

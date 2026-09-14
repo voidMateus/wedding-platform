@@ -13,7 +13,9 @@ export default defineEventHandler(async (event) => {
 
   const { data: guest, error } = await client
     .from('convidados')
-    .select('id, convite_id')
+    // casamento_id entra só para o portão da publicação — é a única rota de
+    // service_role que não o carregava (docs/fase4-onboarding.md 8.1).
+    .select('id, casamento_id, convite_id')
     .eq('id', guestId)
     .is('excluido_em', null)
     .maybeSingle()
@@ -22,6 +24,8 @@ export default defineEventHandler(async (event) => {
   if (!guest || !guest.convite_id) {
     throw notFoundError('Convidado não encontrado.')
   }
+
+  await garantirCasamentoPublicado(event, client, guest.casamento_id)
 
   const { data: members, error: membersError } = await client
     .from('convidados')
