@@ -45,6 +45,10 @@
  * de qualquer jeito. O que trava o par é teste, não código compartilhado.
  */
 
+import { FATOS_SIMPLES, categoriaDoFato } from '#shared/fatos-do-casamento'
+
+import type { FatoObservado, FatoSimples } from '#shared/fatos-do-casamento'
+
 /**
  * As fases do planejamento, da mais distante ao depois do casamento.
  *
@@ -77,44 +81,18 @@ export function fasePorId(id: FaseId) {
 }
 
 /**
- * Os fatos que o sistema observa nos outros módulos.
+ * Os fatos que este catálogo lê para decidir o que NÃO oferecer.
  *
- * Entram na decisão de **o que oferecer**, NUNCA na de **o que está feito** —
- * a regra que organiza a fase inteira (docs/fase3-planejamento.md seção 1.1).
- * Deixar de sugerir algo que o casal já resolveu custa um clique em "ver
- * todas"; concluir uma tarefa que não foi feita custa a tela.
+ * O vocabulário mora em `shared/fatos-do-casamento.ts` desde a Fase 4, quando
+ * o roteiro de Primeiros passos passou a ler os mesmos fatos. Reexportado aqui
+ * para não quebrar quem importa do catálogo — e porque é aqui que a regra de
+ * uso vale: um fato entra na decisão de **o que oferecer**, NUNCA na de **o
+ * que está feito** (docs/fase3-planejamento.md seção 1.1). Deixar de sugerir
+ * algo que o casal já resolveu custa um clique em "ver todas"; concluir uma
+ * tarefa que não foi feita custa a tela.
  */
-export const FATOS_SIMPLES = [
-  'orcamento_definido',
-  'tem_convidado',
-  'local_definido',
-  'tem_cronograma',
-  'site_publicado',
-  'tem_save_the_date',
-  'tem_convite_enviado',
-  'tem_resposta_rsvp',
-  'tem_presente',
-  'tem_mesa',
-] as const
-
-export type FatoSimples = (typeof FATOS_SIMPLES)[number]
-
-/**
- * `contratado:<Nome da categoria>` é o fato "já existe gasto com valor fechado
- * nessa categoria".
- *
- * Casa pelo NOME da categoria, e a quebra é silenciosa: categoria renomeada
- * pelo casal deixa de dispensar a sugestão, exatamente como deixa de receber
- * sugestão de gasto. Aqui custa ainda menos — o pior caso é oferecer uma tarefa
- * já resolvida, que o casal ignora. Como a quebra é muda, há teste travando que
- * toda categoria citada existe em `orcamento-categorias.ts`.
- */
-export type FatoObservado = FatoSimples | `contratado:${string}`
-
-/** O nome da categoria dentro de um fato `contratado:...`, ou null. */
-export function categoriaDoFato(fato: FatoObservado): string | null {
-  return fato.startsWith('contratado:') ? fato.slice('contratado:'.length) : null
-}
+export { FATOS_SIMPLES, categoriaDoFato }
+export type { FatoSimples, FatoObservado }
 
 export interface TarefaSugerida {
   /** Chave ESTÁVEL — vai para `tarefas.origem_catalogo` e nunca muda. */

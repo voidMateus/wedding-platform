@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { FatoObservado } from '#shared/planejamento-tarefas'
+import type { FatoObservado } from '#shared/fatos-do-casamento'
 import type { Database } from '~/types/database.types'
 
 /**
@@ -14,7 +14,7 @@ import type { Database } from '~/types/database.types'
  * Tudo é contagem barata e tudo roda em paralelo — a lista inteira é uma ida
  * ao banco, não onze idas em série.
  */
-export async function observarFatosDoPlanejamento(
+export async function observarFatosDoCasamento(
   client: SupabaseClient<Database>,
   weddingId: string,
 ): Promise<{ fatos: FatoObservado[]; dataEvento: string | null }> {
@@ -37,7 +37,9 @@ export async function observarFatosDoPlanejamento(
   ] = await Promise.all([
     client
       .from('casamentos')
-      .select('data_evento, orcamento_total_centavos, status_ciclo_vida')
+      .select(
+        'data_evento, horario_evento, prazo_rsvp, orcamento_total_centavos, status_ciclo_vida, config_tema',
+      )
       .eq('id', weddingId)
       .single(),
     // Rascunho da lista nunca conta (CLAUDE.md seção 12): uma pessoa "em
@@ -72,6 +74,14 @@ export async function observarFatosDoPlanejamento(
 
   if ((casamento.data?.orcamento_total_centavos ?? 0) > 0) fatos.push('orcamento_definido')
   if (casamento.data?.status_ciclo_vida === 'publicado') fatos.push('site_publicado')
+  if (casamento.data?.horario_evento) fatos.push('horario_definido')
+  if (casamento.data?.prazo_rsvp) fatos.push('prazo_rsvp_definido')
+  // "O casal mexeu na aparência" não tem marca exata, e esta é a melhor
+  // aproximação: presetId é gravado ao aplicar um preset e vira 'custom' em
+  // qualquer edição manual, e a foto de capa é o gesto de quem foi direto ao
+  // que mais muda a cara do site. O pior caso é oferecer um passo já
+  // resolvido, que custa um clique para conferir.
+  if (temIdentidadeVisual(casamento.data?.config_tema)) fatos.push('identidade_visual_definida')
   if ((convidados.count ?? 0) > 0) fatos.push('tem_convidado')
   if ((etapasComLocal.count ?? 0) > 0) fatos.push('local_definido')
   // Duas etapas é o que faz um cronograma: uma só é "onde é a festa", que a
@@ -94,4 +104,10 @@ export async function observarFatosDoPlanejamento(
   }
 
   return { fatos, dataEvento: casamento.data?.data_evento ?? null }
+}
+
+function temIdentidadeVisual(configTema: unknown): boolean {
+  if (!configTema || typeof configTema !== 'object') return false
+  const tema = configTema as { presetId?: unknown; coverImageUrl?: unknown }
+  return Boolean(tema.presetId) || Boolean(tema.coverImageUrl)
 }

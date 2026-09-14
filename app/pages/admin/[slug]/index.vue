@@ -83,6 +83,23 @@ const metrics = computed(() => {
   ]
 })
 
+// --- roteiro de Primeiros passos ---
+//
+// Primeiro bloco da tela até terminar: os alertas abaixo falam de um casamento
+// em andamento, e este fala de um que ainda não começou. Some sozinho quando os
+// sete passos estão cumpridos (docs/fase4-onboarding.md seção 6).
+const { getRoteiro } = useOnboarding()
+const { data: onboarding, roteiro } = getRoteiro()
+
+// A contagem de convidados o painel já tem — e é ela que dá à linha cumprida um
+// valor de verdade em vez de "pronto".
+const valoresDoRoteiro = computed(() => ({
+  ...(onboarding.value?.valores ?? {}),
+  ...(data.value && data.value.people.total > 0
+    ? { convidados: `${data.value.people.total} na lista` }
+    : {}),
+}))
+
 // --- alerta do Financeiro ---
 //
 // Vencidos primeiro, "vence em 30 dias" como segunda opção: o painel mostra no
@@ -289,6 +306,8 @@ function statusOf(invite: InviteListItem) {
     </UiEmptyState>
 
     <template v-else-if="data">
+      <AdminOnboardingRoteiro :roteiro="roteiro" :valores="valoresDoRoteiro" />
+
       <AdminPanel>
         <div class="flex flex-wrap items-end gap-x-12 gap-y-6 p-5 sm:p-7">
           <div class="min-w-48">
