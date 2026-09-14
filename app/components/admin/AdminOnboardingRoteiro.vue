@@ -27,12 +27,54 @@ interface Props {
   roteiro: RoteiroDoOnboarding
   /** Valor já resolvido de cada passo cumprido, por id — ex.: `{ local: 'Espaço Villa Rosa' }`. */
   valores?: Partial<Record<string, string>>
+  /**
+   * Modo acolhimento: o painel não tem o que relatar, então ESTE bloco é a
+   * tela. Ganha a saudação e o botão que nomeia o próximo passo; os blocos de
+   * relatório do Início ficam de fora até existir gente na lista.
+   */
+  destaque?: boolean
+  /** Só no modo destaque — "Ana & João". */
+  nomesNoivos?: string
+  /** Só no modo destaque — `YYYY-MM-DD`, para a frase de quantos dias faltam. */
+  dataEvento?: string
 }
 
-const { roteiro, valores = {} } = defineProps<Props>()
+const {
+  roteiro,
+  valores = {},
+  destaque = false,
+  nomesNoivos = '',
+  dataEvento = '',
+} = defineProps<Props>()
 
 const slug = useActiveWeddingSlug()
 const base = computed(() => `/admin/${slug}`)
+
+const MS_POR_DIA = 24 * 60 * 60 * 1000
+
+/**
+ * Quantos dias faltam, em prosa.
+ *
+ * Meia-noite local explícita nos dois lados (mesmo cuidado do rótulo da data no
+ * painel e do Hero público): `new Date('2027-12-11')` seria lido como UTC e
+ * voltaria um dia em fuso negativo, fazendo a saudação errar por um.
+ */
+const diasQueFaltam = computed(() => {
+  if (!dataEvento) return null
+  const evento = new Date(`${dataEvento}T00:00:00`)
+  const agora = new Date()
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
+  return Math.round((evento.getTime() - hoje.getTime()) / MS_POR_DIA)
+})
+
+const fraseDoPrazo = computed(() => {
+  const dias = diasQueFaltam.value
+  if (dias === null) return 'Este é o painel de vocês.'
+  if (dias > 1) return `Este é o painel de vocês, e faltam ${dias} dias para o grande dia.`
+  if (dias === 1) return 'Este é o painel de vocês, e o casamento é amanhã.'
+  if (dias === 0) return 'Este é o painel de vocês, e o grande dia é hoje.'
+  return 'Este é o painel de vocês.'
+})
 
 const grupos = computed(() =>
   GRUPOS_DO_ROTEIRO.map((grupo) => ({
@@ -49,15 +91,36 @@ function destinoDoPasso(passo: PassoResolvido) {
   if (passo.noWizard) return `${base.value}/comecar?passo=${passo.id}`
   return `${base.value}${passo.destino ?? ''}`
 }
+
+/**
+ * O botão principal do acolhimento nomeia PARA ONDE leva — "Começar pelo
+ * horário do casamento", nunca um "Começar" solto. A primeira decisão que o
+ * casal precisa tomar ao entrar não deveria ser adivinhar o que o botão faz.
+ */
+const proximo = computed(() => roteiro.proximoPasso)
 </script>
 
 <template>
   <AdminPanel v-if="!roteiro.completo">
     <div class="flex flex-col gap-4 p-5 sm:p-7">
+      <!-- Acolhimento: o casal acabou de chegar e o painel não tem o que
+           relatar, então este bloco É a tela. A saudação some sozinha no
+           instante em que existir alguém na lista — quem já está trabalhando
+           não precisa ser recebido de novo. -->
+      <div v-if="destaque" class="flex flex-col gap-1 border-b border-border pb-5">
+        <h2 class="font-display text-2xl font-semibold text-text sm:text-3xl">
+          Bem-vindos<template v-if="nomesNoivos">, {{ nomesNoivos }}</template>
+        </h2>
+        <p class="text-sm text-text-muted">
+          {{ fraseDoPrazo }} Comece pelos primeiros passos abaixo — eles deixam o site pronto para
+          receber os convidados.
+        </p>
+      </div>
+
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <h2 class="font-display text-lg font-semibold text-text">Primeiros passos</h2>
-          <p class="mt-1 text-sm text-text-muted">
+          <p v-if="!destaque" class="mt-1 text-sm text-text-muted">
             Para o site ficar pronto e os módulos começarem a servir vocês.
           </p>
         </div>
@@ -66,7 +129,11 @@ function destinoDoPasso(passo: PassoResolvido) {
           <span class="text-xs font-medium text-text-muted">
             {{ roteiro.concluidos }} de {{ roteiro.total }} concluídos
           </span>
-          <UiButton v-if="roteiro.proximaEtapaDoWizard" size="sm" :to="`${base}/comecar`">
+          <UiButton
+            v-if="!destaque && roteiro.proximaEtapaDoWizard"
+            size="sm"
+            :to="`${base}/comecar`"
+          >
             Começar
           </UiButton>
         </div>
@@ -106,6 +173,11 @@ function destinoDoPasso(passo: PassoResolvido) {
           </li>
         </ul>
       </div>
+
+      <UiButton v-if="destaque && proximo" :to="destinoDoPasso(proximo)" class="self-start">
+        Começar {{ proximo.chamada }}
+        <Icon name="lucide:arrow-right" class="h-4 w-4" aria-hidden="true" />
+      </UiButton>
     </div>
   </AdminPanel>
 </template>

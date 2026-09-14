@@ -194,9 +194,10 @@ nenhuma.
    endpoint parcial teria que abrir exceção para as faixas e viraria uma segunda
    porta para o mesmo dado.
 
-6. **Nada intercepta o primeiro acesso.** O casal cai no painel de sempre; o
-   roteiro é o primeiro bloco do Início até acabar. Sem tela de boas-vindas,
-   sem modal, sem "pular o tutorial" para se arrepender depois.
+6. **Nada intercepta o primeiro acesso** — mas o Início **vira** o acolhimento
+   enquanto não há o que relatar. Sem tela nova, sem modal, sem "pular o
+   tutorial" para se arrepender depois: é a mesma página, no seu estado vazio.
+   Ver 3.1, que é uma correção posterior ao primeiro uso real.
 
 7. **Retomar é derivado, como o progresso.** O wizard abre na primeira etapa
    cujo fato ainda não vale. Não há "última etapa visitada" gravada: com
@@ -227,6 +228,44 @@ nenhuma.
     mesma preocupação: o onboarding mede cadastro, e qualquer frase que soe
     como medida do casamento — ou que prometa uma tela maior do que a que vem —
     faz o casal parar no meio.
+
+### 3.1 A correção do acolhimento (2026-09-14, depois do primeiro uso real)
+
+A decisão 6 foi tomada no abstrato e validada com uma conta de verdade limpa.
+O veredito do usuário: *"não tem algo que acolhe, dá bem-vindo e fala onde eu
+devo olhar"*. A investigação mostrou que faltava mais do que uma saudação.
+
+**O painel é um relatório, e num casamento recém-criado não há nada a
+relatar.** O Início mostrava, para quem acabava de chegar: uma barra de RSVP a
+**0% respondido** com "Sem prazo definido", três métricas em **zero**
+("Convites enviados 0 · Pessoas na lista 0 · Confirmações hoje 0"), quatro
+faixas etárias em **zero** e uma tabela de convites vazia. Sete zeros e duas
+caixas vazias disputando atenção com a única coisa que importava ali.
+
+A tela foi desenhada para um casamento em andamento e estava servindo de
+primeira impressão para um que ainda não começou. E o produto **já tinha a
+regra**, escrita no Financeiro: *indicador sem base é omitido, jamais exibido
+como 0%; o resumo degrada, nunca mente*. O Início era o único lugar que a
+violava.
+
+A correção não é uma tela nova — é a página no seu estado vazio:
+
+- **Enquanto não existe ninguém na lista** (), o roteiro
+  ganha a saudação ("Bem-vindos, Ana & João", com quantos dias faltam em prosa)
+  e um botão que **nomeia o próximo passo** ("Começar pelo horário do
+  casamento"), em vez de um "Começar" solto num canto. A primeira decisão de
+  quem entra não deveria ser adivinhar o que o botão faz.
+- **Os blocos de relatório saem de cena** até terem o que dizer, e voltam
+  sozinhos quando a lista tem gente. Derivado, como tudo o mais: um casamento
+  que perdesse todos os convidados também não mostraria uma barra em 0%.
+- **A saudação some no instante em que existir alguém na lista.** "Bem-vindo" é
+  para quem está chegando; quem já está trabalhando não precisa ser recebido de
+  novo. Não há coluna "já viu as boas-vindas" — a condição é a mesma que
+  esconde os zeros.
+
+O que **não** mudou: nada intercepta, não existe tela de parabéns, e o roteiro
+continua sendo o que sobrevive ao wizard. A diferença é que agora ele tem a
+tela inteira enquanto ela não tem outro uso.
 
 ## 4. Modelo de dados
 

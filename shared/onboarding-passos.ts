@@ -57,6 +57,15 @@ export interface PassoDoOnboarding {
   noWizard: boolean
   /** Texto do link quando o passo ainda não está cumprido. */
   acao: string
+  /**
+   * Como o passo se chama DENTRO da frase do botão principal do acolhimento
+   * ("Começar pelo horário do casamento").
+   *
+   * Existe porque o rótulo não sobrevive à frase: "Começar por Data e horário"
+   * é a leitura de um formulário, não um convite. É prosa visível ao casal, e
+   * por isso mora junto do resto das palavras do passo, nunca na tela.
+   */
+  chamada: string
   /** Rota relativa à base do casamento (`/admin/<slug>`), para os passos fora do wizard. */
   destino?: string
 }
@@ -73,6 +82,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'horario_definido',
     noWizard: true,
     acao: 'definir',
+    chamada: 'pelo horário do casamento',
   },
   {
     id: 'local',
@@ -81,6 +91,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'local_definido',
     noWizard: true,
     acao: 'definir',
+    chamada: 'por onde vai ser',
   },
   {
     id: 'prazo-rsvp',
@@ -89,6 +100,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'prazo_rsvp_definido',
     noWizard: true,
     acao: 'definir',
+    chamada: 'pelo prazo de RSVP',
   },
   {
     id: 'orcamento',
@@ -97,6 +109,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'orcamento_definido',
     noWizard: true,
     acao: 'definir',
+    chamada: 'pelo teto do orçamento',
   },
   {
     id: 'aparencia',
@@ -107,6 +120,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'identidade_visual_definida',
     noWizard: true,
     acao: 'escolher',
+    chamada: 'pela cara do site',
   },
   {
     id: 'convidados',
@@ -115,6 +129,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'tem_convidado',
     noWizard: false,
     acao: 'ir para a lista',
+    chamada: 'pela lista de convidados',
     destino: '/convidados',
   },
   {
@@ -124,6 +139,7 @@ export const PASSOS_DO_ONBOARDING: readonly PassoDoOnboarding[] = [
     fato: 'site_publicado',
     noWizard: false,
     acao: 'publicar',
+    chamada: 'publicando o site',
     destino: '/configuracoes?secao=evento',
   },
 ]
@@ -153,6 +169,14 @@ export interface RoteiroDoOnboarding {
   completo: boolean
   /** A primeira etapa do wizard ainda em aberto; null quando não há nenhuma. */
   proximaEtapaDoWizard: PassoResolvido | null
+  /**
+   * O primeiro passo em aberto, seja ele etapa do wizard ou não.
+   *
+   * É o que o acolhimento nomeia no botão principal: com as cinco perguntas já
+   * respondidas e a lista ainda vazia, "Começar" precisa apontar para a lista
+   * — e não sumir por não haver mais etapa de wizard.
+   */
+  proximoPasso: PassoResolvido | null
 }
 
 export function resolverPassosDoOnboarding(fatos: readonly FatoObservado[]): RoteiroDoOnboarding {
@@ -176,5 +200,6 @@ export function resolverPassosDoOnboarding(fatos: readonly FatoObservado[]): Rot
     total: passos.length,
     completo: concluidos === passos.length,
     proximaEtapaDoWizard: passos.find((passo) => passo.noWizard && !passo.concluido) ?? null,
+    proximoPasso: passos.find((passo) => !passo.concluido) ?? null,
   }
 }

@@ -119,3 +119,33 @@ describe('resolverPassosDoOnboarding', () => {
     expect(semLocal.passos.find((passo) => passo.id === 'local')!.concluido).toBe(false)
   })
 })
+
+describe('o próximo passo que o acolhimento nomeia', () => {
+  it('é o primeiro em aberto, mesmo quando não é etapa do wizard', () => {
+    // Cinco perguntas respondidas, lista ainda vazia: "Começar" precisa apontar
+    // para a lista de convidados — e não sumir por não haver mais etapa.
+    const roteiro = resolverPassosDoOnboarding([
+      'horario_definido',
+      'local_definido',
+      'prazo_rsvp_definido',
+      'orcamento_definido',
+      'identidade_visual_definida',
+    ])
+
+    expect(roteiro.proximaEtapaDoWizard).toBeNull()
+    expect(roteiro.proximoPasso?.id).toBe('convidados')
+  })
+
+  it('some junto com o roteiro quando tudo está cumprido', () => {
+    expect(resolverPassosDoOnboarding(TODOS_OS_FATOS).proximoPasso).toBeNull()
+  })
+
+  it('todo passo tem a frase do botão, e ela nunca repete o rótulo cru', () => {
+    // "Começar por Data e horário" é leitura de formulário, não convite — a
+    // chamada existe justamente para a frase sobreviver.
+    for (const passo of PASSOS_DO_ONBOARDING) {
+      expect(passo.chamada.trim().length).toBeGreaterThan(0)
+      expect(passo.chamada).not.toBe(passo.rotulo)
+    }
+  })
+})

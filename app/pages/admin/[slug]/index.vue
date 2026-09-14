@@ -91,6 +91,15 @@ const metrics = computed(() => {
 const { getRoteiro } = useOnboarding()
 const { data: onboarding, roteiro } = getRoteiro()
 
+// Enquanto não há ninguém na lista, o painel não tem o que RELATAR: a barra de
+// RSVP desenha 0%, as três métricas mostram zero, as faixas etárias mostram
+// zero e a tabela de convites fica vazia. É a mesma regra que o Financeiro já
+// aplica — indicador sem base é omitido, jamais exibido como 0%; o resumo
+// degrada, nunca mente — e o Início era o único lugar que a violava. Com os
+// blocos fora, o roteiro deixa de ser mais um cartão e vira a tela: o
+// acolhimento de quem acabou de chegar.
+const semNinguemNaLista = computed(() => (data.value?.people.total ?? 0) === 0)
+
 // A contagem de convidados o painel já tem — e é ela que dá à linha cumprida um
 // valor de verdade em vez de "pronto".
 const valoresDoRoteiro = computed(() => ({
@@ -306,9 +315,15 @@ function statusOf(invite: InviteListItem) {
     </UiEmptyState>
 
     <template v-else-if="data">
-      <AdminOnboardingRoteiro :roteiro="roteiro" :valores="valoresDoRoteiro" />
+      <AdminOnboardingRoteiro
+        :roteiro="roteiro"
+        :valores="valoresDoRoteiro"
+        :destaque="semNinguemNaLista"
+        :nomes-noivos="wedding?.nomes_noivos ?? ''"
+        :data-evento="wedding?.data_evento ?? ''"
+      />
 
-      <AdminPanel>
+      <AdminPanel v-if="!semNinguemNaLista">
         <div class="flex flex-wrap items-end gap-x-12 gap-y-6 p-5 sm:p-7">
           <div class="min-w-48">
             <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -430,7 +445,7 @@ function statusOf(invite: InviteListItem) {
         <span class="ml-auto text-xs text-text-muted">ver no Planejamento</span>
       </NuxtLink>
 
-      <div class="grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <div v-if="!semNinguemNaLista" class="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <AdminMetricStrip :metrics="metrics" class="lg:col-span-8" />
         <div class="flex flex-col gap-3 lg:col-span-4">
           <UiButton class="w-full" :to="`/admin/${slug}/convidados?novo=1`">
@@ -449,7 +464,11 @@ function statusOf(invite: InviteListItem) {
         </div>
       </div>
 
-      <AdminPanel title="Pessoas por faixa etária" meta="Calculada na data do casamento">
+      <AdminPanel
+        v-if="!semNinguemNaLista"
+        title="Pessoas por faixa etária"
+        meta="Calculada na data do casamento"
+      >
         <template #headerActions>
           <NuxtLink
             :to="`/admin/${slug}/configuracoes#faixas-etarias`"
@@ -475,7 +494,7 @@ function statusOf(invite: InviteListItem) {
         </dl>
       </AdminPanel>
 
-      <AdminPanel title="Convites recentes" :meta="invitesPanelMeta">
+      <AdminPanel v-if="!semNinguemNaLista" title="Convites recentes" :meta="invitesPanelMeta">
         <template #headerActions>
           <AdminFilterChips
             v-model="inviteFilter"
