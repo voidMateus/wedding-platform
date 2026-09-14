@@ -20,7 +20,7 @@
 import { eventSegmentInputSchema } from '#shared/schemas/event-segments'
 import { PASSOS_DO_WIZARD } from '#shared/onboarding-passos'
 import { themeConfigSchema } from '#shared/schemas/theme'
-import { findThemePreset } from '#shared/theme-presets'
+import { aplicarPresetNoTema, findThemePreset } from '#shared/theme-presets'
 import { classifyEventSegmentTitle } from '#shared/utils/event-segment-keywords'
 import { getApiErrorMessage } from '~/utils/api-error'
 import { weddingSettingsFromRow } from '~/utils/wedding-settings'
@@ -146,6 +146,11 @@ const cerimonia = computed(
 )
 
 async function salvarLocal() {
+  // "Continuar" sem preencher nada é um Pular com outro nome: criar uma
+  // Cerimônia sem local deixaria no Cronograma uma etapa que o casal não
+  // pediu, e que ele teria de descobrir para apagar.
+  if (!hasEventSegmentLocation(local.value) && !cerimonia.value) return
+
   const valores = eventSegmentInputSchema.parse({
     ...local.value,
     titulo: 'Cerimônia',
@@ -198,21 +203,11 @@ async function salvarAparencia() {
   const preset = presetId.value ? findThemePreset(presetId.value) : undefined
   if (!preset) return
 
-  // Validado pelo MESMO schema da tela de Aparência, e não por um objeto
-  // montado à mão: é ele que aplica os defaults do tema e descarta as chaves
-  // geridas por outros endpoints (foto de capa, pontos de foco), que precisam
-  // sobreviver intactas ao merge do servidor.
+  // `aplicarPresetNoTema` é o mesmo caminho da tela de Aparência, e é ele que
+  // garante um objeto completo: o tema de um casamento recém-criado é `{}`, e
+  // `showCountdown` é obrigatório no schema sem ter default.
   const tema = (wedding.value?.config_tema ?? {}) as Record<string, unknown>
-  await updateWeddingTheme(
-    themeConfigSchema.parse({
-      ...tema,
-      presetId: preset.id,
-      primaryColor: preset.primaryColor,
-      secondaryColor: preset.secondaryColor,
-      ornamentColor: preset.ornamentColor ?? '',
-      fontPairId: preset.fontPairId,
-    }),
-  )
+  await updateWeddingTheme(themeConfigSchema.parse(aplicarPresetNoTema(tema, preset)))
   await recarregarCasamento()
 }
 

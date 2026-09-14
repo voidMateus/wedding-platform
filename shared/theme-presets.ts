@@ -176,6 +176,40 @@ export const THEME_PRESETS: ThemePreset[] = [
 
 export const DEFAULT_FONT_PAIR_ID = 'playfair-inter'
 
+/**
+ * O tema resultante de aplicar um preset sobre o que o casal já tem.
+ *
+ * Existe porque aplicar preset acontece em DOIS lugares — a tela de Aparência,
+ * onde o formulário já carrega todos os campos, e o wizard de Primeiros passos,
+ * onde o tema pode estar literalmente vazio. No segundo, montar o objeto à mão
+ * quebrava: `themeConfigSchema` exige `showCountdown` e ele não tem default, e
+ * um casamento recém-criado tem `config_tema = {}`. O sintoma era um toast
+ * genérico de "não foi possível salvar" sem nenhuma requisição ter saído.
+ *
+ * Os campos que o preset não decide são preservados quando existem e caem no
+ * padrão da plataforma quando não — e o resultado é sempre um objeto que passa
+ * pelo schema.
+ */
+export function aplicarPresetNoTema(
+  temaAtual: Record<string, unknown> | null | undefined,
+  preset: ThemePreset,
+): Record<string, unknown> {
+  const tema = temaAtual ?? {}
+  return {
+    ...tema,
+    presetId: preset.id,
+    primaryColor: preset.primaryColor,
+    secondaryColor: preset.secondaryColor,
+    // Preset sem ornamento próprio LIMPA o campo em vez de manter o dourado do
+    // preset anterior — mesma regra da tela de Aparência.
+    ornamentColor: preset.ornamentColor ?? '',
+    fontPairId: preset.fontPairId,
+    // O único obrigatório do schema sem default. A contagem regressiva é
+    // assinatura de site de casamento: ligada é o padrão da plataforma.
+    showCountdown: typeof tema.showCountdown === 'boolean' ? tema.showCountdown : true,
+  }
+}
+
 export function findThemePreset(presetId: string | undefined): ThemePreset | undefined {
   return THEME_PRESETS.find((preset) => preset.id === presetId)
 }
