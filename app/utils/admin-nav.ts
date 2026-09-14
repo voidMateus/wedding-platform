@@ -77,6 +77,14 @@ const ROTAS_DO_MODULO_CONFIGURACOES = ['/configuracoes', '/cronograma', '/galeri
 const ROTAS_DO_MODULO_FINANCEIRO = ['/financeiro'] as const
 
 /**
+ * Rotas do módulo Planejamento. Uma tela só — e por isso ele não tem menu de
+ * seção: um eixo, uma vista. A lista existe assim mesmo para que uma segunda
+ * tela (se um dia houver outro EIXO, não outro recorte) não precise reescrever
+ * a posse.
+ */
+const ROTAS_DO_MODULO_PLANEJAMENTO = ['/planejamento'] as const
+
+/**
  * As seções de Configurações, agrupadas pelo assunto que era aba no topo.
  *
  * Vive aqui, e não na página, porque virou navegação: o menu da seção monta a
@@ -164,6 +172,15 @@ export function adminPrimaryNav(slug: string): AdminNavItem[] {
   const base = `/admin/${slug}`
   return [
     { to: base, label: 'Início', icon: 'lucide:house', exact: true },
+    // Planejamento vem logo depois do Início porque responde a pergunta que o
+    // casal faz ANTES de todas as outras — "o que eu faço agora?". Início é
+    // panorama; aqui é a lista de onde sai o trabalho do dia.
+    {
+      to: `${base}/planejamento`,
+      label: 'Planejamento',
+      icon: 'lucide:list-checks',
+      tambemDonoDe: ROTAS_DO_MODULO_PLANEJAMENTO.map((rota) => `${base}${rota}`),
+    },
     // Convites NÃO tem aba própria: é tela do módulo Convidados, junto de
     // Grupos e Núcleos — os três conceitos independentes da lista (CLAUDE.md,
     // seção 12) moram no mesmo menu de seção. Uma aba a menos no topo também
@@ -174,16 +191,17 @@ export function adminPrimaryNav(slug: string): AdminNavItem[] {
       icon: 'lucide:users',
       tambemDonoDe: ROTAS_DO_MODULO_CONVIDADOS.map((rota) => `${base}${rota}`),
     },
-    { to: `${base}/presentes`, label: 'Presentes', icon: 'lucide:gift' },
-    // Financeiro é a quinta aba: a barra do celular mostra quatro destinos
-    // mais o "Mais", então ele entra na barra e Configurações (aberta uma vez
-    // por semana, não por dia) passa a viver no "Mais".
     {
       to: `${base}/financeiro`,
       label: 'Financeiro',
       icon: 'lucide:wallet',
       tambemDonoDe: ROTAS_DO_MODULO_FINANCEIRO.map((rota) => `${base}${rota}`),
     },
+    // Presentes desce para o "Mais" do celular com a entrada de Planejamento:
+    // a barra mostra quatro destinos, e a escolha é entre um módulo que se
+    // configura uma vez e depois só se acompanha e o que responde "o que eu
+    // faço hoje". No desktop nada sai — a nav do cabeçalho comporta seis.
+    { to: `${base}/presentes`, label: 'Presentes', icon: 'lucide:gift' },
     // Cronograma e Galeria também perdem aba própria: são telas do módulo
     // Configurações (o casal preparando o que o convidado vai ver).
     {

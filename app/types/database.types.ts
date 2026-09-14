@@ -1963,7 +1963,7 @@ export type Database = {
           },
         ]
       }
-      tarefas: {
+      fila_processamento: {
         Row: {
           casamento_id: string | null
           created_at: string
@@ -2003,6 +2003,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "jobs_wedding_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tarefas: {
+        Row: {
+          casamento_id: string
+          concluida_em: string | null
+          created_at: string
+          id: string
+          observacao: string | null
+          origem_catalogo: string | null
+          prazo: string | null
+          responsavel: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          casamento_id: string
+          concluida_em?: string | null
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          origem_catalogo?: string | null
+          prazo?: string | null
+          responsavel?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          casamento_id?: string
+          concluida_em?: string | null
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          origem_catalogo?: string | null
+          prazo?: string | null
+          responsavel?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefas_casamento_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
