@@ -25,6 +25,15 @@ export async function createTestWedding(
       slug: `teste-integracao-${id}`,
       nomes_noivos: 'Teste & Integração',
       data_evento: '2030-01-01',
+      // PUBLICADO por padrão, embora a coluna nasça em 'rascunho'.
+      //
+      // Desde que o rascunho passou a barrar o site público
+      // (docs/fase4-onboarding.md seção 8), um casamento de teste em rascunho
+      // devolve 404 em toda rota pública e de convidado — e praticamente todo
+      // teste descreve o cenário oposto: um convidado que recebeu o link de um
+      // site no ar. Quem quer testar o PORTÃO pede `status_ciclo_vida:
+      // 'rascunho'` explicitamente, e aí o teste diz o que está exercitando.
+      status_ciclo_vida: 'publicado',
       ...overrides,
     })
     .select()

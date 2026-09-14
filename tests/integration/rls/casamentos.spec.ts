@@ -39,7 +39,11 @@ describe('RLS: casamentos', () => {
   })
 
   it('membro do próprio casamento lê o casamento normalmente', async () => {
-    const { data, error } = await memberA.client.from('casamentos').select('*').eq('id', weddingA.id).maybeSingle()
+    const { data, error } = await memberA.client
+      .from('casamentos')
+      .select('*')
+      .eq('id', weddingA.id)
+      .maybeSingle()
     expect(error).toBeNull()
     expect(data?.id).toBe(weddingA.id)
   })
@@ -54,7 +58,11 @@ describe('RLS: casamentos', () => {
     expect(error).toBeNull()
     expect(data).toHaveLength(1)
 
-    const { data: updated } = await admin.from('casamentos').select('nomes_noivos').eq('id', weddingA.id).single()
+    const { data: updated } = await admin
+      .from('casamentos')
+      .select('nomes_noivos')
+      .eq('id', weddingA.id)
+      .single()
     expect(updated?.nomes_noivos).toBe('Nome Atualizado Pelo Membro')
   })
 
@@ -68,21 +76,77 @@ describe('RLS: casamentos', () => {
     expect(error).toBeNull()
     expect(data).toEqual([])
 
-    const { data: unchanged } = await admin.from('casamentos').select('nomes_noivos').eq('id', weddingA.id).single()
+    const { data: unchanged } = await admin
+      .from('casamentos')
+      .select('nomes_noivos')
+      .eq('id', weddingA.id)
+      .single()
     expect(unchanged?.nomes_noivos).not.toBe('Nome Alterado Indevidamente')
   })
 
   it('membro de outro casamento não consegue excluir o casamento A', async () => {
     await memberB.client.from('casamentos').delete().eq('id', weddingA.id)
 
-    const { data: stillThere } = await admin.from('casamentos').select('id').eq('id', weddingA.id).maybeSingle()
+    const { data: stillThere } = await admin
+      .from('casamentos')
+      .select('id')
+      .eq('id', weddingA.id)
+      .maybeSingle()
     expect(stillThere?.id).toBe(weddingA.id)
   })
 
-  it('client anônimo consegue ler o casamento (policy pública, site sem autenticação)', async () => {
-    const { data, error } = await anon.from('casamentos').select('*').eq('id', weddingA.id).maybeSingle()
+  it('client anônimo consegue ler o casamento PUBLICADO (site sem autenticação)', async () => {
+    const { data, error } = await anon
+      .from('casamentos')
+      .select('*')
+      .eq('id', weddingA.id)
+      .maybeSingle()
     expect(error).toBeNull()
     expect(data?.id).toBe(weddingA.id)
+  })
+
+  it('client anônimo NÃO lê um casamento em rascunho — o portão da publicação', async () => {
+    // A policy `casamentos_select_publico` é o portão de toda rota pública que
+    // usa a anon key: as três resolvem `casamentos` por slug antes de tocar em
+    // qualquer tabela filha, então barrar aqui barra o site inteiro numa linha
+    // de SQL (docs/fase4-onboarding.md seção 8.1). Este é o único teste que
+    // verifica a policy de verdade, contra um Postgres real.
+    const rascunho = await createTestWedding(admin, { status_ciclo_vida: 'rascunho' })
+    try {
+      const { data, error } = await anon
+        .from('casamentos')
+        .select('*')
+        .eq('id', rascunho.id)
+        .maybeSingle()
+
+      expect(error).toBeNull()
+      expect(data).toBeNull()
+    } finally {
+      await deleteTestWedding(admin, rascunho.id)
+    }
+  })
+
+  it('o próprio casal continua vendo o rascunho — a prévia não é um modo', async () => {
+    // Cai da RLS, não de um "modo de prévia": as rotas públicas usam o client
+    // da sessão, então quem é membro lê pela policy de membro enquanto todo
+    // mundo leva 404.
+    const rascunho = await createTestWedding(admin, { status_ciclo_vida: 'rascunho' })
+    const membro = await createTestMember(admin, rascunho.id)
+    try {
+      const { data, error } = await membro.client
+        .from('casamentos')
+        .select('id')
+        .eq('id', rascunho.id)
+        .maybeSingle()
+
+      expect(error).toBeNull()
+      expect(data?.id).toBe(rascunho.id)
+    } finally {
+      await cleanupAll([
+        () => deleteTestMember(admin, membro.userId),
+        () => deleteTestWedding(admin, rascunho.id),
+      ])
+    }
   })
 
   it('client anônimo não consegue atualizar o casamento', async () => {
@@ -95,14 +159,22 @@ describe('RLS: casamentos', () => {
     expect(error).toBeNull()
     expect(data).toEqual([])
 
-    const { data: unchanged } = await admin.from('casamentos').select('nomes_noivos').eq('id', weddingA.id).single()
+    const { data: unchanged } = await admin
+      .from('casamentos')
+      .select('nomes_noivos')
+      .eq('id', weddingA.id)
+      .single()
     expect(unchanged?.nomes_noivos).not.toBe('Nome Alterado Por Anônimo')
   })
 
   it('client anônimo não consegue excluir o casamento', async () => {
     await anon.from('casamentos').delete().eq('id', weddingA.id)
 
-    const { data: stillThere } = await admin.from('casamentos').select('id').eq('id', weddingA.id).maybeSingle()
+    const { data: stillThere } = await admin
+      .from('casamentos')
+      .select('id')
+      .eq('id', weddingA.id)
+      .maybeSingle()
     expect(stillThere?.id).toBe(weddingA.id)
   })
 })
