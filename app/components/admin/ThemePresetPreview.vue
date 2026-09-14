@@ -44,6 +44,9 @@ const estilo = computed(() => {
     '--color-secondary': preset.secondaryColor,
     // Mesma regra do site: sem ornamento próprio, o ornamento é a secundária.
     '--color-ornament': preset.ornamentColor ?? preset.secondaryColor,
+    // Sem isto a prévia mostraria os nomes no mesmo marrom escuro para os nove
+    // presets — que era exatamente o defeito que o titleColor veio corrigir.
+    '--color-heading': preset.titleColor ?? undefined,
     '--font-display': par ? `'${par.displayFontFamily}', Georgia, serif` : undefined,
   }
 })

@@ -147,6 +147,11 @@ function applyPreset(id: string) {
   // deixaria filetes dourados atravessados numa paleta verde, e o casal não
   // teria como adivinhar de onde aquilo veio.
   ornamentColor.value = preset.ornamentColor ?? ''
+  // Mesma regra do ornamento. E a seção avançada ABRE quando o preset traz um
+  // título: uma cor aplicada que o casal não vê é estado escondido, e o
+  // próprio interruptor a apagaria em silêncio no próximo clique.
+  titleColor.value = preset.titleColor ?? ''
+  if (preset.titleColor) advancedColorEnabled.value = true
   fontPairId.value = preset.fontPairId
   nextTick(() => {
     isApplyingPreset.value = false

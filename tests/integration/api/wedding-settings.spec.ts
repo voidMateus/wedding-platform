@@ -199,8 +199,8 @@ describe('api: PATCH /api/wedding, /api/wedding/theme, /api/wedding/content', ()
       // este caso verifica de ponta a ponta.
       const client = createTestApiClient({ cookie })
       const res = await client.patch('/api/wedding/theme', {
-        presetId: 'convite-luxo',
-        primaryColor: '#7a1f24',
+        presetId: 'borgonha-dourado',
+        primaryColor: '#5c1a2b',
         secondaryColor: '#8a6a1f',
         titleColor: '',
         bodyColor: '',
