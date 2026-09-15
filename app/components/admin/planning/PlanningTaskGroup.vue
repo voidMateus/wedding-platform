@@ -26,9 +26,24 @@ interface Props {
   sugestoes: readonly TarefaSugerida[]
   /** Grupos que são histórico ou pano de fundo começam fechados. */
   recolhidoPorPadrao?: boolean
+  /**
+   * Os nomes já usados como responsável em QUALQUER tarefa da checklist — a
+   * lista vem da página, não do grupo: quem escreveu "Cerimonial Ana" numa
+   * tarefa de dezembro não deveria ter que redigitá-la numa de março.
+   *
+   * Continua texto livre: isto autocompleta, não restringe.
+   */
+  responsaveisConhecidos?: readonly string[]
 }
 
-const { janela, rotulo, tarefas, sugestoes, recolhidoPorPadrao = false } = defineProps<Props>()
+const {
+  janela,
+  rotulo,
+  tarefas,
+  sugestoes,
+  recolhidoPorPadrao = false,
+  responsaveisConhecidos = [],
+} = defineProps<Props>()
 
 const toast = useToast()
 const { atualizarTarefa, excluirTarefa, criarTarefaSugerida } = usePlanning()
@@ -191,7 +206,7 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
         <li
           v-for="tarefa in tarefas"
           :key="tarefa.id"
-          class="flex flex-col gap-2 border-b border-border/40 py-2 last:border-b-0 sm:flex-row sm:items-center sm:gap-3"
+          class="flex flex-col gap-2 border-b border-border/40 py-2 last:border-b-0 sm:flex-row sm:items-center sm:gap-1"
           @focusout="aoSairDaLinha($event, () => salvar(tarefa))"
           @keyup.enter="salvar(tarefa)"
         >
@@ -202,6 +217,7 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
           />
 
           <UiInput
+            variant="quiet-desktop"
             class="min-w-0 flex-1"
             :model-value="rascunho(tarefa).titulo"
             :aria-label="`Tarefa ${tarefa.titulo}`"
@@ -213,6 +229,7 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
                cada linha repetiria o nome do próprio grupo, e o campo é uma
                ação a tomar, não um estado a reafirmar. -->
           <UiDatePicker
+            variant="quiet-desktop"
             class="sm:w-44"
             clearable
             :model-value="tarefa.prazo ?? ''"
@@ -221,9 +238,11 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
           />
 
           <UiInput
+            variant="quiet-desktop"
             class="sm:w-40"
             :model-value="rascunho(tarefa).responsavel"
             :aria-label="`Responsável por ${tarefa.titulo}`"
+            :suggestions="responsaveisConhecidos"
             placeholder="Quem faz?"
             @update:model-value="editar(tarefa, 'responsavel', $event)"
           />

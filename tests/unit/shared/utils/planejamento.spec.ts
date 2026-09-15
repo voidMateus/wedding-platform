@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   destaqueDoPlanejamento,
+  diasAteOEvento,
   janelaDaSugestao,
   janelaDaTarefa,
   prazoSugerido,
   resumoDoPlanejamento,
+  rotuloDaContagem,
 } from '#shared/utils/planejamento'
 import type { TarefaSugerida } from '#shared/planejamento-tarefas'
 
@@ -124,5 +126,36 @@ describe('destaqueDoPlanejamento', () => {
 
   it('lista vazia não vira faixa no painel', () => {
     expect(destaqueDoPlanejamento(resumoDoPlanejamento([], HOJE))).toBeNull()
+  })
+})
+
+describe('diasAteOEvento', () => {
+  it('conta os dias entre hoje e o casamento', () => {
+    expect(diasAteOEvento(EVENTO, HOJE)).toBe(272)
+    expect(diasAteOEvento(HOJE, HOJE)).toBe(0)
+  })
+
+  it('atravessa a virada do ano e o ano bissexto sem perder um dia', () => {
+    expect(diasAteOEvento('2027-01-01', '2026-12-31')).toBe(1)
+    // 2028 é bissexto: fevereiro tem 29 dias.
+    expect(diasAteOEvento('2028-03-01', '2028-02-28')).toBe(2)
+  })
+
+  it('fica negativo depois do casamento, e é null sem data', () => {
+    expect(diasAteOEvento('2026-09-10', HOJE)).toBe(-3)
+    expect(diasAteOEvento(null, HOJE)).toBeNull()
+  })
+})
+
+describe('rotuloDaContagem', () => {
+  it('concorda o plural e chama o dia de hoje pelo nome', () => {
+    expect(rotuloDaContagem(272)).toBe('faltam 272 dias')
+    expect(rotuloDaContagem(1)).toBe('falta 1 dia')
+    expect(rotuloDaContagem(0)).toBe('é hoje')
+  })
+
+  it('cala depois do casamento — contagem regressiva de evento passado cobra, não informa', () => {
+    expect(rotuloDaContagem(-1)).toBeNull()
+    expect(rotuloDaContagem(null)).toBeNull()
   })
 })

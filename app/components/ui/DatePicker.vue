@@ -53,6 +53,14 @@ interface Props {
   disabled?: boolean
   /** Permite limpar a data (campos opcionais). */
   clearable?: boolean
+  /**
+   * 'campo' (default) é o campo com moldura. 'quiet-desktop' tira a borda e o
+   * fundo até o hover/abertura — mesmo contrato do `UiInput` de mesmo nome, e
+   * pela mesma razão: numa linha editável, quatro molduras permanentes viram o
+   * elemento mais pesado da tela e competem com o que ela tem a dizer (o que
+   * falta fazer). Abaixo de `sm`, onde a linha empilha, volta a ser 'campo'.
+   */
+  variant?: 'campo' | 'quiet-desktop'
 }
 
 const {
@@ -63,11 +71,20 @@ const {
   hint,
   disabled = false,
   clearable = false,
+  variant = 'campo',
 } = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+// Borda transparente (e não ausente) na variante silenciosa, como no `UiSelect`:
+// sem ela o gatilho mudaria de largura no hover e a linha inteira daria um pulo.
+const VARIANT_CLASSES: Record<NonNullable<Props['variant']>, string> = {
+  campo: 'h-10 border-border bg-surface px-3 hover:border-primary/40',
+  'quiet-desktop':
+    'h-10 border-border bg-surface px-3 hover:border-primary/40 sm:h-8 sm:border-transparent sm:bg-transparent sm:px-2 sm:hover:border-border sm:hover:bg-surface sm:data-[state=open]:border-border sm:data-[state=open]:bg-surface',
+}
 
 const fieldId = useId()
 
@@ -155,14 +172,25 @@ function clear() {
       <PopoverTrigger
         :id="fieldId"
         :disabled="disabled"
-        class="flex h-10 w-full items-center gap-2 rounded-md border border-border bg-surface px-3 text-left text-sm transition-brand hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-        :class="formattedValue ? 'text-text' : 'text-text-muted'"
+        class="flex w-full items-center gap-2 rounded-md border text-left text-sm transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+        :class="[VARIANT_CLASSES[variant], formattedValue ? 'text-text' : 'text-text-muted']"
         :aria-invalid="Boolean(error)"
         :aria-describedby="describedBy"
       >
         <Icon name="lucide:calendar-days" class="h-4 w-4 shrink-0 text-text-muted" />
         <span class="min-w-0 flex-1 truncate">{{ formattedValue || placeholder }}</span>
-        <Icon name="lucide:chevron-down" class="h-4 w-4 shrink-0 text-text-muted" />
+        <!-- Sem moldura, o ícone de calendário já diz sozinho o que o controle
+             faz; a seta seria o segundo ícone de um campo que existe para pesar
+             menos. Ela volta abaixo de `sm`, onde o campo tem moldura.
+
+             O `sm:hidden` vai num <span> em volta, e não no próprio <Icon>: o
+             `.iconify { display: inline-block }` do @nuxt/icon entra FORA de
+             layer, e CSS sem layer vence qualquer utilitário do Tailwind (que
+             mora em `@layer utilities`) na mesma especificidade. No ícone a
+             classe é aplicada e não faz nada — verificado no DOM. -->
+        <span class="contents" :class="variant === 'quiet-desktop' && 'sm:hidden'">
+          <Icon name="lucide:chevron-down" class="h-4 w-4 shrink-0 text-text-muted" />
+        </span>
       </PopoverTrigger>
 
       <!-- z-60: precisa passar por cima do UiModal (z-50). -->
