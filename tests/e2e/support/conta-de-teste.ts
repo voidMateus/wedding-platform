@@ -135,28 +135,83 @@ export async function preencherHorario(page: Page, hhmm: string): Promise<void> 
 /**
  * O cenário que os testes do Financeiro descrevem.
  *
- * Os nomes não são decorativos: cada um representa uma FASE do gasto, e é a
- * fase que decide qual número a linha mostra (`numeroDoGasto`). Antes isto
- * vivia no banco de desenvolvimento, criado à mão em algum momento — e os
- * testes liam o que encontrassem.
+ * Os nomes não são decorativos: cada gasto representa uma FASE, e é a fase que
+ * decide qual número a linha mostra (`numeroDoGasto`). Os valores também não —
+ * "Bebidas" precisa somar exatamente R$ 1.620,00 de R$ 1.800,00 porque é isso
+ * que o teste de Categorias afirma.
+ *
+ * Tudo isto vivia no banco de desenvolvimento, criado à mão em algum momento
+ * que ninguém registrou. Os testes liam o que encontrassem, e caíram todos
+ * juntos no dia em que aquela conta foi limpa — sem nenhuma regra do produto
+ * ter mudado. Agora o cenário mora no repositório, onde pode ser lido junto
+ * com o teste que depende dele.
+ *
+ * As categorias usam os nomes do catálogo (`shared/orcamento-categorias.ts`)
+ * porque a tela oferece sugestões por NOME de categoria: "Música" precisa se
+ * chamar exatamente assim para oferecer "Som e iluminação de pista".
  */
 export async function semearFinanceiro(conta: ContaDeTeste): Promise<void> {
   const { admin, casamentoId } = conta
 
-  const cerimonia = await createTestBudgetCategory(admin, casamentoId, {
-    nome: 'Cerimônia',
-    valor_previsto_centavos: 500_000,
-    ordem_exibicao: 1,
-  })
-  const bebidas = await createTestBudgetCategory(admin, casamentoId, {
-    nome: 'Bebidas',
-    valor_previsto_centavos: 300_000,
-    ordem_exibicao: 2,
+  const categoria = async (nome: string, teto: number, ordem: number) =>
+    createTestBudgetCategory(admin, casamentoId, {
+      nome,
+      valor_previsto_centavos: teto,
+      ordem_exibicao: ordem,
+    })
+
+  const bebidas = await categoria('Bebidas', 180_000, 1)
+  const cerimonia = await categoria('Cerimônia e assessoria', 400_000, 2)
+  const decoracao = await categoria('Decoração e flores', 300_000, 3)
+  const buffet = await categoria('Buffet', 900_000, 4)
+  // "Música" existe para os testes que criam gasto dentro dela. Nenhum outro
+  // afirma os totais dela de propósito — é o que permite criar ali sem
+  // derrubar quem roda em paralelo.
+  await categoria('Música', 250_000, 5)
+
+  // --- Bebidas: o gasto CONTRATADO com propostas concorrentes -------------
+  //
+  // O par que a linha de Categorias exibe é "contratado de ESTIMADO", não de
+  // teto: R$ 1.620,00 fechados contra R$ 1.800,00 planejados — um gasto que
+  // saiu mais barato do que a estimativa, que é o caso comum.
+  const refrigerantes = await createTestExpense(admin, casamentoId, {
+    descricao: 'Refrigerantes',
+    categoria_id: bebidas.id,
+    valor_estimado_centavos: 180_000,
+    valor_centavos: 162_000,
   })
 
-  // CONTRATADO e sem parcela: a linha mostra "falta pagar", e Pagamentos
-  // precisa listá-lo assim mesmo — senão vira conta que só reaparece quando
-  // alguém lembra.
+  const vencedora = await createTestVendor(admin, casamentoId, {
+    nome: 'Atacado do Zé',
+    despesa_id: refrigerantes.id,
+    categoria_id: bebidas.id,
+    valor_proposto_centavos: 95_000,
+    estagio: 'contratado',
+  })
+  // Contratar grava o vínculo nos DOIS sentidos — com um só, a mesma
+  // contratação ganha duas descrições diferentes em duas telas.
+  await admin.from('despesas').update({ fornecedor_id: vencedora.id }).eq('id', refrigerantes.id)
+
+  for (const [nome, valor] of [
+    ['Distribuidora Sul', 120_000],
+    ['Bebidas Express', 140_000],
+  ] as const) {
+    await createTestVendor(admin, casamentoId, {
+      nome,
+      despesa_id: refrigerantes.id,
+      categoria_id: bebidas.id,
+      valor_proposto_centavos: valor,
+    })
+  }
+
+  // A ficha mostra a seção Pagamentos porque este gasto tem parcela.
+  await createTestInstallment(admin, casamentoId, refrigerantes.id, {
+    numero: 1,
+    valor_centavos: 162_000,
+    vence_em: '2027-10-15',
+  })
+
+  // --- Contratado SEM parcela: precisa aparecer em Pagamentos assim mesmo --
   await createTestExpense(admin, casamentoId, {
     descricao: 'Celebrante',
     categoria_id: cerimonia.id,
@@ -164,50 +219,67 @@ export async function semearFinanceiro(conta: ContaDeTeste): Promise<void> {
     valor_centavos: 180_000,
   })
 
-  // Só PLANEJADO: nunca aparece em Pagamentos.
-  await createTestExpense(admin, casamentoId, {
-    descricao: 'Refrigerantes',
-    categoria_id: bebidas.id,
+  // --- Só PLANEJADO: nunca aparece em Pagamentos --------------------------
+  //
+  // Também é o alvo do teste que arquiva uma proposta e a traz de volta, por
+  // isso tem uma proposta em aberto e nenhum valor fechado.
+  const flores = await createTestExpense(admin, casamentoId, {
+    descricao: 'Flores da cerimônia',
+    categoria_id: decoracao.id,
     valor_estimado_centavos: 90_000,
   })
-
-  // Contratado COM parcela paga: alimenta a faixa "Pagos", que nasce
-  // recolhida por ser histórico e não pendência.
-  const decoracao = await createTestExpense(admin, casamentoId, {
-    descricao: 'Decoração da igreja',
-    categoria_id: cerimonia.id,
-    valor_estimado_centavos: 200_000,
-    valor_centavos: 220_000,
+  await createTestVendor(admin, casamentoId, {
+    nome: 'Floricultura Bela Flor',
+    despesa_id: flores.id,
+    categoria_id: decoracao.id,
+    valor_proposto_centavos: 88_000,
   })
-  await createTestInstallment(admin, casamentoId, decoracao.id, {
+
+  // --- Parcela PAGA: alimenta a faixa "Pagos", recolhida por ser histórico -
+  const aliancas = await createTestExpense(admin, casamentoId, {
+    descricao: 'Alianças',
+    categoria_id: cerimonia.id,
+    valor_estimado_centavos: 400_000,
+    valor_centavos: 420_000,
+  })
+  await createTestInstallment(admin, casamentoId, aliancas.id, {
     numero: 1,
-    valor_centavos: 110_000,
-    vence_em: '2027-06-10',
-    pago_em: '2027-06-09',
-  })
-  await createTestInstallment(admin, casamentoId, decoracao.id, {
-    numero: 2,
-    valor_centavos: 110_000,
-    vence_em: '2027-07-10',
+    valor_centavos: 420_000,
+    vence_em: '2027-05-20',
+    pago_em: '2027-05-18',
   })
 
-  // Em COTAÇÃO: duas propostas para o mesmo gasto, que é o arranjo que põe
-  // concorrentes lado a lado — e a linha mostra a melhor delas.
-  const musica = await createTestExpense(admin, casamentoId, {
-    descricao: 'Música da cerimônia',
-    categoria_id: cerimonia.id,
-    valor_estimado_centavos: 120_000,
+  // --- Fornecedor contratado, e a parcela em aberto de 06 de setembro -----
+  //
+  // O vencimento é o que identifica a linha no teste da baixa: marcar "a
+  // primeira em aberto" e depois clicar no primeiro "Desfazer" da tela
+  // desfazia o pagamento de outra linha.
+  const buffetGasto = await createTestExpense(admin, casamentoId, {
+    descricao: 'Buffet — 120 pessoas',
+    categoria_id: buffet.id,
+    valor_estimado_centavos: 800_000,
+    valor_centavos: 860_000,
   })
-  await createTestVendor(admin, casamentoId, {
-    nome: 'Coral Aurora',
-    despesa_id: musica.id,
-    categoria_id: cerimonia.id,
-    valor_proposto_centavos: 95_000,
+  const buffetFornecedor = await createTestVendor(admin, casamentoId, {
+    nome: 'Buffet Recanto',
+    despesa_id: buffetGasto.id,
+    categoria_id: buffet.id,
+    valor_proposto_centavos: 860_000,
+    estagio: 'contratado',
   })
-  await createTestVendor(admin, casamentoId, {
-    nome: 'Quarteto Lumen',
-    despesa_id: musica.id,
-    categoria_id: cerimonia.id,
-    valor_proposto_centavos: 140_000,
+  await admin
+    .from('despesas')
+    .update({ fornecedor_id: buffetFornecedor.id })
+    .eq('id', buffetGasto.id)
+
+  await createTestInstallment(admin, casamentoId, buffetGasto.id, {
+    numero: 1,
+    valor_centavos: 430_000,
+    vence_em: '2027-09-06',
+  })
+  await createTestInstallment(admin, casamentoId, buffetGasto.id, {
+    numero: 2,
+    valor_centavos: 430_000,
+    vence_em: '2027-11-06',
   })
 }
