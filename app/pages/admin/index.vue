@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { rotuloDoPapel } from '#shared/papeis-de-membro'
 import { formatDatePtBR } from '#shared/utils/format-date'
 
 // Landing pós-login do painel administrativo (docs/PLANO-SAAS.md, Passo 3).
@@ -79,7 +80,7 @@ function faltaLabel(dataEvento: string): string {
                 <template v-if="faltaLabel(membership.dataEvento)">
                   · {{ faltaLabel(membership.dataEvento) }}
                 </template>
-                · {{ membership.role === 'dono' ? 'Dono' : 'Colaborador' }}
+                · {{ rotuloDoPapel(membership.role) }}
               </p>
             </div>
 

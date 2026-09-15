@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { rotuloDoPapel } from '#shared/papeis-de-membro'
 import { adminPrimaryNav, adminSectionMenu } from '~/utils/admin-nav'
 
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
@@ -114,7 +115,7 @@ const casamentosOrdenados = computed(() =>
   sortWeddingsByEvent(authStore.memberships, new Date().toISOString().slice(0, 10)),
 )
 const operatorRoleLabel = computed(() =>
-  membershipAtiva.value?.role === 'dono' ? 'Dono' : 'Colaborador',
+  membershipAtiva.value ? rotuloDoPapel(membershipAtiva.value.role) : '',
 )
 
 /**

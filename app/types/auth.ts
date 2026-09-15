@@ -1,6 +1,12 @@
+import type { PapelDeMembro } from '#shared/papeis-de-membro'
 import type { WeddingLifecycleStatus } from '~/utils/status-presentation'
 
-export type WeddingRole = 'dono' | 'colaborador'
+/**
+ * O papel na escada de `membros_casamento` — a lista mora em
+ * `#shared/papeis-de-membro` (docs/fase5-multievento.md 4.2), e este alias
+ * existe só para os tipos do client não precisarem do caminho longo.
+ */
+export type WeddingRole = PapelDeMembro
 
 export interface WeddingContext {
   weddingId: string

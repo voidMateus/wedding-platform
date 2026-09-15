@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PAPEIS_DE_MEMBRO } from '../papeis-de-membro'
 
 // Convite de colaborador para o casamento ativo (docs/PLANO-SAAS.md, Passo
 // 3) — compartilhado entre client (formulário de "Convidar colaborador") e
@@ -9,7 +10,10 @@ import { z } from 'zod'
 
 export const weddingMemberInviteSchema = z.object({
   email: z.string().trim().email('Informe um e-mail válido.'),
-  papel: z.enum(['dono', 'colaborador']).default('colaborador'),
+  // Os três papéis da escada (docs/fase5-multievento.md 4.2). Quais deles o
+  // convidante pode de fato conceder é decisão de `podeGerenciarPapel()`, no
+  // endpoint — o schema só valida que o valor existe.
+  papel: z.enum(PAPEIS_DE_MEMBRO).default('colaborador'),
 })
 
 export type WeddingMemberInviteInput = z.infer<typeof weddingMemberInviteSchema>

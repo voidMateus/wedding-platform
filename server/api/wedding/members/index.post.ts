@@ -1,12 +1,18 @@
+import { podeGerenciarPapel, rotuloDoPapel } from '#shared/papeis-de-membro'
 import { weddingMemberInviteSchema } from '#shared/schemas/wedding-members'
 
 /**
- * Convida um colaborador para o casamento ativo (docs/PLANO-SAAS.md, Passo
- * 3) — só o dono pode convidar. Checado aqui em TypeScript, não só via RLS
- * (fecha o achado do PRODUCT.md §7.3): este endpoint precisa do client
- * service_role pra criar/consultar usuários em auth.users, que ignora RLS
- * por completo — sem essa checagem explícita, qualquer colaborador
- * autenticado poderia convidar outros.
+ * Convida um membro para o casamento ativo (docs/PLANO-SAAS.md, Passo 3).
+ *
+ * Quem pode convidar quem é a escada de papéis, nunca uma comparação escrita
+ * à mão aqui (docs/fase5-multievento.md 4.5): `podeGerenciarPapel()` é a
+ * única autoridade, e é ela que garante de graça que ninguém se promova — o
+ * papel concedido também precisa ser alcançável por quem concede.
+ *
+ * Checado aqui em TypeScript, não só via RLS (fecha o achado do PRODUCT.md
+ * §7.3): este endpoint precisa do client service_role pra criar/consultar
+ * usuários em auth.users, que ignora RLS por completo — sem essa checagem
+ * explícita, qualquer colaborador autenticado poderia convidar outros.
  *
  * Usa o convite nativo por e-mail do Supabase Auth (envia e-mail de verdade
  * via o provedor configurado no projeto) — não existe sistema de
@@ -14,11 +20,14 @@ import { weddingMemberInviteSchema } from '#shared/schemas/wedding-members'
  */
 export default defineEventHandler(async (event) => {
   const context = await requireWeddingContext(event)
-  if (context.role !== 'dono') {
-    throw forbiddenError('Só o dono do casamento pode convidar colaboradores.')
+  const input = await validateBody(event, weddingMemberInviteSchema)
+
+  if (!podeGerenciarPapel(context.role, input.papel)) {
+    throw forbiddenError(
+      `Seu papel neste casamento não permite convidar alguém como ${rotuloDoPapel(input.papel)}.`,
+    )
   }
 
-  const input = await validateBody(event, weddingMemberInviteSchema)
   const admin = supabaseAdmin(event)
 
   // Reaproveita o usuário se o e-mail já existir em auth.users (ex.: já é
@@ -30,13 +39,17 @@ export default defineEventHandler(async (event) => {
   if (listError) {
     throw badRequestError(listError.message)
   }
-  const existing = existingUsers.users.find((u) => u.email?.toLowerCase() === input.email.toLowerCase())
+  const existing = existingUsers.users.find(
+    (u) => u.email?.toLowerCase() === input.email.toLowerCase(),
+  )
 
   let userId: string
   if (existing) {
     userId = existing.id
   } else {
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email)
+    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
+      input.email,
+    )
     if (inviteError || !invited.user) {
       throw badRequestError(inviteError?.message ?? 'Não foi possível convidar este e-mail.')
     }

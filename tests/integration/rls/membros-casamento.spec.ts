@@ -3,7 +3,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getServiceRoleClient } from '../helpers/supabase-clients'
 import { cleanupAll } from '../helpers/cleanup'
 import { createTestWedding, deleteTestWedding } from '../../factories/wedding'
-import { createTestMember, deleteTestMember, TEST_MEMBER_PASSWORD, type TestMember } from '../../factories/member'
+import {
+  createTestMember,
+  deleteTestMember,
+  TEST_MEMBER_PASSWORD,
+  type TestMember,
+} from '../../factories/member'
 
 /**
  * Suíte de isolamento entre tenants + entre papéis (docs/ARCHITECTURE.md,
@@ -20,6 +25,7 @@ describe('RLS: membros_casamento', () => {
   let weddingB: Awaited<ReturnType<typeof createTestWedding>>
   let donoA: TestMember
   let colaboradorA: TestMember
+  let planejadorA: TestMember
   let memberB: TestMember
   let extraUserId: string | null = null
 
@@ -28,6 +34,7 @@ describe('RLS: membros_casamento', () => {
     weddingB = await createTestWedding(admin)
     donoA = await createTestMember(admin, weddingA.id, 'dono')
     colaboradorA = await createTestMember(admin, weddingA.id, 'colaborador')
+    planejadorA = await createTestMember(admin, weddingA.id, 'planejador')
     memberB = await createTestMember(admin, weddingB.id)
   })
 
@@ -35,6 +42,7 @@ describe('RLS: membros_casamento', () => {
     await cleanupAll([
       () => deleteTestMember(admin, donoA.userId),
       () => deleteTestMember(admin, colaboradorA.userId),
+      () => deleteTestMember(admin, planejadorA.userId),
       () => deleteTestMember(admin, memberB.userId),
       () => (extraUserId ? deleteTestMember(admin, extraUserId) : Promise.resolve()),
       () => deleteTestWedding(admin, weddingA.id),
@@ -43,9 +51,14 @@ describe('RLS: membros_casamento', () => {
   })
 
   it('dono lê os membros do próprio casamento normalmente', async () => {
-    const { data, error } = await donoA.client.from('membros_casamento').select('*').eq('casamento_id', weddingA.id)
+    const { data, error } = await donoA.client
+      .from('membros_casamento')
+      .select('*')
+      .eq('casamento_id', weddingA.id)
     expect(error).toBeNull()
-    expect(data?.map((m) => m.usuario_id).sort()).toEqual([donoA.userId, colaboradorA.userId].sort())
+    expect(data?.map((m) => m.usuario_id).sort()).toEqual(
+      [donoA.userId, colaboradorA.userId, planejadorA.userId].sort(),
+    )
   })
 
   it('colaborador também lê os membros do próprio casamento', async () => {
@@ -54,7 +67,9 @@ describe('RLS: membros_casamento', () => {
       .select('*')
       .eq('casamento_id', weddingA.id)
     expect(error).toBeNull()
-    expect(data?.map((m) => m.usuario_id).sort()).toEqual([donoA.userId, colaboradorA.userId].sort())
+    expect(data?.map((m) => m.usuario_id).sort()).toEqual(
+      [donoA.userId, colaboradorA.userId, planejadorA.userId].sort(),
+    )
   })
 
   it('membro de outro casamento não lê os membros deste casamento (RLS filtra a linha)', async () => {
@@ -171,5 +186,120 @@ describe('RLS: membros_casamento', () => {
       .eq('usuario_id', donoA.userId)
       .maybeSingle()
     expect(stillThere?.id).toBeDefined()
+  })
+
+  // ---------------------------------------------------------------------
+  // A escada de papéis (docs/fase5-multievento.md 4.2) — a policy é a última
+  // linha de defesa: os endpoints usam service_role e checam em TypeScript,
+  // mas o dia em que uma tela escrever aqui pelo client autenticado, a regra
+  // já está no banco.
+  // ---------------------------------------------------------------------
+
+  it('planejador insere colaborador no próprio casamento', async () => {
+    const email = `teste-integracao-${randomUUID()}@example.com`
+    const { data: userData, error: userError } = await admin.auth.admin.createUser({
+      email,
+      password: TEST_MEMBER_PASSWORD,
+      email_confirm: true,
+    })
+    if (userError || !userData.user) {
+      throw new Error(`Falha ao criar usuário extra de teste: ${userError?.message}`)
+    }
+
+    try {
+      const { data, error } = await planejadorA.client
+        .from('membros_casamento')
+        .insert({ casamento_id: weddingA.id, usuario_id: userData.user.id, papel: 'colaborador' })
+        .select()
+
+      expect(error).toBeNull()
+      expect(data).toHaveLength(1)
+    } finally {
+      await admin.auth.admin.deleteUser(userData.user.id)
+    }
+  })
+
+  it.each(['planejador', 'dono'] as const)(
+    'planejador não insere outro %s (ninguém se promove)',
+    async (papelAlvo) => {
+      const email = `teste-integracao-${randomUUID()}@example.com`
+      const { data: userData, error: userError } = await admin.auth.admin.createUser({
+        email,
+        password: TEST_MEMBER_PASSWORD,
+        email_confirm: true,
+      })
+      if (userError || !userData.user) {
+        throw new Error(`Falha ao criar usuário extra de teste: ${userError?.message}`)
+      }
+
+      try {
+        const { data, error } = await planejadorA.client
+          .from('membros_casamento')
+          .insert({ casamento_id: weddingA.id, usuario_id: userData.user.id, papel: papelAlvo })
+          .select()
+
+        expect(data).toBeNull()
+        expect(error).not.toBeNull()
+      } finally {
+        await admin.auth.admin.deleteUser(userData.user.id)
+      }
+    },
+  )
+
+  it('planejador não se promove a dono', async () => {
+    // O `with check` da policy de UPDATE é o que barra isto: sem ele, a linha
+    // de origem seria alcançável (planejador) e a de destino não seria checada.
+    const { data, error } = await planejadorA.client
+      .from('membros_casamento')
+      .update({ papel: 'dono' })
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', planejadorA.userId)
+      .select()
+
+    expect(data ?? []).toEqual([])
+    expect(error === null || error !== null).toBe(true)
+
+    const { data: unchanged } = await admin
+      .from('membros_casamento')
+      .select('papel')
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', planejadorA.userId)
+      .single()
+    expect(unchanged?.papel).toBe('planejador')
+  })
+
+  it('planejador não remove o dono', async () => {
+    await planejadorA.client
+      .from('membros_casamento')
+      .delete()
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', donoA.userId)
+
+    const { data: stillThere } = await admin
+      .from('membros_casamento')
+      .select('id')
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', donoA.userId)
+      .maybeSingle()
+    expect(stillThere?.id).toBeDefined()
+  })
+
+  it('dono alcança o planejador (a escada não tranca o topo)', async () => {
+    const { data, error } = await donoA.client
+      .from('membros_casamento')
+      .update({ papel: 'colaborador' })
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', planejadorA.userId)
+      .select()
+
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+
+    // Devolve para não afetar os testes seguintes deste arquivo.
+    await admin
+      .from('membros_casamento')
+      .update({ papel: 'planejador' })
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', planejadorA.userId)
   })
 })
