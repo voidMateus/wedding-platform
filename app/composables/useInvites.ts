@@ -25,8 +25,27 @@ interface InviteListParams {
  * seção 5.1).
  */
 export function useInvites() {
+  /**
+   * A chave inclui os PARÂMETROS, e não pode voltar a ser a constante
+   * `'invites'`.
+   *
+   * Três telas chamam esta função com recortes diferentes — a listagem de
+   * Convites (com filtro, ordenação e página), o painel do Início (`stage:
+   * undefined`, ou seja, sem filtro) e o modal de importação de convidados
+   * (`pageSize: 100`). Com uma chave fixa as três compartilham o MESMO estado
+   * do `useAsyncData`: a resposta de uma sobrescreve a da outra, e a tela
+   * mostra um recorte que ninguém pediu — com o chip do filtro aceso, porque o
+   * estado do filtro está na URL e continua certo.
+   *
+   * É a mesma classe de bug que já mordeu o Financeiro ("a ficha do
+   * refrigerante mostrava o contrato do buffet", CLAUDE.md §12) e o mesmo
+   * padrão que `getInvite` logo abaixo já usava certo.
+   */
   function listInvites(params?: MaybeRefOrGetter<InviteListParams | undefined>) {
-    return useFetch<InviteListResponse>('/api/invites', { query: params, key: 'invites' })
+    return useFetch<InviteListResponse>('/api/invites', {
+      query: params,
+      key: () => `invites-${JSON.stringify(toValue(params) ?? {})}`,
+    })
   }
 
   function getInvite(id: MaybeRefOrGetter<string>) {

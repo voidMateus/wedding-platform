@@ -97,12 +97,19 @@ function submit() {
             variant="ghost"
             size="sm"
             :disabled="quotaCount <= 1"
+            aria-label="Diminuir uma cota"
             @click="quotaCount = Math.max(1, quotaCount - 1)"
           >
             <Icon name="lucide:minus" class="h-4 w-4" />
           </UiButton>
           <span class="min-w-10 text-center text-lg font-semibold text-text">{{ quotaCount }}</span>
-          <UiButton type="button" variant="ghost" size="sm" @click="quotaCount++">
+          <UiButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label="Aumentar uma cota"
+            @click="quotaCount++"
+          >
             <Icon name="lucide:plus" class="h-4 w-4" />
           </UiButton>
           <span class="text-sm text-text-muted">= {{ formatCentsToBRL(quotaTotalCents) }}</span>

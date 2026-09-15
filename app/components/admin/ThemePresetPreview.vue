@@ -87,7 +87,7 @@ const dataPorExtenso = computed(() => {
       {{ nomesNoivos }}
     </p>
 
-    <p v-if="dataPorExtenso" class="mt-1 text-[0.5rem] tracking-[0.18em] text-text-muted">
+    <p v-if="dataPorExtenso" class="mt-1 text-[0.625rem] tracking-[0.18em] text-text-muted">
       {{ dataPorExtenso }}
     </p>
 

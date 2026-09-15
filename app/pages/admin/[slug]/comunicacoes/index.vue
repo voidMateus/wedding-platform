@@ -283,7 +283,7 @@ const linkParaAvisos = `/admin/${slug}/configuracoes?secao=avisos`
         />
       </div>
 
-      <div v-else :class="isRefreshing && 'opacity-60'" class="transition-brand">
+      <div v-else :class="isRefreshing && 'opacity-95'" class="transition-brand">
         <AdminTable
           :columns="colunas"
           :rows="linhasFiltradas"

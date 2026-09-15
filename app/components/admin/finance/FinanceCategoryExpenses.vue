@@ -246,15 +246,12 @@ function usarSugestao(item: string) {
       class="flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2 text-xs text-text-muted"
     >
       <span>Faltou algo?</span>
-      <button
+      <UiSuggestionChip
         v-for="item in sugestoes"
         :key="item"
-        type="button"
-        class="rounded-md border border-dashed border-border px-2 py-0.5 transition-brand hover:border-primary/40 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :label="item"
         @click="usarSugestao(item)"
-      >
-        + {{ item }}
-      </button>
+      />
     </p>
 
     <div class="flex flex-wrap items-center justify-between gap-2 pt-1">

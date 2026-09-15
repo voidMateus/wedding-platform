@@ -1,4 +1,11 @@
 import { expect, test } from '@playwright/test'
+import {
+  criarContaDeTeste,
+  entrarComo,
+  semearFinanceiro,
+  type ContaDeTeste,
+} from './support/conta-de-teste'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // O Financeiro contra o Supabase de desenvolvimento real.
 //
@@ -10,21 +17,30 @@ import { expect, test } from '@playwright/test'
 // compromisso, o que é contratado chega a Pagamentos mesmo sem parcela, a ficha
 // reúne a história que antes exigia três telas, e a linha da lista mostra UM
 // número — o da fase em que o gasto está.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+// Auto-suficiente: cria o próprio casal com `service_role` em vez de depender
+// de E2E_ADMIN_EMAIL/PASSWORD — variáveis que nunca estiveram no `.env`, e que
+// faziam este arquivo inteiro ser PULADO em silêncio (ver
+// tests/e2e/support/conta-de-teste.ts).
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
+
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste()
+  // Os gastos que estes testes descrevem passam a ser criados POR ELES. Antes
+  // viviam no banco de dev — e sumiram junto com a conta que foi limpa.
+  await semearFinanceiro(conta)
+})
+
+test.afterAll(async () => {
+  await conta?.limpar()
+})
 
 async function entrar(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 15_000 })
-
-  const slug = new URL(page.url()).pathname.split('/')[2]
-  if (!slug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  const slug = await entrarComo(page, conta)
   return slug
 }
 
@@ -77,11 +93,20 @@ test('o módulo tem um agregado só, e ele mora no topo de Gastos', async ({ pag
   // Prosa com números dentro, não uma grade de cartões: lê-se de uma vez.
   await expect(page.getByText(/contratados ·/).first()).toBeVisible()
 
+  // A lista cheia é o estado representativo de Gastos: a faixa do agregado, a
+  // tabela com um gasto por fase e os controles de filtro/ordenação.
+  await abrirGastos(page, slug)
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — Gastos' })
+
   await page.goto(`/admin/${slug}/financeiro/pagamentos`)
   await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
     timeout: 20_000,
   })
   await expect(page.getByText('Orçamento do casamento')).toHaveCount(0)
+
+  // Pagamentos tem estrutura própria (faixas por vencimento, a de "Pagos"
+  // recolhida) — é outra tela, não outra aba da mesma.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — Pagamentos' })
 })
 
 test('cada linha mostra UM número, escolhido pela fase do gasto', async ({ page }) => {
@@ -168,6 +193,11 @@ test('Pagamentos registra a baixa na própria linha', async ({ page }) => {
       timeout: 3_000,
     })
   }).toPass({ timeout: 30_000 })
+
+  // Com o diálogo aberto: o modal é o caminho em que rótulo, foco e nome
+  // acessível mais falham, e ele só existe neste instante do fluxo.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — registrar pagamento' })
+
   await page.getByRole('button', { name: 'Confirmar' }).click()
 
   // `finally` e não sequência: o casamento de desenvolvimento é compartilhado,
@@ -274,6 +304,10 @@ test('a ficha do gasto é uma página, e conta a história inteira dele', async 
   // tela, porque duas chamadas com a mesma chave de cache compartilhavam a
   // resposta — a ficha do refrigerante mostrava o contrato do buffet.
   await expect(page.getByText('Contrato do buffet')).toHaveCount(0)
+
+  // A ficha reúne cinco seções de naturezas diferentes numa página só — é a
+  // tela mais densa do módulo, e a que mais tem a perder numa regressão.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — ficha do gasto' })
 })
 
 test('as propostas do gasto chegam em ordem de preço, com a menor marcada', async ({ page }) => {
@@ -391,6 +425,13 @@ test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }
 
   // O ponto inteiro desta tela: planejar não abre modal nenhum.
   await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // Categoria aberta, com os campos de edição no lugar: os controles desta
+  // tela não têm rótulo desenhado (a linha inteira é o rótulo), então é
+  // exatamente aqui que um `aria-label` faltando passaria despercebido.
+  await expectNoAccessibilityViolations(page, {
+    rotulo: 'Financeiro — Categorias com a linha em edição',
+  })
 
   try {
     // Sair da LINHA é o que salva — passar do nome para o valor não salva, para

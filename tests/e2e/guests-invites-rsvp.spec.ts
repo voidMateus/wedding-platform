@@ -1,27 +1,32 @@
 import { expect, test } from '@playwright/test'
+import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // Requer um usuário real já vinculado como wedding_member (mesma condição
 // de login.spec.ts) — valida o fluxo ponta a ponta da reestruturação de
 // Convidados/Acompanhantes/Convites/RSVP (CLAUDE.md, seção 12.1) contra o
 // Supabase de desenvolvimento real.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+// Auto-suficiente: cria o próprio casal com `service_role` em vez de depender
+// de E2E_ADMIN_EMAIL/PASSWORD — variáveis que nunca estiveram no `.env`, e que
+// faziam este arquivo inteiro ser PULADO em silêncio (ver
+// tests/e2e/support/conta-de-teste.ts).
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
+
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste()
+})
+
+test.afterAll(async () => {
+  await conta?.limpar()
+})
 
 async function login(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 10_000 })
-
-  // Rotas admin carregam o casamento ativo na URL (/admin/{slug}/**,
-  // docs/PLANO-SAAS.md Passo 3) — extrai o slug resolvido pelo middleware
-  // pra montar as próximas navegações deste teste.
-  const adminSlug = new URL(page.url()).pathname.split('/')[2]
-  if (!adminSlug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  const adminSlug = await entrarComo(page, conta)
   return adminSlug
 }
 
@@ -78,6 +83,10 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   // Diz o nome derivado antes de salvar, para não haver surpresa.
   await expect(linhaDoConvite).toContainText('Será criado ao salvar')
   await expect(linhaDoConvite).toContainText(`Família ${primaryName.split(' ')[0]}`)
+
+  // O cadastro no estado mais cheio que ele alcança: acompanhante incluído, a
+  // fila do núcleo montada e a linha do convite já resolvida.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Convidados — cadastro com acompanhante' })
 
   await page.getByRole('button', { name: 'Cadastrar convidado' }).click()
   await expect(page).toHaveURL(new RegExp(`/admin/${adminSlug}/convidados$`), { timeout: 10_000 })
@@ -154,6 +163,9 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   })
   await expect(inviteDialog.getByText('(Responsável)')).toBeVisible()
 
+  // O modal do convite, com as duas pessoas e as ações por linha.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Convites — detalhe do convite' })
+
   // --- gera link de acesso e extrai o código (bloco do próprio modal) ---
   await inviteDialog.getByRole('button', { name: 'Gerar link' }).click()
   const linkInput = page.locator('input[disabled]')
@@ -181,6 +193,11 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   // logo acima, mas quem navega botão a botão ouvia "Estarei lá" repetido, sem
   // dono. Os botões ganharam `aria-label` com o nome, e este teste passou a usar
   // exatamente o mesmo caminho que um leitor de tela usa.
+  // O RSVP do convidado é a única tela que uma pessoa de fora percorre inteira,
+  // muitas vezes no celular e sem ajuda de ninguém — e é a que menos aparece em
+  // teste manual, porque o casal nunca a vê.
+  await expectNoAccessibilityViolations(page, { rotulo: 'RSVP — convite por link direto' })
+
   await page.getByRole('button', { name: `Estarei lá — ${primaryName}` }).click()
   await page.getByRole('button', { name: `Não poderei ir — ${companionName}` }).click()
 
@@ -193,4 +210,8 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await page.waitForLoadState('networkidle')
   await page.getByPlaceholder('Seu nome completo').fill(primaryName)
   await expect(page.getByRole('button', { name: primaryName })).toBeVisible({ timeout: 10_000 })
+
+  // A busca por nome com resultado na tela — o outro caminho de entrada do
+  // convidado, e o único sem token nenhum.
+  await expectNoAccessibilityViolations(page, { rotulo: 'RSVP — busca pública por nome' })
 })

@@ -250,6 +250,24 @@ async function confirmArchive() {
             />
             <UiInput v-model="color" class="flex-1" placeholder="#6b4a35" :error="errors.cor" />
           </div>
+          <!--
+            Aviso, nunca bloqueio — e a assimetria com `primaryColor`/
+            `secondaryColor` (que o schema REPROVA antes de salvar) é
+            deliberada, não esquecimento.
+
+            A diferença é o que a cor pinta. A paleta do tema vira texto de
+            corpo, título e rótulo de botão, então lá o mínimo de 4,5:1 é
+            requisito. A cor do grupo pinta EXCLUSIVAMENTE a pastilha redonda da
+            listagem (`:style="{ backgroundColor: group.cor }"` alguns blocos
+            acima) — elemento decorativo, que o WCAG 1.4.3 isenta por ser
+            "incidental", e cujo significado nunca depende da cor: a pastilha
+            fica ao lado do NOME do grupo, sempre.
+
+            O número continua exibido porque o casal costuma reusar a cor do
+            grupo em papelaria, onde ela pode virar texto. Informar sem impedir
+            é o comportamento certo para uma escolha que é dele.
+            (Auditoria de UX, achado 5 — docs/auditoria-ux-admin.md.)
+          -->
           <p
             v-if="contrastPreview"
             class="text-xs"

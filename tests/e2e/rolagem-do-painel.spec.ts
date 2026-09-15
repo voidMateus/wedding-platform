@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * O painel é um app shell de altura de tela: quem rola é o `<main>`, e o
@@ -107,6 +108,11 @@ test('com lista longa, o documento do painel continua sem rolar', async ({ page 
     })
     expect(grade).not.toBeNull()
     expect(grade!.scrollHeight).toBeGreaterThan(grade!.clientHeight)
+
+    // Sessenta linhas é o volume que os outros specs não produzem — e é
+    // justamente com ele que um `id` duplicado por linha ou um cabeçalho de
+    // tabela sem associação aparecem.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Modo Lista — 60 convidados' })
   } finally {
     await admin.auth.admin.deleteUser(userId)
     await deleteTestWedding(admin, wedding.id)

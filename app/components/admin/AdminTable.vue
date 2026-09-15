@@ -285,11 +285,11 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
                 <PopoverRoot v-if="isFilterable(column)">
                   <PopoverTrigger
                     :aria-label="`Filtrar e ordenar por ${column.label}`"
-                    class="rounded p-0.5 transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                     :class="
                       filters?.isActive(column.key)
                         ? 'text-primary'
-                        : 'text-text-muted/70 hover:text-text'
+                        : 'text-text-muted hover:text-text'
                     "
                   >
                     <Icon :name="triggerIcon(column)" class="h-3.5 w-3.5" />

@@ -26,10 +26,12 @@ interface Props {
    * 'chip' (default) é o recorte discreto do cabeçalho de painel — some no
    * fundo até ser procurado, que é o certo para um filtro secundário.
    *
-   * 'segmented' é a mesma escolha promovida a controle principal, na moldura
-   * de largura cheia de `UiTabs variant="segmented"`: usado quando escolher
-   * o recorte É a tarefa da tela (os modelos prontos do gerador de planilha),
-   * e não um ajuste sobre uma lista que já está lá.
+   * 'segmented' é a mesma escolha promovida a controle principal, numa moldura
+   * de largura cheia: usado quando escolher o recorte É a tarefa da tela (os
+   * modelos prontos do gerador de planilha), e não um ajuste sobre uma lista
+   * que já está lá. O desenho veio do `UiTabs variant="segmented"`, que existiu
+   * até a Configurações migrar para `AdminSectionMenu` (PR #92) e foi removido
+   * por ter ficado sem nenhum uso.
    */
   variant?: 'chip' | 'segmented'
 }
@@ -45,7 +47,7 @@ const GROUP_CLASSES: Record<NonNullable<Props['variant']>, string> = {
   segmented: 'flex w-full gap-0.5 rounded-lg border border-border bg-surface-elevated p-0.5',
 }
 
-// Mais baixo que a régua de abas de `UiTabs`: aqui o seletor divide a altura
+// Mais baixo que uma régua de abas: aqui o seletor divide a altura
 // do quadro com a lista que ele controla, e cada pixel gasto na moldura é um
 // item a menos visível — o oposto de uma aba, que ocupa a largura de uma tela
 // inteira.

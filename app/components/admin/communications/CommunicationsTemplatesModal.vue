@@ -125,16 +125,13 @@ async function salvar() {
 
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-text-muted">
         <span>Inserir:</span>
-        <button
+        <UiSuggestionChip
           v-for="variavel in VARIAVEIS_COMUNICACAO"
           :key="variavel.chave"
-          type="button"
-          class="rounded-md border border-dashed border-border px-2 py-0.5 transition-brand hover:border-primary/40 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :label="variavel.chave"
           :title="variavel.descricao"
           @click="inserirVariavel(variavel.chave)"
-        >
-          {{ variavel.chave }}
-        </button>
+        />
       </div>
 
       <!-- A prévia é a mesma função que o servidor usa para montar o texto que

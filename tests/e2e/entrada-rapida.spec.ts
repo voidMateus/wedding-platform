@@ -1,22 +1,42 @@
 import { expect, test } from '@playwright/test'
+import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
+import { createTestGroup } from '../factories/group'
+import { createTestGuest } from '../factories/guest'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // Os dois caminhos de entrada em massa do Modo Lista, contra o Supabase de
 // desenvolvimento real. Mesma condição de login.spec.ts.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+// Auto-suficiente: cria o próprio casal com `service_role` em vez de depender
+// de E2E_ADMIN_EMAIL/PASSWORD — variáveis que nunca estiveram no `.env`, e que
+// faziam este arquivo inteiro ser PULADO em silêncio (ver
+// tests/e2e/support/conta-de-teste.ts).
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
+
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste()
+  // O Modo Lista organiza a lista em BLOCOS por grupo, e a entrada rápida é o
+  // rodapé de um bloco: sem nenhum grupo não existe rodapé, e o teste esperava
+  // por um botão que a tela nunca ia desenhar. Antes isto passava porque o
+  // casamento de dev já tinha grupos criados à mão — o teste dependia do
+  // histórico do ambiente, não de um cenário que ele monta.
+  const grupo = await createTestGroup(conta.admin, conta.casamentoId, { nome: 'Família' })
+  await createTestGuest(conta.admin, conta.casamentoId, {
+    nome_completo: 'Convidado Semeado',
+    grupo_id: grupo.id,
+  })
+})
+
+test.afterAll(async () => {
+  await conta?.limpar()
+})
 
 async function abrirModoLista(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 15_000 })
-
-  const slug = new URL(page.url()).pathname.split('/')[2]
-  if (!slug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  const slug = await entrarComo(page, conta)
 
   await page.goto(`/admin/${slug}/convidados/lista`)
   await page.waitForLoadState('networkidle')
@@ -96,6 +116,17 @@ test('colar da planilha entra pelo mesmo de-para da importação por arquivo', a
   await expect(dialogo.getByText('2 a cadastrar')).toBeVisible({ timeout: 15_000 })
   await expect(dialogo.getByText(`Zcolar${sufixo} Um`)).toBeVisible()
 
+  // A revisão da importação: tabela de pré-visualização, caixas de confirmação
+  // e o de-para de colunas, tudo dentro de um diálogo.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Importação — revisão do colar' })
+
+  // "Amigos do Trabalho" não existe nesta conta, então a importação vai CRIAR
+  // um grupo — e criar vínculo novo exige confirmação explícita
+  // (`podeConfirmar` no GuestImportModal). O teste não cobria esse caminho:
+  // passava porque o casamento de dev já tinha esse grupo, e o botão vinha
+  // habilitado. Com a conta semeada pelo próprio teste, a regra aparece.
+  await dialogo.getByLabel(/^Criar os \d+ grupos\/convites/).check()
+
   await dialogo.getByRole('button', { name: /^Importar/ }).click()
   await expect(
     page.getByText(`Zcolar${sufixo} Dois`).filter({ visible: true }).first(),
@@ -166,4 +197,10 @@ test('ações em massa: controles na barra no desktop, num modal no celular', as
   const dialogo = page.getByRole('dialog')
   await expect(dialogo.getByLabel('Mover selecionados para grupo')).toBeVisible()
   await expect(dialogo.getByRole('button', { name: 'Excluir' })).toBeVisible()
+
+  // Em 390px, com seleção ativa: a barra de ações em massa e o modal de ações
+  // só existem juntos neste recorte — a varredura de desktop nunca os vê.
+  await expectNoAccessibilityViolations(page, {
+    rotulo: 'Modo Lista — ações em massa no celular',
+  })
 })
