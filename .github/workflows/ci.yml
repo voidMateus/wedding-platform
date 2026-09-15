@@ -84,6 +84,36 @@ jobs:
           ACCESS_CODE_ENCRYPTION_KEY: ${{ secrets.ACCESS_CODE_ENCRYPTION_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
+      - name: Instala o navegador do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes E2E (Playwright, contra o Supabase local)
+        # Entra no pipeline em 2026-09-14, junto da mudança que fez a suíte
+        # parar de PULAR em silêncio. Ela dependia de E2E_ADMIN_EMAIL/PASSWORD,
+        # variáveis que nunca existiram aqui: sete arquivos abriam com
+        # `test.skip` e o resultado era "5 passed, 7 skipped" — verde, sem ter
+        # coberto login, RSVP, Financeiro nem onboarding.
+        #
+        # Agora cada spec cria o próprio casal com a service_role do Supabase
+        # local (tests/e2e/support/conta-de-teste.ts), então o único
+        # pré-requisito é o que este job já tem de pé.
+        run: npm run test:e2e
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          RSVP_SESSION_SECRET: ${{ secrets.RSVP_SESSION_SECRET }}
+          DRIVE_TOKEN_ENCRYPTION_KEY: ${{ secrets.DRIVE_TOKEN_ENCRYPTION_KEY }}
+          ACCESS_CODE_ENCRYPTION_KEY: ${{ secrets.ACCESS_CODE_ENCRYPTION_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - name: Guarda o relatório quando o E2E falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
       - name: Encerra Supabase local
         if: always()
         run: supabase stop
