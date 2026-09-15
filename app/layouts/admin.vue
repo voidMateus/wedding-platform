@@ -101,8 +101,20 @@ const operatorInitials = computed(() => {
     .join('')
   return initials || '·'
 })
+// Derivado da rota sobre as memberships, nunca lido de um estado que
+// sobrevive à troca de evento (docs/fase5-multievento.md 5.2): quem é dono de
+// um casamento e colaborador de outro via "Dono" nos dois.
+const membershipAtiva = useActiveMembership()
+
+// A troca de evento no cabeçalho só existe com mais de um casamento
+// (docs/fase5-multievento.md 5.1). `hoje` local, não do servidor: a ordem é
+// uma preferência de leitura da tela, não um cálculo de negócio.
+const temMaisDeUmCasamento = computed(() => authStore.memberships.length > 1)
+const casamentosOrdenados = computed(() =>
+  sortWeddingsByEvent(authStore.memberships, new Date().toISOString().slice(0, 10)),
+)
 const operatorRoleLabel = computed(() =>
-  authStore.weddingContext?.role === 'dono' ? 'Dono' : 'Colaborador',
+  membershipAtiva.value?.role === 'dono' ? 'Dono' : 'Colaborador',
 )
 
 /**
@@ -140,8 +152,21 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
     >
       <!-- Identidade do casamento, não da plataforma: quem está aqui já sabe
            em que produto está, e precisa saber de qual casamento é esta lista
-           (uma conta pode ter mais de um). -->
+           (uma conta pode ter mais de um).
+
+           Com mais de uma membership o mesmo bloco vira a troca de evento
+           (docs/fase5-multievento.md 5.1); com uma só continua sendo um link,
+           sem menu que abriria vazio. -->
+      <AdminWeddingSwitcher
+        v-if="temMaisDeUmCasamento"
+        :memberships="casamentosOrdenados"
+        :active-slug="activeSlug"
+        :monograma="monograma"
+        :nomes-noivos="wedding?.nomes_noivos ?? ''"
+        :data-label="weddingDateLabel"
+      />
       <NuxtLink
+        v-else
         :to="`/admin/${activeSlug}`"
         class="flex shrink-0 items-center gap-2.5 rounded-lg transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >

@@ -11,7 +11,9 @@ interface EventSegmentListResponse {
  */
 export function useEventSegments() {
   function listEventSegments() {
-    return useFetch<EventSegmentListResponse>('/api/event-segments', { key: 'event-segments' })
+    return useFetch<EventSegmentListResponse>('/api/event-segments', {
+      key: useWeddingScopedKey('event-segments'),
+    })
   }
 
   async function createEventSegment(input: EventSegmentInput): Promise<EventSegment> {

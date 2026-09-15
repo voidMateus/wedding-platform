@@ -92,21 +92,24 @@ export function useGuests() {
     // convite (`InviteGuestsSection`).
     return useFetch<GuestListResponse>('/api/guests', {
       query: params,
-      key: () => `guests-${JSON.stringify(toValue(params) ?? {})}`,
+      key: useWeddingScopedKey(() => `guests-${JSON.stringify(toValue(params) ?? {})}`),
     })
   }
 
   /**
-   * Chave fixa: as duas visões de Convidados compartilham a mesma resposta, e
-   * ela não muda com filtro — por isso nenhum recorte entra no `key`.
+   * Sem recorte na chave: as duas visões de Convidados compartilham a mesma
+   * resposta, e ela não muda com filtro. O slug do casamento entra, como em
+   * toda chave do painel (docs/fase5-multievento.md 5.2).
    */
   function getGuestOverview() {
-    return useFetch<GuestOverview>('/api/guests/overview', { key: 'guest-overview' })
+    return useFetch<GuestOverview>('/api/guests/overview', {
+      key: useWeddingScopedKey('guest-overview'),
+    })
   }
 
   function getGuest(id: MaybeRefOrGetter<string>) {
     return useFetch<GuestDetail>(() => `/api/guests/${toValue(id)}`, {
-      key: () => `guest-${toValue(id)}`,
+      key: useWeddingScopedKey(() => `guest-${toValue(id)}`),
     })
   }
 

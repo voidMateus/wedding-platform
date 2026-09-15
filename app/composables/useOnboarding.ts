@@ -12,7 +12,7 @@ import type { OnboardingSummary } from '~/types/onboarding'
 export function useOnboarding() {
   function getRoteiro() {
     const fetchState = useFetch<OnboardingSummary>('/api/onboarding/summary', {
-      key: 'onboarding',
+      key: useWeddingScopedKey('onboarding'),
     })
 
     const roteiro = computed(() => resolverPassosDoOnboarding(fetchState.data.value?.fatos ?? []))

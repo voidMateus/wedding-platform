@@ -18,7 +18,9 @@ export function useCommunications() {
    * fila de envio precisa do conjunto — ver `GET /api/communications`.
    */
   function listCommunications() {
-    return useFetch<ComunicacoesResponse>('/api/communications', { key: 'communications' })
+    return useFetch<ComunicacoesResponse>('/api/communications', {
+      key: useWeddingScopedKey('communications'),
+    })
   }
 
   async function fetchCommunications(): Promise<ComunicacoesResponse> {

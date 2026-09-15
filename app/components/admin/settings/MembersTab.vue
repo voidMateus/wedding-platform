@@ -9,8 +9,8 @@ import { getApiErrorMessage } from '~/utils/api-error'
 // dos endpoints mas sem tela nenhuma até agora. Convidar/remover só aparece
 // pra quem tem papel 'dono' (mesma checagem já feita no servidor, aqui só
 // pra UX — nunca a fonte de autorização, CLAUDE.md seção 4.2).
-const authStore = useAuthStore()
-const isOwner = computed(() => authStore.weddingContext?.role === 'dono')
+const membershipAtiva = useActiveMembership()
+const isOwner = computed(() => membershipAtiva.value?.role === 'dono')
 
 const toast = useToast()
 const { listWeddingMembers, inviteWeddingMember, removeWeddingMember } = useWeddingMembers()
