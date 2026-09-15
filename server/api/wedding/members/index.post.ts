@@ -30,31 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const admin = supabaseAdmin(event)
 
-  // Reaproveita o usuário se o e-mail já existir em auth.users (ex.: já é
-  // dono/colaborador de outro casamento) — convidar de novo por e-mail
-  // falharia, e criar um segundo usuário duplicaria a pessoa. A API de admin
-  // não tem busca por e-mail direta, só listagem paginada — suficiente na
-  // escala atual do produto (pré-lançamento, single-tenant na prática).
-  const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers()
-  if (listError) {
-    throw badRequestError(listError.message)
-  }
-  const existing = existingUsers.users.find(
-    (u) => u.email?.toLowerCase() === input.email.toLowerCase(),
-  )
-
-  let userId: string
-  if (existing) {
-    userId = existing.id
-  } else {
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-      input.email,
-    )
-    if (inviteError || !invited.user) {
-      throw badRequestError(inviteError?.message ?? 'Não foi possível convidar este e-mail.')
-    }
-    userId = invited.user.id
-  }
+  const userId = await resolverOuConvidarUsuario(admin, input.email)
 
   const { data: membership, error: memberError } = await admin
     .from('membros_casamento')

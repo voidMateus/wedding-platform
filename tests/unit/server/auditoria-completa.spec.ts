@@ -79,6 +79,13 @@ describe('auditoria de ações administrativas', () => {
     // ruído suficiente para esconder o resto da trilha.
     const dispensada = /auditoria dispensada:/.test(conteudo)
 
-    expect(dispensada || /record(System)?AuditLog\(/.test(conteudo)).toBe(true)
+    // Há um caso em que o registro é MAIS forte que a chamada em TypeScript, e
+    // não menos: quando ele acontece dentro da mesma transação Postgres que a
+    // escrita auditada, e não pode se perder entre um commit e o processo
+    // morrer. Quem faz assim declara onde, pela frase abaixo — é afirmação
+    // verificável, não dispensa (docs/fase5-multievento.md seção 7).
+    const emTransacao = /auditoria em transação:/.test(conteudo)
+
+    expect(dispensada || emTransacao || /record(System)?AuditLog\(/.test(conteudo)).toBe(true)
   })
 })

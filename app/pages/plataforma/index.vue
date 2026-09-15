@@ -9,6 +9,8 @@ definePageMeta({ layout: 'plataforma' })
 const { getOverview } = usePlatformOverview()
 const { data, status, error, refresh } = getOverview()
 
+const criandoCasamento = ref(false)
+
 const statusOptions = WEDDING_LIFECYCLE_VALUES.map((value) => ({
   value,
   label: weddingLifecyclePresentation(value).label,
@@ -58,12 +60,19 @@ const visibleWeddings = computed(() =>
 
 <template>
   <div class="flex flex-col gap-4">
-    <div>
-      <h1 class="text-lg font-semibold text-text">Casamentos</h1>
-      <p class="mt-1 text-sm text-text-muted">
-        Visão entre contas para a equipe da plataforma — {{ data?.data.length ?? 0 }} casamento(s).
-      </p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-lg font-semibold text-text">Casamentos</h1>
+        <p class="mt-1 text-sm text-text-muted">
+          Visão entre contas para a equipe da plataforma — {{ data?.data.length ?? 0 }}
+          casamento(s).
+        </p>
+      </div>
+
+      <UiButton class="shrink-0" @click="criandoCasamento = true">Criar casamento</UiButton>
     </div>
+
+    <PlatformWeddingCreateModal v-model="criandoCasamento" @created="refresh()" />
 
     <div v-if="status === 'pending'" class="flex flex-col gap-2">
       <UiSkeleton v-for="n in 3" :key="n" class="h-14 w-full" />
