@@ -561,7 +561,7 @@ async function confirmarExclusao() {
             </UiButton>
           </template>
 
-          <div :class="isRefreshing && 'opacity-60 transition-brand'">
+          <div :class="isRefreshing && 'opacity-95 transition-brand'">
             <AdminTable
               :columns="colunas"
               :rows="linhasFiltradas"

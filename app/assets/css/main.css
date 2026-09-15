@@ -28,10 +28,23 @@
  * (público e admin) usa off-white como fundo de página, com cartões/
  * conteúdo em destaque (Card.vue) flutuando em branco puro por cima —
  * a mesma sensação de profundidade sutil de um editorial impresso, não
- * uma preferência por casamento. shared/utils/contrast.ts continua
- * validando contra branco puro (pior caso — off-white é só ligeiramente
- * mais escuro, a margem de contraste das cores da paleta é grande o
- * suficiente para essa diferença não importar).
+ * uma preferência por casamento.
+ *
+ * ATENÇÃO — shared/utils/contrast.ts valida contra BRANCO PURO, que NÃO é o
+ * pior caso. Isto aqui já afirmou que "a margem é grande o suficiente para
+ * essa diferença não importar"; `npm run audit:contrast` mediu e desmentiu:
+ * quatro combinações do catálogo de presets passam contra branco e reprovam
+ * contra a superfície real —
+ *
+ *   Vermelho Clássico  primaryColor   #dc2626 sobre #f4f4f6  4,40:1
+ *   Rosé & Nude        secondaryColor #8a6a5c sobre #f4f4f6  4,45:1
+ *   Terracota Boho     secondaryColor #5a7d6a sobre #fcfaf4  4,40:1
+ *   Terracota Boho     secondaryColor #5a7d6a sobre #f4f4f6  4,18:1
+ *
+ * Corrigir a cor desses presets NÃO é trocar um hexadecimal: preset cuja
+ * paleta muda precisa de id NOVO (ver shared/theme-presets.ts), e quem estiver
+ * neles perde o cartão aceso na tela de Aparência. Por isso a decisão está
+ * registrada aqui em vez de aplicada às pressas.
  */
 @theme {
   --color-primary: #6b4a35;
@@ -51,7 +64,7 @@
   --color-surface-muted: #f7f3e9;
   --color-border: #e3ddd3;
   --color-text: #2b221a;
-  --color-text-muted: #7b6f66;
+  --color-text-muted: #786c64;
 
   /* Cores de estado — perigo, sucesso e aviso. FIXAS da plataforma, nunca
      por casamento (decisão do usuário em 2026-09-03, ao padronizar as cores
@@ -429,7 +442,7 @@ body {
   --color-surface-muted: #f7f3e9;
   --color-border: #e3ddd3;
   --color-text: #2b221a;
-  --color-text-muted: #7b6f66;
+  --color-text-muted: #786c64;
   --color-heading: var(--color-text);
   font-family: var(--font-sans);
 }

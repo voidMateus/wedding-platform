@@ -40,8 +40,16 @@ function removeItem(index: number) {
       class="flex flex-col gap-3 rounded-lg border border-border p-4"
     >
       <div class="flex items-start justify-between gap-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">Pergunta {{ index + 1 }}</span>
-        <UiButton type="button" size="sm" variant="ghost" @click="removeItem(index)">
+        <span class="text-xs font-semibold uppercase tracking-wide text-text-muted"
+          >Pergunta {{ index + 1 }}</span
+        >
+        <UiButton
+          type="button"
+          size="sm"
+          variant="ghost"
+          :aria-label="`Remover pergunta ${index + 1}`"
+          @click="removeItem(index)"
+        >
           <Icon name="lucide:trash-2" class="h-4 w-4" />
         </UiButton>
       </div>
@@ -59,10 +67,16 @@ function removeItem(index: number) {
     </div>
 
     <p v-if="!modelValue.length" class="text-sm text-text-muted">
-      Nenhuma pergunta — a seção "Perguntas Frequentes" fica oculta no site enquanto a lista estiver vazia.
+      Nenhuma pergunta — a seção "Perguntas Frequentes" fica oculta no site enquanto a lista estiver
+      vazia.
     </p>
 
-    <UiButton type="button" variant="outline" :disabled="modelValue.length >= MAX_ITEMS" @click="addItem">
+    <UiButton
+      type="button"
+      variant="outline"
+      :disabled="modelValue.length >= MAX_ITEMS"
+      @click="addItem"
+    >
       <Icon name="lucide:plus" class="h-4 w-4" />
       Adicionar pergunta
     </UiButton>

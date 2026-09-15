@@ -208,6 +208,7 @@ function statusLabel(status: RsvpMember['status'] | GuestState['status']): strin
               variant="ghost"
               class="mt-6"
               :disabled="isPastDeadline"
+              :aria-label="`Remover acompanhante ${index + 1}`"
               @click="removeCompanion(index)"
             >
               <Icon name="lucide:trash-2" class="h-4 w-4" />

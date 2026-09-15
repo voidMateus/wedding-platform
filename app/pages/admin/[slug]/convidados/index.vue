@@ -353,7 +353,7 @@ async function confirmDelete() {
       </div>
 
       <template v-else>
-        <div :class="isRefreshing && 'opacity-60'" class="transition-brand">
+        <div :class="isRefreshing && 'opacity-95'" class="transition-brand">
           <AdminTable
             :columns="columns"
             :rows="data?.data ?? []"

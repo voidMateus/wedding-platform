@@ -18,7 +18,10 @@ interface Props {
 const { modelValue } = defineProps<Props>()
 const emit = defineEmits<{ 'update:modelValue': [value: ManualTopic[]] }>()
 
-const iconOptions = MANUAL_TOPIC_ICON_CATALOG.map((option) => ({ value: option.icon, label: option.label }))
+const iconOptions = MANUAL_TOPIC_ICON_CATALOG.map((option) => ({
+  value: option.icon,
+  label: option.label,
+}))
 
 function updateTopic(index: number, patch: Partial<ManualTopic>) {
   const next = modelValue.map((topic, i) => (i === index ? { ...topic, ...patch } : topic))
@@ -46,8 +49,16 @@ function removeTopic(index: number) {
       class="flex flex-col gap-3 rounded-lg border border-border p-4"
     >
       <div class="flex items-start justify-between gap-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">Tópico {{ index + 1 }}</span>
-        <UiButton type="button" size="sm" variant="ghost" @click="removeTopic(index)">
+        <span class="text-xs font-semibold uppercase tracking-wide text-text-muted"
+          >Tópico {{ index + 1 }}</span
+        >
+        <UiButton
+          type="button"
+          size="sm"
+          variant="ghost"
+          :aria-label="`Remover tópico ${index + 1}`"
+          @click="removeTopic(index)"
+        >
           <Icon name="lucide:trash-2" class="h-4 w-4" />
         </UiButton>
       </div>
@@ -71,10 +82,16 @@ function removeTopic(index: number) {
     </div>
 
     <p v-if="!modelValue.length" class="text-sm text-text-muted">
-      Nenhum tópico — a seção "Manual dos Convidados" fica oculta no site enquanto a lista estiver vazia.
+      Nenhum tópico — a seção "Manual dos Convidados" fica oculta no site enquanto a lista estiver
+      vazia.
     </p>
 
-    <UiButton type="button" variant="outline" :disabled="modelValue.length >= MAX_TOPICS" @click="addTopic">
+    <UiButton
+      type="button"
+      variant="outline"
+      :disabled="modelValue.length >= MAX_TOPICS"
+      @click="addTopic"
+    >
       <Icon name="lucide:plus" class="h-4 w-4" />
       Adicionar tópico
     </UiButton>
