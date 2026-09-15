@@ -20,6 +20,9 @@ playwright-report/
 test-results/
 blob-report/
 
+# Storybook (build estatico da vitrine de componentes)
+storybook-static/
+
 # Editor/OS
 .DS_Store
 *.log
