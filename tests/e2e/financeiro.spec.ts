@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test'
+import {
+  criarContaDeTeste,
+  entrarComo,
+  semearFinanceiro,
+  type ContaDeTeste,
+} from './support/conta-de-teste'
 
 // O Financeiro contra o Supabase de desenvolvimento real.
 //
@@ -10,21 +16,30 @@ import { expect, test } from '@playwright/test'
 // compromisso, o que é contratado chega a Pagamentos mesmo sem parcela, a ficha
 // reúne a história que antes exigia três telas, e a linha da lista mostra UM
 // número — o da fase em que o gasto está.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+// Auto-suficiente: cria o próprio casal com `service_role` em vez de depender
+// de E2E_ADMIN_EMAIL/PASSWORD — variáveis que nunca estiveram no `.env`, e que
+// faziam este arquivo inteiro ser PULADO em silêncio (ver
+// tests/e2e/support/conta-de-teste.ts).
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
+
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste()
+  // Os gastos que estes testes descrevem passam a ser criados POR ELES. Antes
+  // viviam no banco de dev — e sumiram junto com a conta que foi limpa.
+  await semearFinanceiro(conta)
+})
+
+test.afterAll(async () => {
+  await conta?.limpar()
+})
 
 async function entrar(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 15_000 })
-
-  const slug = new URL(page.url()).pathname.split('/')[2]
-  if (!slug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  const slug = await entrarComo(page, conta)
   return slug
 }
 

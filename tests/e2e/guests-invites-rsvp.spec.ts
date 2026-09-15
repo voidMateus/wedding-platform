@@ -1,27 +1,31 @@
 import { expect, test } from '@playwright/test'
+import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
 
 // Requer um usuário real já vinculado como wedding_member (mesma condição
 // de login.spec.ts) — valida o fluxo ponta a ponta da reestruturação de
 // Convidados/Acompanhantes/Convites/RSVP (CLAUDE.md, seção 12.1) contra o
 // Supabase de desenvolvimento real.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+// Auto-suficiente: cria o próprio casal com `service_role` em vez de depender
+// de E2E_ADMIN_EMAIL/PASSWORD — variáveis que nunca estiveram no `.env`, e que
+// faziam este arquivo inteiro ser PULADO em silêncio (ver
+// tests/e2e/support/conta-de-teste.ts).
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
+
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste()
+})
+
+test.afterAll(async () => {
+  await conta?.limpar()
+})
 
 async function login(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 10_000 })
-
-  // Rotas admin carregam o casamento ativo na URL (/admin/{slug}/**,
-  // docs/PLANO-SAAS.md Passo 3) — extrai o slug resolvido pelo middleware
-  // pra montar as próximas navegações deste teste.
-  const adminSlug = new URL(page.url()).pathname.split('/')[2]
-  if (!adminSlug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  const adminSlug = await entrarComo(page, conta)
   return adminSlug
 }
 

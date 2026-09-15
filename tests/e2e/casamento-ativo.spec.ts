@@ -17,7 +17,9 @@ test.skip(
 
 const TEST_PASSWORD = 'teste-e2e-senha-fake-123!'
 
-test('conta com mais de um casamento vê tela de seleção e troca de casamento ativo', async ({ page }) => {
+test('conta com mais de um casamento vê tela de seleção e troca de casamento ativo', async ({
+  page,
+}) => {
   test.setTimeout(60_000)
   const admin = getServiceRoleClient()
 

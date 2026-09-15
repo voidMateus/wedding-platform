@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test'
+import {
+  criarContaDeTeste,
+  entrarComo,
+  preencherHorario,
+  type ContaDeTeste,
+} from './support/conta-de-teste'
 
 // O roteiro de Primeiros passos e o wizard, contra o Supabase de
 // desenvolvimento real.
@@ -8,23 +14,27 @@ import { expect, test } from '@playwright/test'
 // caminho que só um navegador percorre — pular uma etapa, sair no meio e
 // voltar encontrando o que já tinha sido salvo, com a etapa certa aberta sem
 // nenhuma "última etapa visitada" gravada em lugar nenhum.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+//
+// Auto-suficiente: cria o próprio casal, em RASCUNHO e sem convidado nenhum —
+// o estado exato de quem acabou de receber o acesso, que é justamente o que
+// estes testes descrevem. Antes dependia de E2E_ADMIN_EMAIL/PASSWORD, que
+// nunca estiveram no `.env`: o arquivo inteiro pulava em silêncio.
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
 
-async function entrar(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 15_000 })
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste({ status_ciclo_vida: 'rascunho' })
+})
 
-  const slug = new URL(page.url()).pathname.split('/')[2]
-  if (!slug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
-  return slug
-}
+test.afterAll(async () => {
+  await conta?.limpar()
+})
+
+const entrar = (page: import('@playwright/test').Page) => entrarComo(page, conta)
 
 test.describe('onboarding — o roteiro e o wizard', () => {
   test('o Início nunca fica em branco, em nenhum estado', async ({ page }) => {
@@ -116,18 +126,24 @@ test.describe('onboarding — o roteiro e o wizard', () => {
       timeout: 20_000,
     })
 
-    const horario = page.getByLabel('Horário', { exact: true })
     await expect(async () => {
-      await horario.fill('16:30', { timeout: 3_000 })
+      await preencherHorario(page, '16:30')
       await page.getByRole('button', { name: 'Continuar' }).click({ timeout: 3_000 })
       await expect(page).toHaveURL(/passo=local/, { timeout: 8_000 })
     }).toPass({ timeout: 30_000 })
 
-    // Sai no meio, volta depois: o valor veio do BANCO, não de estado de tela.
+    // Sai no meio e volta: o valor veio do BANCO, não de estado de tela — e a
+    // prova é o roteiro, que mostra o valor de cada passo cumprido. Asserir no
+    // campo não serviria: o UiTimePicker é um TimeField de segmentos, sem um
+    // `input value` para ler, e o seletor por rótulo resolve para um input
+    // escondido do primitive (que sempre devolve string vazia).
     await page.goto(`/admin/${slug}`)
-    await page.goto(`/admin/${slug}/comecar?passo=data-horario`)
-    await expect(page.getByLabel('Horário', { exact: true })).toHaveValue('16:30', {
+    await expect(page.getByRole('heading', { name: 'Primeiros passos' })).toBeVisible({
       timeout: 20_000,
     })
+    await expect(page.getByText('16:30')).toBeVisible({ timeout: 20_000 })
+
+    // E o passo passa a contar como cumprido, sem nada ter sido marcado à mão.
+    await expect(page.getByText(/1 de 4 conclu/)).toBeVisible()
   })
 })

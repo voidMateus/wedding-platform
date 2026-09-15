@@ -1,25 +1,32 @@
 import { expect, test } from '@playwright/test'
+import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
 
 // O Planejamento contra o Supabase de desenvolvimento real.
 //
 // O que estes testes protegem é a regra que organiza o módulo inteiro: o
 // sistema sugere, o casal conclui. A sugestão sai do rodapé quando vira tarefa,
 // a tarefa concluída muda de grupo sem sumir, e nada nasce no banco sem clique.
-const email = process.env.E2E_ADMIN_EMAIL
-const password = process.env.E2E_ADMIN_PASSWORD
+// Auto-suficiente: cria o próprio casal com `service_role` em vez de depender
+// de E2E_ADMIN_EMAIL/PASSWORD — variáveis que nunca estiveram no `.env`, e que
+// faziam este arquivo inteiro ser PULADO em silêncio (ver
+// tests/e2e/support/conta-de-teste.ts).
+test.skip(
+  !process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
+)
 
-test.skip(!email || !password, 'E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD não configurados')
+let conta: ContaDeTeste
+
+test.beforeAll(async () => {
+  conta = await criarContaDeTeste()
+})
+
+test.afterAll(async () => {
+  await conta?.limpar()
+})
 
 async function entrar(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('E-mail').fill(email!)
-  await page.getByLabel('Senha').fill(password!)
-  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/[^/]+$/, { timeout: 15_000 })
-
-  const slug = new URL(page.url()).pathname.split('/')[2]
-  if (!slug) throw new Error('Slug do casamento ativo não encontrado na URL pós-login.')
+  const slug = await entrarComo(page, conta)
   return slug
 }
 
@@ -48,7 +55,10 @@ async function criarTarefa(page: import('@playwright/test').Page, titulo: string
 
 async function excluirTarefa(page: import('@playwright/test').Page, titulo: string) {
   await expect(async () => {
-    await page.getByRole('button', { name: `Ações de ${titulo}` }).first().click({ timeout: 3_000 })
+    await page
+      .getByRole('button', { name: `Ações de ${titulo}` })
+      .first()
+      .click({ timeout: 3_000 })
     await page.getByRole('menuitem', { name: 'Excluir' }).click({ timeout: 3_000 })
   }).toPass({ timeout: 30_000 })
   await expect(page.getByRole('textbox', { name: `Tarefa ${titulo}` })).toBeHidden({
@@ -104,7 +114,11 @@ test('a sugestão vira tarefa num clique e some do rodapé — e volta quando a 
   // primeira da tela em vez de fixar uma chave que pode estar dispensada.
   const sugestao = page.getByRole('button', { name: /^\+ / }).first()
   await expect(sugestao).toBeVisible({ timeout: 20_000 })
-  const rotulo = (await sugestao.textContent())?.trim().replace(/^\+\s*/, '').trim() ?? ''
+  const rotulo =
+    (await sugestao.textContent())
+      ?.trim()
+      .replace(/^\+\s*/, '')
+      .trim() ?? ''
   expect(rotulo.length).toBeGreaterThan(0)
 
   await expect(async () => {
