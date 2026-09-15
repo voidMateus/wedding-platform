@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import type { PapelDeMembro } from '#shared/papeis-de-membro'
 import { getAnonClient } from '../integration/helpers/supabase-clients'
 
 type AdminClient = SupabaseClient<Database>
@@ -24,7 +25,7 @@ export interface TestMember {
 export async function createTestMember(
   admin: AdminClient,
   casamentoId: string,
-  papel: 'dono' | 'colaborador' = 'dono',
+  papel: PapelDeMembro = 'dono',
 ): Promise<TestMember> {
   const email = `teste-integracao-${randomUUID()}@example.com`
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
@@ -52,7 +53,10 @@ export async function createTestMember(
     }
 
     const client = getAnonClient()
-    const { error: signInError } = await client.auth.signInWithPassword({ email, password: TEST_MEMBER_PASSWORD })
+    const { error: signInError } = await client.auth.signInWithPassword({
+      email,
+      password: TEST_MEMBER_PASSWORD,
+    })
     if (signInError) {
       throw new Error(`Falha ao autenticar usuário de teste: ${signInError.message}`)
     }

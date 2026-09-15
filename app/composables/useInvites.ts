@@ -44,13 +44,13 @@ export function useInvites() {
   function listInvites(params?: MaybeRefOrGetter<InviteListParams | undefined>) {
     return useFetch<InviteListResponse>('/api/invites', {
       query: params,
-      key: () => `invites-${JSON.stringify(toValue(params) ?? {})}`,
+      key: useWeddingScopedKey(() => `invites-${JSON.stringify(toValue(params) ?? {})}`),
     })
   }
 
   function getInvite(id: MaybeRefOrGetter<string>) {
     return useFetch<InviteDetail>(() => `/api/invites/${toValue(id)}`, {
-      key: () => `invite-${toValue(id)}`,
+      key: useWeddingScopedKey(() => `invite-${toValue(id)}`),
     })
   }
 
@@ -93,7 +93,7 @@ export function useInvites() {
 
   function getInviteTimeline(id: MaybeRefOrGetter<string>) {
     return useFetch<{ data: InviteEvent[] }>(() => `/api/invites/${toValue(id)}/timeline`, {
-      key: () => `invite-timeline-${toValue(id)}`,
+      key: useWeddingScopedKey(() => `invite-timeline-${toValue(id)}`),
     })
   }
 

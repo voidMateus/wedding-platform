@@ -13,7 +13,9 @@ interface PhotoListResponse {
  */
 export function useWeddingPhotos() {
   function listPhotos() {
-    return useFetch<PhotoListResponse>('/api/photos', { key: 'wedding-photos' })
+    return useFetch<PhotoListResponse>('/api/photos', {
+      key: useWeddingScopedKey('wedding-photos'),
+    })
   }
 
   async function updatePhoto(id: string, input: PhotoMetadataInput): Promise<PhotoWithUrl> {

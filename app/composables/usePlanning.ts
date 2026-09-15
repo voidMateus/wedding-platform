@@ -5,21 +5,25 @@ import type { ResumoPlanejamento, Tarefa, TarefasResponse } from '~/types/planni
  * O Planejamento do client (CLAUDE.md, seção 4.1 — toda chamada de rede passa
  * por um composable).
  *
- * As duas chaves são fixas para a tela e o painel compartilharem cache:
- * concluir uma tarefa na lista precisa atualizar o bloco do painel sem que as
- * duas telas busquem a mesma coisa duas vezes.
+ * As duas chaves são compartilhadas entre a tela e o painel: concluir uma
+ * tarefa na lista precisa atualizar o bloco do painel sem que as duas telas
+ * busquem a mesma coisa duas vezes. Compartilhadas entre telas, nunca entre
+ * casamentos (docs/fase5-multievento.md 5.2).
  */
 export const CHAVE_TAREFAS = 'planning-tasks'
 export const CHAVE_RESUMO_PLANEJAMENTO = 'planning-summary'
 
 export function usePlanning() {
+  const chaveTarefas = useWeddingScopedKey(CHAVE_TAREFAS)
+  const chaveResumo = useWeddingScopedKey(CHAVE_RESUMO_PLANEJAMENTO)
+
   function listTasks() {
-    return useFetch<TarefasResponse>('/api/planning/tasks', { key: CHAVE_TAREFAS })
+    return useFetch<TarefasResponse>('/api/planning/tasks', { key: chaveTarefas })
   }
 
   function getResumo() {
     return useFetch<ResumoPlanejamento>('/api/planning/summary', {
-      key: CHAVE_RESUMO_PLANEJAMENTO,
+      key: chaveResumo,
     })
   }
 
@@ -37,10 +41,7 @@ export function usePlanning() {
    * estar ociosa.
    */
   async function atualizarPlanejamento() {
-    await useNuxtApp().hooks.callHookParallel('app:data:refresh', [
-      CHAVE_TAREFAS,
-      CHAVE_RESUMO_PLANEJAMENTO,
-    ])
+    await useNuxtApp().hooks.callHookParallel('app:data:refresh', [chaveTarefas(), chaveResumo()])
   }
 
   async function criarTarefa(input: TaskInput) {

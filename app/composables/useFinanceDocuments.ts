@@ -9,6 +9,8 @@ const CHAVE_DOCUMENTOS = 'finance-documents'
  * um fornecedor sem uma segunda tela.
  */
 export function useFinanceDocuments() {
+  const chaveDocumentos = useWeddingScopedKey(CHAVE_DOCUMENTOS)
+
   /**
    * TODOS os documentos do casamento, numa requisição só — o recorte por
    * fornecedor ou por gasto é da tela.
@@ -21,12 +23,12 @@ export function useFinanceDocuments() {
    */
   function listDocuments() {
     return useFetch<{ data: DocumentoComVinculos[] }>('/api/finance/documents', {
-      key: CHAVE_DOCUMENTOS,
+      key: chaveDocumentos,
     })
   }
 
   async function atualizarLista() {
-    await refreshNuxtData(CHAVE_DOCUMENTOS)
+    await refreshNuxtData(chaveDocumentos())
   }
 
   async function criarDocumentoDeLink(input: DocumentLinkInput) {

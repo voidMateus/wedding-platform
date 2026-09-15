@@ -12,14 +12,16 @@ const CHAVE_FORNECEDORES = 'finance-vendors'
  * nenhum erro para acusar.
  */
 export function useVendors() {
+  const chaveFornecedores = useWeddingScopedKey(CHAVE_FORNECEDORES)
+
   function listVendors() {
     return useFetch<{ data: FornecedorComSituacao[] }>('/api/finance/vendors?incluirArquivados=1', {
-      key: CHAVE_FORNECEDORES,
+      key: chaveFornecedores,
     })
   }
 
   async function atualizarLista() {
-    await refreshNuxtData(CHAVE_FORNECEDORES)
+    await refreshNuxtData(chaveFornecedores())
   }
 
   /** Arquivar e restaurar são a mesma rota — só ela sabe voltar atrás. */

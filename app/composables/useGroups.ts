@@ -18,7 +18,7 @@ export function useGroups() {
       // Chave depende de includeArchived: sem isso a tela de grupos (que pede
       // os arquivados) e as telas que só listam etiquetas ativas dividiriam o
       // mesmo cache, e os chips de convidados mostrariam grupo arquivado.
-      key: params?.includeArchived ? 'groups-with-archived' : 'groups',
+      key: useWeddingScopedKey(params?.includeArchived ? 'groups-with-archived' : 'groups'),
     })
   }
 

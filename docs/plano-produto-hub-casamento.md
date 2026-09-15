@@ -112,10 +112,20 @@ eventos" (Fase 4).
    capa), e o Início **vira o acolhimento** enquanto não há o que relatar. O
    número estimado de convidados ficou fora: nada o consome.
 5. **Multi-evento / Planejador profissional** — camada de UI para múltiplos
-   `casamento_id` por login + dashboard agregado entre eventos. Absorve o
-   item "papel de planejador" que já estava no roadmap de SaaS. Pré-requisito
-   técnico a verificar antes de começar: confirmar em `docs/DATABASE.md` se
-   `membros_casamento` já suporta um usuário em mais de um `casamento_id`.
+   `casamento_id` por login. Absorve o item "papel de planejador" que já
+   estava no roadmap de SaaS. **Refinada em 2026-09-15: escopo, modelo de
+   dados e fluxos de UI em [`fase5-multievento.md`](fase5-multievento.md)** —
+   é lá que vivem as decisões desta fase, não aqui. O pré-requisito técnico
+   está **resolvido**: `membros_casamento` tem `unique (casamento_id,
+   usuario_id)` — o par, nunca o usuário sozinho —, e o Passo 3 do
+   `PLANO-SAAS.md` já entregou rotas `/admin/{slug}/**`, cookie de casamento
+   ativo e tela de seleção. Três decisões definem o tamanho dela: o
+   planejador é um **papel novo** com alcance em escada (um membro alcança o
+   papel abaixo do seu), `/plataforma` ganha **criar casamento** (a ação mais
+   sensível do produto deixa de ser um `INSERT` à mão sem registro), e a
+   visão entre eventos é **a lista** — o dashboard agregado saiu do escopo e
+   virou direção nomeada, porque somar convidados de casais diferentes não
+   responde pergunta nenhuma de operação.
 6. **V2/V3, não bloqueante** — evolução do motor de sugestão (de regra fixa
    para algo mais adaptativo), templates de cronograma reutilizáveis entre
    eventos, central de inteligência mais ampla (alertas financeiros
@@ -163,11 +173,21 @@ Destino de cada um, resolvido no refinamento de 2026-09-13
 
 ### 5.2 Absorvidos pela Fase 5 (Multi-evento/Planejador)
 
+Destino de cada um, resolvido no refinamento de 2026-09-15
+([`fase5-multievento.md`](fase5-multievento.md)):
+
 - "Papel de planejador de casamentos gerenciando múltiplos eventos"
-  (constava na Fase 5 do roadmap antigo).
+  (constava na Fase 5 do roadmap antigo) — **entra**: a troca de evento
+  dentro do painel (F5.1) e o papel novo em `membros_casamento` (F5.2).
 - Parte de "painel de administração da plataforma completo": métricas
-  agregadas de uso (storage) — o que falta além da fundação mínima já
-  entregue em `/plataforma`.
+  agregadas de uso (storage) — **entra** (F5.5), mas **medida sob demanda**,
+  não materializada: `contadores_uso` continua vazia até existir limite de
+  plano a aplicar na escrita (Fase 6). No caminho apareceu que o bucket
+  `wedding-photos` está morto desde a galeria via Drive — uma métrica que o
+  somasse leria zero para sempre.
+- Criar um casamento pelo painel interno — **entra** (F5.4), e não estava em
+  lista nenhuma: só apareceu ao perguntar quem cria o evento do cliente do
+  planejador. Hoje é um `INSERT` à mão no banco de produção, sem registro.
 
 ### 5.3 Backlog técnico contínuo (fora da numeração de fases do Hub)
 
@@ -254,5 +274,8 @@ registrada aqui — não como "voltar a ser proposta".
   prazo e ~45 tarefas derivadas do catálogo de gastos, com as sugestões
   dispensadas por fato observado. Ver
   [`fase3-planejamento.md`](fase3-planejamento.md) seção 6.
-- Confirmação técnica em `docs/DATABASE.md` sobre `membros_casamento` —
-  resolve no início do refinamento da Fase 5.
+- ~~Confirmação técnica em `docs/DATABASE.md` sobre `membros_casamento`~~ —
+  resolvido no refinamento da Fase 5 (2026-09-15): a restrição é
+  `unique (casamento_id, usuario_id)`, então um usuário sempre pôde
+  administrar vários casamentos, cada um com seu próprio `papel`. Ver
+  [`fase5-multievento.md`](fase5-multievento.md) seção 1.3.

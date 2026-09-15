@@ -28,9 +28,11 @@ interface OrcamentoResponse {
  * categoria/despesa/parcela (CLAUDE.md, seção 4.1 — toda chamada de rede passa
  * por um composable).
  *
- * As chaves de `useFetch` são fixas para as duas telas compartilharem o mesmo
- * cache: marcar uma parcela como paga na tela de Orçamento precisa poder
- * atualizar o resumo da Visão geral sem refetch duplicado.
+ * As chaves de `useFetch` são compartilhadas entre as telas de propósito:
+ * marcar uma parcela como paga na tela de Orçamento precisa poder atualizar o
+ * resumo da Visão geral sem refetch duplicado. Compartilhadas entre telas,
+ * nunca entre casamentos — daí o `useWeddingScopedKey()`
+ * (docs/fase5-multievento.md 5.2).
  */
 export const CHAVE_RESUMO_FINANCEIRO = 'finance-summary'
 export const CHAVE_ORCAMENTO = 'finance-budget'
@@ -38,12 +40,17 @@ export const CHAVE_CATEGORIAS = 'finance-categories'
 export const CHAVE_PAGAMENTOS = 'finance-payments'
 
 export function useFinance() {
+  const chaveResumo = useWeddingScopedKey(CHAVE_RESUMO_FINANCEIRO)
+  const chaveOrcamento = useWeddingScopedKey(CHAVE_ORCAMENTO)
+  const chaveCategorias = useWeddingScopedKey(CHAVE_CATEGORIAS)
+  const chavePagamentos = useWeddingScopedKey(CHAVE_PAGAMENTOS)
+
   function getResumo() {
-    return useFetch<ResumoFinanceiro>('/api/finance/summary', { key: CHAVE_RESUMO_FINANCEIRO })
+    return useFetch<ResumoFinanceiro>('/api/finance/summary', { key: chaveResumo })
   }
 
   function getOrcamento() {
-    return useFetch<OrcamentoResponse>('/api/finance/expenses', { key: CHAVE_ORCAMENTO })
+    return useFetch<OrcamentoResponse>('/api/finance/expenses', { key: chaveOrcamento })
   }
 
   /**
@@ -54,7 +61,7 @@ export function useFinance() {
    */
   function listCategorias() {
     return useFetch<{ data: CategoriaOrcamento[] }>('/api/finance/categories?incluirArquivadas=1', {
-      key: CHAVE_CATEGORIAS,
+      key: chaveCategorias,
     })
   }
 
@@ -67,7 +74,7 @@ export function useFinance() {
   function getPagamentos() {
     return useFetch<{ data: PagamentoListado[]; resumo: ResumoDePagamentos; hoje: string }>(
       '/api/finance/payments',
-      { key: CHAVE_PAGAMENTOS },
+      { key: chavePagamentos },
     )
   }
 
@@ -78,10 +85,10 @@ export function useFinance() {
    */
   async function atualizarFinanceiro() {
     await Promise.all([
-      refreshNuxtData(CHAVE_RESUMO_FINANCEIRO),
-      refreshNuxtData(CHAVE_ORCAMENTO),
-      refreshNuxtData(CHAVE_CATEGORIAS),
-      refreshNuxtData(CHAVE_PAGAMENTOS),
+      refreshNuxtData(chaveResumo()),
+      refreshNuxtData(chaveOrcamento()),
+      refreshNuxtData(chaveCategorias()),
+      refreshNuxtData(chavePagamentos()),
     ])
   }
 

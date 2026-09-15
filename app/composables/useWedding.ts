@@ -9,7 +9,7 @@ import type { Wedding } from '~/types/wedding'
  */
 export function useWedding() {
   function getWedding() {
-    return useFetch<Wedding>('/api/wedding', { key: 'wedding' })
+    return useFetch<Wedding>('/api/wedding', { key: useWeddingScopedKey('wedding') })
   }
 
   async function updateWedding(input: WeddingSettingsInput): Promise<Wedding> {

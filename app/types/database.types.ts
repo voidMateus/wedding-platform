@@ -2057,10 +2057,55 @@ export type Database = {
           },
         ]
       }
+      exclusoes_de_casamento: {
+        Row: {
+          casamento_id: string
+          contagem_convidados: number
+          created_at: string
+          data_evento: string
+          id: string
+          nomes_noivos: string
+          operador_id: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+        Insert: {
+          casamento_id: string
+          contagem_convidados?: number
+          created_at?: string
+          data_evento: string
+          id?: string
+          nomes_noivos: string
+          operador_id?: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+        Update: {
+          casamento_id?: string
+          contagem_convidados?: number
+          created_at?: string
+          data_evento?: string
+          id?: string
+          nomes_noivos?: string
+          operador_id?: string | null
+          slug?: string
+          status_ciclo_vida?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exclusoes_de_casamento_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores_plataforma"
+            referencedColumns: ["usuario_id"]
+          },
+        ]
+      }
       trilha_auditoria: {
         Row: {
           acao: string
           autor_id: string | null
+          autor_operador_id: string | null
           casamento_id: string
           created_at: string
           entidade_id: string | null
@@ -2072,6 +2117,7 @@ export type Database = {
         Insert: {
           acao: string
           autor_id?: string | null
+          autor_operador_id?: string | null
           casamento_id: string
           created_at?: string
           entidade_id?: string | null
@@ -2083,6 +2129,7 @@ export type Database = {
         Update: {
           acao?: string
           autor_id?: string | null
+          autor_operador_id?: string | null
           casamento_id?: string
           created_at?: string
           entidade_id?: string | null
@@ -2098,6 +2145,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "membros_casamento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trilha_auditoria_autor_operador_id_fkey"
+            columns: ["autor_operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores_plataforma"
+            referencedColumns: ["usuario_id"]
           },
           {
             foreignKeyName: "audit_logs_wedding_id_fkey"
@@ -2284,6 +2338,49 @@ export type Database = {
         }
         Returns: undefined
       }
+      criar_casamento_com_dono: {
+        Args: {
+          p_data_evento: string
+          p_nomes_noivos: string
+          p_operador: string
+          p_slug: string
+          p_usuario_dono: string
+        }
+        Returns: {
+          arquivado_em: string | null
+          config_comunicacao: Json
+          config_conteudo: Json | null
+          config_lembretes: Json
+          config_faixas_etarias: Json
+          config_tema: Json
+          created_at: string
+          data_evento: string
+          handle_infinitepay: string | null
+          horario_evento: string | null
+          id: string
+          modo_entrega_presente_fisico: string
+          modo_lista_convidados: string
+          nomes_noivos: string
+          orcamento_total_centavos: number | null
+          planta_largura_cm: number | null
+          planta_profundidade_cm: number | null
+          prazo_rsvp: string | null
+          slug: string
+          status_ciclo_vida: string
+          updated_at: string
+        }
+      }
+      buckets_contabilizados: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
+      uso_de_storage_por_casamento: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          bytes: number
+          casamento_id: string
+        }[]
+      }
       confirmar_pagamento_presente: {
         Args: { p_pagamento_id: string }
         Returns: {
@@ -2353,6 +2450,20 @@ export type Database = {
       }
       is_dono_casamento: { Args: { p_wedding_id: string }; Returns: boolean }
       is_membro_casamento: { Args: { p_wedding_id: string }; Returns: boolean }
+      excluir_casamento: {
+        Args: { p_casamento_id: string; p_operador: string }
+        Returns: {
+          casamento_id: string
+          contagem_convidados: number
+          created_at: string
+          data_evento: string
+          id: string
+          nomes_noivos: string
+          operador_id: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+      }
       is_slug_reservado: { Args: { p_slug: string }; Returns: boolean }
       reservar_presente: {
         Args: {

@@ -14,7 +14,7 @@ import type { SeatingResponse } from '~/types/mesa'
 export function useSeating() {
   /** Tudo numa resposta só: mesas, ocupantes, elementos, quem falta e os agregados. */
   function listSeating() {
-    return useFetch<SeatingResponse>('/api/seating', { key: 'seating' })
+    return useFetch<SeatingResponse>('/api/seating', { key: useWeddingScopedKey('seating') })
   }
 
   async function criarMesa(input: MesaInput) {

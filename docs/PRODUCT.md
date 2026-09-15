@@ -460,12 +460,27 @@ Painel autenticado (`/admin/**`) onde o casal e colaboradores gerenciam todo o e
 | **Cronograma** | Gestão de `etapas_evento` — cerimônia, recepção, festa, cada um com local/horário próprios. O local é escolhido, não digitado (ver 7.4) |
 | **Convites e Comunicações** | Geração de tokens de acesso (`credenciais_acesso_convite`), histórico completo de envios por canal (`comunicacoes`), reenvio de lembretes sem invalidar o link já compartilhado |
 | **Configurações** | Dados do evento (data, nome dos noivos, `modo_lista_convidados`), tema visual, ordem das seções da home, prazo de RSVP, handle da InfinitePay (ativa pagamento online de presentes) |
-| **Colaboradores** | Convidar/remover pessoas com acesso administrativo, definir permissões |
+| **Acessos (Colaboradores)** | Convidar/remover pessoas com acesso administrativo, nos três papéis da escada — ver 7.3 |
 
 ### 7.3 Regras de negócio
 
-- Apenas `owner` pode gerenciar colaboradores e excluir o evento. **Nota de implementação**: essa checagem ainda não é aplicada no servidor (só existiria na UI) — não é uma vulnerabilidade ativa hoje porque a funcionalidade de Colaboradores em si não foi construída ainda; precisa ser implementada junto quando essa feature nascer (achado de auditoria, 2026-08).
-- Toda ação sensível (exclusão de convidado, alteração de configurações do evento) é registrada em `trilha_auditoria`.
+**Papel de membro é escada, não matriz** (desde a Fase 5 do Hub, 2026-09-15 — refinamento em [`fase5-multievento.md`](fase5-multievento.md) seção 4). `membros_casamento.papel` tem três valores, e um membro alcança todo papel **abaixo** do seu:
+
+| Papel | Rótulo na tela | Convida | Remove |
+|---|---|---|---|
+| `dono` | Dono | Dono, Assessoria, Colaborador | todos, menos o último dono |
+| `planejador` | **Assessoria** | Colaborador | Colaborador |
+| `colaborador` | Colaborador | ninguém — a área de convite não aparece | ninguém |
+
+- O dono alcança também os **outros donos**: o casal são dois, e um precisa poder remover o outro. A trava que impede o casamento de ficar órfão é separada — "nunca remover o último dono".
+- **Ninguém se promove**: o papel concedido também precisa ser alcançável por quem concede, então um planejador não cria outro planejador nem um dono.
+- **Só o dono exclui o evento.** Quem contratou a assessoria pode demiti-la; a assessoria não pode apagar o casamento.
+- O planejador gerencia **colaboradores do evento**, não "os próprios": não existe vínculo entre um colaborador e a assessoria que o trouxe, então duas assessorias no mesmo casamento alcançam o pessoal uma da outra. É decisão, não descuido — ver seção 13 do refinamento.
+- A regra vive em `shared/papeis-de-membro.ts` (`podeGerenciarPapel()`), com par em SQL (`pode_gerenciar_papel`), e é a **autoridade única**: nenhuma rota compara papel do ator na mão.
+- A tela de acessos **não enumera permissões em texto** — a descrição anterior afirmava que só o dono alterava pagamentos, o que nunca foi verdade (o Financeiro está atrás de `is_membro_casamento`). Frase que lista permissões envelhece sem nada acusar.
+- Toda ação sensível (exclusão de convidado, alteração de configurações do evento) é registrada em `trilha_auditoria`, que tem **três tipos de ator**: `membro` (painel), `sistema` (cron) e `operador` (equipe interna, pelo `/plataforma`).
+
+**Uma conta, vários casamentos.** O mesmo login administra quantos eventos quiser, com papel próprio em cada um — é dono do seu casamento e assessoria do casamento de um cliente. A troca acontece no bloco de identidade do cabeçalho, que só vira menu quando há mais de um; `/admin` lista os eventos com data, status e papel, com os próximos primeiro e os arquivados por último.
 - Exportação de dados (CSV de convidados, lista de presentes reservados) disponível a qualquer momento — o casal é o dono dos seus dados.
 
 ### 7.4 Localização do Cronograma
