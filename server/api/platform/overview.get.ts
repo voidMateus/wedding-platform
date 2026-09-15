@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
         .select('id, slug, nomes_noivos, data_evento, status_ciclo_vida, created_at')
         .order('created_at', { ascending: false }),
       admin.from('membros_casamento').select('casamento_id, usuario_id').eq('papel', 'dono'),
-      admin.auth.admin.listUsers(),
+      listarTodosUsuarios(admin),
       admin
         .from('convidados')
         .select('id, casamento_id')
@@ -54,9 +54,7 @@ export default defineEventHandler(async (event) => {
   const owners = ownersResult.data ?? []
   const guests = guestsResult.data ?? []
 
-  // listUsers() não pagina (mesma limitação já documentada e aceita em
-  // server/api/wedding/members/index.post.ts, "suficiente na escala atual").
-  const emailByUserId = new Map(usersResult.data.users.map((u) => [u.id, u.email ?? '']))
+  const emailByUserId = new Map(usersResult.map((u) => [u.id, u.email ?? '']))
 
   const donoEmailsByWedding = new Map<string, string[]>()
   for (const owner of owners) {
