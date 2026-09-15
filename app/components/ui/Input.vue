@@ -38,7 +38,18 @@ interface Props {
    * celular a linha vira o slot `#stacked`, que não desenha campo nenhum —,
    * então a altura de 32px não tira alvo de toque de ninguém.
    */
-  variant?: 'campo' | 'quiet'
+  variant?: 'campo' | 'quiet' | 'quiet-desktop'
+  /**
+   * Autocompletar a partir do que JÁ existe, sem fechar a lista de valores.
+   *
+   * É um `<datalist>` nativo de propósito: o campo continua sendo texto livre —
+   * quem digita um nome novo não é corrigido nem barrado —, e o que a lista faz
+   * é só poupar a redigitação de "Cerimonial Ana" na décima tarefa. Um seletor
+   * de opções fixas resolveria o mesmo atrito e custaria a liberdade do campo,
+   * que em vários lugares é a regra de negócio (o responsável de uma tarefa é
+   * quase sempre alguém sem login).
+   */
+  suggestions?: readonly string[]
   /**
    * Põe o cursor no campo assim que ele monta — para o campo que É o motivo de
    * a área ter aberto (a busca do rascunho de acompanhante, que abre já
@@ -64,6 +75,7 @@ const {
   icon,
   tone = 'default',
   variant = 'campo',
+  suggestions,
   autofocus = false,
 } = defineProps<Props>()
 
@@ -89,6 +101,16 @@ const variantClasses: Record<NonNullable<Props['variant']>, string> = {
   // da vista — a largura do campo tem que vir da coluna, não o contrário.
   quiet:
     'h-8 w-full min-w-0 border-transparent bg-transparent px-2 hover:border-border hover:bg-surface focus:border-border focus:bg-surface',
+  // A mesma sobriedade da `quiet`, mas SÓ onde a linha é uma linha.
+  //
+  // `quiet` pura vale para tabela de desktop, que no celular vira o slot
+  // `#stacked` e não desenha campo nenhum. A linha do Planejamento não é
+  // tabela: ela empilha em `sm`, e ali os campos voltam a ser os únicos
+  // controles da tela — sem moldura e com 32px, um deles seria um campo que
+  // não se anuncia num alvo de toque menor. Abaixo de `sm` isto é `campo`,
+  // caractere por caractere; de `sm` para cima, `quiet`.
+  'quiet-desktop':
+    'h-10 w-full min-w-0 border-border px-3 sm:h-8 sm:border-transparent sm:bg-transparent sm:px-2 sm:hover:border-border sm:hover:bg-surface sm:focus:border-border sm:focus:bg-surface',
 }
 
 const emit = defineEmits<{
@@ -126,10 +148,14 @@ const describedBy = computed(() => {
         :aria-label="ariaLabel"
         :aria-invalid="Boolean(error)"
         :aria-describedby="describedBy"
+        :list="suggestions?.length ? `${inputId}-suggestions` : undefined"
         class="rounded-md border text-sm text-text placeholder:text-text-muted transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
         :class="[toneClasses[tone], variantClasses[variant], icon && 'pl-9']"
         @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
+      <datalist v-if="suggestions?.length" :id="`${inputId}-suggestions`">
+        <option v-for="sugestao in suggestions" :key="sugestao" :value="sugestao" />
+      </datalist>
     </div>
     <p v-if="hint" :id="`${inputId}-hint`" class="text-xs leading-relaxed text-text-muted">
       {{ hint }}
