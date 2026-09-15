@@ -73,3 +73,43 @@ export async function recordSystemAuditLog(
     console.error('[audit-log:sistema] falha ao registrar', input.action, error.message)
   }
 }
+
+/**
+ * Registra uma ação da EQUIPE INTERNA tomada pelo /plataforma —
+ * `tipo_autor = 'operador'`, com o operador identificado
+ * (docs/fase5-multievento.md seção 7).
+ *
+ * Recebe o client `service_role` e o id do operador pelo mesmo motivo que o
+ * cron recebe o dele: o caminho Plataforma é deliberadamente cross-tenant, e
+ * nenhuma policy de RLS consegue expressar "qualquer tenant" (CLAUDE.md 4.2).
+ *
+ * `casamento_id` continua obrigatório e continua certo: a ação do operador
+ * acontece sempre SOBRE um casamento. A trilha é do casamento, então o casal lê
+ * no próprio painel o que a plataforma fez no evento dele — e isso é honesto,
+ * não vazamento.
+ *
+ * A exclusão é a única ação de operador que NÃO passa por aqui: ela apaga a
+ * trilha junto com o casamento (cascade), então o registro dela vive em
+ * `exclusoes_de_casamento`.
+ */
+export async function recordPlatformAuditLog(
+  admin: SupabaseClient<Database>,
+  weddingId: string,
+  operatorUserId: string,
+  input: AuditLogInput,
+): Promise<void> {
+  const { error } = await admin.from('trilha_auditoria').insert({
+    casamento_id: weddingId,
+    autor_id: null,
+    autor_operador_id: operatorUserId,
+    tipo_autor: 'operador',
+    acao: input.action,
+    tipo_entidade: input.entityType,
+    entidade_id: input.entityId,
+    metadados: (input.metadata ?? {}) as Json,
+  })
+
+  if (error) {
+    console.error('[audit-log:operador] falha ao registrar', input.action, error.message)
+  }
+}

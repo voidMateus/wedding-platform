@@ -1,3 +1,4 @@
+import type { PapelDeMembro } from '#shared/papeis-de-membro'
 import type { StatusCicloVida } from './wedding'
 
 /**
@@ -26,4 +27,47 @@ export interface PlatformWeddingOverview {
 /** O que o topo da tela resume sobre a plataforma inteira. */
 export interface PlatformStorageTotals {
   storageBytes: number
+}
+
+/** Um membro do casamento, visto pela ficha do painel interno. */
+export interface PlatformWeddingMember {
+  id: string
+  /** O e-mail, ou o uuid quando a conta de auth já não existe. */
+  email: string
+  papel: PapelDeMembro
+  desde: string
+}
+
+/** Uma linha recente da trilha daquele casamento. */
+export interface PlatformAuditEntry {
+  id: string
+  acao: string
+  tipoAutor: 'membro' | 'sistema' | 'operador'
+  tipoEntidade: string
+  createdAt: string
+}
+
+/**
+ * A ficha de um casamento (docs/fase5-multievento.md 6.6) — o que a listagem
+ * mostra, mais o que só faz sentido dentro de um evento: quem tem acesso, o
+ * que já saiu daqui e o que aconteceu nele.
+ */
+export interface PlatformWeddingDetail {
+  id: string
+  slug: string
+  nomesNoivos: string
+  dataEvento: string
+  statusCicloVida: StatusCicloVida
+  createdAt: string
+  contagemConvidados: number
+  storageBytes: number
+  /**
+   * Convites que JÁ SAÍRAM. É o número que decide se trocar o slug quebra
+   * alguma coisa: o link do convidado é `/{slug}/rsvp/{código}`.
+   */
+  convitesEnviados: number
+  /** Credenciais de acesso ainda válidas — QR impresso é uma delas. */
+  credenciaisAtivas: number
+  membros: PlatformWeddingMember[]
+  trilha: PlatformAuditEntry[]
 }

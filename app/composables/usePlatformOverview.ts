@@ -1,5 +1,13 @@
-import type { PlatformWeddingCreateInput } from '#shared/schemas/platform-wedding'
-import type { PlatformStorageTotals, PlatformWeddingOverview } from '~/types/platform'
+import type {
+  PlatformMemberInput,
+  PlatformWeddingCreateInput,
+  PlatformWeddingPatchInput,
+} from '#shared/schemas/platform-wedding'
+import type {
+  PlatformStorageTotals,
+  PlatformWeddingDetail,
+  PlatformWeddingOverview,
+} from '~/types/platform'
 
 /**
  * A mesa de trabalho da equipe da plataforma (docs/PLANO-SAAS.md, Passo 8;
@@ -25,5 +33,37 @@ export function usePlatformOverview() {
     return $fetch('/api/platform/weddings', { method: 'POST', body: input })
   }
 
-  return { getOverview, createWedding }
+  /** A ficha de um casamento — rota própria, como a ficha do gasto. */
+  function getWedding(id: MaybeRefOrGetter<string>) {
+    return useFetch<{ data: PlatformWeddingDetail }>(
+      () => `/api/platform/weddings/${toValue(id)}`,
+      { key: () => `platform-wedding-${toValue(id)}` },
+    )
+  }
+
+  async function updateWedding(id: string, input: PlatformWeddingPatchInput) {
+    return $fetch(`/api/platform/weddings/${id}`, { method: 'PATCH', body: input })
+  }
+
+  async function deleteWedding(id: string) {
+    return $fetch(`/api/platform/weddings/${id}`, { method: 'DELETE' })
+  }
+
+  async function addMember(id: string, input: PlatformMemberInput) {
+    return $fetch(`/api/platform/weddings/${id}/members`, { method: 'POST', body: input })
+  }
+
+  async function removeMember(id: string, memberId: string) {
+    return $fetch(`/api/platform/weddings/${id}/members/${memberId}`, { method: 'DELETE' })
+  }
+
+  return {
+    getOverview,
+    createWedding,
+    getWedding,
+    updateWedding,
+    deleteWedding,
+    addMember,
+    removeMember,
+  }
 }

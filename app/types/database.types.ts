@@ -2057,6 +2057,50 @@ export type Database = {
           },
         ]
       }
+      exclusoes_de_casamento: {
+        Row: {
+          casamento_id: string
+          contagem_convidados: number
+          created_at: string
+          data_evento: string
+          id: string
+          nomes_noivos: string
+          operador_id: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+        Insert: {
+          casamento_id: string
+          contagem_convidados?: number
+          created_at?: string
+          data_evento: string
+          id?: string
+          nomes_noivos: string
+          operador_id?: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+        Update: {
+          casamento_id?: string
+          contagem_convidados?: number
+          created_at?: string
+          data_evento?: string
+          id?: string
+          nomes_noivos?: string
+          operador_id?: string | null
+          slug?: string
+          status_ciclo_vida?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exclusoes_de_casamento_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores_plataforma"
+            referencedColumns: ["usuario_id"]
+          },
+        ]
+      }
       trilha_auditoria: {
         Row: {
           acao: string
@@ -2406,6 +2450,20 @@ export type Database = {
       }
       is_dono_casamento: { Args: { p_wedding_id: string }; Returns: boolean }
       is_membro_casamento: { Args: { p_wedding_id: string }; Returns: boolean }
+      excluir_casamento: {
+        Args: { p_casamento_id: string; p_operador: string }
+        Returns: {
+          casamento_id: string
+          contagem_convidados: number
+          created_at: string
+          data_evento: string
+          id: string
+          nomes_noivos: string
+          operador_id: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+      }
       is_slug_reservado: { Args: { p_slug: string }; Returns: boolean }
       reservar_presente: {
         Args: {

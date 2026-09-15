@@ -38,6 +38,7 @@ const columns = computed<AdminTableColumn<PlatformWeddingOverview>[]>(() => [
   { key: 'storage', label: 'Storage', align: 'right', sort: 'numeric' },
   { key: 'donos', label: 'Dono(s)', filter: { type: 'text', placeholder: 'Buscar e-mail' } },
   { key: 'criado', label: 'Criado em', align: 'right', sort: 'date' },
+  { key: 'acoes', label: 'Ações', align: 'right', labelHidden: true },
 ])
 
 const filters = useTableFilters(columns)
@@ -160,6 +161,18 @@ const visibleWeddings = computed(() =>
 
         <template #cell-criado="{ row }">
           <span class="text-text-muted">{{ formatDatePtBR(row.createdAt) }}</span>
+        </template>
+
+        <!-- A ficha é rota própria (docs/fase5-multievento.md 6.6): editar,
+             acessos e exclusão não cabem na linha da tabela. -->
+        <template #cell-acoes="{ row }">
+          <NuxtLink
+            :to="`/plataforma/${row.id}`"
+            class="inline-flex items-center gap-1 text-sm text-primary transition-brand hover:underline"
+          >
+            Abrir
+            <Icon name="lucide:chevron-right" class="h-4 w-4" />
+          </NuxtLink>
         </template>
       </AdminTable>
     </AdminPanel>

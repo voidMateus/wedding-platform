@@ -19,7 +19,8 @@ import { describe, expect, it } from 'vitest'
  *
  * Os caminhos de fora ficam de fora de propósito (`CLAUDE.md`, seção 4.2): o
  * convidado, o site público, o webhook e o cron não têm ator administrativo a
- * quem atribuir a ação. O cron usa `recordSystemAuditLog` onde faz sentido —
+ * quem atribuir a ação. O caminho da PLATAFORMA entra: ele não é membro de
+ * casamento nenhum, mas tem ator próprio na trilha desde a Fase 5 do Hub. O cron usa `recordSystemAuditLog` onde faz sentido —
  * quando manda e-mail em nome do casal —, mas nunca por requisição.
  */
 
@@ -86,6 +87,10 @@ describe('auditoria de ações administrativas', () => {
     // verificável, não dispensa (docs/fase5-multievento.md seção 7).
     const emTransacao = /auditoria em transação:/.test(conteudo)
 
-    expect(dispensada || emTransacao || /record(System)?AuditLog\(/.test(conteudo)).toBe(true)
+    // Os três autores possíveis: membro (recordAuditLog), sistema (o cron) e
+    // operador de plataforma (docs/fase5-multievento.md seção 7).
+    expect(dispensada || emTransacao || /record(System|Platform)?AuditLog\(/.test(conteudo)).toBe(
+      true,
+    )
   })
 })

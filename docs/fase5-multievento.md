@@ -101,6 +101,7 @@ planejador, criação e storage são capacidades construídas sobre ela.
 | **F5.3** | Ator operador na trilha de auditoria (seção 7) | Governança |
 | **F5.4** | `/plataforma` cria casamento (seção 6) | Operação |
 | **F5.5** | Storage no painel interno (seção 8) | Observabilidade |
+| **F5.6** | A ficha do casamento: editar, acessos, arquivar e excluir (seção 6.6) | Operação |
 
 **F5.0 vem primeiro e não depende de nada.** O defeito que ela corrige já está
 no produto hoje e não tem relação nenhuma com o papel de planejador — pôr uma
@@ -618,6 +619,77 @@ O que fecha é o registro: toda criação deixa uma linha com
 então o casal lê no próprio painel quem criou o evento dele — e isso é honesto,
 não um vazamento.
 
+### 6.6 A ficha do casamento (decisões de 2026-09-15, segunda rodada)
+
+Criar sem poder corrigir é meia ferramenta: e-mail de dono digitado errado,
+endereço com typo, casal que perdeu acesso. A ficha é **rota própria**
+(`/plataforma/{id}`), pelo mesmo motivo que a ficha do gasto é uma página no
+Financeiro — o que a equipe precisa saber sobre um evento não cabe numa célula
+da listagem, e espremer isso ali transformaria a mesa de trabalho num
+formulário.
+
+Ela mostra porte (convidados, storage, convites enviados), quem tem acesso, e
+as últimas 20 linhas da trilha daquele casamento.
+
+#### Trocar o slug: permitido, com o estrago medido
+
+O link do convidado é `/{slug}/rsvp/{código}`. Trocar o endereço invalida todo
+convite enviado e todo QR impresso — a mesma razão pela qual o envio nunca
+rotaciona a credencial que já existe (`CLAUDE.md` seção 12).
+
+Decisão: **permitir sempre, com aviso**, não bloquear. Quem opera aqui é equipe
+treinada, e às vezes o endereço está errado mesmo depois do envio; travar
+empurraria a correção de volta para o SQL, onde não sobra registro. O que a
+tela faz é medir o estrago antes — quantos convites já saíram, quantas
+credenciais estão ativas — e dizer que um QR na mão de alguém não se reimprime.
+Quando nada saiu, o aviso diz isso também, em vez de assustar à toa. O registro
+guarda slug anterior, slug novo e o número de convites já enviados: sem esse
+número, "o slug mudou" não conta nada.
+
+#### Arquivar sim, publicar não — e desarquivar devolve para rascunho
+
+`statusCicloVida` aceita `arquivado` e `rascunho`, nunca `publicado`. Pôr o
+site de um casal no ar é decisão dele, e a plataforma que cria o evento é a
+mesma que não o divulga.
+
+Daí a consequência que parece estranha e é deliberada: **desarquivar devolve
+para rascunho**, mesmo que o casamento estivesse publicado antes. Restaurar
+direto para `publicado` seria a equipe interna republicando o site de alguém —
+e o casal republica com um clique no painel dele.
+
+#### Acessos: o operador está fora da escada
+
+A escada de papéis descreve quem, **dentro** de um casamento, alcança quem. O
+operador não é membro de casamento nenhum: está fora dela, e por isso concede
+qualquer papel pela ficha. O que continua valendo é a trava que impede o
+casamento de ficar órfão — **nunca remover o último dono**. No caso de suporte
+que motivou a tela (e-mail errado no cadastro), a ordem é vincular o dono certo
+primeiro e só então remover o errado, e a mensagem de erro diz isso.
+
+#### Excluir: o registro precisa sobreviver ao que ele apaga
+
+As 34 FKs que apontam para `casamentos` têm `on delete cascade`, então a linha
+leva junto convidados, convites, respostas, presentes, pagamentos, mesas,
+documentos — **e a própria `trilha_auditoria`**.
+
+É aí que está o problema real: o registro da exclusão não pode morar na trilha,
+porque ele morreria junto com o que descreve. Um registro assim não é registro.
+Por isso existe `exclusoes_de_casamento`, fora do cascade, append-only, com a
+fotografia do que havia: slug, nomes, data, status e porte no instante da
+exclusão — depois não há como recontar. `excluir_casamento()` fotografa e apaga
+na mesma transação.
+
+Duas coisas ficam de fora do banco, e a ordem entre elas é decisão:
+
+- **os arquivos de storage** não estão no grafo de relações, então saem por
+  fora — e **depois** do banco, nunca antes. Na ordem inversa, uma falha
+  deixaria um casamento vivo com as imagens quebradas; nesta, o pior caso é
+  arquivo órfão, que a própria métrica de storage mostra e que se apaga depois.
+  É o mesmo princípio do convite de e-mail na criação: **o resíduo fica do lado
+  barato**;
+- **a confirmação é digitar o endereço**, não um "tem certeza?". Um clique a
+  mais vira reflexo, e esta é a única ação do produto sem desfazer.
+
 ---
 
 ## 7. A trilha de auditoria ganha um terceiro ator
@@ -756,6 +828,11 @@ série, porque não há nada acumulando medição.
 | Rota | Método | Portão | O que faz |
 |---|---|---|---|
 | `/api/platform/weddings` | `POST` | `requirePlatformOperator` | Cria casamento + dono, em transação; audita como operador |
+| `/api/platform/weddings/[id]` | `GET` | `requirePlatformOperator` | A ficha: acessos, porte, o que já saiu daqui e a trilha |
+| `/api/platform/weddings/[id]` | `PATCH` | `requirePlatformOperator` | Nomes, data, slug e arquivar — **nunca publicar** |
+| `/api/platform/weddings/[id]` | `DELETE` | `requirePlatformOperator` | Exclusão física; registra em `exclusoes_de_casamento`, fora do cascade |
+| `/api/platform/weddings/[id]/members` | `POST` | `requirePlatformOperator` | Vincula acesso em qualquer papel |
+| `/api/platform/weddings/[id]/members/[memberId]` | `DELETE` | `requirePlatformOperator` | Remove acesso, menos o último dono |
 | `/api/platform/overview` | `GET` | `requirePlatformOperator` | **muda**: ganha storage por casamento e o total |
 | `/api/wedding/members` | `POST` | escada de papéis | **muda**: `context.role !== 'dono'` vira `podeGerenciarPapel(context.role, input.papel)` |
 | `/api/wedding/members/[id]` | `DELETE` | escada de papéis | **muda**: mesma troca, contra o papel do alvo |
@@ -773,7 +850,8 @@ sem autenticação.
 | Cabeçalho do painel | Bloco de identidade vira troca de evento — **só com mais de uma membership** |
 | `/admin` | Lista de eventos: nome, data com contagem, status, papel; ordenada pela data, arquivados por último |
 | Configurações › Colaboradores | "Convidar **membro**"; três papéis, o dropdown só oferece o que o convidante alcança; "Remover" por linha pela mesma regra; selo "Assessoria"; a descrição para de enumerar permissões (seção 4.7) |
-| `/plataforma` | Botão "Criar casamento" + formulário; colunas de storage; nota do Drive |
+| `/plataforma` | Botão "Criar casamento" + formulário; colunas de storage; nota do Drive; "Abrir" leva à ficha |
+| `/plataforma/{id}` | A ficha do casamento: porte, dados do evento, acessos, trilha, arquivar e excluir (seção 6.6) |
 
 Nenhuma aba primária nova. O planejador usa o mesmo painel que o casal — é a
 mesma ferramenta, e um evento por vez continua sendo o modo de trabalhar nela.
@@ -822,6 +900,7 @@ mesma ferramenta, e um evento por vez continua sendo o modo de trabalhar nela.
 | **F5.3** | Ator operador na trilha de auditoria | Governança | — | B |
 | **F5.4** | `POST /api/platform/weddings` + `criar_casamento_com_dono()` + formulário em `/plataforma` | Operação | F5.3 | B |
 | **F5.5** | `uso_de_storage_por_casamento()`, allowlist de buckets, colunas no painel interno | Observabilidade | — | C |
+| **F5.6** | A ficha do casamento: editar, acessos, arquivar e excluir (seção 6.6) | Operação | F5.4 | D |
 
 **F5.0 não depende de F5.1**, e é essa a razão de ela existir separada: o
 defeito de contexto já está no produto, a correção não precisa da troca de
@@ -844,6 +923,10 @@ Testes que a fase obriga:
 - `tests/integration/rls/trilha-auditoria.spec.ts` — o terceiro tipo de ator.
 - `tests/integration/storage-buckets.spec.ts` — a allowlist contra
   `storage.buckets` (seção 8.3).
+- `tests/integration/api/platform-wedding-ficha.spec.ts` — o portão, a edição
+  do slug com o anterior na trilha, a recusa de publicar, o desarquivar que
+  volta para rascunho, a trava do último dono, e a exclusão cujo registro
+  sobrevive ao cascade.
 - `auditoria-completa.spec.ts` e `rotas-publicas-com-portao.spec.ts` pegam a
   rota nova sozinhos — nenhuma dispensa nova é concedida.
 
