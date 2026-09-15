@@ -899,3 +899,31 @@ não, exceto para o que pertence à pessoa e não ao evento.
 - **O painel entre eventos com alertas** (seção 2.2) — direção nomeada, sem
   data. O gatilho para retomá-la é um profissional real usando a lista e
   dizendo qual pergunta ela não responde.
+
+### 13.1 Dois achados da implementação (2026-09-15)
+
+Nenhum dos dois é escopo desta fase; os dois apareceram ao construí-la e ficam
+registrados para não sumirem.
+
+- **Criar casamentos em sequência esbarra no limite de e-mail do Supabase
+  Auth.** `inviteUserByEmail` é o que vincula o dono, e o SMTP embutido do
+  Supabase limita o envio (2/hora no projeto `dev`) — a criação devolve
+  `email rate limit exceeded`, com o casamento **não** criado, porque o convite
+  acontece antes da transação. Na escala de hoje (equipe interna, um cliente de
+  cada vez) é aceitável; um mutirão de cadastro não é. A saída é a mesma que o
+  produto já escolheu para o convidado: SMTP próprio via Resend, que já está
+  integrado atrás de `server/utils/email-provider.ts` mas ainda não provisionado.
+  O teste de integração evita o caminho de propósito (cria o usuário do dono
+  antes), para falhar por regressão e nunca por rate limit.
+
+- **O painel administrativo NÃO é `ssr: false`, ao contrário do que o
+  `CLAUDE.md` seção 4.3 afirma.** Não existe `ssr: false` nem `routeRules` em
+  `nuxt.config.ts`, nem `definePageMeta({ ssr: false })` em página alguma: o
+  `/admin` é renderizado no servidor como o resto do app. A consequência
+  apareceu no E2E — a lista fica visível alguns instantes antes de o Vue
+  hidratar, e um clique nessa janela move o foco sem acionar handler nenhum.
+  Não foi corrigido aqui porque desligar o SSR do painel é mudança de
+  comportamento com alcance próprio (LCP, hidratação, os testes que dependem
+  do HTML inicial) — e porque a decisão é entre **mudar o código para casar com
+  o documento** ou **mudar o documento para casar com o código**, que não é
+  escolha de uma fase sobre multi-evento.
