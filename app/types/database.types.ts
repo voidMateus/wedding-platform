@@ -2326,6 +2326,17 @@ export type Database = {
           updated_at: string
         }
       }
+      buckets_contabilizados: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
+      uso_de_storage_por_casamento: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          bytes: number
+          casamento_id: string
+        }[]
+      }
       confirmar_pagamento_presente: {
         Args: { p_pagamento_id: string }
         Returns: {

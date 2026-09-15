@@ -16,4 +16,14 @@ export interface PlatformWeddingOverview {
   createdAt: string
   donoEmails: string[]
   contagemConvidados: number
+  /**
+   * BYTES, não megabytes: a unidade de exibição é decisão da tela
+   * (docs/fase5-multievento.md 8.2), como os centímetros da planta de mesas.
+   */
+  storageBytes: number
+}
+
+/** O que o topo da tela resume sobre a plataforma inteira. */
+export interface PlatformStorageTotals {
+  storageBytes: number
 }

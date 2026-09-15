@@ -1,5 +1,5 @@
 import type { PlatformWeddingCreateInput } from '#shared/schemas/platform-wedding'
-import type { PlatformWeddingOverview } from '~/types/platform'
+import type { PlatformStorageTotals, PlatformWeddingOverview } from '~/types/platform'
 
 /**
  * A mesa de trabalho da equipe da plataforma (docs/PLANO-SAAS.md, Passo 8;
@@ -12,9 +12,12 @@ import type { PlatformWeddingOverview } from '~/types/platform'
  */
 export function usePlatformOverview() {
   function getOverview() {
-    return useFetch<{ data: PlatformWeddingOverview[] }>('/api/platform/overview', {
-      key: 'platform-overview',
-    })
+    return useFetch<{ data: PlatformWeddingOverview[]; totais: PlatformStorageTotals }>(
+      '/api/platform/overview',
+      {
+        key: 'platform-overview',
+      },
+    )
   }
 
   /** Cria casamento + dono numa transação (POST /api/platform/weddings). */
