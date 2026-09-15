@@ -16,7 +16,7 @@ const meta = {
   component: UiInput,
   tags: ['autodocs'],
   argTypes: {
-    variant: { control: 'inline-radio', options: ['campo', 'quiet'] },
+    variant: { control: 'inline-radio', options: ['campo', 'quiet', 'quiet-desktop'] },
     tone: { control: 'inline-radio', options: ['default', 'muted'] },
     type: {
       control: 'select',
@@ -119,6 +119,40 @@ export const Quiet: Story = {
       template: `<div class="max-w-sm rounded-lg border border-border bg-surface-elevated p-2"><story /></div>`,
     }),
   ],
+}
+
+/**
+ * `variant="quiet-desktop"` é a mesma sobriedade, mas só a partir de `sm` —
+ * para a linha editável que NÃO é tabela e empilha no celular em vez de sumir.
+ * Estreite a janela da vitrine e a moldura volta: abaixo de `sm` isto é
+ * `campo`, e é o que garante alvo de toque onde o campo é o controle da tela.
+ */
+export const QuietDesktop: Story = {
+  args: {
+    label: undefined,
+    ariaLabel: 'Tarefa Enviar o save the date',
+    modelValue: 'Enviar o save the date',
+    variant: 'quiet-desktop',
+  },
+  decorators: [
+    () => ({
+      template: `<div class="max-w-sm rounded-lg border border-border bg-surface-elevated p-2"><story /></div>`,
+    }),
+  ],
+}
+
+/**
+ * `suggestions` autocompleta a partir do que já existe **sem fechar o conjunto**:
+ * o campo continua texto livre, e quem digita um nome novo não é corrigido. Se o
+ * vocabulário fosse fechado, o controle certo seria o `UiSelect`.
+ */
+export const ComSugestoes: Story = {
+  args: {
+    label: 'Quem faz?',
+    placeholder: 'Quem faz?',
+    hint: 'Comece a digitar para ver quem já aparece na checklist.',
+    suggestions: ['Cerimonial Ana', 'Mãe da noiva', 'Mariana', 'Rafael'],
+  },
 }
 
 /** Os tipos que a plataforma usa, um embaixo do outro. */

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { hojeNoFusoDoEvento } from '#shared/utils/orcamento'
+import { diasAteOEvento, rotuloDaContagem } from '#shared/utils/planejamento'
 import { adminPrimaryNav, adminSectionMenu } from '~/utils/admin-nav'
 
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
@@ -78,6 +80,31 @@ const weddingDateLabel = computed(() => {
   })
 })
 
+/**
+ * Quanto falta para o casamento, ao lado da data.
+ *
+ * A data sozinha obriga a fazer a conta de cabeça, e é ela que dá escala a tudo
+ * o que o painel mostra: "faltam 291 dias" muda o peso de uma tarefa vencida e
+ * de uma parcela a vencer sem que nenhuma das duas telas precise repetir o
+ * número. Some depois do casamento — contagem regressiva de evento passado não
+ * informa, cobra (`rotuloDaContagem`).
+ *
+ * `hoje` é recalculado a cada navegação porque o painel é uma SPA que fica
+ * aberta por horas: sem isso, quem abriu antes da meia-noite leria o dia
+ * anterior até recarregar a página.
+ */
+const hoje = ref(hojeNoFusoDoEvento())
+watch(
+  () => route.path,
+  () => {
+    hoje.value = hojeNoFusoDoEvento()
+  },
+)
+
+const contagemRegressiva = computed(() =>
+  rotuloDaContagem(diasAteOEvento(wedding.value?.data_evento ?? null, hoje.value)),
+)
+
 /** Monograma a partir dos nomes ("Mateus & Raquel" → "M&R"). */
 const monograma = computed(() => {
   const nomes = (wedding.value?.nomes_noivos ?? '').split('&').map((parte) => parte.trim())
@@ -156,7 +183,8 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
             {{ wedding?.nomes_noivos }}
           </span>
           <span class="hidden truncate text-xs text-text-muted sm:block">
-            {{ weddingDateLabel }}
+            {{ weddingDateLabel
+            }}<template v-if="contagemRegressiva"> · {{ contagemRegressiva }}</template>
           </span>
         </span>
       </NuxtLink>
