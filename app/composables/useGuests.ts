@@ -86,7 +86,14 @@ export interface GuestPartyGroupResult {
  */
 export function useGuests() {
   function listGuests(params?: MaybeRefOrGetter<GuestListParams | undefined>) {
-    return useFetch<GuestListResponse>('/api/guests', { query: params, key: 'guests' })
+    // Chave derivada dos parâmetros pelo mesmo motivo de `listInvites` — ver o
+    // comentário longo lá. Aqui os dois recortes que colidiam são a listagem de
+    // Convidados (com filtro) e a busca de candidatos dentro do modal de
+    // convite (`InviteGuestsSection`).
+    return useFetch<GuestListResponse>('/api/guests', {
+      query: params,
+      key: () => `guests-${JSON.stringify(toValue(params) ?? {})}`,
+    })
   }
 
   /**
