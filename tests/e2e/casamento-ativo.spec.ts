@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // Auto-suficiente (docs/PLANO-SAAS.md, Passo 3) — ao contrário de
 // login.spec.ts/guests-invites-rsvp.spec.ts, não depende de um usuário
@@ -59,6 +60,10 @@ test('conta com mais de um casamento vê tela de seleção e troca de casamento 
     await expect(page.getByRole('heading', { name: 'Selecione um casamento' })).toBeVisible()
     await expect(page.getByText('Teste E2E Casamento A')).toBeVisible()
     await expect(page.getByText('Teste E2E Casamento B')).toBeVisible()
+
+    // A tela de seleção — fora do layout do painel, e a única que uma conta com
+    // mais de uma membership vê antes de qualquer outra coisa.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Seleção de casamento' })
 
     // --- seleciona o casamento A ---
     await page.getByText('Teste E2E Casamento A').click()

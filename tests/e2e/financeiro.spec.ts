@@ -5,6 +5,7 @@ import {
   semearFinanceiro,
   type ContaDeTeste,
 } from './support/conta-de-teste'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // O Financeiro contra o Supabase de desenvolvimento real.
 //
@@ -92,11 +93,20 @@ test('o módulo tem um agregado só, e ele mora no topo de Gastos', async ({ pag
   // Prosa com números dentro, não uma grade de cartões: lê-se de uma vez.
   await expect(page.getByText(/contratados ·/).first()).toBeVisible()
 
+  // A lista cheia é o estado representativo de Gastos: a faixa do agregado, a
+  // tabela com um gasto por fase e os controles de filtro/ordenação.
+  await abrirGastos(page, slug)
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — Gastos' })
+
   await page.goto(`/admin/${slug}/financeiro/pagamentos`)
   await expect(page.getByRole('heading', { level: 1, name: 'Pagamentos' })).toBeVisible({
     timeout: 20_000,
   })
   await expect(page.getByText('Orçamento do casamento')).toHaveCount(0)
+
+  // Pagamentos tem estrutura própria (faixas por vencimento, a de "Pagos"
+  // recolhida) — é outra tela, não outra aba da mesma.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — Pagamentos' })
 })
 
 test('cada linha mostra UM número, escolhido pela fase do gasto', async ({ page }) => {
@@ -183,6 +193,11 @@ test('Pagamentos registra a baixa na própria linha', async ({ page }) => {
       timeout: 3_000,
     })
   }).toPass({ timeout: 30_000 })
+
+  // Com o diálogo aberto: o modal é o caminho em que rótulo, foco e nome
+  // acessível mais falham, e ele só existe neste instante do fluxo.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — registrar pagamento' })
+
   await page.getByRole('button', { name: 'Confirmar' }).click()
 
   // `finally` e não sequência: o casamento de desenvolvimento é compartilhado,
@@ -289,6 +304,10 @@ test('a ficha do gasto é uma página, e conta a história inteira dele', async 
   // tela, porque duas chamadas com a mesma chave de cache compartilhavam a
   // resposta — a ficha do refrigerante mostrava o contrato do buffet.
   await expect(page.getByText('Contrato do buffet')).toHaveCount(0)
+
+  // A ficha reúne cinco seções de naturezas diferentes numa página só — é a
+  // tela mais densa do módulo, e a que mais tem a perder numa regressão.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Financeiro — ficha do gasto' })
 })
 
 test('as propostas do gasto chegam em ordem de preço, com a menor marcada', async ({ page }) => {
@@ -406,6 +425,13 @@ test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }
 
   // O ponto inteiro desta tela: planejar não abre modal nenhum.
   await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // Categoria aberta, com os campos de edição no lugar: os controles desta
+  // tela não têm rótulo desenhado (a linha inteira é o rótulo), então é
+  // exatamente aqui que um `aria-label` faltando passaria despercebido.
+  await expectNoAccessibilityViolations(page, {
+    rotulo: 'Financeiro — Categorias com a linha em edição',
+  })
 
   try {
     // Sair da LINHA é o que salva — passar do nome para o valor não salva, para

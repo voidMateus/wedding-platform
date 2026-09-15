@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // O Planejamento contra o Supabase de desenvolvimento real.
 //
@@ -45,7 +46,9 @@ async function criarTarefa(page: import('@playwright/test').Page, titulo: string
   // descartados em silêncio — a mesma corrida das outras suítes do painel.
   await expect(async () => {
     await campo.fill(titulo, { timeout: 3_000 })
-    await page.getByRole('button', { name: 'Adicionar' }).click({ timeout: 3_000 })
+    // `exact`: o rodapé do grupo tem os chips de sugestão, que se anunciam
+    // "Adicionar <tarefa>" — sem isto o seletor casa com seis botões.
+    await page.getByRole('button', { name: 'Adicionar', exact: true }).click({ timeout: 3_000 })
     await expect(page.getByRole('textbox', { name: `Tarefa ${titulo}` })).toBeVisible({
       timeout: 5_000,
     })
@@ -94,6 +97,11 @@ test('tarefa criada sem prazo cai em "Sem prazo", e concluir a move para "Conclu
   await concluidas.click()
   await expect(linha).toBeVisible({ timeout: 15_000 })
 
+  // Estado representativo da tela: grupos por janela de tempo, uma tarefa em
+  // cada estado (pendente e concluída), o rodapé de sugestões e a linha de
+  // entrada — tudo desenhado ao mesmo tempo.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Planejamento — lista com tarefas' })
+
   // Desconcluir devolve a tarefa ao grupo de origem: `concluida_em` é a única
   // fonte do estado, e ela volta a ser nula.
   await page.getByRole('checkbox', { name: `Concluir ${titulo}` }).uncheck()
@@ -112,7 +120,12 @@ test('a sugestão vira tarefa num clique e some do rodapé — e volta quando a 
   // Uma sugestão qualquer que esteja oferecida agora: o catálogo é grande e o
   // que aparece depende dos fatos deste casamento, então o teste escolhe a
   // primeira da tela em vez de fixar uma chave que pode estar dispensada.
-  const sugestao = page.getByRole('button', { name: /^\+ / }).first()
+  //
+  // Pelo nome ACESSÍVEL ("Adicionar <rótulo>"), não pelo texto visível: desde o
+  // `UiSuggestionChip` o "+" é `aria-hidden` e o botão se anuncia pelo verbo —
+  // ver o comentário no componente. É também o caminho que um leitor de tela
+  // percorre, que é o que este teste deveria exercitar desde sempre.
+  const sugestao = page.getByRole('button', { name: /^Adicionar / }).first()
   await expect(sugestao).toBeVisible({ timeout: 20_000 })
   const rotulo =
     (await sugestao.textContent())
@@ -130,12 +143,12 @@ test('a sugestão vira tarefa num clique e some do rodapé — e volta quando a 
 
   // A sugestão não é mais oferecida: ela virou linha, e oferecer de novo criaria
   // uma segunda tarefa igual.
-  await expect(page.getByRole('button', { name: `+ ${rotulo}`, exact: true })).toBeHidden()
+  await expect(page.getByRole('button', { name: `Adicionar ${rotulo}`, exact: true })).toBeHidden()
 
   // Excluir devolve a sugestão ao rodapé — a conta é determinística e não guarda
   // estado de "já ofereci isto".
   await excluirTarefa(page, rotulo)
-  await expect(page.getByRole('button', { name: `+ ${rotulo}`, exact: true })).toBeVisible({
+  await expect(page.getByRole('button', { name: `Adicionar ${rotulo}`, exact: true })).toBeVisible({
     timeout: 15_000,
   })
 })

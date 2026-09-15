@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
 import { createTestGift } from '../factories/gift'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * O terceiro fluxo crítico do `ROADMAP.md` — RSVP e login já tinham teste, a
@@ -64,6 +65,10 @@ test('convidado reserva um presente físico gratuito, e o estoque cai no servido
       await expect(page.getByText('Quem está presenteando?')).toBeVisible({ timeout: 2_000 })
     }).toPass({ timeout: 30_000 })
 
+    // O modal de presentear aberto no primeiro passo: é a tela em que um
+    // visitante sem token nenhum digita o próprio nome.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Presentes — modal de reserva' })
+
     // Identificação: o nome é o que aparece para o casal na lista de quem
     // presenteou, e é obrigatório antes de qualquer escolha.
     await page.getByLabel('Seu nome').fill('Tia Cléia')
@@ -96,6 +101,10 @@ test('convidado reserva um presente físico gratuito, e o estoque cai no servido
     await page.reload()
     await expect(page.getByText('Esgotado')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Presentear' })).toHaveCount(0)
+
+    // A vitrine com o presente já esgotado — o selo de estado é o caso em que
+    // "a cor diz tudo" costuma escapar.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Presentes — vitrine com esgotado' })
   } finally {
     await deleteTestWedding(admin, casamento.id)
   }

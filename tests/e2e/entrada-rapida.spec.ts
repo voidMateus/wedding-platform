@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
 import { createTestGroup } from '../factories/group'
 import { createTestGuest } from '../factories/guest'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // Os dois caminhos de entrada em massa do Modo Lista, contra o Supabase de
 // desenvolvimento real. Mesma condição de login.spec.ts.
@@ -115,6 +116,10 @@ test('colar da planilha entra pelo mesmo de-para da importação por arquivo', a
   await expect(dialogo.getByText('2 a cadastrar')).toBeVisible({ timeout: 15_000 })
   await expect(dialogo.getByText(`Zcolar${sufixo} Um`)).toBeVisible()
 
+  // A revisão da importação: tabela de pré-visualização, caixas de confirmação
+  // e o de-para de colunas, tudo dentro de um diálogo.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Importação — revisão do colar' })
+
   // "Amigos do Trabalho" não existe nesta conta, então a importação vai CRIAR
   // um grupo — e criar vínculo novo exige confirmação explícita
   // (`podeConfirmar` no GuestImportModal). O teste não cobria esse caminho:
@@ -192,4 +197,10 @@ test('ações em massa: controles na barra no desktop, num modal no celular', as
   const dialogo = page.getByRole('dialog')
   await expect(dialogo.getByLabel('Mover selecionados para grupo')).toBeVisible()
   await expect(dialogo.getByRole('button', { name: 'Excluir' })).toBeVisible()
+
+  // Em 390px, com seleção ativa: a barra de ações em massa e o modal de ações
+  // só existem juntos neste recorte — a varredura de desktop nunca os vê.
+  await expectNoAccessibilityViolations(page, {
+    rotulo: 'Modo Lista — ações em massa no celular',
+  })
 })

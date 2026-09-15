@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * Modo Lista: a lista agrupada em blocos recolhíveis.
@@ -156,6 +157,11 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
     // faz esta asserção significar alguma coisa.
     await expect(page.getByText('em consideração')).toBeHidden()
 
+    // A planilha inteira desenhada: árvore de grupos, núcleo resumido, e uma
+    // linha com campo editável por coluna. É a tela com mais controles por
+    // pixel da plataforma — e onde um rótulo faltando some no meio do resto.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Modo Lista — planilha populada' })
+
     // A entrada rápida mora dentro do bloco e leva o grupo consigo.
     await expect(
       page.getByRole('button', { name: 'Adicionar convidado em Tios paternos' }),
@@ -219,6 +225,19 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
     }).toPass({ timeout: 15_000 })
 
+    // O cadastro completo aberto por cima da planilha — depois de CARREGAR.
+    //
+    // Esperar o botão habilitar não é preciosismo: enquanto o modal busca o
+    // convidado, "Cadastrar convidado" fica `disabled`, e `disabled:opacity-50`
+    // sobre `bg-primary` mede 1.97:1. O WCAG 1.4.3 isenta controle desabilitado
+    // do mínimo de contraste, mas o axe acusa assim mesmo — e como o estado dura
+    // alguns quadros, a varredura passava ou falhava conforme o dia. Meia tela
+    // carregada também não é o estado representativo que este ponto promete.
+    await expect(page.getByRole('button', { name: 'Salvar', exact: true })).toBeEnabled({
+      timeout: 15_000,
+    })
+    await expectNoAccessibilityViolations(page, { rotulo: 'Modo Lista — cadastro do convidado' })
+
     await page.getByRole('button', { name: 'Salvar', exact: true }).click()
     await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 })
 
@@ -256,6 +275,10 @@ test('Modo Lista agrupa por grupo, soma as subdivisões e recolhe a árvore', as
       'page',
     )
     await expect(page.getByText('Carlos Direto').first()).toBeVisible()
+
+    // A Visão Geral é a outra metade de Convidados — tabela paginada pelo
+    // servidor, com filtros no topo.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Convidados — Visão Geral' })
 
     await menuDaSecao.getByRole('link', { name: 'Modo lista' }).click()
     await expect(page).toHaveURL(new RegExp(`/convidados/lista$`), { timeout: 10_000 })

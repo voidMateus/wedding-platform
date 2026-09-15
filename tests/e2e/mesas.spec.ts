@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * Mesas, ponta a ponta — e o foco é a PLANTA.
@@ -90,6 +91,9 @@ test('a planta posiciona a mesa por arrasto, e o lugar novo sobrevive ao recarre
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
     }).toPass({ timeout: 20_000 })
 
+    // Diálogo aberto — o único estado em que o formulário de mesa existe.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Mesas — diálogo de nova mesa' })
+
     await page.getByLabel('Nome ou número').fill('Mesa 1')
     await page.getByLabel('Lugares').fill('8')
     await page.getByRole('button', { name: 'Salvar' }).click()
@@ -107,6 +111,10 @@ test('a planta posiciona a mesa por arrasto, e o lugar novo sobrevive ao recarre
     await page.goto(`/admin/${wedding.slug}/mesas?vista=planta`)
     const mesa = page.getByRole('button', { name: /^Mesa 1: 1 de 8 lugares/ })
     await expect(mesa).toBeVisible({ timeout: 20_000 })
+
+    // A planta desenhada, com uma mesa ocupada e a fila de quem falta
+    // acomodar: é o estado em que a tela tem conteúdo em vez de estado vazio.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Mesas — planta com mesa posicionada' })
 
     const antes = await mesa.boundingBox()
     if (!antes) throw new Error('mesa sem caixa na planta')

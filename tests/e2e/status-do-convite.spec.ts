@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * O funil de estágios na tela, e o caminho que o torna honesto: registrar a
@@ -81,6 +82,10 @@ test('registrar a resposta pelo casal move o convite no funil', async ({ page })
     //
     // "Não enviado" e "Enviado" eram a MESMA palavra ("Pendente"), distinguidas
     // só pelo tom do badge. O primeiro estágio agora se chama pelo que é.
+    // A listagem de Convites com o funil desenhado: badge de estágio, dado de
+    // apoio e as ações por linha.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Convites — listagem com funil' })
+
     const linha = page.getByRole('row').filter({ hasText: 'Convite da Vovo' })
     await expect(linha).toContainText('Não enviado')
     await expect(linha).not.toContainText('Pendente')
@@ -124,6 +129,10 @@ test('registrar a resposta pelo casal move o convite no funil', async ({ page })
     // derivado dela. Registro de canal `outro` é DECLARAÇÃO do casal, e
     // declarar por engano precisa ter saída — daí o "Desfazer" na linha.
     await expect(dialogo.getByText('Nenhum envio registrado')).toBeVisible()
+
+    // O modal do convite depois de a resposta ser registrada — estágio, linha
+    // do tempo dos envios e o seletor de resposta por pessoa.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Convites — modal com resposta' })
 
     await dialogo.getByRole('button', { name: 'Registrar envio' }).click()
     await dialogo.getByRole('button', { name: 'Registrar', exact: true }).click()

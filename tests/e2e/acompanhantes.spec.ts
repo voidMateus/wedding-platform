@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * Agrupar como Acompanhantes, a partir da seleção do Modo Lista.
@@ -120,6 +121,13 @@ test('agrupar como acompanhantes: avisa o que a seleção não diz e junta num n
     await expect(dialogo).toContainText('4')
     await expect(dialogo).toContainText('por já acompanhar alguém que você marcou')
     await expect(dialogo).toContainText('grupos de acompanhantes viram um')
+
+    // O diálogo de confirmação — texto de aviso e dois botões, o caso em que
+    // um nome acessível ausente passa despercebido porque a frase explica tudo
+    // para quem enxerga.
+    await expectNoAccessibilityViolations(page, {
+      rotulo: 'Acompanhantes — confirmação de agrupamento',
+    })
 
     await dialogo.getByRole('button', { name: 'Agrupar', exact: true }).click()
 

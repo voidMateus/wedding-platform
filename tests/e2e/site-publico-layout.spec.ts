@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
  * Guarda de layout do site público em telas estreitas.
@@ -46,6 +47,18 @@ const CAMINHOS = ['', '/presentes', '/rsvp', '/galeria']
 
 /** Respiro mínimo entre um texto e a borda da tela. */
 const MARGEM_MINIMA_PX = 14
+
+/**
+ * As larguras em que a varredura de acessibilidade também roda.
+ *
+ * Duas, e não as oito: o axe reinjeta e reanalisa a árvore inteira a cada
+ * chamada, e 32 varreduras acrescentariam minutos a um teste que já leva
+ * quatro. Uma de celular e uma de desktop bastam porque o que muda entre elas é
+ * o que a árvore contém — a barra fixa de RSVP e o menu em gaveta só existem no
+ * estreito; a navegação horizontal, só no largo. Entre 320 e 414 a árvore é a
+ * mesma, só mais apertada, e apertar não cria violação de axe.
+ */
+const LARGURAS_COM_VARREDURA_A11Y = [390, 1280]
 
 test('páginas públicas não estouram nem encostam nas bordas, de 320px a 1440px', async ({
   page,
@@ -180,6 +193,10 @@ test('páginas públicas não estouram nem encostam nas bordas, de 320px a 1440p
           medida.foraDaTela,
           `elemento posicionado fora da viewport em ${onde} (arrasto lateral no celular)`,
         ).toEqual([])
+
+        if (LARGURAS_COM_VARREDURA_A11Y.includes(largura)) {
+          await expectNoAccessibilityViolations(page, { rotulo: `site público ${onde}` })
+        }
       }
     }
   } finally {

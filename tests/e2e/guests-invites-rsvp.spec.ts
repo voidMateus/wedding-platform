@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { criarContaDeTeste, entrarComo, type ContaDeTeste } from './support/conta-de-teste'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // Requer um usuário real já vinculado como wedding_member (mesma condição
 // de login.spec.ts) — valida o fluxo ponta a ponta da reestruturação de
@@ -83,6 +84,10 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await expect(linhaDoConvite).toContainText('Será criado ao salvar')
   await expect(linhaDoConvite).toContainText(`Família ${primaryName.split(' ')[0]}`)
 
+  // O cadastro no estado mais cheio que ele alcança: acompanhante incluído, a
+  // fila do núcleo montada e a linha do convite já resolvida.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Convidados — cadastro com acompanhante' })
+
   await page.getByRole('button', { name: 'Cadastrar convidado' }).click()
   await expect(page).toHaveURL(new RegExp(`/admin/${adminSlug}/convidados$`), { timeout: 10_000 })
 
@@ -158,6 +163,9 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   })
   await expect(inviteDialog.getByText('(Responsável)')).toBeVisible()
 
+  // O modal do convite, com as duas pessoas e as ações por linha.
+  await expectNoAccessibilityViolations(page, { rotulo: 'Convites — detalhe do convite' })
+
   // --- gera link de acesso e extrai o código (bloco do próprio modal) ---
   await inviteDialog.getByRole('button', { name: 'Gerar link' }).click()
   const linkInput = page.locator('input[disabled]')
@@ -185,6 +193,11 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   // logo acima, mas quem navega botão a botão ouvia "Estarei lá" repetido, sem
   // dono. Os botões ganharam `aria-label` com o nome, e este teste passou a usar
   // exatamente o mesmo caminho que um leitor de tela usa.
+  // O RSVP do convidado é a única tela que uma pessoa de fora percorre inteira,
+  // muitas vezes no celular e sem ajuda de ninguém — e é a que menos aparece em
+  // teste manual, porque o casal nunca a vê.
+  await expectNoAccessibilityViolations(page, { rotulo: 'RSVP — convite por link direto' })
+
   await page.getByRole('button', { name: `Estarei lá — ${primaryName}` }).click()
   await page.getByRole('button', { name: `Não poderei ir — ${companionName}` }).click()
 
@@ -197,4 +210,8 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   await page.waitForLoadState('networkidle')
   await page.getByPlaceholder('Seu nome completo').fill(primaryName)
   await expect(page.getByRole('button', { name: primaryName })).toBeVisible({ timeout: 10_000 })
+
+  // A busca por nome com resultado na tela — o outro caminho de entrada do
+  // convidado, e o único sem token nenhum.
+  await expectNoAccessibilityViolations(page, { rotulo: 'RSVP — busca pública por nome' })
 })

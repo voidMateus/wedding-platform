@@ -5,6 +5,7 @@ import {
   preencherHorario,
   type ContaDeTeste,
 } from './support/conta-de-teste'
+import { expectNoAccessibilityViolations } from './utils/a11y'
 
 // O roteiro de Primeiros passos e o wizard, contra o Supabase de
 // desenvolvimento real.
@@ -58,6 +59,10 @@ test.describe('onboarding — o roteiro e o wizard', () => {
         message: 'o Início não desenhou nem o roteiro nem a contagem',
       })
       .toBeGreaterThan(0)
+
+    // O Início de uma conta nova — a primeira tela que o casal vê, e a única
+    // que todo mundo atravessa.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Início — roteiro de primeiros passos' })
   })
 
   test('o wizard abre na etapa pedida e salva ao avançar', async ({ page }) => {
@@ -78,6 +83,10 @@ test.describe('onboarding — o roteiro e o wizard', () => {
     }).toPass({ timeout: 30_000 })
 
     await expect(page.getByRole('heading', { name: 'Escolham a cara do site' })).toBeVisible()
+
+    // O wizard numa etapa com formulário desenhado e a barra de navegação
+    // (Voltar/Pular/Continuar) presente.
+    await expectNoAccessibilityViolations(page, { rotulo: 'Onboarding — etapa Aparência' })
 
     // Voltar mostra o que estava lá — a etapa pulada não sumiu do caminho.
     await page.getByRole('button', { name: 'Voltar' }).click()
