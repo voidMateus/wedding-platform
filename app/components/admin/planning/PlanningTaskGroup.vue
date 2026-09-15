@@ -205,7 +205,7 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
             class="min-w-0 flex-1"
             :model-value="rascunho(tarefa).titulo"
             :aria-label="`Tarefa ${tarefa.titulo}`"
-            :class="tarefa.concluida_em ? 'line-through opacity-60' : ''"
+            :class="tarefa.concluida_em ? 'line-through opacity-70' : ''"
             @update:model-value="editar(tarefa, 'titulo', $event)"
           />
 
@@ -236,27 +236,26 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
         </li>
       </ul>
 
-      <!-- Borda tracejada porque ainda não é nada: a sugestão é um convite, não
-           uma tarefa. Ela não some depois de usada uma vez — o casal volta em
-           março e o que ele não criou continua aqui. -->
+      <!-- A sugestão é um convite, não uma tarefa: ela não some depois de usada
+           uma vez — o casal volta em março e o que ele não criou continua aqui.
+           O que a distingue de uma tarefa é o "+" e a moldura leve do
+           UiSuggestionChip, não mais uma borda tracejada (ver o componente:
+           tracejado era metade da presença visual, e era o que faltava). -->
       <div
         v-if="sugestoes.length > 0"
         class="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-2 text-xs text-text-muted"
       >
         <span>Costuma entrar aqui:</span>
-        <button
+        <UiSuggestionChip
           v-for="sugestao in sugestoesVisiveis"
           :key="sugestao.chave"
-          type="button"
-          class="rounded-md border border-dashed border-border px-2 py-0.5 transition-brand hover:border-primary/40 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :label="sugestao.titulo"
           @click="usarSugestao(sugestao)"
-        >
-          + {{ sugestao.titulo }}
-        </button>
+        />
         <button
           v-if="!verTodasSugestoes && sugestoes.length > SUGESTOES_VISIVEIS"
           type="button"
-          class="underline underline-offset-2 transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="font-medium text-primary underline underline-offset-2 transition-brand hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           @click="verTodasSugestoes = true"
         >
           ver todas ({{ sugestoes.length }})
