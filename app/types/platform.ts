@@ -70,4 +70,11 @@ export interface PlatformWeddingDetail {
   credenciaisAtivas: number
   membros: PlatformWeddingMember[]
   trilha: PlatformAuditEntry[]
+  /**
+   * Até quando o acesso de suporte DESTE operador vale, ou null quando ele não
+   * tem um aberto (docs/fase5-multievento.md 6.7).
+   */
+  acessoDeSuporteAte: string | null
+  /** True quando o operador é membro de verdade — aí não precisa de suporte. */
+  membroDeVerdade: boolean
 }

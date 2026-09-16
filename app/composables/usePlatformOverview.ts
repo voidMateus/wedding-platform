@@ -53,6 +53,18 @@ export function usePlatformOverview() {
     return $fetch(`/api/platform/weddings/${id}/members`, { method: 'POST', body: input })
   }
 
+  /** Abre um acesso de suporte ao painel do casal, com validade. */
+  async function abrirAcessoDeSuporte(id: string) {
+    return $fetch<{ data: { slug: string; expiraEm: string | null; jaEraMembro: boolean } }>(
+      `/api/platform/weddings/${id}/support-access`,
+      { method: 'POST' },
+    )
+  }
+
+  async function encerrarAcessoDeSuporte(id: string) {
+    return $fetch(`/api/platform/weddings/${id}/support-access`, { method: 'DELETE' })
+  }
+
   async function removeMember(id: string, memberId: string) {
     return $fetch(`/api/platform/weddings/${id}/members/${memberId}`, { method: 'DELETE' })
   }
@@ -65,5 +77,7 @@ export function usePlatformOverview() {
     deleteWedding,
     addMember,
     removeMember,
+    abrirAcessoDeSuporte,
+    encerrarAcessoDeSuporte,
   }
 }

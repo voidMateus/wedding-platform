@@ -102,6 +102,7 @@ planejador, criação e storage são capacidades construídas sobre ela.
 | **F5.4** | `/plataforma` cria casamento (seção 6) | Operação |
 | **F5.5** | Storage no painel interno (seção 8) | Observabilidade |
 | **F5.6** | A ficha do casamento: editar, acessos, arquivar e excluir (seção 6.6) | Operação |
+| **F5.7** | Acesso de suporte ao painel do casal (seção 6.7) | Operação |
 
 **F5.0 vem primeiro e não depende de nada.** O defeito que ela corrige já está
 no produto hoje e não tem relação nenhuma com o papel de planejador — pôr uma
@@ -690,6 +691,58 @@ Duas coisas ficam de fora do banco, e a ordem entre elas é decisão:
 - **a confirmação é digitar o endereço**, não um "tem certeza?". Um clique a
   mais vira reflexo, e esta é a única ação do produto sem desfazer.
 
+### 6.7 Acesso de suporte ao painel do casal (2026-09-15, terceira rodada)
+
+A equipe interna precisa entrar no painel de um casamento para dar suporte. A
+pergunta não é se pode — é **por onde**.
+
+#### Só havia dois caminhos, e um está proibido
+
+Medindo antes de desenhar: **123 das 128 rotas do painel usam o client com
+RLS**. Não é defesa em profundidade, é a autorização de verdade. Então um
+"contexto especial de operador" em `resolveWeddingContext()` não seria um furo
+de segurança — seria simplesmente **quebrado**: toda lista voltaria vazia e
+toda escrita seria recusada, porque `is_membro_casamento(auth.uid())` é falso.
+
+O outro caminho seria acrescentar `is_operador_plataforma()` às ~90 policies —
+e é exatamente o que o `CLAUDE.md` seção 4.2 proíbe: *"nunca uma policy que
+qualquer tenant possa acidentalmente herdar"*.
+
+Resta o que foi feito: **o operador ganha um vínculo real e temporário** em
+`membros_casamento` (`acesso_suporte_expira_em` preenchido, papel `dono`). Nada
+muda nas 123 rotas, nada muda nas policies, e a autorização continua sendo a
+mesma para todo mundo — que é o que a torna confiável.
+
+#### A expiração vale na leitura, não numa varredura
+
+`is_membro_casamento`, `is_dono_casamento` e `pode_gerenciar_papel` passaram a
+ignorar vínculo vencido. É a diferença entre uma expiração de verdade e uma
+decorativa: com limpeza periódica, uma linha vencida continuaria abrindo o
+painel até alguém apagá-la.
+
+Daí também não haver cron novo — o plano da hospedagem limita quantos existem
+(`CLAUDE.md` seção 12), e linha vencida é **inerte**, não perigosa. A limpeza
+acontece de carona, quando um acesso novo é aberto.
+
+Duração: **4 horas**, em `shared/acesso-de-suporte.ts`. Suporte a casal é uma
+sessão de trabalho, não uma relação contínua. E há botão para encerrar antes:
+a validade cobre o esquecimento, o botão cobre a intenção — uma não substitui a
+outra.
+
+#### Silencioso na tela, nunca na trilha
+
+Decisão de produto: o vínculo **não aparece** na tela de acessos do casal
+(`GET /api/wedding/members` o filtra) e **não conta** na contagem de donos —
+um casamento cujo único "dono" fosse a equipe interna estaria órfão do mesmo
+jeito.
+
+Mas conceder e encerrar ficam registrados na trilha do casamento como
+`operador`, e **o casal lê a própria trilha**. Isso é deliberado: ocultar
+também o registro removeria a accountability que torna a expiração verificável,
+e o `CLAUDE.md` seção 11 restringe leitura de dado pessoal de convidado a
+*membros autenticados daquele `casamento_id`* — que é precisamente o que o
+vínculo real satisfaz, e o que um bypass sintético violaria.
+
 ---
 
 ## 7. A trilha de auditoria ganha um terceiro ator
@@ -833,6 +886,8 @@ série, porque não há nada acumulando medição.
 | `/api/platform/weddings/[id]` | `DELETE` | `requirePlatformOperator` | Exclusão física; registra em `exclusoes_de_casamento`, fora do cascade |
 | `/api/platform/weddings/[id]/members` | `POST` | `requirePlatformOperator` | Vincula acesso em qualquer papel |
 | `/api/platform/weddings/[id]/members/[memberId]` | `DELETE` | `requirePlatformOperator` | Remove acesso, menos o último dono |
+| `/api/platform/weddings/[id]/support-access` | `POST` | `requirePlatformOperator` | Abre acesso de suporte com validade; idempotente |
+| `/api/platform/weddings/[id]/support-access` | `DELETE` | `requirePlatformOperator` | Encerra o acesso de suporte deste operador |
 | `/api/platform/overview` | `GET` | `requirePlatformOperator` | **muda**: ganha storage por casamento e o total |
 | `/api/wedding/members` | `POST` | escada de papéis | **muda**: `context.role !== 'dono'` vira `podeGerenciarPapel(context.role, input.papel)` |
 | `/api/wedding/members/[id]` | `DELETE` | escada de papéis | **muda**: mesma troca, contra o papel do alvo |
@@ -900,7 +955,9 @@ mesma ferramenta, e um evento por vez continua sendo o modo de trabalhar nela.
 | **F5.3** | Ator operador na trilha de auditoria | Governança | — | B |
 | **F5.4** | `POST /api/platform/weddings` + `criar_casamento_com_dono()` + formulário em `/plataforma` | Operação | F5.3 | B |
 | **F5.5** | `uso_de_storage_por_casamento()`, allowlist de buckets, colunas no painel interno | Observabilidade | — | C |
-| **F5.6** | A ficha do casamento: editar, acessos, arquivar e excluir (seção 6.6) | Operação | F5.4 | D |
+| **F5.6** | A ficha do casamento: editar, acessos, arquivar e excluir (seção 6.6) | Operação |
+| **F5.7** | Acesso de suporte ao painel do casal (seção 6.7) | Operação | F5.4 | D |
+| **F5.7** | Acesso de suporte ao painel do casal (seção 6.7) | Operação | F5.6 | E |
 
 **F5.0 não depende de F5.1**, e é essa a razão de ela existir separada: o
 defeito de contexto já está no produto, a correção não precisa da troca de
@@ -923,6 +980,9 @@ Testes que a fase obriga:
 - `tests/integration/rls/trilha-auditoria.spec.ts` — o terceiro tipo de ator.
 - `tests/integration/storage-buckets.spec.ts` — a allowlist contra
   `storage.buckets` (seção 8.3).
+- `tests/integration/rls/acesso-de-suporte.spec.ts` — a prova que sustenta a
+  seção 6.7: vínculo vencido deixa de valer **com a linha ainda existindo**,
+  verificado com client autenticado contra as policies reais.
 - `tests/integration/api/platform-wedding-ficha.spec.ts` — o portão, a edição
   do slug com o anterior na trilha, a recusa de publicar, o desarquivar que
   volta para rascunho, a trava do último dono, e a exclusão cujo registro

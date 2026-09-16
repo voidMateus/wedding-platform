@@ -17,6 +17,10 @@ export default defineEventHandler(async (event) => {
     .from('membros_casamento')
     .select('id, usuario_id, papel, created_at')
     .eq('casamento_id', context.weddingId)
+    // Vínculo de suporte da plataforma não aparece para o casal
+    // (docs/fase5-multievento.md 6.7) — decisão de produto. Ele continua na
+    // trilha de auditoria, que o casal também lê.
+    .is('acesso_suporte_expira_em', null)
     .order('created_at', { ascending: true })
 
   if (error) {

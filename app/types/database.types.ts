@@ -1428,6 +1428,7 @@ export type Database = {
       }
       membros_casamento: {
         Row: {
+          acesso_suporte_expira_em: string | null
           casamento_id: string
           created_at: string
           id: string
@@ -1436,6 +1437,7 @@ export type Database = {
           usuario_id: string
         }
         Insert: {
+          acesso_suporte_expira_em?: string | null
           casamento_id: string
           created_at?: string
           id?: string
@@ -1444,6 +1446,7 @@ export type Database = {
           usuario_id: string
         }
         Update: {
+          acesso_suporte_expira_em?: string | null
           casamento_id?: string
           created_at?: string
           id?: string

@@ -272,4 +272,52 @@ describe('api: ficha do casamento no /plataforma', () => {
     // Já não existe — sai da limpeza para o afterAll não tentar de novo.
     casamentosDescartaveis.splice(casamentosDescartaveis.indexOf(casamento.id), 1)
   })
+
+  it('abre e encerra acesso de suporte, e o casal não o vê na lista de acessos', async () => {
+    const { casamento } = await casamentoDescartavel()
+    const client = createTestApiClient({ cookie: cookieOperador })
+
+    const abrir = await client.post(`/api/platform/weddings/${casamento.id}/support-access`)
+    expect(abrir.status).toBe(200)
+    const { data: acesso } = await abrir.json()
+    expect(acesso.slug).toBe(casamento.slug)
+    expect(acesso.expiraEm).toBeTruthy()
+
+    // A linha existe, com validade — é o que faz o painel abrir.
+    const { data: vinculo } = await admin
+      .from('membros_casamento')
+      .select('papel, acesso_suporte_expira_em')
+      .eq('casamento_id', casamento.id)
+      .eq('usuario_id', operador.userId)
+      .single()
+    expect(vinculo?.papel).toBe('dono')
+    expect(vinculo?.acesso_suporte_expira_em).toBeTruthy()
+
+    // E a ficha não a conta como "quem tem acesso": ela é estado da própria
+    // tela do operador, não mais uma linha de membro.
+    const ficha = await client.get(`/api/platform/weddings/${casamento.id}`)
+    const { data: detalhe } = await ficha.json()
+    expect(detalhe.membros).toHaveLength(1)
+    expect(detalhe.acessoDeSuporteAte).toBeTruthy()
+
+    // Silencioso na tela, nunca na trilha (docs/fase5-multievento.md 6.7).
+    const { data: trilha } = await admin
+      .from('trilha_auditoria')
+      .select('acao, tipo_autor')
+      .eq('casamento_id', casamento.id)
+      .eq('acao', 'suporte.acesso_concedido')
+      .single()
+    expect(trilha?.tipo_autor).toBe('operador')
+
+    const encerrar = await client.del(`/api/platform/weddings/${casamento.id}/support-access`)
+    expect(encerrar.status).toBe(200)
+
+    const { data: sumiu } = await admin
+      .from('membros_casamento')
+      .select('id')
+      .eq('casamento_id', casamento.id)
+      .eq('usuario_id', operador.userId)
+      .maybeSingle()
+    expect(sumiu).toBeNull()
+  })
 })

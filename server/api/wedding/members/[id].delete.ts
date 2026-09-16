@@ -54,6 +54,10 @@ export default defineEventHandler(async (event) => {
       .select('id', { count: 'exact', head: true })
       .eq('casamento_id', context.weddingId)
       .eq('papel', 'dono')
+      // Acesso de suporte da plataforma NÃO conta como dono
+      // (docs/fase5-multievento.md 6.7): ele é temporário, e um casamento cujo
+      // único "dono" fosse a equipe interna estaria órfão do mesmo jeito.
+      .is('acesso_suporte_expira_em', null)
 
     if (countError) {
       throw badRequestError(countError.message)

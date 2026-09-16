@@ -55,6 +55,11 @@ export async function resolveWeddingContext(event: H3Event): Promise<WeddingCont
     .from('membros_casamento')
     .select('id, casamento_id, papel')
     .eq('usuario_id', user.sub)
+    // Vínculo de suporte VENCIDO não resolve contexto nenhum
+    // (docs/fase5-multievento.md 6.7). A expiração já vale dentro das policies
+    // de RLS, então uma linha vencida devolveria um contexto que não abre
+    // nada — pior que não devolver, porque pareceria acesso.
+    .or(`acesso_suporte_expira_em.is.null,acesso_suporte_expira_em.gt.${new Date().toISOString()}`)
 
   if (error) {
     throw createError({
@@ -110,6 +115,9 @@ export async function listWeddingMemberships(event: H3Event): Promise<WeddingMem
       'id, casamento_id, papel, casamentos (slug, nomes_noivos, data_evento, status_ciclo_vida)',
     )
     .eq('usuario_id', user.sub)
+    // Idem: casamento cujo acesso de suporte venceu some da troca de evento e
+    // da lista, em vez de virar um card que devolve tela vazia.
+    .or(`acesso_suporte_expira_em.is.null,acesso_suporte_expira_em.gt.${new Date().toISOString()}`)
 
   if (error) {
     throw createError({

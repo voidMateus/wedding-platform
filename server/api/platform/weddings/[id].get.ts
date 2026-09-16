@@ -1,3 +1,4 @@
+import { serverSupabaseUser } from '#supabase/server'
 import type { PlatformWeddingDetail } from '~/types/platform'
 
 /**
@@ -16,6 +17,7 @@ import type { PlatformWeddingDetail } from '~/types/platform'
  */
 export default defineEventHandler(async (event) => {
   await requirePlatformOperator(event)
+  const operador = await serverSupabaseUser(event)
 
   const weddingId = getRouterParam(event, 'id')
   if (!weddingId) {
@@ -29,7 +31,7 @@ export default defineEventHandler(async (event) => {
       admin.from('casamentos').select('*').eq('id', weddingId).maybeSingle(),
       admin
         .from('membros_casamento')
-        .select('id, usuario_id, papel, created_at')
+        .select('id, usuario_id, papel, created_at, acesso_suporte_expira_em')
         .eq('casamento_id', weddingId),
       admin
         .from('convidados')
@@ -62,6 +64,10 @@ export default defineEventHandler(async (event) => {
   if (!casamento.data) throw notFoundError('Casamento não encontrado.')
   if (membros.error) throw badRequestError(membros.error.message)
 
+  // O vínculo do PRÓPRIO operador: é o que diz se ele já pode entrar no painel
+  // e até quando (docs/fase5-multievento.md 6.7).
+  const meuVinculo = (membros.data ?? []).find((m) => m.usuario_id === operador!.sub)
+
   const usuarios = await listarTodosUsuarios(admin)
   const emailPorUsuario = new Map(usuarios.map((u) => [u.id, u.email ?? '']))
 
@@ -81,12 +87,19 @@ export default defineEventHandler(async (event) => {
     storageBytes: Number(bytes),
     convitesEnviados: enviados.count ?? 0,
     credenciaisAtivas: credenciais.count ?? 0,
-    membros: (membros.data ?? []).map((membro) => ({
-      id: membro.id,
-      email: emailPorUsuario.get(membro.usuario_id) ?? membro.usuario_id,
-      papel: membro.papel as PlatformWeddingDetail['membros'][number]['papel'],
-      desde: membro.created_at,
-    })),
+    acessoDeSuporteAte: meuVinculo?.acesso_suporte_expira_em ?? null,
+    membroDeVerdade: Boolean(meuVinculo && meuVinculo.acesso_suporte_expira_em === null),
+    // A lista de acessos mostra os membros de VERDADE. O vínculo de suporte é
+    // do operador que está olhando, e aparece como estado da própria tela — não
+    // como mais uma linha de "quem tem acesso".
+    membros: (membros.data ?? [])
+      .filter((membro) => membro.acesso_suporte_expira_em === null)
+      .map((membro) => ({
+        id: membro.id,
+        email: emailPorUsuario.get(membro.usuario_id) ?? membro.usuario_id,
+        papel: membro.papel as PlatformWeddingDetail['membros'][number]['papel'],
+        desde: membro.created_at,
+      })),
     trilha: (trilha.data ?? []).map((linha) => ({
       id: linha.id,
       acao: linha.acao,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { HORAS_DE_ACESSO_DE_SUPORTE } from '#shared/acesso-de-suporte'
 import { rotuloDoPapel, PAPEIS_DE_MEMBRO, type PapelDeMembro } from '#shared/papeis-de-membro'
 import { formatarBytes } from '#shared/utils/bytes'
 import { formatDatePtBR } from '#shared/utils/format-date'
@@ -15,7 +16,15 @@ const router = useRouter()
 const toast = useToast()
 
 const id = computed(() => String(route.params.id ?? ''))
-const { getWedding, updateWedding, deleteWedding, addMember, removeMember } = usePlatformOverview()
+const {
+  getWedding,
+  updateWedding,
+  deleteWedding,
+  addMember,
+  removeMember,
+  abrirAcessoDeSuporte,
+  encerrarAcessoDeSuporte,
+} = usePlatformOverview()
 const { data, status, error, refresh } = getWedding(id)
 
 const casamento = computed(() => data.value?.data ?? null)
@@ -137,6 +146,46 @@ async function desvincular(memberId: string) {
   }
 }
 
+// --- acesso de suporte ----------------------------------------------------
+//
+// O operador entra no painel do casal como membro de verdade, temporário
+// (docs/fase5-multievento.md 6.7). Não há contexto especial nem policy
+// cross-tenant: é o mesmo caminho de todo mundo, e é isso que o torna
+// confiável.
+const abrindoSuporte = ref(false)
+
+const suporteAtivo = computed(() => {
+  const ate = casamento.value?.acessoDeSuporteAte
+  return Boolean(ate && new Date(ate) > new Date())
+})
+
+const suporteExpiraLabel = computed(() => {
+  const ate = casamento.value?.acessoDeSuporteAte
+  if (!ate) return ''
+  return new Date(ate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+})
+
+async function entrarNoPainel() {
+  abrindoSuporte.value = true
+  try {
+    const { data: acesso } = await abrirAcessoDeSuporte(id.value)
+    await navigateTo(`/admin/${acesso.slug}`)
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível abrir o acesso.'))
+    abrindoSuporte.value = false
+  }
+}
+
+async function encerrarSuporte() {
+  try {
+    await encerrarAcessoDeSuporte(id.value)
+    toast.success('Acesso de suporte encerrado.')
+    await refresh()
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível encerrar o acesso.'))
+  }
+}
+
 // --- exclusão -------------------------------------------------------------
 const excluindoModal = ref(false)
 const confirmacao = ref('')
@@ -217,6 +266,41 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
           <p class="num mt-1 text-lg font-semibold text-text">{{ casamento.convitesEnviados }}</p>
         </UiCard>
       </div>
+
+      <!-- Acesso de suporte -->
+      <UiCard class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-text">Painel do casal</h2>
+            <p class="mt-0.5 text-xs text-text-muted">
+              <template v-if="casamento.membroDeVerdade">
+                Você é membro deste casamento — entra pelo painel normalmente.
+              </template>
+              <template v-else-if="suporteAtivo">
+                Acesso de suporte aberto até {{ suporteExpiraLabel }}. Ele expira sozinho, mas
+                encerre quando o atendimento terminar.
+              </template>
+              <template v-else>
+                Abre um acesso temporário de {{ HORAS_DE_ACESSO_DE_SUPORTE }} horas para dar
+                suporte. Fica registrado na trilha deste casamento.
+              </template>
+            </p>
+          </div>
+
+          <div class="flex shrink-0 gap-2">
+            <UiButton v-if="suporteAtivo" variant="ghost" @click="encerrarSuporte">
+              Encerrar acesso
+            </UiButton>
+            <UiButton :disabled="abrindoSuporte" @click="entrarNoPainel">
+              {{
+                suporteAtivo || casamento.membroDeVerdade
+                  ? 'Abrir painel'
+                  : 'Entrar para dar suporte'
+              }}
+            </UiButton>
+          </div>
+        </div>
+      </UiCard>
 
       <!-- Dados do evento -->
       <UiCard class="flex flex-col gap-4">
