@@ -62,6 +62,10 @@ test('operador entra no painel do casal pelo /plataforma e encerra o acesso', as
     // interno em vez do estado vazio de /admin.
     await expect(page).toHaveURL(/\/plataforma$/, { timeout: 20_000 })
 
+    // Deixa a navegação do login assentar antes de pedir outra: um `goto` com
+    // redirecionamento ainda em voo é abortado pelo navegador
+    // (`net::ERR_ABORTED`), e o teste culparia a página errada.
+    await page.waitForLoadState('networkidle')
     await page.goto(`/plataforma/${casamento.id}`)
     await expect(page.getByRole('heading', { name: 'Suporte Ana & Bruno' })).toBeVisible({
       timeout: 20_000,

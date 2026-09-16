@@ -11,6 +11,9 @@ const baseURL = `http://localhost:${resolveDevPort()}`
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Compila /login e /admin uma vez, em série, antes de o relógio de qualquer
+  // teste começar (ver tests/e2e/global-setup.ts).
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
