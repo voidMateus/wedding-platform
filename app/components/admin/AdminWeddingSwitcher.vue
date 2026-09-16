@@ -30,9 +30,22 @@ interface Props {
   monograma: string
   nomesNoivos: string
   dataLabel: string
+  /**
+   * True quando o casamento aberto é de um CLIENTE, por acesso de suporte da
+   * plataforma (docs/fase5-multievento.md 6.7) — o menu então oferece a volta
+   * para o painel interno, que é a casa de quem entrou assim.
+   */
+  emSuporte?: boolean
 }
 
-const { memberships, activeSlug, monograma, nomesNoivos, dataLabel } = defineProps<Props>()
+const {
+  memberships,
+  activeSlug,
+  monograma,
+  nomesNoivos,
+  dataLabel,
+  emSuporte = false,
+} = defineProps<Props>()
 
 const outros = computed(() => memberships.filter((m) => m.slug !== activeSlug))
 </script>
@@ -64,7 +77,10 @@ const outros = computed(() => memberships.filter((m) => m.slug !== activeSlug))
         :side-offset="6"
         class="z-60 min-w-64 rounded-lg border border-border bg-surface-elevated p-1 shadow-lg"
       >
-        <p class="px-2.5 py-1.5 text-xs font-semibold tracking-wide text-text-muted uppercase">
+        <p
+          v-if="outros.length"
+          class="px-2.5 py-1.5 text-xs font-semibold tracking-wide text-text-muted uppercase"
+        >
           Trocar de evento
         </p>
 
@@ -84,9 +100,21 @@ const outros = computed(() => memberships.filter((m) => m.slug !== activeSlug))
           </NuxtLink>
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator class="my-1 h-px bg-border" />
+        <DropdownMenuSeparator v-if="outros.length" class="my-1 h-px bg-border" />
 
         <DropdownMenuItem
+          v-if="emSuporte"
+          as-child
+          class="cursor-pointer rounded-md outline-none transition-brand data-[highlighted]:bg-surface-muted"
+        >
+          <NuxtLink to="/plataforma" class="flex items-center gap-2 px-2.5 py-2 text-sm text-text">
+            <Icon name="lucide:life-buoy" class="h-4 w-4 shrink-0" />
+            Sair do painel do cliente
+          </NuxtLink>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          v-else
           as-child
           class="cursor-pointer rounded-md outline-none transition-brand data-[highlighted]:bg-surface-muted"
         >

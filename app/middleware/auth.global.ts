@@ -57,14 +57,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // existe. Com zero casamentos e não-operador, mostra o estado vazio
   // mesmo (a própria página /admin cobre esse caso).
   if (!slug) {
-    if (to.path === '/admin' && authStore.memberships.length === 1) {
-      return navigateTo(`/admin/${authStore.memberships[0]!.slug}`, { replace: true })
+    // Onde o login cai é pergunta sobre POSSE, então vínculo de suporte não
+    // entra na conta (docs/fase5-multievento.md 6.7): o operador com quatro
+    // acessos abertos a casamentos de clientes continua sem casamento nenhum,
+    // e a casa dele é /plataforma. Tratar os dois como iguais fazia o login do
+    // operador cair em "Seus casamentos" listando eventos que não são dele.
+    const proprios = authStore.memberships.filter((m) => !m.acessoDeSuporte)
+
+    if (to.path === '/admin' && proprios.length === 1) {
+      return navigateTo(`/admin/${proprios[0]!.slug}`, { replace: true })
     }
-    if (
-      to.path === '/admin' &&
-      authStore.memberships.length === 0 &&
-      authStore.isPlatformOperator
-    ) {
+    if (to.path === '/admin' && proprios.length === 0 && authStore.isPlatformOperator) {
       return navigateTo('/plataforma', { replace: true })
     }
     return
@@ -75,8 +78,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // corresponde a nenhuma membership real do usuário, manda de volta pro
   // /admin pra resolver de novo, evitando mostrar a UI de um casamento que o
   // usuário não administra.
+  //
+  // Antes de desistir, RECARREGA a sessão uma vez: `memberships` é um cache
+  // populado no login, e o conjunto real muda no servidor sem que o client
+  // saiba — foi assim que o acesso de suporte da plataforma
+  // (docs/fase5-multievento.md 6.7) caía de volta em /plataforma, com o vínculo
+  // já criado no banco. Tratar o cache como verdade é a mesma classe de
+  // defeito que a F5.0 corrigiu; aqui a saída não é lembrar de atualizar em
+  // cada mutação, é reconferir no único ponto que decide.
   if (!authStore.memberships.some((membership) => membership.slug === slug)) {
-    return navigateTo('/admin', { replace: true })
+    await authStore.fetchSession()
+
+    if (!authStore.memberships.some((membership) => membership.slug === slug)) {
+      return navigateTo('/admin', { replace: true })
+    }
   }
 
   // Sincroniza o cookie de casamento ativo (server/utils/wedding-context.ts)

@@ -743,6 +743,63 @@ e o `CLAUDE.md` seção 11 restringe leitura de dado pessoal de convidado a
 *membros autenticados daquele `casamento_id`* — que é precisamente o que o
 vínculo real satisfaz, e o que um bypass sintético violaria.
 
+#### O defeito que o primeiro uso encontrou (2026-09-15)
+
+Clicar em "Entrar para dar suporte" criava o vínculo no banco, registrava na
+trilha — **e devolvia o operador para `/plataforma`**.
+
+O backend estava certo; o client não. `app/middleware/auth.global.ts` barra a
+entrada em `/admin/{slug}` comparando o slug contra `authStore.memberships`, e
+essa lista é um **cache populado no login** — o conjunto real acabara de mudar
+no servidor. Sem encontrar o slug, o middleware mandava para `/admin`; lá, uma
+conta operadora sem casamento nenhum é redirecionada para `/plataforma`. Voltar
+ao ponto de partida parecia "não aconteceu nada".
+
+É a mesma classe de defeito que a seção 5.2 corrigiu: tratar cache como
+verdade. E a correção segue a mesma regra — não é lembrar de atualizar em cada
+mutação, é **reconferir no único ponto que decide**: antes de desistir, o
+middleware recarrega a sessão uma vez e checa de novo. Custa uma requisição
+apenas no caminho que ia falhar, e vale para qualquer origem — inclusive um
+`/admin/{slug}` aberto direto logo após o acesso ser concedido.
+
+O caso simétrico (encerrar o acesso) não é coberto por isso: ali o cache afirma
+um vínculo que já não existe, e o middleware só reconfere quando **não**
+encontra o slug. Por isso encerrar recarrega a sessão explicitamente — senão o
+casamento seguiria na troca de evento levando a um painel que não abre nada.
+
+`tests/e2e/acesso-de-suporte.spec.ts` guarda o caminho inteiro, e foi
+verificado contra o defeito: revertendo a correção, ele reprova com a URL em
+`/plataforma`.
+
+#### O segundo defeito: acesso não é posse
+
+Com os acessos abertos, o login do operador passou a cair em **"Seus
+casamentos"**, listando quatro eventos de clientes como se fossem dele. O
+redirecionamento para `/plataforma` só acontecia com `memberships` vazio, e os
+vínculos de suporte o deixaram cheio.
+
+A causa é de modelagem, não de tela: no client, um acesso de suporte era
+**indistinguível** de uma membership de verdade. Os dois vivem na mesma lista
+de propósito — para **entrar** em `/admin/{slug}` valem igual, e é isso que faz
+o suporte funcionar sem policy especial —, mas respondem a perguntas
+diferentes:
+
+| Pergunta | Quem conta |
+|---|---|
+| Posso entrar neste painel? | qualquer vínculo, inclusive suporte |
+| **Quais são os meus casamentos?** | só os reais |
+
+`WeddingMembership` ganhou `acessoDeSuporte`, e a distinção vive num lugar só
+(`useMinhasMemberships()`). Onde o login cai, o que a lista de eventos mostra e
+o que a troca de evento oferece passaram a usar **apenas os próprios** — quem
+não tem casamento nenhum continua não tendo, mesmo com quatro acessos abertos.
+
+Uma consequência do recorte: dentro do painel de um cliente, um operador sem
+casamento próprio ficaria sem saída visível (o menu de troca não existiria).
+Por isso, quando o casamento aberto é de suporte, o menu existe mesmo assim e
+troca "Ver todos os casamentos" por **"Sair do painel do cliente"**, de volta
+ao `/plataforma`.
+
 ---
 
 ## 7. A trilha de auditoria ganha um terceiro ator

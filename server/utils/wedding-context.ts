@@ -112,7 +112,7 @@ export async function listWeddingMemberships(event: H3Event): Promise<WeddingMem
   const { data, error } = await client
     .from('membros_casamento')
     .select(
-      'id, casamento_id, papel, casamentos (slug, nomes_noivos, data_evento, status_ciclo_vida)',
+      'id, casamento_id, papel, acesso_suporte_expira_em, casamentos (slug, nomes_noivos, data_evento, status_ciclo_vida)',
     )
     .eq('usuario_id', user.sub)
     // Idem: casamento cujo acesso de suporte venceu some da troca de evento e
@@ -139,6 +139,7 @@ export async function listWeddingMemberships(event: H3Event): Promise<WeddingMem
     dataEvento: row.casamentos?.data_evento ?? '',
     statusCicloVida: (row.casamentos?.status_ciclo_vida ??
       'rascunho') as WeddingMembership['statusCicloVida'],
+    acessoDeSuporte: row.acesso_suporte_expira_em !== null,
   }))
 }
 

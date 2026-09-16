@@ -21,7 +21,12 @@ if (!authStore.user) {
 }
 
 const hoje = new Date().toISOString().slice(0, 10)
-const casamentos = computed(() => sortWeddingsByEvent(authStore.memberships, hoje))
+
+// Só os casamentos DELE. Acesso de suporte da plataforma a um evento de
+// cliente não é posse (docs/fase5-multievento.md 6.7), e listá-lo aqui dizia
+// ao operador que quatro casamentos de clientes eram "seus".
+const { proprios } = useMinhasMemberships()
+const casamentos = computed(() => sortWeddingsByEvent(proprios.value, hoje))
 
 /**
  * O dado de apoio da linha é um só, escolhido pelo que a data significa: o que

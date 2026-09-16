@@ -110,10 +110,21 @@ const membershipAtiva = useActiveMembership()
 // A troca de evento no cabeçalho só existe com mais de um casamento
 // (docs/fase5-multievento.md 5.1). `hoje` local, não do servidor: a ordem é
 // uma preferência de leitura da tela, não um cálculo de negócio.
-const temMaisDeUmCasamento = computed(() => authStore.memberships.length > 1)
+// Só os casamentos do próprio operador aparecem na troca: um acesso de suporte
+// é a porta de entrada no evento de um cliente, não um item da coleção dele
+// (docs/fase5-multievento.md 6.7).
+const { proprios } = useMinhasMemberships()
 const casamentosOrdenados = computed(() =>
-  sortWeddingsByEvent(authStore.memberships, new Date().toISOString().slice(0, 10)),
+  sortWeddingsByEvent(proprios.value, new Date().toISOString().slice(0, 10)),
 )
+
+/**
+ * Dentro do painel de um cliente, o menu existe mesmo com um casamento próprio
+ * só — ou nenhum: sem ele, quem entrou para dar suporte fica sem saída visível
+ * e depende do botão voltar do navegador.
+ */
+const emSuporte = computed(() => membershipAtiva.value?.acessoDeSuporte === true)
+const temMaisDeUmCasamento = computed(() => proprios.value.length > 1 || emSuporte.value)
 const operatorRoleLabel = computed(() =>
   membershipAtiva.value ? rotuloDoPapel(membershipAtiva.value.role) : '',
 )
@@ -165,6 +176,7 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
         :monograma="monograma"
         :nomes-noivos="wedding?.nomes_noivos ?? ''"
         :data-label="weddingDateLabel"
+        :em-suporte="emSuporte"
       />
       <NuxtLink
         v-else

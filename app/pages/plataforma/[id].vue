@@ -180,6 +180,11 @@ async function encerrarSuporte() {
   try {
     await encerrarAcessoDeSuporte(id.value)
     toast.success('Acesso de suporte encerrado.')
+    // A lista de casamentos da sessão acabou de encolher no servidor. O
+    // middleware só reconfere quando NÃO encontra o slug, então um cache que
+    // ainda afirma o vínculo não se corrige sozinho — e deixaria o casamento
+    // na troca de evento levando a um painel que já não abre nada.
+    await useAuthStore().fetchSession()
     await refresh()
   } catch (err) {
     toast.error(getApiErrorMessage(err, 'Não foi possível encerrar o acesso.'))

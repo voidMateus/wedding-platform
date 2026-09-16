@@ -30,4 +30,15 @@ export interface WeddingMembership extends WeddingContext {
   nomesNoivos: string
   dataEvento: string
   statusCicloVida: WeddingLifecycleStatus
+  /**
+   * True quando o vínculo é **acesso de suporte da plataforma**, não uma
+   * membership de verdade (docs/fase5-multievento.md 6.7).
+   *
+   * A distinção existe porque os dois servem a perguntas diferentes: para
+   * **entrar** em `/admin/{slug}`, os dois valem igual — é o que faz o suporte
+   * funcionar sem policy especial. Para **"quais são os meus casamentos"**, só
+   * os reais contam: o evento de um cliente não é seu, não decide onde o login
+   * cai, e não aparece na lista de eventos da conta.
+   */
+  acessoDeSuporte: boolean
 }
