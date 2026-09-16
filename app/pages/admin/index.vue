@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { rotuloDoPapel } from '#shared/papeis-de-membro'
 import { formatDatePtBR } from '#shared/utils/format-date'
+import { monogramaDoCasal } from '#shared/utils/nomes-casal'
 
 // Landing pós-login do painel administrativo (docs/PLANO-SAAS.md, Passo 3).
 // app/middleware/auth.global.ts já redireciona direto pro casamento único
@@ -12,7 +13,10 @@ import { formatDatePtBR } from '#shared/utils/format-date'
 // nome, data, status e papel. Nenhum número de convidado, dinheiro ou RSVP —
 // cada um deles seria uma consulta por casamento para responder uma pergunta
 // que esta tela não faz.
-definePageMeta({ layout: 'auth' })
+//
+// Layout `conta` (e não mais o do login): a caixa estreita do formulário
+// espremia os cartões numa coluna de 384px com a tela inteira vazia ao redor.
+definePageMeta({ layout: 'conta' })
 
 const authStore = useAuthStore()
 
@@ -49,7 +53,7 @@ function faltaLabel(dataEvento: string): string {
 <template>
   <div class="flex flex-col gap-6">
     <div v-if="authStore.loading" class="flex flex-col gap-3">
-      <UiSkeleton v-for="n in 2" :key="n" class="h-16 w-full" />
+      <UiSkeleton v-for="n in 2" :key="n" class="h-20 w-full" />
     </div>
 
     <UiEmptyState
@@ -60,26 +64,52 @@ function faltaLabel(dataEvento: string): string {
     />
 
     <template v-else>
-      <div>
-        <h1 class="text-lg font-semibold text-text">Seus casamentos</h1>
-        <p class="mt-1 text-sm text-text-muted">
-          {{
-            casamentos.length === 1
-              ? '1 evento nesta conta.'
-              : `${casamentos.length} eventos nesta conta.`
-          }}
-        </p>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 class="font-display text-2xl font-semibold text-text">Seus casamentos</h1>
+          <p class="mt-1 text-sm text-text-muted">
+            {{
+              casamentos.length === 1
+                ? '1 evento nesta conta.'
+                : `${casamentos.length} eventos nesta conta.`
+            }}
+          </p>
+        </div>
+
+        <!-- O caminho até o painel interno só existe aqui para quem é operador
+             e TAMBÉM tem casamentos próprios: quem não tem nenhum já cai
+             direto em /plataforma pelo middleware, e sem este link ficaria
+             dependendo de digitar a URL. -->
+        <NuxtLink
+          v-if="authStore.isPlatformOperator"
+          to="/plataforma"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <Icon name="lucide:life-buoy" class="h-4 w-4" />
+          Painel interno
+        </NuxtLink>
       </div>
 
-      <div class="flex flex-col gap-3">
-        <NuxtLink
-          v-for="membership in casamentos"
-          :key="membership.weddingId"
-          :to="`/admin/${membership.slug}`"
-        >
-          <UiCard variant="interactive" class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-text">{{ membership.nomesNoivos }}</p>
+      <ul class="flex flex-col gap-3">
+        <li v-for="membership in casamentos" :key="membership.weddingId">
+          <NuxtLink
+            :to="`/admin/${membership.slug}`"
+            class="group flex items-center gap-4 rounded-lg border border-border bg-surface-elevated px-4 py-3.5 transition-brand hover:border-primary hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <!-- O mesmo disco de monograma do cabeçalho do painel: entrar num
+                 evento daqui leva exatamente a ele, e a peça repetida é o que
+                 diz isso antes de o clique acontecer. -->
+            <span
+              class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-text font-display text-sm font-semibold text-surface-elevated"
+              aria-hidden="true"
+            >
+              {{ monogramaDoCasal(membership.nomesNoivos) }}
+            </span>
+
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-display text-base font-semibold text-text">
+                {{ membership.nomesNoivos }}
+              </p>
               <p class="mt-0.5 truncate text-xs text-text-muted">
                 {{ formatDatePtBR(membership.dataEvento) }}
                 <template v-if="faltaLabel(membership.dataEvento)">
@@ -93,11 +123,14 @@ function faltaLabel(dataEvento: string): string {
               <UiBadge :tone="weddingLifecyclePresentation(membership.statusCicloVida).tone">
                 {{ weddingLifecyclePresentation(membership.statusCicloVida).label }}
               </UiBadge>
-              <Icon name="lucide:chevron-right" class="h-5 w-5 shrink-0 text-text-muted" />
+              <Icon
+                name="lucide:chevron-right"
+                class="h-5 w-5 shrink-0 text-text-muted transition-brand group-hover:text-primary"
+              />
             </div>
-          </UiCard>
-        </NuxtLink>
-      </div>
+          </NuxtLink>
+        </li>
+      </ul>
     </template>
   </div>
 </template>

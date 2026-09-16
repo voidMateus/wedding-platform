@@ -24,6 +24,16 @@ interface Props {
   ariaLabel?: string
   /** Ícone lucide à esquerda dentro do campo — usado por campos de busca. */
   icon?: string
+  /**
+   * Valor do atributo `autocomplete` do HTML (`'email'`, `'current-password'`).
+   *
+   * Prop, e não atributo repassado: o elemento raiz deste componente é a `div`
+   * que embrulha rótulo, campo e erro, então um `autocomplete` escrito na tag
+   * `<UiInput>` pousaria na `div` e o navegador nunca o veria. Sem ele, o
+   * gerenciador de senhas não reconhece o formulário de login — e o campo de
+   * senha vira digitação manual toda vez.
+   */
+  autocomplete?: string
   /** 'muted' assenta o campo sobre a superfície de faixa/chip, para o campo não competir com o conteúdo (busca do header do admin). */
   tone?: 'default' | 'muted'
   /**
@@ -62,6 +72,7 @@ const {
   ariaLabel,
   disabled = false,
   icon,
+  autocomplete,
   tone = 'default',
   variant = 'campo',
   autofocus = false,
@@ -121,6 +132,7 @@ const describedBy = computed(() => {
         :type="type"
         :step="step"
         :placeholder="placeholder"
+        :autocomplete="autocomplete"
         :disabled="disabled"
         :value="modelValue"
         :aria-label="ariaLabel"
