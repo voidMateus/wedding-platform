@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { getServiceRoleClient } from '../integration/helpers/supabase-clients'
 import { createTestWedding, deleteTestWedding } from '../factories/wedding'
+import { DEFAULT_SECTION_ORDER } from '#shared/home-sections'
 import { expectNoAccessibilityViolations } from './utils/a11y'
 
 /**
@@ -74,6 +75,20 @@ test('páginas públicas não estouram nem encostam nas bordas, de 320px a 1440p
       secondaryColor: '#836612',
       fontPairId: 'cinzel-inter-montserrat',
       showCountdown: true,
+      /**
+       * TODAS as seções do catálogo ligadas.
+       *
+       * Sem isto a varredura media a capa e mais nada: desde que as seções
+       * viraram opt-in (`activeSections`, 2026-09-14), um casamento recém-criado
+       * nasce com a home vazia — e este teste criava um. Ou seja, o corpo
+       * inteiro do site público (história, dress code, manual, FAQ, cronograma)
+       * passou a nunca ser medido, sem nada acusar a perda de cobertura.
+       *
+       * A lista sai de `DEFAULT_SECTION_ORDER`, nunca escrita à mão: seria uma
+       * segunda lista de seções em paralelo à fonte única (CLAUDE.md §13), e
+       * seção nova no catálogo entraria no site sem entrar na varredura.
+       */
+      activeSections: [...DEFAULT_SECTION_ORDER],
     },
   })
 
