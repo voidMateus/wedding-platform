@@ -134,12 +134,40 @@ export default defineNuxtConfig({
     },
   },
 
-  // Ícones vêm do pacote local @iconify-json/lucide (devDependency), não da
-  // API pública do Iconify em runtime — evita dependência de rede externa
-  // tanto em build quanto em produção.
+  // Ícones vêm do pacote local @iconify-json/lucide (devDependency), nunca da
+  // API pública do Iconify em runtime.
+  //
+  // São DOIS bundles, e um só não basta:
+  //
+  // - `serverBundle` cria a rota `/api/_nuxt_icon/:collection`, servida pela
+  //   própria aplicação. É de onde o NAVEGADOR busca o que faltar.
+  // - `clientBundle.scan` varre o código-fonte e embute os ícones realmente
+  //   usados no bundle, registrando-os com `addIcon()` — e é esse registro que
+  //   o `<Icon>` consulta ANTES de tentar rede nenhuma, também no SSR.
+  //
+  // Sem o segundo, o SSR renderizava `<span class="iconify">` vazio e cuspia um
+  // `[Icon] failed to load icon` por ícone (42 numa única página pública): com
+  // SSR ligado o módulo assume `provider: 'server'`, e aí o recurso configurado
+  // é o caminho RELATIVO `/api/_nuxt_icon` buscado com `fetch` nativo — que no
+  // navegador resolve contra a origem e no servidor não tem origem nenhuma.
+  // O usuário via o ícone assim mesmo, depois da hidratação; o que se perdia
+  // era o ícone no HTML do SSR, e a promessa de não depender da rede externa
+  // (o fallback restante é `api.iconify.design`).
   icon: {
     serverBundle: {
       collections: ['lucide'],
+    },
+    clientBundle: {
+      scan: {
+        // O scanner ignora `.ts` por padrão (só varre `.vue/.jsx/.tsx/.md`), e
+        // aqui os catálogos de ícone são justamente módulos `.ts`: os tópicos do
+        // manual, os tipos de etapa do cronograma, as seções da home, a
+        // navegação do painel, as regras do diagnóstico interno. Sem isto eles
+        // ficam de fora do bundle e voltam a falhar no SSR, um a um — foi o que
+        // sobrou de `bed`, `car`, `church` e `glass-water` na primeira medição.
+        // Declarar `globInclude` SUBSTITUI o padrão, então ele vem repetido aqui.
+        globInclude: ['**/*.{vue,jsx,tsx,md,mdc,mdx}', 'shared/**/*.ts', 'app/**/*.ts'],
+      },
     },
   },
 
