@@ -44,7 +44,7 @@ interface Props {
   metrics: readonly AdminMetric[]
   variant?: 'solta' | 'embutida'
   /** Colunas no desktop. Sem valor, acompanha a quantidade de métricas. */
-  colunas?: 2 | 3 | 4 | 5
+  colunas?: 2 | 3 | 4 | 5 | 6
 }
 
 const { metrics, variant = 'solta', colunas } = defineProps<Props>()
@@ -71,6 +71,10 @@ const GRADE_SOLTA = {
   3: 'sm:grid-cols-3',
   4: 'sm:grid-cols-4',
   5: 'sm:grid-cols-5',
+  // Seis quebram em duas fileiras de três antes do desktop: em `sm`, seis
+  // colunas dariam ~90px por métrica, e o número deixaria de caber ao lado do
+  // próprio rótulo.
+  6: 'sm:grid-cols-3 lg:grid-cols-6',
 } as const
 
 const GRADE_EMBUTIDA = {
@@ -78,6 +82,7 @@ const GRADE_EMBUTIDA = {
   3: 'grid-cols-1 sm:grid-cols-3',
   4: 'grid-cols-2 lg:grid-cols-4',
   5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+  6: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6',
 } as const
 
 const columnClass = computed(() => {

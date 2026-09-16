@@ -945,7 +945,7 @@ série, porque não há nada acumulando medição.
 | `/api/platform/weddings/[id]/members/[memberId]` | `DELETE` | `requirePlatformOperator` | Remove acesso, menos o último dono |
 | `/api/platform/weddings/[id]/support-access` | `POST` | `requirePlatformOperator` | Abre acesso de suporte com validade; idempotente |
 | `/api/platform/weddings/[id]/support-access` | `DELETE` | `requirePlatformOperator` | Encerra o acesso de suporte deste operador |
-| `/api/platform/overview` | `GET` | `requirePlatformOperator` | **muda**: ganha storage por casamento e o total |
+| `/api/platform/overview` | `GET` | `requirePlatformOperator` | **muda**: ganha storage por casamento, o total e a última atividade do casal (seção 14.2) |
 | `/api/wedding/members` | `POST` | escada de papéis | **muda**: `context.role !== 'dono'` vira `podeGerenciarPapel(context.role, input.papel)` |
 | `/api/wedding/members/[id]` | `DELETE` | escada de papéis | **muda**: mesma troca, contra o papel do alvo |
 | `/api/auth/session` | `GET` | sessão | **muda**: `memberships[]` ganha `dataEvento` e `statusCicloVida` para a lista de eventos |
@@ -967,6 +967,93 @@ sem autenticação.
 
 Nenhuma aba primária nova. O planejador usa o mesmo painel que o casal — é a
 mesma ferramenta, e um evento por vez continua sendo o modo de trabalhar nela.
+
+---
+
+## 14. O painel interno, depois do rebrand (2026-09-15, quarta rodada)
+
+A Fase 5 deixou `/plataforma` funcionando e visualmente órfão: sem o escopo
+`.admin-ui`, ele herdava o creme e a Playfair do site do convidado; o layout era
+um cabeçalho de uma linha ("Painel da Plataforma" + Sair) sobre uma página que
+rolava sozinha. Esta rodada fecha isso, e no caminho a listagem deixou de ser
+uma tabela para virar uma tela de monitoramento.
+
+### 14.1 A casca
+
+Login, lista de eventos e painel interno passam a ser três cascas com a
+**mesma** linguagem do painel do casal — mesmos neutros, mesma tipografia,
+mesma altura de cabeçalho — e com a **mesma cor**: `.marca-da-plataforma`, o
+ardósia do produto, vale nas três. Dentro de `/admin/{slug}` a primária
+continua sendo a do casamento.
+
+A cor nasceu como acento só do painel interno (por causa do acesso de suporte
+da seção 6.7: o operador entra e sai do painel de clientes, e "em qual dos dois
+estou" precisa de resposta antes da leitura) e virou a cor do produto na mesma
+rodada, quando o usuário apontou o óbvio — um login marrom levando a um painel
+interno ardósia são duas identidades, não uma. O marrom, aliás, nunca foi da
+marca: é o `primaryColor` do preset "Clássico Elegante", que é o default de
+todo casamento novo. O produto emprestava a cor de um tema de casal, e o painel
+interno lia como o painel de qualquer cliente que ainda não escolheu tema.
+
+O login virou duas colunas — a marca à esquerda, na linguagem do convite; o
+formulário à direita, na do painel —, e a lista de eventos saiu do layout do
+login (uma caixa de 384px, que espremia cartões de evento) para um layout
+próprio. Detalhes em `docs/DESIGN-SYSTEM.md`.
+
+### 14.2 Última atividade
+
+A listagem dizia o porte de cada casamento e quando ele nasceu; não dizia se
+ele está vivo. `ultima_atividade_por_casamento()` devolve o `max(created_at)` da
+trilha **por casamento, só de `tipo_autor = 'membro'`**:
+
+- `sistema` é o cron — roda sozinho e faria um evento abandonado parecer ativo
+  todo dia;
+- `operador` é a própria equipe — contá-lo faria a visita de suporte marcar como
+  ativo justamente o evento que se foi conferir por estar parado.
+
+Derivada da trilha, nunca uma coluna `ultima_atividade_em` a manter
+sincronizada — o mesmo raciocínio de `uso_de_storage_por_casamento()`. `null`
+("nunca") é um estado de verdade, diferente de "faz muito tempo".
+
+### 14.3 O bloco "Atenção"
+
+`shared/diagnostico-da-plataforma.ts` passa a lista por um catálogo de regras e
+devolve os achados, cada um com uma saída. Hoje são cinco: sem dono, parado
+perto do evento, publicado sem convidados, criado e nunca usado, evento já
+realizado ainda na operação.
+
+Três decisões sustentam o bloco:
+
+1. **Achado é derivado**, recalculado a cada leitura. Nada se marca como
+   resolvido; some quando o fato deixa de valer.
+2. **Falso positivo custa mais que ausência.** Toda regra de "parado" exige
+   tempo decorrido, e nenhuma dispara no dia em que o casamento é criado. Um
+   painel que acusa problema em evento saudável é desligado mentalmente na
+   terceira vez.
+3. **Só se afirma o que os dados sustentam.** "Publicado sem data do casamento",
+   que a ideia original previa, não existe: `data_evento` é `not null`.
+
+Cada achado é também um **filtro** da tabela — indicador que gera ação vira o
+recorte dessa ação, o mesmo contrato da faixa de métricas do Financeiro.
+
+### 14.4 A tabela
+
+- A faixa de métricas passa a ter os **três estados do ciclo de vida** somando o
+  total, em vez de "no ar: 12 de 16" (que deixava os outros quatro sem
+  explicação).
+- O endereço saiu da coluna própria e vive sob o nome; a busca daquela coluna
+  procura nos dois.
+- "Abrir" virou **menu de ações** (`AdminRowMenu`): Gerenciar, Editar dados
+  (`?editar=1` abre a ficha já no formulário), Ver site (desabilitado com o
+  motivo fora de `publicado` — rascunho responde 404), Copiar link,
+  Arquivar/Desarquivar. **Não** existe "alterar status" livre: publicar é
+  decisão do casal, e o PATCH só aceita `rascunho`/`arquivado`.
+- A grade deixou de rolar por dentro (`:scrollable="false"`): duas barras de
+  rolagem verticais na mesma tela obrigam a descobrir qual controla o quê.
+  Quem rola é o `<main>`, e o cabeçalho de colunas continua fixo — o que exigiu
+  mover o `padding-top` do scroller para o conteúdo (ver `DESIGN-SYSTEM.md`).
+- "Criado em" saiu da lista e foi para a ficha: com as duas colunas de data, o
+  menu de ações ficava fora da área visível.
 
 ---
 

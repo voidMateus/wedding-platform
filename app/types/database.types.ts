@@ -2384,6 +2384,13 @@ export type Database = {
           casamento_id: string
         }[]
       }
+      ultima_atividade_por_casamento: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          casamento_id: string
+          ultima_atividade: string
+        }[]
+      }
       confirmar_pagamento_presente: {
         Args: { p_pagamento_id: string }
         Returns: {

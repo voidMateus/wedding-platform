@@ -22,6 +22,17 @@ export interface PlatformWeddingOverview {
    * (docs/fase5-multievento.md 8.2), como os centímetros da planta de mesas.
    */
   storageBytes: number
+  /**
+   * Quando o CASAL mexeu no painel pela última vez — derivada da trilha
+   * (`ultima_atividade_por_casamento()`), nunca uma coluna a manter
+   * sincronizada. Ação de sistema (cron) e de operador (a própria equipe) não
+   * contam: as duas acontecem sem o cliente, e fariam um casamento abandonado
+   * parecer vivo.
+   *
+   * `null` significa "nunca houve atividade do casal" — um estado diferente de
+   * "faz muito tempo", e a tela os distingue.
+   */
+  ultimaAtividadeEm: string | null
 }
 
 /** O que o topo da tela resume sobre a plataforma inteira. */

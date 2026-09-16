@@ -9,6 +9,11 @@ import { getApiErrorMessage } from '~/utils/api-error'
 // não mais campos na linha da tabela, pelo mesmo motivo que a ficha do gasto é
 // uma página no Financeiro: o que a equipe precisa saber sobre um evento não
 // cabe numa célula.
+//
+// A casca é a mesma da ficha do gasto: `AdminSection` no topo (título, o que
+// identifica o registro e as duas ações que valem para ele inteiro) e um
+// `AdminPanel` por assunto. Eram `UiCard`s com um `<h2>` de 14px dentro, que
+// é o cartão premium do site público fazendo papel de painel de dados.
 definePageMeta({ layout: 'plataforma' })
 
 const route = useRoute()
@@ -29,6 +34,22 @@ const { data, status, error, refresh } = getWedding(id)
 
 const casamento = computed(() => data.value?.data ?? null)
 
+/** A linha de identificação do registro, ao lado do título. */
+const meta = computed(() => {
+  if (!casamento.value) return undefined
+  return `/${casamento.value.slug} · ${formatDatePtBR(casamento.value.dataEvento)}`
+})
+
+const metricas = computed(() => {
+  if (!casamento.value) return []
+  return [
+    { label: 'Convidados', value: casamento.value.contagemConvidados },
+    { label: 'Convites enviados', value: casamento.value.convitesEnviados },
+    { label: 'Credenciais ativas', value: casamento.value.credenciaisAtivas },
+    { label: 'Storage', value: formatarBytes(casamento.value.storageBytes), destaque: true },
+  ]
+})
+
 // --- edição dos dados do evento ------------------------------------------
 const editando = ref(false)
 const salvando = ref(false)
@@ -41,6 +62,25 @@ function abrirEdicao() {
   form.slug = casamento.value.slug
   editando.value = true
 }
+
+/**
+ * `?editar=1` abre a ficha já no formulário — é assim que o menu da listagem
+ * manda alguém direto para a edição, no mesmo padrão de estado governado pela
+ * URL que o resto do painel usa.
+ *
+ * A query é consumida assim que abre: deixá-la na barra faria "Cancelar"
+ * reabrir o formulário a cada recarregamento, e o compartilhamento do link
+ * levaria outra pessoa a um formulário aberto sem ela ter pedido.
+ */
+watch(
+  [casamento, () => route.query.editar],
+  ([carregado, editar]) => {
+    if (!carregado || editar !== '1' || editando.value) return
+    abrirEdicao()
+    router.replace({ query: {} })
+  },
+  { immediate: true },
+)
 
 const slugMudou = computed(() => Boolean(casamento.value) && form.slug !== casamento.value?.slug)
 
@@ -72,6 +112,11 @@ const avisoDoSlug = computed(() => {
   return `${partes.join(' e ')}. Todo link e QR já compartilhado para de funcionar, e não há como reimprimir um QR que já está na mão de alguém.`
 })
 
+/** O aviso só é perigo quando existe algo a quebrar. */
+const slugQuebraAlgo = computed(
+  () => Boolean(casamento.value?.convitesEnviados) || Boolean(casamento.value?.credenciaisAtivas),
+)
+
 async function salvar() {
   if (!casamento.value) return
   salvando.value = true
@@ -93,15 +138,16 @@ async function salvar() {
 
 // --- ciclo de vida --------------------------------------------------------
 const arquivando = ref(false)
+const arquivado = computed(() => casamento.value?.statusCicloVida === 'arquivado')
 
 async function alternarArquivamento() {
   if (!casamento.value) return
-  const arquivado = casamento.value.statusCicloVida === 'arquivado'
+  const estavaArquivado = arquivado.value
   arquivando.value = true
   try {
-    await updateWedding(id.value, { statusCicloVida: arquivado ? 'rascunho' : 'arquivado' })
+    await updateWedding(id.value, { statusCicloVida: estavaArquivado ? 'rascunho' : 'arquivado' })
     toast.success(
-      arquivado
+      estavaArquivado
         ? 'Casamento desarquivado como rascunho — quem publica o site é o casal.'
         : 'Casamento arquivado.',
     )
@@ -191,6 +237,12 @@ async function encerrarSuporte() {
   }
 }
 
+/** O rótulo do botão principal do topo, que muda com o vínculo que já existe. */
+const rotuloDeEntrada = computed(() => {
+  if (casamento.value?.membroDeVerdade || suporteAtivo.value) return 'Abrir painel'
+  return 'Entrar para dar suporte'
+})
+
 // --- exclusão -------------------------------------------------------------
 const excluindoModal = ref(false)
 const confirmacao = ref('')
@@ -212,30 +264,56 @@ async function excluir() {
   }
 }
 
-const ROTULO_DO_AUTOR: Record<string, string> = {
-  membro: 'Painel do casal',
-  sistema: 'Sistema',
-  operador: 'Plataforma',
+/**
+ * Os três atores da trilha (CLAUDE.md, seção 11), cada um com um ícone: numa
+ * lista onde toda linha começa com um verbo, a origem da ação é o que separa
+ * "o casal fez" de "a plataforma fez" — e é justamente isso que a equipe vem
+ * conferir aqui.
+ */
+const AUTOR: Record<string, { rotulo: string; icone: string }> = {
+  membro: { rotulo: 'Painel do casal', icone: 'lucide:user' },
+  sistema: { rotulo: 'Sistema', icone: 'lucide:bot' },
+  operador: { rotulo: 'Plataforma', icone: 'lucide:life-buoy' },
+}
+
+const AUTOR_DESCONHECIDO = { rotulo: 'Desconhecido', icone: 'lucide:circle-help' }
+
+function autorDaLinha(tipoAutor: string) {
+  return AUTOR[tipoAutor] ?? AUTOR_DESCONHECIDO
+}
+
+/** Data e HORA: numa trilha, duas ações do mesmo dia precisam de ordem. */
+function quando(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <NuxtLink
-      to="/plataforma"
-      class="inline-flex w-fit items-center gap-1.5 text-sm text-text-muted transition-brand hover:text-text"
-    >
-      <Icon name="lucide:arrow-left" class="h-4 w-4" />
-      Casamentos
-    </NuxtLink>
+  <AdminSection :title="casamento?.nomesNoivos ?? 'Casamento'" :meta="meta">
+    <template #actions>
+      <UiButton variant="ghost" to="/plataforma">
+        <Icon name="lucide:arrow-left" class="h-4 w-4" />
+        Casamentos
+      </UiButton>
+      <UiButton v-if="casamento" :disabled="abrindoSuporte" @click="entrarNoPainel">
+        {{ rotuloDeEntrada }}
+      </UiButton>
+    </template>
 
-    <div v-if="status === 'pending'" class="flex flex-col gap-2">
-      <UiSkeleton v-for="n in 4" :key="n" class="h-20 w-full" />
+    <div v-if="status === 'pending'" class="flex flex-col gap-4">
+      <UiSkeleton class="h-24 w-full" />
+      <UiSkeleton v-for="n in 3" :key="n" class="h-40 w-full" />
     </div>
 
     <UiEmptyState
       v-else-if="error || !casamento"
-      icon="lucide:alert-triangle"
+      icon="lucide:file-question"
       title="Não foi possível carregar este casamento"
       description="Ele pode ter sido excluído, ou a conexão falhou."
     >
@@ -243,82 +321,60 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
     </UiEmptyState>
 
     <template v-else>
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-lg font-semibold text-text">{{ casamento.nomesNoivos }}</h1>
-          <p class="mt-1 text-sm text-text-muted">
-            /{{ casamento.slug }} · {{ formatDatePtBR(casamento.dataEvento) }}
+      <AdminMetricStrip :metrics="metricas" />
+
+      <!-- Acesso de suporte: o assunto que muda de estado enquanto a tela está
+           aberta, por isso o estado vem antes da ação. -->
+      <AdminPanel title="Painel do casal">
+        <template #headerActions>
+          <UiBadge v-if="casamento.membroDeVerdade" tone="primary">Você é membro</UiBadge>
+          <UiBadge v-else-if="suporteAtivo" tone="warning">
+            Suporte aberto até {{ suporteExpiraLabel }}
+          </UiBadge>
+        </template>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+          <p class="max-w-prose text-sm text-text-muted">
+            <template v-if="casamento.membroDeVerdade">
+              Você é membro deste casamento — entra pelo painel normalmente, sem acesso temporário.
+            </template>
+            <template v-else-if="suporteAtivo">
+              O acesso expira sozinho, mas encerre quando o atendimento terminar. Conceder e
+              encerrar ficam registrados na trilha deste casamento.
+            </template>
+            <template v-else>
+              Abre um acesso temporário de {{ HORAS_DE_ACESSO_DE_SUPORTE }} horas ao painel deste
+              casal, como membro de verdade. Fica registrado na trilha deste casamento.
+            </template>
           </p>
+
+          <!-- Só o que existe deste lado: abrir/entrar é a ação principal do
+               registro e vive no topo da ficha, e repeti-la aqui daria dois
+               botões idênticos a dois palmos um do outro. Encerrar não tem
+               esse problema — só existe enquanto o acesso está aberto. -->
+          <UiButton v-if="suporteAtivo" variant="ghost" class="shrink-0" @click="encerrarSuporte">
+            Encerrar acesso
+          </UiButton>
         </div>
-        <UiBadge :tone="weddingLifecyclePresentation(casamento.statusCicloVida).tone">
-          {{ weddingLifecyclePresentation(casamento.statusCicloVida).label }}
-        </UiBadge>
-      </div>
-
-      <div class="grid gap-3 sm:grid-cols-3">
-        <UiCard>
-          <p class="text-xs text-text-muted">Convidados</p>
-          <p class="num mt-1 text-lg font-semibold text-text">{{ casamento.contagemConvidados }}</p>
-        </UiCard>
-        <UiCard>
-          <p class="text-xs text-text-muted">Storage</p>
-          <p class="num mt-1 text-lg font-semibold text-text">
-            {{ formatarBytes(casamento.storageBytes) }}
-          </p>
-        </UiCard>
-        <UiCard>
-          <p class="text-xs text-text-muted">Convites enviados</p>
-          <p class="num mt-1 text-lg font-semibold text-text">{{ casamento.convitesEnviados }}</p>
-        </UiCard>
-      </div>
-
-      <!-- Acesso de suporte -->
-      <UiCard class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold text-text">Painel do casal</h2>
-            <p class="mt-0.5 text-xs text-text-muted">
-              <template v-if="casamento.membroDeVerdade">
-                Você é membro deste casamento — entra pelo painel normalmente.
-              </template>
-              <template v-else-if="suporteAtivo">
-                Acesso de suporte aberto até {{ suporteExpiraLabel }}. Ele expira sozinho, mas
-                encerre quando o atendimento terminar.
-              </template>
-              <template v-else>
-                Abre um acesso temporário de {{ HORAS_DE_ACESSO_DE_SUPORTE }} horas para dar
-                suporte. Fica registrado na trilha deste casamento.
-              </template>
-            </p>
-          </div>
-
-          <div class="flex shrink-0 gap-2">
-            <UiButton v-if="suporteAtivo" variant="ghost" @click="encerrarSuporte">
-              Encerrar acesso
-            </UiButton>
-            <UiButton :disabled="abrindoSuporte" @click="entrarNoPainel">
-              {{
-                suporteAtivo || casamento.membroDeVerdade
-                  ? 'Abrir painel'
-                  : 'Entrar para dar suporte'
-              }}
-            </UiButton>
-          </div>
-        </div>
-      </UiCard>
+      </AdminPanel>
 
       <!-- Dados do evento -->
-      <UiCard class="flex flex-col gap-4">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-sm font-semibold text-text">Dados do evento</h2>
-          <UiButton v-if="!editando" size="sm" variant="ghost" @click="abrirEdicao"
-            >Editar</UiButton
-          >
-        </div>
+      <AdminPanel title="Dados do evento">
+        <template #headerActions>
+          <UiBadge :tone="weddingLifecyclePresentation(casamento.statusCicloVida).tone">
+            {{ weddingLifecyclePresentation(casamento.statusCicloVida).label }}
+          </UiBadge>
+          <UiButton v-if="!editando" size="sm" variant="ghost" @click="abrirEdicao">
+            <Icon name="lucide:pencil" class="h-4 w-4" />
+            Editar
+          </UiButton>
+        </template>
 
-        <template v-if="editando">
-          <UiInput v-model="form.nomesNoivos" label="Nome do casal" />
-          <UiDatePicker v-model="form.dataEvento" label="Data do evento" />
+        <div v-if="editando" class="flex flex-col gap-4 px-4 py-4 sm:px-5">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <UiInput v-model="form.nomesNoivos" label="Nome do casal" />
+            <UiDatePicker v-model="form.dataEvento" label="Data do evento" />
+          </div>
           <UiInput
             v-model="form.slug"
             label="Endereço do site"
@@ -327,14 +383,17 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
 
           <p
             v-if="avisoDoSlug"
-            class="rounded-md px-3 py-2 text-xs"
+            class="flex items-start gap-2 rounded-md px-3 py-2 text-xs leading-relaxed"
             :class="
-              casamento.convitesEnviados || casamento.credenciaisAtivas
-                ? 'bg-danger/10 text-danger'
-                : 'bg-surface-muted text-text-muted'
+              slugQuebraAlgo ? 'bg-danger/10 text-danger' : 'bg-surface-muted text-text-muted'
             "
           >
-            <strong class="font-medium">Trocar o endereço:</strong> {{ avisoDoSlug }}
+            <Icon
+              :name="slugQuebraAlgo ? 'lucide:triangle-alert' : 'lucide:info'"
+              class="mt-0.5 h-4 w-4 shrink-0"
+              aria-hidden="true"
+            />
+            <span><strong class="font-medium">Trocar o endereço:</strong> {{ avisoDoSlug }}</span>
           </p>
 
           <div class="flex gap-2">
@@ -343,63 +402,71 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
               Cancelar
             </UiButton>
           </div>
-        </template>
-
-        <dl v-else class="grid gap-2 text-sm sm:grid-cols-3">
-          <div>
-            <dt class="text-xs text-text-muted">Casal</dt>
-            <dd class="text-text">{{ casamento.nomesNoivos }}</dd>
-          </div>
-          <div>
-            <dt class="text-xs text-text-muted">Data</dt>
-            <dd class="text-text">{{ formatDatePtBR(casamento.dataEvento) }}</dd>
-          </div>
-          <div>
-            <dt class="text-xs text-text-muted">Endereço</dt>
-            <dd class="text-text">/{{ casamento.slug }}</dd>
-          </div>
-        </dl>
-      </UiCard>
-
-      <!-- Acessos -->
-      <UiCard class="flex flex-col gap-4">
-        <div>
-          <h2 class="text-sm font-semibold text-text">Quem tem acesso</h2>
-          <p class="mt-0.5 text-xs text-text-muted">
-            Vincular aqui dá acesso ao painel deste casamento. O último dono nunca pode ser removido
-            — vincule o novo antes de tirar o antigo.
-          </p>
         </div>
 
-        <ul class="divide-y divide-border overflow-hidden rounded-md border border-border">
+        <dl v-else class="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
+          <div class="bg-surface-elevated px-4 py-3 sm:px-5">
+            <dt class="text-xs font-medium tracking-wide text-text-muted uppercase">Casal</dt>
+            <dd class="mt-0.5 text-sm text-text">{{ casamento.nomesNoivos }}</dd>
+          </div>
+          <div class="bg-surface-elevated px-4 py-3 sm:px-5">
+            <dt class="text-xs font-medium tracking-wide text-text-muted uppercase">Data</dt>
+            <dd class="mt-0.5 text-sm text-text">{{ formatDatePtBR(casamento.dataEvento) }}</dd>
+          </div>
+          <div class="bg-surface-elevated px-4 py-3 sm:px-5">
+            <dt class="text-xs font-medium tracking-wide text-text-muted uppercase">Endereço</dt>
+            <dd class="mt-0.5 text-sm text-text">/{{ casamento.slug }}</dd>
+          </div>
+          <!-- Saiu da listagem para caber o menu de ações, e a ficha é onde ele
+               importa: quando este evento entrou na plataforma. -->
+          <div class="bg-surface-elevated px-4 py-3 sm:px-5">
+            <dt class="text-xs font-medium tracking-wide text-text-muted uppercase">Criado em</dt>
+            <dd class="mt-0.5 text-sm text-text">{{ formatDatePtBR(casamento.createdAt) }}</dd>
+          </div>
+        </dl>
+      </AdminPanel>
+
+      <!-- Acessos -->
+      <AdminPanel
+        title="Quem tem acesso"
+        :meta="`${casamento.membros.length} ${casamento.membros.length === 1 ? 'pessoa' : 'pessoas'}`"
+      >
+        <ul class="flex flex-col divide-y divide-border">
           <li
             v-for="membro in casamento.membros"
             :key="membro.id"
-            class="flex items-center justify-between gap-4 px-3 py-2.5"
+            class="flex items-center justify-between gap-4 px-4 py-3 sm:px-5"
           >
             <div class="min-w-0">
               <p class="truncate text-sm text-text">{{ membro.email }}</p>
-              <UiBadge :tone="membro.papel === 'dono' ? 'primary' : 'neutral'" class="mt-1">
+              <p class="mt-0.5 text-xs text-text-muted">desde {{ formatDatePtBR(membro.desde) }}</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <UiBadge :tone="membro.papel === 'dono' ? 'primary' : 'neutral'">
                 {{ rotuloDoPapel(membro.papel) }}
               </UiBadge>
+              <!-- Ícone, não um botão vermelho por linha: o compromisso com a
+                   segurança fica em quem recusa a remoção do último dono, não
+                   num botão que rouba a hierarquia do e-mail ao lado. -->
+              <AdminRowAction
+                icon="lucide:user-minus"
+                label="Remover acesso"
+                tone="danger"
+                @click="desvincular(membro.id)"
+              />
             </div>
-            <UiButton
-              size="sm"
-              variant="destructive"
-              class="shrink-0"
-              @click="desvincular(membro.id)"
-            >
-              Remover
-            </UiButton>
           </li>
         </ul>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div
+          class="flex flex-col gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-end sm:px-5"
+        >
           <UiInput
             v-model="novoMembro.email"
             type="email"
-            label="E-mail"
+            label="Vincular acesso"
             placeholder="pessoa@exemplo.com"
+            autocomplete="off"
             class="flex-1"
           />
           <UiSelect v-model="novoMembro.papel" label="Papel" :options="opcoesDePapel" />
@@ -407,42 +474,60 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
             Vincular
           </UiButton>
         </div>
-      </UiCard>
+
+        <p class="border-t border-border px-4 py-3 text-xs leading-relaxed text-text-muted sm:px-5">
+          Vincular aqui dá acesso ao painel deste casamento. O último dono nunca pode ser removido —
+          vincule o novo antes de tirar o antigo.
+        </p>
+      </AdminPanel>
 
       <!-- Trilha -->
-      <UiCard class="flex flex-col gap-3">
-        <h2 class="text-sm font-semibold text-text">O que aconteceu neste casamento</h2>
-        <p v-if="!casamento.trilha.length" class="text-sm text-text-muted">
+      <AdminPanel title="O que aconteceu neste casamento">
+        <p v-if="!casamento.trilha.length" class="px-4 py-4 text-sm text-text-muted sm:px-5">
           Nenhuma ação registrada ainda.
         </p>
-        <ul v-else class="flex flex-col gap-1.5 text-sm">
-          <li v-for="linha in casamento.trilha" :key="linha.id" class="flex flex-wrap gap-x-2">
-            <span class="text-text">{{ linha.acao }}</span>
-            <span class="text-text-muted">· {{ ROTULO_DO_AUTOR[linha.tipoAutor] }}</span>
-            <span class="text-text-muted">· {{ formatDatePtBR(linha.createdAt) }}</span>
+        <ul v-else class="flex flex-col divide-y divide-border">
+          <li
+            v-for="linha in casamento.trilha"
+            :key="linha.id"
+            class="flex items-center gap-3 px-4 py-2.5 sm:px-5"
+          >
+            <Icon
+              :name="autorDaLinha(linha.tipoAutor).icone"
+              class="h-4 w-4 shrink-0 text-text-muted"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 truncate text-sm text-text">{{ linha.acao }}</span>
+            <span class="shrink-0 text-xs text-text-muted">
+              {{ autorDaLinha(linha.tipoAutor).rotulo }}
+            </span>
+            <span class="num shrink-0 text-xs text-text-muted">{{ quando(linha.createdAt) }}</span>
           </li>
         </ul>
-      </UiCard>
+      </AdminPanel>
 
-      <!-- Ciclo de vida e exclusão -->
-      <UiCard class="flex flex-col gap-4">
-        <h2 class="text-sm font-semibold text-text">Escopo</h2>
-
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm text-text-muted">
-            <template v-if="casamento.statusCicloVida === 'arquivado'">
+      <!-- Escopo e exclusão -->
+      <AdminPanel title="Escopo">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+          <p class="max-w-prose text-sm text-text-muted">
+            <template v-if="arquivado">
               Arquivado. Desarquivar devolve para <strong class="text-text">rascunho</strong> — pôr
               o site no ar de novo é decisão do casal.
             </template>
             <template v-else>Arquivar tira o evento da operação. Não exclui nada.</template>
           </p>
           <UiButton variant="ghost" :disabled="arquivando" @click="alternarArquivamento">
-            {{ casamento.statusCicloVida === 'arquivado' ? 'Desarquivar' : 'Arquivar' }}
+            {{ arquivado ? 'Desarquivar' : 'Arquivar' }}
           </UiButton>
         </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-          <p class="text-sm text-text-muted">
+        <!-- A faixa de perigo se anuncia como tal: mesmo tom de fundo dos
+             avisos de risco do resto do painel, para que "Excluir" não divida
+             a mesma superfície neutra de "Arquivar", que é reversível. -->
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-t border-danger/20 bg-danger/5 px-4 py-4 sm:px-5"
+        >
+          <p class="max-w-prose text-sm text-text-muted">
             Excluir apaga <strong class="text-text">tudo</strong>: convidados, convites, respostas,
             presentes, pagamentos, mesas e documentos. Não há desfazer.
           </p>
@@ -450,7 +535,7 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
             Excluir casamento
           </UiButton>
         </div>
-      </UiCard>
+      </AdminPanel>
 
       <UiModal v-model="excluindoModal" title="Excluir casamento">
         <div class="flex flex-col gap-3 text-sm">
@@ -480,5 +565,5 @@ const ROTULO_DO_AUTOR: Record<string, string> = {
         </template>
       </UiModal>
     </template>
-  </div>
+  </AdminSection>
 </template>

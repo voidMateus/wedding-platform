@@ -1279,3 +1279,129 @@ o contrato antigo: a fábrica de casamento criava com o default da coluna
 (`rascunho`), então a leitura pública voltava vazia e o caminho do convidado
 respondia 404 onde o teste esperava 403. A fábrica passou a criar publicado, e
 quem testa o portão pede rascunho explicitamente.
+
+---
+
+## Rebrand do painel interno — do login a `/plataforma` (2026-09-15)
+
+O painel do casal foi redesenhado ao longo das fases do Hub: escopo `.admin-ui`
+com neutros cinzas, par tipográfico próprio (Sora/Manrope), app shell de altura
+fixa, `AdminSection`/`AdminPanel`/`AdminTable`. Nada disso alcançava a outra
+metade do produto: **o login e o `/plataforma` continuavam no creme e na
+Playfair do site do convidado**, com um cabeçalho de uma linha e páginas que
+rolavam junto com o documento. Sair do painel de um casal e entrar no painel
+interno parecia trocar de produto.
+
+### A cor que existe para responder "onde eu estou"
+
+O painel do casal herda a cor daquele casamento. A plataforma não tem
+casamento — e, sem acento próprio, herdava o `#6b4a35` que é só o default do
+preset "Clássico Elegante": o painel interno ficava visualmente idêntico ao
+painel de um casal que nunca trocou de tema. Isso deixou de ser detalhe quando
+a Fase 5 deu ao operador o acesso de suporte, e ele passou a entrar e sair do
+painel de clientes várias vezes por dia.
+
+`.marca-da-plataforma` define `--color-primary` como o ardósia `#44507a`,
+aplicada no `<body>` **junto** de `.admin-ui` (nunca no lugar dela). A escolha
+do tom foi medida, não estética: o que muda é a **matiz** (25° → 227°), e o peso
+fica onde estava — 7,15:1 contra a superfície do painel, ao lado dos 7,20:1 do
+default. Com peso diferente, os mesmos componentes leriam mais fortes de um lado
+do que do outro, e a distinção deixaria de dizer "onde estou" para dizer "esta
+tela está estranha".
+
+**A cor começou como acento só do painel interno, e virou a cor do produto na
+mesma rodada** — porque o usuário apontou o que a primeira versão deixou de pé:
+o login continuava marrom, e a jornada tinha três cores em vez de duas. O
+marrom, porém, nunca foi da marca: é o `primaryColor` do preset "Clássico
+Elegante" (`shared/theme-presets.ts`), que é também o default de todo casamento
+novo. A plataforma emprestava a cor de um tema de casal — e o painel interno,
+sem acento, lia como o painel de qualquer cliente que ainda não trocou de tema.
+Agora a regra é uma frase: **sem casamento aberto, a cor é a do produto; dentro
+de um evento, é a dele**.
+
+`tests/unit/app/cor-da-plataforma.spec.ts` guarda isso, e **lê os valores do
+próprio CSS** em vez de duplicá-los — contra as seis superfícies das duas
+linguagens, porque a coluna de marca do login é creme e não cinza. A diferença
+é concreta: `state-colors.spec.ts`, que duplica, ficou medindo contraste contra
+`#fbf9f5` — uma superfície que o projeto não usa mais desde a Fase Rebrand do
+Convite.
+
+### O login como fronteira
+
+A porta de entrada era uma caixa de 384px com dois botões de mesmo peso
+("Entrar" e "Entrar com link mágico") e nenhuma marca. Virou duas colunas: à
+esquerda a marca na linguagem do convite (creme, Playfair, filete), à direita o
+formulário na linguagem da ferramenta. Entrar é atravessar de uma para a outra.
+
+Quem desfaz o escopo do painel naquela coluna é `.superficie-do-convite`, que
+passou a dividir a declaração com `.previa-do-site` — as duas fazem a mesma
+coisa, e a prévia de tema já existia. O link mágico deixou de ser um segundo
+botão empilhado e virou o caminho depois do divisor, com a frase que diz quando
+usá-lo (todo acesso criado por convite começa sem senha).
+
+`UiInput` ganhou `autocomplete`: o elemento raiz do componente é a `div` que
+embrulha rótulo, campo e erro, então o atributo escrito na tag pousava nela e o
+navegador nunca o via — nenhum gerenciador de senhas reconhecia o formulário.
+
+### A lista de eventos saiu da caixa do login
+
+`/admin` (a tela "Seus casamentos") usava o layout do login: cartões de evento
+espremidos numa coluna de 384px com o resto da tela vazio. Ganhou layout
+próprio (`conta`), cartões com o mesmo disco de monograma do cabeçalho do
+painel, e — para quem é operador e também tem casamentos — o link até o painel
+interno, que antes só era alcançável digitando a URL.
+
+### A tabela virou uma tela de monitoramento
+
+Pedido do usuário durante a revisão, e a parte mais substantiva da rodada. A
+listagem respondia "quantos e de que tamanho"; não respondia "qual deles está
+com problema" — e o evento que precisa de um telefonema é justamente o que não
+faz barulho.
+
+- **`ultima_atividade_por_casamento()`**: `max(created_at)` da trilha por
+  casamento, **só de `tipo_autor = 'membro'`**. O cron roda sozinho e faria um
+  evento abandonado parecer ativo todo dia; o operador é a própria equipe, e
+  contá-lo faria a visita de suporte marcar como ativo justamente o evento que
+  se foi conferir por estar parado.
+- **O bloco "Atenção"** (`shared/diagnostico-da-plataforma.ts`): cinco regras
+  puras, cada uma com a saída que ela pede, e cada achado é também um filtro da
+  tabela. A regra que sustenta o resto é "falso positivo custa mais que
+  ausência": toda regra de "parado" exige tempo decorrido, e nenhuma dispara no
+  dia em que o casamento é criado.
+- **Uma ideia da conversa não virou regra**: "site publicado sem data do
+  casamento" não existe, porque `casamentos.data_evento` é `not null`. Ficou
+  registrado em vez de implementado como um achado que nunca apareceria.
+- **A faixa de métricas** passou de quatro números para seis. "No ar: 12 de 16"
+  deixava a pergunta seguinte sem resposta — os outros quatro estão arquivados
+  ou ainda em planejamento? São ações opostas. Agora os três estados somam o
+  total.
+- **"Abrir >" virou menu de ações.** Sem "alterar status" livre: publicar é
+  decisão do casal, e o PATCH da plataforma só aceita `rascunho`/`arquivado` —
+  o item do menu é Arquivar/Desarquivar, que é o que o servidor faz.
+
+### O achado do cabeçalho fixo, medido no navegador
+
+Tirar a rolagem interna da tabela (`:scrollable="false"`, para não ter duas
+barras verticais competindo) revelou um defeito que valia para qualquer tabela
+nessa configuração: o `<thead> sticky top-0` **não grudava no topo**. Ele parava
+a 92px, com o topo visível do scroller em 64px, e uma faixa de 28px deixava as
+linhas rolarem *acima* do cabeçalho de colunas.
+
+Causa: `padding-top` num contêiner de rolagem faz parte do scrollport, e o
+`top: 0` do sticky se resolve contra o fim desse padding — o `pt-7` do `<main>`
+era exatamente os 28px. A correção é estrutural, não um `-mt`: o respiro de topo
+passou para o primeiro filho do scroller. Padding lateral pode ficar no
+scroller; o de cima, não.
+
+### Ajustes menores que a revisão visual pediu
+
+- Rótulo de coluna não quebra mais linha (`whitespace-nowrap` no `<th>`):
+  "Criado em" quebrava em duas linhas e o ícone de filtro descia junto,
+  dobrando a altura do cabeçalho inteiro por causa de uma coluna.
+- `"16 exibidos"`, ao lado de uma métrica que já dizia `CASAMENTOS 16`, virou
+  `"16 casamentos"` — e `"12 de 16 casamentos"` quando há recorte.
+- "Criado em" saiu da lista (as duas colunas de data empurravam o menu de ações
+  para fora da vista) e foi para a ficha, onde faltava.
+- O nome do produto, que estava escrito à mão em seis arquivos, virou
+  `shared/marca.ts`: rebrand é uma troca de string, e uma troca de string só é
+  segura quando existe uma string.

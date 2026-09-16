@@ -6,6 +6,12 @@ interface UsoDeStorage {
   bytes: number
 }
 
+/** Uma linha de `ultima_atividade_por_casamento()` — só ações do casal. */
+interface UltimaAtividade {
+  casamento_id: string
+  ultima_atividade: string
+}
+
 /**
  * Visão mínima entre tenants para a equipe da plataforma (docs/PLANO-SAAS.md,
  * Passo 8) -- contas/casamentos/uso/status num único payload. Só leitura:
@@ -24,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const admin = supabaseAdmin(event)
 
-  const [weddingsResult, ownersResult, usersResult, guestsResult, storageResult] =
+  const [weddingsResult, ownersResult, usersResult, guestsResult, storageResult, atividadeResult] =
     await Promise.all([
       admin
         .from('casamentos')
@@ -43,12 +49,18 @@ export default defineEventHandler(async (event) => {
       // 8.2): uma ida ao banco por leitura do painel interno, que é interna, de
       // baixa frequência, e quer o número de agora.
       admin.rpc('uso_de_storage_por_casamento'),
+      // Quando o CASAL mexeu pela última vez. Derivada da trilha, e não de uma
+      // coluna a manter sincronizada — e agregada no banco, não no TypeScript:
+      // trazer a trilha inteira para calcular um `max` por casamento seria uma
+      // consulta que cresce sem teto para devolver uma linha por evento.
+      admin.rpc('ultima_atividade_por_casamento'),
     ])
 
   if (weddingsResult.error) throw badRequestError(weddingsResult.error.message)
   if (storageResult.error) throw badRequestError(storageResult.error.message)
   if (ownersResult.error) throw badRequestError(ownersResult.error.message)
   if (guestsResult.error) throw badRequestError(guestsResult.error.message)
+  if (atividadeResult.error) throw badRequestError(atividadeResult.error.message)
 
   const weddings = weddingsResult.data ?? []
   const owners = ownersResult.data ?? []
@@ -70,6 +82,13 @@ export default defineEventHandler(async (event) => {
     ]),
   )
 
+  const atividadeByWedding = new Map<string, string>(
+    ((atividadeResult.data ?? []) as UltimaAtividade[]).map((linha) => [
+      linha.casamento_id,
+      linha.ultima_atividade,
+    ]),
+  )
+
   const guestCountByWedding = new Map<string, number>()
   for (const guest of guests) {
     guestCountByWedding.set(
@@ -88,6 +107,9 @@ export default defineEventHandler(async (event) => {
     donoEmails: donoEmailsByWedding.get(wedding.id) ?? [],
     contagemConvidados: guestCountByWedding.get(wedding.id) ?? 0,
     storageBytes: storageByWedding.get(wedding.id) ?? 0,
+    // Null é um estado de verdade, e diferente de "há muito tempo": o casal
+    // nunca tocou neste painel. A tela mostra os dois de formas diferentes.
+    ultimaAtividadeEm: atividadeByWedding.get(wedding.id) ?? null,
   }))
 
   // O total da plataforma soma TODOS os objetos contabilizados, inclusive os de
