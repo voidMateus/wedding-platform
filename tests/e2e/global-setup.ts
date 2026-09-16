@@ -1,115 +1,47 @@
-import { chromium, type Browser, type Page } from '@playwright/test'
+import { chromium } from '@playwright/test'
 import { resolveDevPort } from '../../scripts/dev-port.mjs'
-import { criarContaDeTeste } from './support/conta-de-teste'
 
 /**
- * Compila o app inteiro uma vez, em série, antes de o relógio de qualquer teste
- * começar.
+ * Aquece o DEV SERVER antes da suíte — e só ele.
  *
- * O `webServer` do Playwright espera o dev server responder em `/` — e só. Mas
- * o Vite compila sob demanda, e o custo se divide em duas partes que precisam
- * das duas metades do aquecimento:
+ * Em CI não há o que aquecer: o `webServer` sobe o `.output` já compilado (ver
+ * playwright.config.ts), que é a correção de verdade da corrida de cold start.
+ * Aqui sobra o caso local, em que o valor do dev server é o HMR e a árvore pode
+ * estar fria numa primeira rodada.
  *
- * - o **módulo da rota**, que só é pedido quando o roteador resolve aquela
- *   rota. Rota atrás de middleware de sessão nunca chega a ser resolvida sem
- *   login, então aquecer `/admin/...` deslogado não compila nada;
- * - o **bundle do cliente e a folha do Tailwind**, que só são pedidos por um
- *   NAVEGADOR. Um `fetch` recebe o HTML do SSR e para aí.
- *
- * A primeira versão deste arquivo fazia `fetch` em `/login` e `/admin`, e por
- * isso só resolvia metade do problema — a suíte seguiu falhando no CI com três
- * máscaras da mesma corrida: a URL parada em `/login`, o `net::ERR_ABORTED` de
- * uma navegação pedida sobre outra em voo, e uma violação de strict mode em
+ * O aquecimento precisa de um NAVEGADOR, não de um `fetch`: o que custa caro é
+ * o bundle do cliente e a folha do Tailwind, e um `fetch` recebe o HTML do SSR
+ * e para aí. Foi assim que a primeira versão deste arquivo resolveu metade do
+ * problema — e a metade que faltou apareceu como uma violação de strict mode em
  * `getByRole('checkbox')`, que resolveu para DOIS elementos porque a linha de
- * desktop e a do celular só se excluem por CSS — e a folha ainda não tinha
- * ficado pronta, então as duas estavam na árvore de acessibilidade.
+ * desktop e a do celular só se excluem por CSS.
  *
- * Daí a conta de custo ser favorável mesmo parecendo cara: são ~15 navegações
- * pagas uma vez, contra `retries: 2` reexecutando a suíte inteira a cada teste
- * que tropeça no cold start.
+ * O que este arquivo NÃO faz é entrar pela tela para alcançar as rotas atrás de
+ * sessão. Tentou-se, e o login interativo sobre um Vite ainda compilando é
+ * justamente onde o full reload derruba a navegação em voo: o aquecimento
+ * passou a falhar sozinho, antes de qualquer teste. Rota autenticada fria custa
+ * a compilação dela uma vez; login frio custa a rodada inteira.
  */
-
-/**
- * As FAMÍLIAS de rota da suíte, com um representante de cada.
- *
- * Não é a lista completa de telas de propósito: rotas irmãs compartilham quase
- * tudo (layout, componentes de `ui/`, o CSS), então a segunda de uma família
- * custa pouco. O que precisa estar aqui é cada família que algum spec abre.
- */
-function rotasDoPainel(slug: string): string[] {
-  return [
-    '/admin',
-    `/admin/${slug}`,
-    `/admin/${slug}/comecar`,
-    `/admin/${slug}/convidados`,
-    `/admin/${slug}/convidados/lista`,
-    `/admin/${slug}/convites`,
-    `/admin/${slug}/mesas`,
-    `/admin/${slug}/financeiro`,
-    `/admin/${slug}/financeiro/pagamentos`,
-    `/admin/${slug}/financeiro/categorias`,
-    `/admin/${slug}/planejamento`,
-  ]
-}
-
-function rotasPublicas(slug: string): string[] {
-  return ['/', `/${slug}`, `/${slug}/rsvp`, `/${slug}/presentes`]
-}
-
-/**
- * Um `goto` de aquecimento nunca falha a suíte.
- *
- * Servidor de pé é o que o `webServer` já garantiu; o que acontece aqui é só
- * compilação, e o teste seguinte dirá a verdade melhor do que uma exceção
- * lançada de um setup.
- */
-async function aquecer(page: Page, rota: string): Promise<void> {
-  try {
-    await page.goto(rota, { waitUntil: 'networkidle', timeout: 120_000 })
-  } catch {
-    // segue para a próxima rota
-  }
-}
-
 export default async function globalSetup() {
-  // Mesma guarda dos specs que provisionam cenário: sem service role não há
-  // conta para logar, e a suíte inteira já se pula sozinha.
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
+  if (process.env.CI) return
 
   const baseURL = `http://localhost:${resolveDevPort()}`
-  const comecou = Date.now()
-
-  const conta = await criarContaDeTeste({ nomes_noivos: 'Aquecimento & Suite' })
-  let navegador: Browser | undefined
+  const navegador = await chromium.launch()
 
   try {
-    // O mesmo usuário é dono E operador: com um login só, o aquecimento alcança
-    // `/admin/**` e `/plataforma/**`. Duas contas não comprariam nada aqui — o
-    // que se está compilando é o app, não a autorização.
-    await conta.admin.from('operadores_plataforma').insert({ usuario_id: conta.usuarioId })
-
-    navegador = await chromium.launch()
     const page = await navegador.newPage({ baseURL })
-
-    // O primeiro `goto` do processo é o caro: é ele que paga o bundle do
-    // cliente e a folha do Tailwind inteira, que todas as outras reaproveitam.
-    await aquecer(page, '/login')
-
-    await page.getByLabel('E-mail').fill(conta.email)
-    await page.getByLabel('Senha').fill(conta.senha)
-    await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-    // Timeout largo de propósito: aqui ainda é o cold start que este arquivo
-    // existe para pagar, e é o único lugar da rodada em que ele é esperado.
-    await page.waitForURL(/\/admin\/[^/]+$/, { timeout: 120_000 })
-
-    for (const rota of rotasDoPainel(conta.slug)) await aquecer(page, rota)
-    for (const rota of ['/plataforma', `/plataforma/${conta.casamentoId}`])
-      await aquecer(page, rota)
-    for (const rota of rotasPublicas(conta.slug)) await aquecer(page, rota)
+    // Duas rotas, uma de cada renderização: `/` é o site público (SSR) e
+    // `/login` entra no bundle do painel. Juntas pagam o CSS e quase todo o
+    // grafo de módulos que as demais reaproveitam.
+    for (const rota of ['/', '/login']) {
+      try {
+        await page.goto(rota, { waitUntil: 'networkidle', timeout: 120_000 })
+      } catch {
+        // Um aquecimento que falha não pode derrubar a suíte: o primeiro teste
+        // dirá a verdade sobre o servidor melhor do que uma exceção de setup.
+      }
+    }
   } finally {
-    await navegador?.close()
-    await conta.limpar()
+    await navegador.close()
   }
-
-  console.log(`[e2e] aquecimento concluído em ${Math.round((Date.now() - comecou) / 1000)}s`)
 }

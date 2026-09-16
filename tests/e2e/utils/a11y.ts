@@ -153,11 +153,17 @@ function descreverViolacao(violacao: ViolacaoAxe): string {
     .map((linha) => `      ${linha.trim()}`)
     .join('\n')
 
+  // O seletor do axe é quase sempre um id gerado pelo Vue (`#v-0-0-1-1-0`), que
+  // não existe no código-fonte e por isso não se acha por grep. Sem o HTML,
+  // localizar um botão sem nome acessível vira caçada à mão pela tela inteira.
+  const html = violacao.nodes[0]?.html
+
   return [
     `  [${violacao.impact ?? 'sem impacto declarado'}] ${violacao.id}: ${violacao.help}`,
     `    ${violacao.helpUrl}`,
     `    ${violacao.nodes.length} elemento(s):`,
     alvos + excedente,
+    html ? `    HTML do primeiro:\n      ${html}` : '',
     diagnostico ? `    diagnóstico do primeiro:\n${diagnostico}` : '',
   ]
     .filter(Boolean)
