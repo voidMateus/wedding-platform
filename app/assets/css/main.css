@@ -425,18 +425,26 @@ body {
   letter-spacing: 0.12em;
 }
 
-/* Prévia do site DENTRO do painel (escolha de tema no wizard e em Aparência).
+/* Um pedaço de tela DENTRO do painel que fala a linguagem do site (o convite).
 
-   Desfaz o escopo `.admin-ui` para o pedaço da tela que promete mostrar o site
-   público: sem isto, a prévia herda os neutros cinzas e a tipografia do painel
-   — e mente exatamente sobre as duas coisas que ela existe para mostrar. Os
-   valores repetem os do `:root` de propósito: uma vez sobrescritos pelo escopo
-   do admin, os originais não são mais alcançáveis por variável.
+   Desfaz o escopo `.admin-ui` onde a tela promete mostrar o site público: sem
+   isto, o bloco herda os neutros cinzas e a tipografia do painel — e mente
+   exatamente sobre o que ele existe para mostrar. Os valores repetem os do
+   `:root` de propósito: uma vez sobrescritos pelo escopo do admin, os
+   originais não são mais alcançáveis por variável.
 
-   `--color-primary`, `--color-secondary`, `--color-ornament` e
-   `--font-display` NÃO entram aqui: são justamente o que a prévia recebe por
-   `style` inline, de cada preset. */
-.previa-do-site {
+   Dois usos reais, e a diferença entre eles é só a fonte:
+
+   - `.previa-do-site` é a prévia de tema (wizard e Aparência).
+     `--color-primary`, `--color-secondary`, `--color-ornament` e
+     `--font-display` NÃO entram nela: são justamente o que ela recebe por
+     `style` inline, de cada preset.
+   - `.superficie-do-convite` é a marca do produto na porta de entrada (a
+     coluna do login). Não há preset nenhum ali, então ela restaura também o
+     par tipográfico do site — é a única forma de a assinatura da marca sair em
+     Playfair dentro de um documento escopado no painel. */
+.previa-do-site,
+.superficie-do-convite {
   --color-surface: #fcfaf4;
   --color-surface-elevated: #fffdfa;
   --color-surface-muted: #f7f3e9;
@@ -444,6 +452,13 @@ body {
   --color-text: #2b221a;
   --color-text-muted: #786c64;
   --color-heading: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+.superficie-do-convite {
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-button: var(--font-sans);
   font-family: var(--font-sans);
 }
 
@@ -494,6 +509,43 @@ body {
   --shadow-sm: 0 1px 2px 0 rgb(28 28 32 / 0.05);
   --shadow-md: 0 4px 10px -2px rgb(28 28 32 / 0.07), 0 2px 4px -2px rgb(28 28 32 / 0.05);
   --shadow-lg: 0 12px 24px -4px rgb(28 28 32 / 0.1), 0 4px 8px -4px rgb(28 28 32 / 0.06);
+}
+
+/* A cor da PLATAFORMA — onde não há casamento.
+
+   Aplicada no <body> junto de `.admin-ui`, nunca no lugar dela: a casca, a
+   densidade e o par tipográfico continuam sendo os do painel; o que ela define
+   é uma cor.
+
+   Vale nas três telas em que nenhum evento está aberto — a porta de entrada
+   (login), a lista de eventos da conta e o painel interno da equipe. Dentro de
+   `/admin/{slug}` ela não entra: ali `--color-primary` é a cor DAQUELE
+   casamento, e é isso que faz o painel ser reconhecível como o dele.
+
+   Ela existe porque a plataforma nunca teve cor própria: o `--color-primary`
+   do `@theme` é o `primaryColor` do preset "Clássico Elegante"
+   (shared/theme-presets.ts), que é também o default de todo casamento novo.
+   O produto emprestava a cor de um tema de casal — e o resultado era um login
+   marrom levando a um painel interno de outra cor, e um painel interno
+   idêntico ao de qualquer casal que ainda não escolheu tema.
+
+   Ardósia, e não um marrom, por causa dessa segunda parte: a cor da ferramenta
+   não pode coincidir com a de um evento. Nenhum preset do catálogo é ardósia
+   (o mais próximo, "Azul Marinho" #1f3a5f, é bem mais escuro). O peso é o
+   mesmo do default (7,15:1 contra a superfície do painel, ao lado de 7,20:1),
+   então nenhum componente muda de presença: muda a matiz, 25° → 227°. Medido
+   em tests/unit/app/cor-da-plataforma.spec.ts, que lê estes valores daqui,
+   contra as superfícies das DUAS linguagens — a coluna de marca do login é
+   creme, não cinza.
+
+   Cor de ESTADO (danger/success/warning) não entra: continua sendo convenção
+   da plataforma inteira, e "Excluir casamento" precisa ler igual nos dois
+   painéis. */
+.marca-da-plataforma {
+  --color-primary: #44507a;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #5a6478;
+  --color-secondary-foreground: #ffffff;
 }
 
 /* Movimento reduzido — dívida levantada em 2026-09-09 e paga aqui.

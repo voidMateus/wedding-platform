@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { rotuloDoPapel } from '#shared/papeis-de-membro'
+import { monogramaDoCasal } from '#shared/utils/nomes-casal'
 import { adminPrimaryNav, adminSectionMenu } from '~/utils/admin-nav'
 
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
@@ -78,31 +80,37 @@ const weddingDateLabel = computed(() => {
   })
 })
 
-/** Monograma a partir dos nomes ("Mateus & Raquel" → "M&R"). */
-const monograma = computed(() => {
-  const nomes = (wedding.value?.nomes_noivos ?? '').split('&').map((parte) => parte.trim())
-  const iniciais = nomes.map((nome) => nome.charAt(0).toUpperCase()).filter(Boolean)
-  return iniciais.length > 1 ? iniciais.join('&') : (iniciais[0] ?? 'M')
-})
+const monograma = computed(() => monogramaDoCasal(wedding.value?.nomes_noivos))
 
-// Bloco de quem está logado. Só o que a sessão já expõe (e-mail e papel) —
-// nenhuma consulta nova. Não existe nome de exibição no modelo hoje
-// (membros_casamento não tem coluna de nome), então o rótulo é a parte do
-// e-mail antes do @ e o endereço completo fica no title/leitor de tela.
+// Quem está logado — o desenho do bloco vive em `AdminAccountBadge`, que as
+// três cascas da conta compartilham (painel do casal, lista de eventos e
+// painel interno).
 const operatorEmail = computed(() => authStore.user?.email ?? '')
-const operatorLocalPart = computed(() => operatorEmail.value.split('@')[0] ?? '')
-const operatorName = computed(() => operatorLocalPart.value || 'Conta')
-const operatorInitials = computed(() => {
-  const initials = operatorLocalPart.value
-    .split(/[._-]+/)
-    .map((part) => part.charAt(0).toUpperCase())
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-  return initials || '·'
-})
+// Derivado da rota sobre as memberships, nunca lido de um estado que
+// sobrevive à troca de evento (docs/fase5-multievento.md 5.2): quem é dono de
+// um casamento e colaborador de outro via "Dono" nos dois.
+const membershipAtiva = useActiveMembership()
+
+// A troca de evento no cabeçalho só existe com mais de um casamento
+// (docs/fase5-multievento.md 5.1). `hoje` local, não do servidor: a ordem é
+// uma preferência de leitura da tela, não um cálculo de negócio.
+// Só os casamentos do próprio operador aparecem na troca: um acesso de suporte
+// é a porta de entrada no evento de um cliente, não um item da coleção dele
+// (docs/fase5-multievento.md 6.7).
+const { proprios } = useMinhasMemberships()
+const casamentosOrdenados = computed(() =>
+  sortWeddingsByEvent(proprios.value, new Date().toISOString().slice(0, 10)),
+)
+
+/**
+ * Dentro do painel de um cliente, o menu existe mesmo com um casamento próprio
+ * só — ou nenhum: sem ele, quem entrou para dar suporte fica sem saída visível
+ * e depende do botão voltar do navegador.
+ */
+const emSuporte = computed(() => membershipAtiva.value?.acessoDeSuporte === true)
+const temMaisDeUmCasamento = computed(() => proprios.value.length > 1 || emSuporte.value)
 const operatorRoleLabel = computed(() =>
-  authStore.weddingContext?.role === 'dono' ? 'Dono' : 'Colaborador',
+  membershipAtiva.value ? rotuloDoPapel(membershipAtiva.value.role) : '',
 )
 
 /**
@@ -140,8 +148,22 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
     >
       <!-- Identidade do casamento, não da plataforma: quem está aqui já sabe
            em que produto está, e precisa saber de qual casamento é esta lista
-           (uma conta pode ter mais de um). -->
+           (uma conta pode ter mais de um).
+
+           Com mais de uma membership o mesmo bloco vira a troca de evento
+           (docs/fase5-multievento.md 5.1); com uma só continua sendo um link,
+           sem menu que abriria vazio. -->
+      <AdminWeddingSwitcher
+        v-if="temMaisDeUmCasamento"
+        :memberships="casamentosOrdenados"
+        :active-slug="activeSlug"
+        :monograma="monograma"
+        :nomes-noivos="wedding?.nomes_noivos ?? ''"
+        :data-label="weddingDateLabel"
+        :em-suporte="emSuporte"
+      />
       <NuxtLink
+        v-else
         :to="`/admin/${activeSlug}`"
         class="flex shrink-0 items-center gap-2.5 rounded-lg transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
@@ -164,21 +186,11 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
       <AdminPrimaryNav :itens="navPrimaria" class="mx-auto shrink-0" />
 
       <div class="ml-auto flex shrink-0 items-center gap-2 lg:ml-0 lg:gap-3">
-        <div class="flex items-center gap-2 lg:border-l lg:border-border lg:pl-3">
-          <span
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-muted font-display text-xs font-semibold text-text"
-            aria-hidden="true"
-          >
-            {{ operatorInitials }}
-          </span>
-          <div class="hidden leading-tight lg:block">
-            <p class="max-w-40 truncate text-xs font-semibold text-text" :title="operatorEmail">
-              {{ operatorName }}
-            </p>
-            <p class="text-xs text-text-muted">{{ operatorRoleLabel }}</p>
-          </div>
-          <span class="sr-only">{{ operatorEmail }}</span>
-        </div>
+        <AdminAccountBadge
+          :email="operatorEmail"
+          :legenda="operatorRoleLabel"
+          class="lg:border-l lg:border-border lg:pl-3"
+        />
 
         <!-- Só no desktop: no celular "Sair" vive no painel "Mais" da barra
              inferior, para não disputar os poucos alvos de toque do topo. -->

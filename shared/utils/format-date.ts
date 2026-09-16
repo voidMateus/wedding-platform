@@ -7,9 +7,21 @@ export function formatDateTimePtBR(value: string | null): string {
   return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+/** Data pura do domínio (`2026-10-20`) — sem hora e, portanto, sem fuso. */
+const SO_DATA = /^\d{4}-\d{2}-\d{2}$/
+
 export function formatDatePtBR(value: string | null): string {
   if (!value) return '—'
-  return new Date(value).toLocaleDateString('pt-BR')
+  // `new Date('2026-10-20')` é lido como meia-noite UTC, e em fuso negativo
+  // (todo o Brasil) isso volta um dia: a data do evento aparecia 10/12 onde o
+  // banco guarda 11/12 — e a ficha do painel interno mostrava as duas ao mesmo
+  // tempo, porque o `UiDatePicker` trabalha com `CalendarDate` e acertava.
+  // `T00:00:00` força a leitura local, que é o que uma data sem hora significa.
+  //
+  // O cuidado já existia escrito à mão no Hero público e no cabeçalho do
+  // painel; faltava no lugar por onde passam todas as outras telas.
+  const iso = SO_DATA.test(value) ? `${value}T00:00:00` : value
+  return new Date(iso).toLocaleDateString('pt-BR')
 }
 
 /**

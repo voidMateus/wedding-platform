@@ -159,4 +159,108 @@ describe('RLS: trilha_auditoria', () => {
       .maybeSingle()
     expect(stillThere?.id).toBe(logA.id)
   })
+
+  // ---------------------------------------------------------------------
+  // O terceiro tipo de ator (docs/fase5-multievento.md seção 7). O que o
+  // constraint garante é que cada tipo tem EXATAMENTE uma forma de autor: um
+  // operador nunca finge ser membro, e o sistema segue sem autor nenhum.
+  // ---------------------------------------------------------------------
+
+  it('recusa operador sem autor_operador_id', async () => {
+    const { error } = await admin.from('trilha_auditoria').insert({
+      casamento_id: weddingA.id,
+      acao: 'acao_teste_integracao',
+      tipo_autor: 'operador',
+      tipo_entidade: 'teste_integracao',
+    })
+
+    expect(error).not.toBeNull()
+  })
+
+  it('recusa operador que também traz autor_id de membro', async () => {
+    const { data: membroA } = await admin
+      .from('membros_casamento')
+      .select('id')
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', memberA.userId)
+      .single()
+
+    const { error } = await admin.from('trilha_auditoria').insert({
+      casamento_id: weddingA.id,
+      acao: 'acao_teste_integracao',
+      tipo_autor: 'operador',
+      autor_id: membroA?.id ?? null,
+      autor_operador_id: memberA.userId,
+      tipo_entidade: 'teste_integracao',
+    })
+
+    expect(error).not.toBeNull()
+  })
+
+  it('recusa membro que traz autor_operador_id', async () => {
+    const { data: membroA } = await admin
+      .from('membros_casamento')
+      .select('id')
+      .eq('casamento_id', weddingA.id)
+      .eq('usuario_id', memberA.userId)
+      .single()
+
+    const { error } = await admin.from('trilha_auditoria').insert({
+      casamento_id: weddingA.id,
+      acao: 'acao_teste_integracao',
+      tipo_autor: 'membro',
+      autor_id: membroA?.id ?? null,
+      autor_operador_id: memberA.userId,
+      tipo_entidade: 'teste_integracao',
+    })
+
+    expect(error).not.toBeNull()
+  })
+
+  it('aceita operador com autor_operador_id, e o casal lê a linha', async () => {
+    // O operador precisa existir em operadores_plataforma (é a FK). Reaproveita
+    // o usuário do membro A: quem é operador de plataforma é ortogonal a ser
+    // membro de um casamento, e aqui só interessa a linha existir.
+    const { error: operadorError } = await admin
+      .from('operadores_plataforma')
+      .insert({ usuario_id: memberA.userId })
+    if (operadorError) {
+      throw new Error(`Falha ao criar operador de teste: ${operadorError.message}`)
+    }
+
+    try {
+      const { data, error } = await admin
+        .from('trilha_auditoria')
+        .insert({
+          casamento_id: weddingA.id,
+          acao: 'casamento.criar',
+          tipo_autor: 'operador',
+          autor_operador_id: memberA.userId,
+          tipo_entidade: 'casamento',
+          entidade_id: weddingA.id,
+        })
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      expect(data?.tipo_autor).toBe('operador')
+
+      // A trilha é do casamento: o casal lê, no próprio painel, quem criou o
+      // evento dele. É honesto, não vazamento.
+      const { data: lidoPeloCasal } = await memberA.client
+        .from('trilha_auditoria')
+        .select('acao, tipo_autor')
+        .eq('id', data!.id)
+        .maybeSingle()
+
+      expect(lidoPeloCasal?.tipo_autor).toBe('operador')
+    } finally {
+      await admin
+        .from('trilha_auditoria')
+        .delete()
+        .eq('casamento_id', weddingA.id)
+        .eq('acao', 'casamento.criar')
+      await admin.from('operadores_plataforma').delete().eq('usuario_id', memberA.userId)
+    }
+  })
 })

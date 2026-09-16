@@ -15,7 +15,7 @@ interface ConnectResponse {
 export function useGalleryConnection() {
   function getConnection() {
     return useFetch<ConnectionResponse>('/api/wedding/gallery/connection', {
-      key: 'gallery-connection',
+      key: useWeddingScopedKey('gallery-connection'),
     })
   }
 

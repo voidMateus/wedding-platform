@@ -3,6 +3,7 @@
 // central, tipografia serifada) — antes era só uma linha de texto solta,
 // destoando do resto do site (pedido do usuário: "nosso rodapé também
 // precisa ser bonito de igual forma", referência de estilo mimodocasal.com.br).
+import { NOME_DO_PRODUTO } from '#shared/marca'
 import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
 
 interface Props {
@@ -57,7 +58,7 @@ const formattedDate = computed(() =>
       </p>
       <UiSectionDivider class="my-2" />
       <p class="text-xs text-text-muted">
-        Feito com <span class="text-primary">♥</span> por MeuSiteCasamento
+        Feito com <span class="text-primary">♥</span> por {{ NOME_DO_PRODUTO }}
       </p>
     </div>
   </footer>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onKeyStroke } from '@vueuse/core'
 import { DEFAULT_HERO_FEATURED_BUTTON, resolveHeroButtons } from '#shared/hero-buttons'
+import { NOME_DO_PRODUTO } from '#shared/marca'
 import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
 
 // Navegação por âncora (Fase Editorial) — curada deliberadamente (não um
@@ -95,9 +96,7 @@ const NAV_LINKS = computed(() =>
  * com intenção. O nome completo continua no Hero, no rodapé e no título da
  * aba. Fora do padrão "Nome1 & Nome2", usa o que estiver escrito.
  */
-const brandName = computed(
-  () => primeirosNomesCasal(coupleNames) ?? coupleNames ?? 'MeuSiteCasamento',
-)
+const brandName = computed(() => primeirosNomesCasal(coupleNames) ?? coupleNames ?? NOME_DO_PRODUTO)
 
 const homeLink = computed(() => `/${slug}`)
 

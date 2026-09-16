@@ -5,7 +5,9 @@ import type { DashboardSummary } from '~/types/dashboard'
  */
 export function useDashboard() {
   function getSummary() {
-    return useFetch<DashboardSummary>('/api/dashboard/summary', { key: 'dashboard-summary' })
+    return useFetch<DashboardSummary>('/api/dashboard/summary', {
+      key: useWeddingScopedKey('dashboard-summary'),
+    })
   }
 
   return { getSummary }

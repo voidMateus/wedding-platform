@@ -11,7 +11,9 @@ interface GiftCategoryListResponse {
  */
 export function useGiftCategories() {
   function listGiftCategories() {
-    return useFetch<GiftCategoryListResponse>('/api/gift-categories', { key: 'gift-categories' })
+    return useFetch<GiftCategoryListResponse>('/api/gift-categories', {
+      key: useWeddingScopedKey('gift-categories'),
+    })
   }
 
   async function createGiftCategory(input: GiftCategoryInput): Promise<GiftCategory> {

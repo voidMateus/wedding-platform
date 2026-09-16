@@ -50,3 +50,22 @@ export function primeirosNomesCasal(nomesNoivos: string | null | undefined): str
   const segundo = nomes.segundo.split(/\s+/)[0]
   return primeiro && segundo ? `${primeiro} & ${segundo}` : null
 }
+
+/**
+ * O monograma curto do cabeçalho do painel e da lista de eventos: "Mateus &
+ * Raquel" vira "M&R".
+ *
+ * Diferente de `iniciaisCasal`, aqui NÃO existe a saída `null`: estes dois
+ * lugares desenham um disco com o monograma dentro, e um disco vazio é pior
+ * que uma letra só. Fora do padrão "Nome1 & Nome2", devolve a inicial do que
+ * estiver escrito — e "M" quando nem isso existe.
+ */
+export function monogramaDoCasal(nomesNoivos: string | null | undefined): string {
+  const iniciais = (nomesNoivos ?? '')
+    .split('&')
+    .map((parte) => parte.trim().charAt(0).toUpperCase())
+    .filter(Boolean)
+
+  if (iniciais.length > 1) return iniciais.join('&')
+  return iniciais[0] ?? 'M'
+}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
+import { NOME_DO_PRODUTO } from '#shared/marca'
 
 interface Props {
   error: NuxtError
@@ -32,7 +33,7 @@ const descricao = computed(() => {
 const rotuloAcao = computed(() => (contextoInterno.value ? 'Voltar ao painel' : 'Voltar ao início'))
 
 useSeoMeta({
-  title: `${titulo.value} — MeuSiteCasamento`,
+  title: `${titulo.value} — ${NOME_DO_PRODUTO}`,
   robots: 'noindex, nofollow',
 })
 

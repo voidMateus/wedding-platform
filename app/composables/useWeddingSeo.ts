@@ -1,8 +1,9 @@
+import { NOME_DO_PRODUTO } from '#shared/marca'
 import type { ThemeConfig } from '#shared/schemas/theme'
 import type { EventSegment } from '~/types/event-segment'
 import type { Wedding } from '~/types/wedding'
 
-const SITE_NAME = 'MeuSiteCasamento'
+const SITE_NAME = NOME_DO_PRODUTO
 
 /**
  * Limite prático de descrição em resultado de busca. Não é regra do Google

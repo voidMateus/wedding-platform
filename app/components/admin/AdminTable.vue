@@ -266,6 +266,11 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
              virarem uma massa cinza só, sem dizer onde um acabava. Agora o
              cabeçalho recua para o branco do cartão e quem carrega o tom é a
              faixa. -->
+        <!-- `whitespace-nowrap` no rótulo: numa coluna estreita, "Criado em"
+             quebrava em duas linhas e o ícone de filtro descia junto, dobrando
+             a altura do cabeçalho inteiro por causa de uma coluna. A grade já
+             rola na horizontal (`.table-scroll`), então o custo de manter o
+             rótulo inteiro é rolagem, não um cabeçalho de duas alturas. -->
         <thead
           v-if="columnHeader === 'table'"
           class="sticky top-0 z-10 hidden md:table-header-group"
@@ -275,7 +280,7 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
               v-for="column in columns"
               :key="column.key"
               scope="col"
-              class="border-b border-border bg-surface-elevated px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-text-muted"
+              class="border-b border-border bg-surface-elevated px-4 py-2.5 text-xs font-medium tracking-wide whitespace-nowrap text-text-muted uppercase"
               :class="headClass(column)"
               :aria-sort="ariaSort(column)"
             >

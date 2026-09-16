@@ -14,8 +14,16 @@ import type { WeddingContext, WeddingMembership } from '~/types/auth'
  */
 const ACTIVE_WEDDING_COOKIE = 'casamento_ativo'
 
-function toWeddingContext(row: { id: string; casamento_id: string; papel: string }): WeddingContext {
-  return { weddingId: row.casamento_id, role: row.papel as WeddingContext['role'], memberId: row.id }
+function toWeddingContext(row: {
+  id: string
+  casamento_id: string
+  papel: string
+}): WeddingContext {
+  return {
+    weddingId: row.casamento_id,
+    role: row.papel as WeddingContext['role'],
+    memberId: row.id,
+  }
 }
 
 /**
@@ -47,6 +55,11 @@ export async function resolveWeddingContext(event: H3Event): Promise<WeddingCont
     .from('membros_casamento')
     .select('id, casamento_id, papel')
     .eq('usuario_id', user.sub)
+    // Vínculo de suporte VENCIDO não resolve contexto nenhum
+    // (docs/fase5-multievento.md 6.7). A expiração já vale dentro das policies
+    // de RLS, então uma linha vencida devolveria um contexto que não abre
+    // nada — pior que não devolver, porque pareceria acesso.
+    .or(`acesso_suporte_expira_em.is.null,acesso_suporte_expira_em.gt.${new Date().toISOString()}`)
 
   if (error) {
     throw createError({
@@ -72,7 +85,9 @@ export async function resolveWeddingContext(event: H3Event): Promise<WeddingCont
       .eq('slug', activeSlug)
       .maybeSingle()
 
-    const match = activeWedding ? memberships.find((m) => m.casamento_id === activeWedding.id) : undefined
+    const match = activeWedding
+      ? memberships.find((m) => m.casamento_id === activeWedding.id)
+      : undefined
     if (match) {
       return toWeddingContext(match)
     }
@@ -96,8 +111,13 @@ export async function listWeddingMemberships(event: H3Event): Promise<WeddingMem
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
     .from('membros_casamento')
-    .select('id, casamento_id, papel, casamentos (slug, nomes_noivos)')
+    .select(
+      'id, casamento_id, papel, acesso_suporte_expira_em, casamentos (slug, nomes_noivos, data_evento, status_ciclo_vida)',
+    )
     .eq('usuario_id', user.sub)
+    // Idem: casamento cujo acesso de suporte venceu some da troca de evento e
+    // da lista, em vez de virar um card que devolve tela vazia.
+    .or(`acesso_suporte_expira_em.is.null,acesso_suporte_expira_em.gt.${new Date().toISOString()}`)
 
   if (error) {
     throw createError({
@@ -112,6 +132,14 @@ export async function listWeddingMemberships(event: H3Event): Promise<WeddingMem
     memberId: row.id,
     slug: row.casamentos?.slug ?? '',
     nomesNoivos: row.casamentos?.nomes_noivos ?? '',
+    // Data e status vêm junto porque a lista de eventos e a troca no cabeçalho
+    // os mostram para TODOS os casamentos de uma vez (docs/fase5-multievento.md
+    // 5.3) — buscá-los depois seria uma requisição por casamento para uma tela
+    // que já tem a lista inteira na mão.
+    dataEvento: row.casamentos?.data_evento ?? '',
+    statusCicloVida: (row.casamentos?.status_ciclo_vida ??
+      'rascunho') as WeddingMembership['statusCicloVida'],
+    acessoDeSuporte: row.acesso_suporte_expira_em !== null,
   }))
 }
 

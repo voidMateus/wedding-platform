@@ -42,7 +42,7 @@ interface GiftListResponse {
  */
 export function useGifts() {
   function listGifts() {
-    return useFetch<GiftListResponse>('/api/gifts', { key: 'gifts' })
+    return useFetch<GiftListResponse>('/api/gifts', { key: useWeddingScopedKey('gifts') })
   }
 
   async function createGift(input: GiftInput): Promise<Gift> {
