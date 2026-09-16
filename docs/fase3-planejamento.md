@@ -504,11 +504,11 @@ Abaixo, a lista agrupada por janela, na ordem da urgência:
 | Grupo | O que entra | Nota |
 |---|---|---|
 | **Vencidas** | `prazo < hoje`, não concluída | Só aparece quando existe; um grupo vazio em vermelho é alarme falso |
-| **Esta semana** | hoje … +7 dias | |
-| **Este mês** | +8 … +30 dias | |
+| **Próximos 7 dias** | hoje … +7 dias | O rótulo nomeia a janela móvel, não o calendário (13.1) |
+| **Próximos 30 dias** | +8 … +30 dias | Idem — era "Este mês", e mentia em toda segunda quinzena |
 | **Mais adiante** | > 30 dias | |
 | **Sem prazo** | `prazo is null` | Depois das com prazo: é a caixa de "quero fazer", não de atraso |
-| **O que costuma já estar resolvido** | só sugestões, de fases já passadas | Recolhido por padrão (decisão 3) |
+| **De etapas que já passaram** | só sugestões, de fases já passadas | Recolhido por padrão (decisão 3). Não afirma que foram resolvidas — não se sabe |
 | **Concluídas** | `concluida_em` preenchido | Recolhido, no fim, com a contagem no rótulo |
 
 Cada linha: caixa de marcar, título, prazo, responsável. Tudo editável no lugar,
@@ -658,3 +658,126 @@ exportados de `shared/schemas/planejamento.ts` são `z.input`.
   Recanto", que não existe mais no dev). Ele falha na `main` também —
   verificado com as mudanças desta fase fora da árvore. Não é desta fase, mas
   vai continuar falhando até alguém dar fixture própria a ele.
+
+---
+
+## 13. A rodada da auditoria externa (2026-09-15)
+
+A tela foi submetida a uma auditoria de UX feita por um LLM externo, a partir de
+uma captura. Ela levantou 19 pontos; **quatro** viraram trabalho, e o resto
+sobreviveu ao confronto com o refinamento — o registro do que **não** se fez
+está em 13.5, porque os mesmos pedidos vão voltar.
+
+### 13.1 O "bug prioritário" que não existia, e o rótulo que o causou
+
+O achado 🔴 nº 1 da auditoria: tarefas de **5 de outubro** no grupo "Este mês"
+com o cabeçalho marcando **2 de julho de 2027** seriam prova de agrupamento
+quebrado. Dois enganos somados — `02/07/2027` é a **data do casamento** no
+cabeçalho do painel (`layouts/admin.vue`), não hoje; e as janelas são **móveis**
+(hoje+7, hoje+30), nunca de calendário.
+
+Não havia bug. Mas havia um rótulo que convidava à leitura errada: "Este mês"
+descreve trinta dias corridos, e em qualquer segunda quinzena o grupo mostra
+datas do mês seguinte. Quem confere a data conclui que o agrupamento falhou —
+foi exatamente o que aconteceu. Os rótulos passam a nomear a janela:
+**"Próximos 7 dias"** e **"Próximos 30 dias"**.
+
+Os **ids** (`esta_semana`, `este_mes`) ficam: eles nomeiam o conceito no código,
+e trocá-los custaria churn em tela, painel e testes sem mudar nada que o casal
+veja.
+
+A janela de calendário que a auditoria propôs no lugar seria pior, e é o motivo
+de a móvel ter sido escolhida: em 29 de setembro, uma tarefa de 1º de outubro
+cairia em "Próximo mês" e uma de 30 de setembro em "Este mês" — dois dias de
+distância desenhados como urgências opostas.
+
+`ja_passou` também deixou de afirmar o que não sabe: **"De etapas que já
+passaram"**. A alternativa sugerida ("Sugestões já resolvidas") inverte o
+sentido do grupo — quem descobre o produto a quatro meses do casamento talvez
+não tenha feito nada daquilo, e é precisamente por isso que a fase 3 decidiu que
+essas sugestões nascem sem prazo.
+
+### 13.2 "1 de 5" ganha denominador
+
+A faixa dizia `Concluídas · 1 de 5` e não dizia de quê — e aqui a dúvida é
+legítima, não desatenção: **sugestão não é linha no banco**, então o
+denominador poderia razoavelmente ser tarefas, sugestões ou a soma. A linha de
+apoio do `AdminMetric` (que já existia) nomeia o universo — `1 de 5` ·
+*tarefas* — sem acrescentar um segundo número, e usa a mesma palavra do bloco do
+Início ("tarefas concluídas").
+
+### 13.3 A linha deixa de parecer planilha
+
+O ponto mais forte da auditoria, e o único de visual que não era gosto: quatro
+molduras permanentes por linha (título, prazo, responsável, menu) faziam a tela
+ler como formulário administrativo, e o peso ficava todo na estrutura em vez de
+no que a tela tem a dizer.
+
+A correção não é nova: é a `variant="quiet"` que o Modo Lista já usa, e que
+existe por esse mesmo diagnóstico. Só que a `quiet` pura vale para **tabela de
+desktop**, que no celular vira o slot `#stacked` e não desenha campo nenhum — e
+a linha do Planejamento não é tabela: ela **empilha** em `sm`, e ali um campo
+sem moldura de 32px seria um controle que não se anuncia num alvo de toque
+menor. Daí `'quiet-desktop'` em `UiInput` e `UiDatePicker`: `campo` abaixo de
+`sm`, `quiet` acima. No seletor de data a seta some junto na variante silenciosa
+— o ícone de calendário já diz o que o controle faz.
+
+A `quiet` existente não foi tocada: ela é usada em três telas entregues, e mudar
+a variante compartilhada para servir a esta teria mexido no visual de todas.
+
+### 13.4 O responsável autocompleta, e continua texto livre
+
+A auditoria pediu uma lista fechada de responsáveis (noivo, noiva, ambos,
+cerimonial). Isso é a decisão 7 ao contrário — quem executa tarefa de casamento
+é a mãe da noiva, a irmã, o cerimonial: gente sem login, e que não deve precisar
+de um para ser citada.
+
+O atrito real que o pedido descreve, porém, existe: redigitar "Cerimonial Ana"
+a cada tarefa. A resposta é um `<datalist>` com os nomes **já usados na
+checklist** (`UiInput` ganhou `suggestions`) — autocompleta sem restringir, e a
+lista se forma do uso, não de um cadastro. Quem digita um nome novo não é
+corrigido nem barrado.
+
+### 13.5 O que a auditoria pediu e continua fora
+
+Todos já estavam decididos, e nenhum argumento novo apareceu:
+
+- **Bloco "Sugestões" separado das tarefas** — decisão 2: duas taxonomias na
+  mesma tela é exatamente o que o eixo único evita.
+- **Categoria/assunto na tarefa** e **biblioteca de sugestões por categoria** —
+  2.2: somar tarefas por assunto não responde nada que a lista por tempo não
+  responda.
+- **Dependências entre tarefas** e **subtarefas sugeridas** ("talvez você também
+  precise de álbum, reunião, horas") — 2.2 e decisão 6: a granularidade é a
+  DECISÃO, e a lista de 54 linhas é a que ninguém termina.
+- **Estados "Pendente"/"Em andamento"** — não existem, e não é lapso:
+  `concluida_em` é a única fonte de "feita" (invariante do `CLAUDE.md`). A
+  auditoria leu um estado que a tela nunca mostrou.
+- **Cartão "Próximo passo" no topo** — decisão 10: o módulo tem UM agregado, e
+  o Início já mostra esse número. A lista já começa pelo mais urgente.
+- **Itens no menu da linha** (alterar prazo, alterar responsável) — duplicariam
+  a edição no lugar, que é o gesto que a fase inteira comprou.
+
+### 13.6 A checklist passa a morar no painel branco
+
+Fecha o mesmo assunto de 13.3 pelo lado da superfície: a lista estava solta
+sobre o fundo da página enquanto Convidados, Presentes e Financeiro põem a
+deles dentro de `AdminPanel` — branco, borda de 1px, cantos arredondados. Duas
+superfícies diferentes para o mesmo tipo de conteúdo (uma lista de linhas)
+faziam esta tela parecer de outro produto.
+
+A linha de entrada virou a **primeira faixa do painel**, separada por divisor,
+como a barra de filtros é lá — e perdeu o retângulo tracejado que tinha: ao
+lado de um painel branco, ele lia como um segundo painel mais fraco, dois
+contêineres para uma coisa só. A composição final (faixa de números cinza sobre
+painel branco) é a mesma de Presentes.
+
+### 13.7 O que saiu daqui e serve o painel todo
+
+A contagem regressiva no cabeçalho (`faltam 291 dias`, ao lado da data) nasceu
+como ponto 11 desta auditoria e **não é do Planejamento**: é a mesma conta que
+define as janelas — por isso `diasAteOEvento`/`rotuloDaContagem` moram em
+`shared/utils/planejamento.ts` —, mas quem a exibe é o cabeçalho de todas as
+telas do painel, e ela dá escala tanto a uma tarefa vencida quanto a uma parcela
+a vencer sem que nenhuma das duas telas repita o número. Some depois do
+casamento: contagem regressiva de evento passado não informa, cobra.

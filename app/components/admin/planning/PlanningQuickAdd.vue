@@ -9,6 +9,12 @@
   Depois de salvar, o campo se limpa e o foco FICA — quem acabou de escrever
   uma tarefa quase sempre tem a próxima na cabeça, e devolver o cursor ao início
   da tela cobraria um clique por linha.
+
+  Sem caixa própria: ela é a primeira FAIXA do painel branco da checklist,
+  separada por um divisor, como a barra de filtros é a primeira faixa do painel
+  de Convidados. Antes era um retângulo tracejado sobre o fundo da página, e ao
+  lado de um painel branco isso lia como um segundo painel mais fraco — dois
+  contêineres para uma coisa só.
 -->
 <script setup lang="ts">
 const toast = useToast()
@@ -38,7 +44,7 @@ async function adicionar() {
 
 <template>
   <div
-    class="flex flex-col gap-2 rounded-xl border border-dashed border-border bg-surface-muted/40 p-3 sm:flex-row sm:items-center sm:gap-3"
+    class="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5"
     @keyup.enter="adicionar"
   >
     <UiInput

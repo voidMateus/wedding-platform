@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { rotuloDoPapel } from '#shared/papeis-de-membro'
 import { monogramaDoCasal } from '#shared/utils/nomes-casal'
+import { hojeNoFusoDoEvento } from '#shared/utils/orcamento'
+import { diasAteOEvento, rotuloDaContagem } from '#shared/utils/planejamento'
 import { adminPrimaryNav, adminSectionMenu } from '~/utils/admin-nav'
 
 // Painel admin herda a cor do tema do casal (deixa de ser neutro), mas
@@ -79,6 +81,45 @@ const weddingDateLabel = computed(() => {
     year: 'numeric',
   })
 })
+
+/**
+ * Quanto falta para o casamento, ao lado da data.
+ *
+ * A data sozinha obriga a fazer a conta de cabeça, e é ela que dá escala a tudo
+ * o que o painel mostra: "faltam 291 dias" muda o peso de uma tarefa vencida e
+ * de uma parcela a vencer sem que nenhuma das duas telas precise repetir o
+ * número. Some depois do casamento — contagem regressiva de evento passado não
+ * informa, cobra (`rotuloDaContagem`).
+ *
+ * `hoje` é recalculado a cada navegação porque o painel é uma SPA que fica
+ * aberta por horas: sem isso, quem abriu antes da meia-noite leria o dia
+ * anterior até recarregar a página.
+ */
+const hoje = ref(hojeNoFusoDoEvento())
+watch(
+  () => route.path,
+  () => {
+    hoje.value = hojeNoFusoDoEvento()
+  },
+)
+
+const contagemRegressiva = computed(() =>
+  rotuloDaContagem(diasAteOEvento(wedding.value?.data_evento ?? null, hoje.value)),
+)
+
+/**
+ * A data com a contagem junto, numa string só.
+ *
+ * Existe porque o mesmo texto tem DOIS donos desde a Fase 5: o `<NuxtLink>` de
+ * quem tem um casamento e o `AdminWeddingSwitcher` de quem tem vários. Montar
+ * a contagem só no template do link faria ela sumir exatamente para quem tem
+ * mais de um evento — some em silêncio, que é o pior jeito de sumir.
+ */
+const rotuloDaDataComContagem = computed(() =>
+  contagemRegressiva.value
+    ? `${weddingDateLabel.value} · ${contagemRegressiva.value}`
+    : weddingDateLabel.value,
+)
 
 const monograma = computed(() => monogramaDoCasal(wedding.value?.nomes_noivos))
 
@@ -159,7 +200,7 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
         :active-slug="activeSlug"
         :monograma="monograma"
         :nomes-noivos="wedding?.nomes_noivos ?? ''"
-        :data-label="weddingDateLabel"
+        :data-label="rotuloDaDataComContagem"
         :em-suporte="emSuporte"
       />
       <NuxtLink
@@ -178,7 +219,7 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
             {{ wedding?.nomes_noivos }}
           </span>
           <span class="hidden truncate text-xs text-text-muted sm:block">
-            {{ weddingDateLabel }}
+            {{ rotuloDaDataComContagem }}
           </span>
         </span>
       </NuxtLink>

@@ -36,6 +36,25 @@ const sugestoes = computed(() =>
 )
 
 /**
+ * Os nomes já usados como responsável, para o campo autocompletar.
+ *
+ * Sai daqui, e não de cada grupo, porque a memória é da CHECKLIST: quem digitou
+ * "Cerimonial Ana" numa tarefa de dezembro deve encontrá-la numa de março. O
+ * campo segue texto livre — a lista poupa a digitação, não fecha o conjunto
+ * (decisão 7 da Fase 3: quem executa tarefa de casamento quase nunca tem
+ * login).
+ */
+const responsaveisConhecidos = computed(() =>
+  [
+    ...new Set(
+      tarefas.value
+        .map((tarefa) => tarefa.responsavel?.trim())
+        .filter((nome): nome is string => !!nome),
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+)
+
+/**
  * Os grupos da tela: tarefas e sugestões no MESMO eixo, o do tempo.
  *
  * É o que evita duas taxonomias na mesma tela — a sugestão não se agrupa por
@@ -73,22 +92,36 @@ const resumo = computed(() => resumoDoPlanejamento(tarefas.value, hoje.value))
  * falso, e a faixa deixa de informar para virar decoração.
  */
 const metrics = computed(() => {
-  const itens: { label: string; value: string | number; tone?: 'danger' | 'primary' }[] = []
+  const itens: {
+    label: string
+    value: string | number
+    tone?: 'danger' | 'primary'
+    apoio?: string
+  }[] = []
   if (resumo.value.vencidas > 0) {
     itens.push({ label: 'Vencidas', value: resumo.value.vencidas, tone: 'danger' })
   }
-  itens.push({ label: 'Esta semana', value: resumo.value.estaSemana, tone: 'primary' })
+  itens.push({
+    label: ROTULOS_JANELA.esta_semana,
+    value: resumo.value.estaSemana,
+    tone: 'primary',
+  })
+  // "1 de 5" sozinho não diz de quê: sugestão não é linha no banco, então o
+  // denominador poderia ser tarefa, sugestão ou as duas coisas. A linha de
+  // apoio nomeia o universo sem acrescentar um segundo número — e usa a mesma
+  // palavra que o bloco do Início ("tarefas concluídas").
   itens.push({
     label: 'Concluídas',
     value: `${resumo.value.concluidas} de ${resumo.value.total}`,
+    apoio: 'tarefas',
   })
   return itens
 })
 
 /**
- * Histórico e pano de fundo começam fechados. "O que costuma já estar
- * resolvido" são as fases que passaram para quem chegou tarde — contexto, não
- * pendência; e "Concluídas" é registro.
+ * Histórico e pano de fundo começam fechados. "De etapas que já passaram" são as
+ * fases que ficaram para trás para quem chegou tarde — contexto, não pendência;
+ * e "Concluídas" é registro.
  */
 function recolhido(janela: JanelaId) {
   return janela === 'concluida' || janela === 'ja_passou'
@@ -129,19 +162,28 @@ const vazio = computed(() => status.value === 'success' && tarefas.value.length 
         entrar em cada etapa — nada é criado sem o seu clique.
       </p>
 
-      <AdminPlanningQuickAdd />
+      <!-- A checklist mora no mesmo painel branco da tabela de Convidados
+           (`AdminPanel`), e não solta sobre o fundo da página: é a mesma coisa
+           — uma lista de linhas — e duas superfícies diferentes para o mesmo
+           tipo de conteúdo faziam esta tela parecer de outro produto. A linha
+           de entrada é a primeira faixa do painel, como a barra de filtros é lá.
+           Sem título: a tela tem uma lista só, e o H1 já a nomeia. -->
+      <AdminPanel>
+        <AdminPlanningQuickAdd />
 
-      <div class="flex flex-col gap-3">
-        <AdminPlanningTaskGroup
-          v-for="grupo in grupos"
-          :key="grupo.janela"
-          :janela="grupo.janela"
-          :rotulo="grupo.rotulo"
-          :tarefas="grupo.tarefas"
-          :sugestoes="grupo.sugestoes"
-          :recolhido-por-padrao="recolhido(grupo.janela)"
-        />
-      </div>
+        <div class="flex flex-col gap-3 px-4 py-3 sm:px-5">
+          <AdminPlanningTaskGroup
+            v-for="grupo in grupos"
+            :key="grupo.janela"
+            :janela="grupo.janela"
+            :rotulo="grupo.rotulo"
+            :tarefas="grupo.tarefas"
+            :sugestoes="grupo.sugestoes"
+            :responsaveis-conhecidos="responsaveisConhecidos"
+            :recolhido-por-padrao="recolhido(grupo.janela)"
+          />
+        </div>
+      </AdminPanel>
     </div>
   </AdminSection>
 </template>

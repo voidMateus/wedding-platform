@@ -54,13 +54,31 @@ export const JANELAS = [
 
 export type JanelaId = (typeof JANELAS)[number]
 
+/**
+ * Os rótulos nomeiam a JANELA MÓVEL, não o calendário.
+ *
+ * "Este mês" era o que estava escrito, e mentia por dois caminhos: em 15 de
+ * setembro o grupo mostra tarefas de 5 de outubro (que estão dentro dos trinta
+ * dias e fora do mês), e em 28 de setembro ele mostraria três dias de setembro
+ * e vinte e sete de outubro. Quem lê "Este mês" confere a data, não bate, e
+ * conclui que o agrupamento está quebrado — foi exatamente o que uma auditoria
+ * externa concluiu.
+ *
+ * Os ids (`esta_semana`, `este_mes`) ficam como estão: eles nomeiam o conceito
+ * no código, e trocá-los custaria churn em tela, painel e testes para não mudar
+ * nada que o casal veja.
+ *
+ * `ja_passou` também deixou de afirmar o que não sabe. Ele guarda sugestões
+ * cuja fase ficou para trás — não sugestões resolvidas: quem descobre o produto
+ * a quatro meses do casamento talvez não tenha feito nada daquilo.
+ */
 export const ROTULOS_JANELA: Record<JanelaId, string> = {
   vencida: 'Vencidas',
-  esta_semana: 'Esta semana',
-  este_mes: 'Este mês',
+  esta_semana: 'Próximos 7 dias',
+  este_mes: 'Próximos 30 dias',
   mais_adiante: 'Mais adiante',
   sem_prazo: 'Sem prazo',
-  ja_passou: 'O que costuma já estar resolvido',
+  ja_passou: 'De etapas que já passaram',
   concluida: 'Concluídas',
 }
 
@@ -182,4 +200,35 @@ export function destaqueDoPlanejamento(resumo: ResumoDoPlanejamento): DestaqueDo
   if (resumo.vencidas > 0) return { tipo: 'vencidas', quantidade: resumo.vencidas }
   if (resumo.estaSemana > 0) return { tipo: 'esta_semana', quantidade: resumo.estaSemana }
   return { tipo: 'progresso', concluidas: resumo.concluidas, total: resumo.total }
+}
+
+/**
+ * Quantos dias faltam para o casamento. Negativo depois que ele acontece.
+ *
+ * Mora aqui porque é a MESMA conta que define as janelas da checklist — "quanto
+ * falta" é o assunto deste arquivo —, ainda que quem a exiba seja o cabeçalho do
+ * painel inteiro. Aritmética em UTC pelo motivo de `somarDias`: as duas pontas
+ * são datas sem hora, e o fuso local mudaria o resultado perto da meia-noite.
+ */
+export function diasAteOEvento(dataEvento: DataISO | null, hoje: DataISO): number | null {
+  if (!dataEvento) return null
+  const evento = Date.parse(`${dataEvento}T00:00:00Z`)
+  const referencia = Date.parse(`${hoje}T00:00:00Z`)
+  if (Number.isNaN(evento) || Number.isNaN(referencia)) return null
+  return Math.round((evento - referencia) / 86_400_000)
+}
+
+/**
+ * A contagem regressiva do cabeçalho, como texto.
+ *
+ * `null` quando não há nada a dizer, e isso inclui o casamento que **já
+ * aconteceu**: contagem regressiva de evento passado não informa, cobra. Depois
+ * da festa o cabeçalho volta a ser só a data — que continua sendo a identidade
+ * do casamento enquanto o casal fecha pagamentos e escolhe as fotos do álbum.
+ */
+export function rotuloDaContagem(dias: number | null): string | null {
+  if (dias === null || dias < 0) return null
+  if (dias === 0) return 'é hoje'
+  if (dias === 1) return 'falta 1 dia'
+  return `faltam ${dias} dias`
 }
