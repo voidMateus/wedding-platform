@@ -99,6 +99,72 @@ Encontrado ao validar o cadastro de convidado no navegador: `/admin/{slug}/convi
 
 **Regra que fica**: um componente de `components/ui/` que embrulha um primitive de terceiro precisa absorver as restrições dele, não repassá-las ao chamador — o contrato público do `UiSelect` é "uma lista de `{value, label}`", e o chamador não tem como saber que um valor é proibido.
 
+### Achado real: os ícones do site público saíam do SSR vazios, buscados na API do Iconify (2026-09-16)
+
+O servidor compilado cuspia `[Icon] failed to load icon` — **42 numa única página pública**. O `nuxt.config.ts` dizia, num comentário, que os ícones vinham do pacote local `@iconify-json/lucide` e que isso "evita dependência de rede externa tanto em build quanto em produção". Para o SSR, isso não era verdade.
+
+**Causa raiz**: com SSR ligado, o módulo resolve `provider: 'server'` sozinho. Nesse modo o plugin do `@nuxt/icon` faz `_api.setFetch($fetch.native)` e registra como recurso o caminho **relativo** `/api/_nuxt_icon`. No navegador o relativo resolve contra a origem e funciona — por isso o usuário via os ícones, e por isso ninguém notou. No servidor, `fetch` nativo com caminho relativo não tem origem: falha, e sobra o fallback `https://api.iconify.design`. Ou seja, o `serverBundle` alimentava a rota `/api/_nuxt_icon`, que só o cliente consumia; o SSR nunca a usou.
+
+**Consequência**: a página chegava com `<span class="iconify">` vazio e o ícone aparecia depois da hidratação — e, onde a rede externa responde (a Vercel), cada render do site público dependia de uma API de terceiro. Onde ela não responde (o proxy corporativo desta máquina), falhava por inteiro.
+
+**Correção**: `clientBundle` com `scan`, que embute os ícones usados e os registra com `addIcon()` — consultado ANTES de qualquer rede, nos dois lados. Resultado medido: 42 falhas -> 0, e 34 ícones passando a vir prontos no HTML do SSR.
+
+**Armadilha no caminho**: o scanner do `@nuxt/icon` ignora `.ts` por padrão (só varre `.vue/.jsx/.tsx/.md`, "to improve performance"). Como este projeto guarda catálogos de ícone em módulos `.ts` (tópicos do manual, tipos de etapa do cronograma, seções da home, navegação do painel, regras do diagnóstico interno), a primeira tentativa embutiu 101 ícones e deixou quatro falhando — `bed`, `car`, `church`, `glass-water`. Com `globInclude` cobrindo `shared/**/*.ts` e `app/**/*.ts`: 127 ícones, 37KB não comprimidos (limite do módulo: 256KB).
+
+### Achado real: a foto de capa do casal derrubava o texto do Hero abaixo do AA (2026-09-16)
+
+Encontrado ao investigar o que o axe reporta como `incomplete` no site público — os 18 elementos do Hero que ele "examinou e não conseguiu decidir". A suspeita era o gradiente; o culpado era outro.
+
+**O gradiente não é o problema.** As duas camadas do Hero são branco sobre o fundo (`rgba(255,255,255,0.5)` e um radial branco a 0.45): elas só CLAREIAM, e para texto escuro clarear aumenta o contraste. Não têm como reprovar. O axe as manda para `incomplete` porque não resolve gradiente, e foi isso que por muito tempo fez a região parecer verde sem nunca ter sido medida.
+
+**O problema é a foto de capa** (`coverImageUrl`), renderizada a `opacity-20` sobre `--color-surface-muted`:
+
+| Foto | Fundo efetivo | `text-muted` |
+|---|---|---|
+| nenhuma | `#f7f3e9` | 5,66 |
+| média | `#dedbd3` | 4,72 |
+| escura | `#cfccc4` | 4,02 |
+| preta | `#c6c2ba` | **3,53** |
+
+Foto escura é comum — recepção à noite, terno preto. E imagem não se valida como cor num seletor: o único piso possível é supor o extremo e exigir que o texto sobreviva a ele.
+
+**Três saídas foram medidas antes de escolher**: escurecer o token global (`#5c5149` passa com 4,33 no pior caso, mas a separação entre texto secundário e principal cai de 2,49x para 2,03x **no site inteiro**, para consertar uma seção); baixar a foto para `opacity-12` (passa com 4,58, apagando a imagem que é o centro da página); e um véu branco (precisa de 35% para 4,54, lavando mais ainda). As três cobram caro e nenhuma tem margem confortável.
+
+**Correção**: `.superficie-da-capa` redefine `--color-text-muted` para `#524840` **só dentro do Hero** — 5,01:1 no pior fundo possível, 8,03:1 sem foto, e ainda 1,75x mais leve que o texto principal. Escopo de token e não classe por elemento, porque o `UiCountdownTimer` vive ali dentro e é compartilhado com outras telas: o token precisa mudar pelo CONTEXTO, mesmo mecanismo de `.superficie-do-convite` e `.marca-da-plataforma`. De quebra, texto novo no Hero herda a correção sem ninguém lembrar dela.
+
+**Nota de método, porque a primeira medição estava errada pelo motivo certo**: medir subindo a árvore de ancestrais atrás do fundo devolveu 5,66 — número plausível e sem valor, porque o elemento onde a busca parou tinha `background-image: none`: ela achou um fundo sólido e ignorou as camadas SOBREPOSTAS, que não são ancestrais. A segunda medição amostrou os pixels renderizados. Essa também tem limite: para os nomes do casal em 72px, as letras ocupam mais da metade da caixa e a cor mais frequente vira a do PRÓPRIO TEXTO, produzindo 1,00:1 — falha do método, não do desenho.
+
+**Regra que fica**: o portão (`tests/unit/app/contraste-do-texto-secundario.spec.ts`) afirma também o negativo — que o token GLOBAL não sobreviveria à foto preta. É o que dá prazo de validade ao escopo: se um dia o global passar a sobreviver sozinho, `.superficie-da-capa` virou peso morto e o teste avisa, em vez de deixá-lo apodrecer como exceção que ninguém lembra por que existe.
+
+### Achado real: `--color-text-muted` reprovava no AA sobre o tom `accent` — em TODOS os presets (2026-09-16)
+
+Encontrado ao ligar as seções da home na varredura do site público (ver a entrada seguinte). O axe acusou `color-contrast` **serious** em 4,27:1 no rótulo "R.S.V.P" da seção de confirmação. Não era um caso isolado:
+
+| Fundo | `#786c64` |
+|---|---|
+| `--color-surface` | 4,87 |
+| `--color-surface-muted` | 4,59 — margem de 2% |
+| tom `accent`, os 8 presets | 4,08 a 4,32 — **todos reprovam** |
+| tom `accent`, extremo teórico | 3,89 |
+
+**Causa raiz**: o token passava no fundo liso com margem fina demais, e qualquer tinta sobre o fundo comia a sobra. O tom `accent` é **derivado** — `color-mix(in srgb, secondary 10%, surface)`, em `PublicEditorialSection` — e a cor secundária é escolhida pelo casal. Ela é validada, mas contra a **superfície**, não contra este par: não existia casamento inválido aqui, existia um par que ninguém media.
+
+**É a terceira ocorrência do mesmo token.** A primeira está relatada no comentário de `tests/e2e/utils/a11y.ts`: `--color-text-muted` sobre o gradiente do Hero, a 4,40:1, invisível para o axe porque gradiente vai para `incomplete` e não para `violations`.
+
+**Correção**: `#786c64` -> `#6a5e56`, escolhido medindo contra os 8 presets **e** contra o extremo teórico (secundária quase preta), pior caso 4,80:1. Baixar o `accent` de 10% para 6% foi considerado e descartado: ainda reprovava em três presets.
+
+**Regra que fica**: fundo DERIVADO de cor escolhida pelo casal precisa do par medido, como já acontece com ornamento sobre primária (`checkOrnamentOnPrimary`). O portão novo é `tests/unit/app/contraste-do-texto-secundario.spec.ts`, que lê o token do CSS e mede contra os três tons, preset a preset — verificado que reprova o valor antigo nos oito.
+
+### Achado real: a varredura do site público media só a capa desde a inversão para opt-in (2026-09-16)
+
+`site-publico-layout.spec.ts` varre quatro caminhos públicos em oito larguras, com acessibilidade em duas delas. Mas o casamento que ele cria não ligava seção nenhuma — e quando `hiddenSections` virou `activeSections` (opt-in, 2026-09-14), "nenhuma seção declarada" deixou de significar "todas" e passou a significar "só a capa".
+
+**Consequência**: o corpo inteiro do site público — história, dress code, manual, FAQ, cronograma, prévia de presentes — parou de ser medido, por layout e por acessibilidade, e **nada acusou a perda de cobertura**. O teste continuou verde o tempo todo, medindo cada vez menos. Foi o que escondeu o achado de contraste acima.
+
+**Correção**: `activeSections: [...DEFAULT_SECTION_ORDER]` no casamento de teste — derivado da fonte única (CLAUDE.md §13), nunca uma segunda lista escrita à mão, para que seção nova no catálogo entre na varredura sozinha.
+
+**O padrão que isso revela**: mudança de default é mudança de cobertura de teste. Um teste que constrói o cenário por omissão mede o que o default dá — e inverter um default o esvazia em silêncio, sem uma única falha para avisar.
+
 ### Achado real: o rótulo do `UiSelect` nunca nomeou o campo no site público — e só o build de produção mostrava (2026-09-16)
 
 Encontrado ao trocar o alvo da suíte E2E do CI do dev server para o `.output` já compilado (ver a entrada seguinte). Com o servidor de produção, a varredura de acessibilidade de `/[slug]/presentes` passou a acusar `button-name` (**crítico**): um `<button role="combobox">` sem nome acessível nenhum.

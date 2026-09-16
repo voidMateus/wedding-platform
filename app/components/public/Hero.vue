@@ -119,8 +119,14 @@ const heroButtons = computed(() =>
 </script>
 
 <template>
+  <!--
+    `superficie-da-capa` (main.css): o texto secundário daqui usa um tom mais
+    forte, porque o fundo desta seção é a foto do casal e uma foto escura o
+    derruba abaixo do AA. É escopo de token, não classe por elemento — assim o
+    `UiCountdownTimer`, que é compartilhado, herda pelo contexto.
+  -->
   <section
-    class="relative flex min-h-[78vh] flex-col items-center justify-center overflow-hidden bg-surface-muted px-6 pt-10 pb-20 text-center sm:pt-12 sm:pb-24"
+    class="superficie-da-capa relative flex min-h-[78vh] flex-col items-center justify-center overflow-hidden bg-surface-muted px-6 pt-10 pb-20 text-center sm:pt-12 sm:pb-24"
   >
     <!--
       ATENÇÃO: a prop `sizes` do NuxtImg NÃO aceita o valor cru do atributo
