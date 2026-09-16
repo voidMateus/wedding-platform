@@ -85,6 +85,36 @@ Encontrado ao validar o cadastro de convidado no navegador: `/admin/{slug}/convi
 
 **Regra que fica**: um componente de `components/ui/` que embrulha um primitive de terceiro precisa absorver as restrições dele, não repassá-las ao chamador — o contrato público do `UiSelect` é "uma lista de `{value, label}`", e o chamador não tem como saber que um valor é proibido.
 
+### Achado real: o rótulo do `UiSelect` nunca nomeou o campo no site público — e só o build de produção mostrava (2026-09-16)
+
+Encontrado ao trocar o alvo da suíte E2E do CI do dev server para o `.output` já compilado (ver a entrada seguinte). Com o servidor de produção, a varredura de acessibilidade de `/[slug]/presentes` passou a acusar `button-name` (**crítico**): um `<button role="combobox">` sem nome acessível nenhum.
+
+**Causa raiz**: `UiSelect` nomeava o campo por **id** — `<label :for="selectId">` apontando para `<SelectTrigger :id="selectId">`, os dois saindo do mesmo `useId()`. No site público (SSR + hidratação), o `<label>` fica com o id gerado no servidor enquanto o subtree do `SelectRoot` é recriado no cliente com outro. Medido: rótulo com `for="v-0-0-0-0-0"` e trigger com `id="v-0-0-1-1-0"` — `document.getElementById` do alvo do `for` devolvendo `null`. Não é o Reka gerando id próprio (o `SelectTrigger` só gera o `contentId`): é divergência de `useId` entre as duas passagens.
+
+**Alcance**: todo `UiSelect` com rótulo visível renderizado sob SSR. O leitor de tela anunciava só "combobox". O painel não sofre (é `ssr: false`), o que explica por que nenhuma das varreduras de acessibilidade do admin pegou.
+
+**Correção**: o nome passa a ser **texto**, não referência — `:aria-label="label ?? ariaLabel"` no trigger. O `for` continua, mas para o que ele de fato entrega aqui: o clique no rótulo focar o campo.
+
+**Regra que fica**: nome acessível de controle dentro de um primitive de terceiro nunca se apoia em id (`for` ou `aria-labelledby`) — o id atravessa duas passagens de render e pode não sobreviver; o texto atravessa.
+
+**Nota de ferramental**: o relatório do axe (`tests/e2e/utils/a11y.ts`) identificava o elemento só pelo seletor, que é um id gerado pelo Vue — não existe no código-fonte e por isso não se acha por grep. Passou a imprimir também o HTML do primeiro nó; foi o que transformou "há um botão sem nome em algum lugar" em "é este".
+
+### Achado real: a suíte E2E rodava contra o dev server, e a corrida de compilação virou três falsos culpados (2026-09-16)
+
+O CI falhava no E2E de forma intermitente, sempre em specs diferentes, com três assinaturas que pareciam bugs distintos:
+
+- `expect(page).toHaveURL` parado em `/login`;
+- `page.goto: net::ERR_ABORTED`;
+- `strict mode violation: getByRole('checkbox') resolved to 2 elements`.
+
+**Causa raiz única**: o `webServer` do Playwright subia `npm run dev`. O Vite compila rota sob demanda e, enquanto faz isso, emite full reload — com `fullyParallel`, os primeiros specs disputam a compilação e pagam a conta. A terceira assinatura é a mais reveladora: `getByRole` só enxerga a árvore de acessibilidade, e a linha de desktop e a do celular da `AdminTable` só se excluem por CSS — com a folha do Tailwind ainda em compilação, as duas estavam expostas.
+
+**Tentativa que não resolveu**: aquecer as rotas num `globalSetup`. Primeiro por `fetch`, que só recebe o HTML do SSR e não pede o bundle do cliente nem o CSS; depois por navegador com login de verdade, que falhou pior — login interativo sobre um Vite ainda compilando é exatamente onde o full reload derruba a navegação em voo, e o próprio setup passou a estourar antes de qualquer teste. Aquecer só muda **quem** paga a compilação.
+
+**Correção**: em CI, o `webServer` sobe `node .output/server/index.mjs` — o mesmo binário que os testes de integração usam desde sempre, e que o pipeline já constrói num passo anterior. Sem compilação sob demanda e sem HMR, a classe inteira de corrida deixa de existir; de quebra, a suíte caiu de ~3,8min para ~1,5min. Fora do CI segue o dev server, onde o valor é o HMR.
+
+**O que isso revelou**: rodar E2E contra o dev server não é só instável — é testar **outro app**. Foi o que escondeu o achado do `UiSelect` acima, que só se manifesta no build de produção.
+
 ### Achado real: todo modal do admin usava os tokens do site público (2026-09-09)
 
 Retorno do usuário depois do rebrand do painel: "as modais atuais ainda não têm o aspecto visual que aplicamos na tela, principalmente fundos e fontes".

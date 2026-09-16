@@ -55,6 +55,9 @@ interface Props {
    * visível é o texto ao lado (ex.: escolher o campo de cada coluna da
    * planilha no importador): um `<label>` por linha seria ruído visual, mas
    * sem nome nenhum o leitor de tela anuncia só "combobox".
+   *
+   * Com `label` presente, ele é que vira o `aria-label` — este só cobre a
+   * ausência dele (ver o comentário no `<label>`, no template).
    */
   ariaLabel?: string
 }
@@ -128,6 +131,19 @@ const selected = computed({
 
 <template>
   <div class="flex flex-col gap-1">
+    <!--
+      O `for` serve ao CLIQUE (focar o campo pelo rótulo), nunca ao nome
+      acessível — quem dá o nome é o `aria-label` do trigger, logo abaixo.
+
+      A distinção não é preciosismo: no site público, já compilado, este
+      `<label>` fica com o id gerado no SSR enquanto o subtree do `SelectRoot`
+      é recriado no cliente com outro, e o `for` passa a apontar para um
+      elemento que não existe. Medido em `/[slug]/presentes`: rótulo com
+      `for="v-0-0-0-0-0"` e trigger com `id="v-0-0-1-1-0"` — o axe acusava
+      `button-name` (crítico) e o leitor de tela anunciava só "combobox".
+      Nome baseado em id (`for` ou `aria-labelledby`) tem sempre esse risco;
+      o texto não tem.
+    -->
     <label v-if="label" :for="selectId" class="text-sm font-medium text-text">
       {{ label }}
     </label>
@@ -139,7 +155,7 @@ const selected = computed({
         :class="VARIANT_CLASSES[variant]"
         :aria-invalid="Boolean(error)"
         :aria-describedby="describedBy"
-        :aria-label="label ? undefined : ariaLabel"
+        :aria-label="label ?? ariaLabel"
       >
         <SelectValue :placeholder="placeholder" class="truncate" />
         <SelectIcon class="shrink-0 text-text-muted">
