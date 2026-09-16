@@ -85,6 +85,47 @@ Encontrado ao validar o cadastro de convidado no navegador: `/admin/{slug}/convi
 
 **Regra que fica**: um componente de `components/ui/` que embrulha um primitive de terceiro precisa absorver as restrições dele, não repassá-las ao chamador — o contrato público do `UiSelect` é "uma lista de `{value, label}`", e o chamador não tem como saber que um valor é proibido.
 
+### Achado real: os ícones do site público saíam do SSR vazios, buscados na API do Iconify (2026-09-16)
+
+O servidor compilado cuspia `[Icon] failed to load icon` — **42 numa única página pública**. O `nuxt.config.ts` dizia, num comentário, que os ícones vinham do pacote local `@iconify-json/lucide` e que isso "evita dependência de rede externa tanto em build quanto em produção". Para o SSR, isso não era verdade.
+
+**Causa raiz**: com SSR ligado, o módulo resolve `provider: 'server'` sozinho. Nesse modo o plugin do `@nuxt/icon` faz `_api.setFetch($fetch.native)` e registra como recurso o caminho **relativo** `/api/_nuxt_icon`. No navegador o relativo resolve contra a origem e funciona — por isso o usuário via os ícones, e por isso ninguém notou. No servidor, `fetch` nativo com caminho relativo não tem origem: falha, e sobra o fallback `https://api.iconify.design`. Ou seja, o `serverBundle` alimentava a rota `/api/_nuxt_icon`, que só o cliente consumia; o SSR nunca a usou.
+
+**Consequência**: a página chegava com `<span class="iconify">` vazio e o ícone aparecia depois da hidratação — e, onde a rede externa responde (a Vercel), cada render do site público dependia de uma API de terceiro. Onde ela não responde (o proxy corporativo desta máquina), falhava por inteiro.
+
+**Correção**: `clientBundle` com `scan`, que embute os ícones usados e os registra com `addIcon()` — consultado ANTES de qualquer rede, nos dois lados. Resultado medido: 42 falhas -> 0, e 34 ícones passando a vir prontos no HTML do SSR.
+
+**Armadilha no caminho**: o scanner do `@nuxt/icon` ignora `.ts` por padrão (só varre `.vue/.jsx/.tsx/.md`, "to improve performance"). Como este projeto guarda catálogos de ícone em módulos `.ts` (tópicos do manual, tipos de etapa do cronograma, seções da home, navegação do painel, regras do diagnóstico interno), a primeira tentativa embutiu 101 ícones e deixou quatro falhando — `bed`, `car`, `church`, `glass-water`. Com `globInclude` cobrindo `shared/**/*.ts` e `app/**/*.ts`: 127 ícones, 37KB não comprimidos (limite do módulo: 256KB).
+
+### Achado real: `--color-text-muted` reprovava no AA sobre o tom `accent` — em TODOS os presets (2026-09-16)
+
+Encontrado ao ligar as seções da home na varredura do site público (ver a entrada seguinte). O axe acusou `color-contrast` **serious** em 4,27:1 no rótulo "R.S.V.P" da seção de confirmação. Não era um caso isolado:
+
+| Fundo | `#786c64` |
+|---|---|
+| `--color-surface` | 4,87 |
+| `--color-surface-muted` | 4,59 — margem de 2% |
+| tom `accent`, os 8 presets | 4,08 a 4,32 — **todos reprovam** |
+| tom `accent`, extremo teórico | 3,89 |
+
+**Causa raiz**: o token passava no fundo liso com margem fina demais, e qualquer tinta sobre o fundo comia a sobra. O tom `accent` é **derivado** — `color-mix(in srgb, secondary 10%, surface)`, em `PublicEditorialSection` — e a cor secundária é escolhida pelo casal. Ela é validada, mas contra a **superfície**, não contra este par: não existia casamento inválido aqui, existia um par que ninguém media.
+
+**É a terceira ocorrência do mesmo token.** A primeira está relatada no comentário de `tests/e2e/utils/a11y.ts`: `--color-text-muted` sobre o gradiente do Hero, a 4,40:1, invisível para o axe porque gradiente vai para `incomplete` e não para `violations`.
+
+**Correção**: `#786c64` -> `#6a5e56`, escolhido medindo contra os 8 presets **e** contra o extremo teórico (secundária quase preta), pior caso 4,80:1. Baixar o `accent` de 10% para 6% foi considerado e descartado: ainda reprovava em três presets.
+
+**Regra que fica**: fundo DERIVADO de cor escolhida pelo casal precisa do par medido, como já acontece com ornamento sobre primária (`checkOrnamentOnPrimary`). O portão novo é `tests/unit/app/contraste-do-texto-secundario.spec.ts`, que lê o token do CSS e mede contra os três tons, preset a preset — verificado que reprova o valor antigo nos oito.
+
+### Achado real: a varredura do site público media só a capa desde a inversão para opt-in (2026-09-16)
+
+`site-publico-layout.spec.ts` varre quatro caminhos públicos em oito larguras, com acessibilidade em duas delas. Mas o casamento que ele cria não ligava seção nenhuma — e quando `hiddenSections` virou `activeSections` (opt-in, 2026-09-14), "nenhuma seção declarada" deixou de significar "todas" e passou a significar "só a capa".
+
+**Consequência**: o corpo inteiro do site público — história, dress code, manual, FAQ, cronograma, prévia de presentes — parou de ser medido, por layout e por acessibilidade, e **nada acusou a perda de cobertura**. O teste continuou verde o tempo todo, medindo cada vez menos. Foi o que escondeu o achado de contraste acima.
+
+**Correção**: `activeSections: [...DEFAULT_SECTION_ORDER]` no casamento de teste — derivado da fonte única (CLAUDE.md §13), nunca uma segunda lista escrita à mão, para que seção nova no catálogo entre na varredura sozinha.
+
+**O padrão que isso revela**: mudança de default é mudança de cobertura de teste. Um teste que constrói o cenário por omissão mede o que o default dá — e inverter um default o esvazia em silêncio, sem uma única falha para avisar.
+
 ### Achado real: o rótulo do `UiSelect` nunca nomeou o campo no site público — e só o build de produção mostrava (2026-09-16)
 
 Encontrado ao trocar o alvo da suíte E2E do CI do dev server para o `.output` já compilado (ver a entrada seguinte). Com o servidor de produção, a varredura de acessibilidade de `/[slug]/presentes` passou a acusar `button-name` (**crítico**): um `<button role="combobox">` sem nome acessível nenhum.
