@@ -97,6 +97,31 @@ O servidor compilado cuspia `[Icon] failed to load icon` — **42 numa única p�
 
 **Armadilha no caminho**: o scanner do `@nuxt/icon` ignora `.ts` por padrão (só varre `.vue/.jsx/.tsx/.md`, "to improve performance"). Como este projeto guarda catálogos de ícone em módulos `.ts` (tópicos do manual, tipos de etapa do cronograma, seções da home, navegação do painel, regras do diagnóstico interno), a primeira tentativa embutiu 101 ícones e deixou quatro falhando — `bed`, `car`, `church`, `glass-water`. Com `globInclude` cobrindo `shared/**/*.ts` e `app/**/*.ts`: 127 ícones, 37KB não comprimidos (limite do módulo: 256KB).
 
+### Achado real: a foto de capa do casal derrubava o texto do Hero abaixo do AA (2026-09-16)
+
+Encontrado ao investigar o que o axe reporta como `incomplete` no site público — os 18 elementos do Hero que ele "examinou e não conseguiu decidir". A suspeita era o gradiente; o culpado era outro.
+
+**O gradiente não é o problema.** As duas camadas do Hero são branco sobre o fundo (`rgba(255,255,255,0.5)` e um radial branco a 0.45): elas só CLAREIAM, e para texto escuro clarear aumenta o contraste. Não têm como reprovar. O axe as manda para `incomplete` porque não resolve gradiente, e foi isso que por muito tempo fez a região parecer verde sem nunca ter sido medida.
+
+**O problema é a foto de capa** (`coverImageUrl`), renderizada a `opacity-20` sobre `--color-surface-muted`:
+
+| Foto | Fundo efetivo | `text-muted` |
+|---|---|---|
+| nenhuma | `#f7f3e9` | 5,66 |
+| média | `#dedbd3` | 4,72 |
+| escura | `#cfccc4` | 4,02 |
+| preta | `#c6c2ba` | **3,53** |
+
+Foto escura é comum — recepção à noite, terno preto. E imagem não se valida como cor num seletor: o único piso possível é supor o extremo e exigir que o texto sobreviva a ele.
+
+**Três saídas foram medidas antes de escolher**: escurecer o token global (`#5c5149` passa com 4,33 no pior caso, mas a separação entre texto secundário e principal cai de 2,49x para 2,03x **no site inteiro**, para consertar uma seção); baixar a foto para `opacity-12` (passa com 4,58, apagando a imagem que é o centro da página); e um véu branco (precisa de 35% para 4,54, lavando mais ainda). As três cobram caro e nenhuma tem margem confortável.
+
+**Correção**: `.superficie-da-capa` redefine `--color-text-muted` para `#524840` **só dentro do Hero** — 5,01:1 no pior fundo possível, 8,03:1 sem foto, e ainda 1,75x mais leve que o texto principal. Escopo de token e não classe por elemento, porque o `UiCountdownTimer` vive ali dentro e é compartilhado com outras telas: o token precisa mudar pelo CONTEXTO, mesmo mecanismo de `.superficie-do-convite` e `.marca-da-plataforma`. De quebra, texto novo no Hero herda a correção sem ninguém lembrar dela.
+
+**Nota de método, porque a primeira medição estava errada pelo motivo certo**: medir subindo a árvore de ancestrais atrás do fundo devolveu 5,66 — número plausível e sem valor, porque o elemento onde a busca parou tinha `background-image: none`: ela achou um fundo sólido e ignorou as camadas SOBREPOSTAS, que não são ancestrais. A segunda medição amostrou os pixels renderizados. Essa também tem limite: para os nomes do casal em 72px, as letras ocupam mais da metade da caixa e a cor mais frequente vira a do PRÓPRIO TEXTO, produzindo 1,00:1 — falha do método, não do desenho.
+
+**Regra que fica**: o portão (`tests/unit/app/contraste-do-texto-secundario.spec.ts`) afirma também o negativo — que o token GLOBAL não sobreviveria à foto preta. É o que dá prazo de validade ao escopo: se um dia o global passar a sobreviver sozinho, `.superficie-da-capa` virou peso morto e o teste avisa, em vez de deixá-lo apodrecer como exceção que ninguém lembra por que existe.
+
 ### Achado real: `--color-text-muted` reprovava no AA sobre o tom `accent` — em TODOS os presets (2026-09-16)
 
 Encontrado ao ligar as seções da home na varredura do site público (ver a entrada seguinte). O axe acusou `color-contrast` **serious** em 4,27:1 no rótulo "R.S.V.P" da seção de confirmação. Não era um caso isolado:

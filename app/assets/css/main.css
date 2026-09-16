@@ -541,6 +541,37 @@ body {
    Cor de ESTADO (danger/success/warning) não entra: continua sendo convenção
    da plataforma inteira, e "Excluir casamento" precisa ler igual nos dois
    painéis. */
+/* A capa é a única superfície do produto cujo fundo é CONTEÚDO DO CASAL.
+ *
+ * O Hero põe a foto de capa a 20% de opacidade sobre `--color-surface-muted`,
+ * e uma foto escura — recepção à noite, terno preto — baixa o fundo efetivo
+ * até `#c6c2ba` no extremo. Sobre isso, `--color-text-muted` mede 3,53:1 e
+ * reprova no AA: "Vamos nos casar", a data, os rótulos da contagem regressiva e
+ * "Role para descobrir" ficam abaixo do mínimo justamente na primeira tela que
+ * todo convidado vê.
+ *
+ * As duas camadas de gradiente do Hero NÃO são o problema, ao contrário do que
+ * o `incomplete` do axe sugere: são branco sobre o fundo, e clarear só aumenta
+ * o contraste de texto escuro. O que varia é a foto.
+ *
+ * Por que um escopo e não trocar a classe em cada elemento: o `UiCountdownTimer`
+ * vive aqui dentro e é compartilhado com outras telas, então o token precisa
+ * mudar pelo CONTEXTO, não pelo componente — mesmo mecanismo de
+ * `.superficie-do-convite` e `.marca-da-plataforma`. De quebra, texto novo no
+ * Hero herda a correção sem ninguém precisar lembrar dela.
+ *
+ * Por que só aqui: escurecer o token global resolveria a capa e cobraria
+ * hierárquia no site inteiro — a separação entre texto secundário e principal
+ * cairia de 2,49x para 2,03x em toda página, para consertar uma seção. Baixar a
+ * opacidade da foto (o outro caminho medido) apagaria a imagem que é o centro
+ * da página. Este valor mede 5,01:1 no pior fundo possível e 8,03:1 sem foto,
+ * continuando 1,75x mais leve que o texto principal — medido em
+ * `tests/unit/app/contraste-do-texto-secundario.spec.ts`.
+ */
+.superficie-da-capa {
+  --color-text-muted: #524840;
+}
+
 .marca-da-plataforma {
   --color-primary: #44507a;
   --color-primary-foreground: #ffffff;

@@ -70,6 +70,65 @@ const FUNDOS: Array<[string, string]> = [
   ['accent no extremo (secundária preta)', tomAccent(SECUNDARIA_MAIS_ESCURA_POSSIVEL)],
 ]
 
+/**
+ * A capa é a única superfície cujo fundo é CONTEÚDO DO CASAL.
+ *
+ * O Hero põe `coverImageUrl` a 20% de opacidade sobre `--color-surface-muted`.
+ * Uma foto escura — recepção à noite, terno preto — é comum, e nada pode
+ * validá-la: é imagem, não cor escolhida num seletor. Então o único piso
+ * possível é supor o extremo (foto preta) e exigir que o texto sobreviva a ele.
+ *
+ * O gradiente do Hero fica de fora de propósito: as duas camadas são BRANCO
+ * sobre o fundo, e clarear só aumenta o contraste de texto escuro — medi-las
+ * seria medir o caso fácil. O axe as reporta como `incomplete` (não consegue
+ * resolver gradiente), e foi isso que por muito tempo fez esta região parecer
+ * verde sem nunca ter sido medida.
+ */
+const OPACIDADE_DA_FOTO_DE_CAPA = 0.2
+
+/** Par em `PublicHero`: a foto entra sobre o tom discreto, não sobre a superfície. */
+const BASE_DA_CAPA = SURFACE_MUTED
+
+function capaComFotoPreta(): string {
+  const canal = (i: number) => {
+    const base = Number.parseInt(BASE_DA_CAPA.slice(1 + i * 2, 3 + i * 2), 16)
+    return Math.round(base * (1 - OPACIDADE_DA_FOTO_DE_CAPA))
+  }
+  return `#${[0, 1, 2].map((i) => canal(i).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** O token que `.superficie-da-capa` redefine para o texto secundário do Hero. */
+function tokenDaCapa(): string {
+  const bloco = CSS.slice(CSS.indexOf('.superficie-da-capa'))
+  const match = bloco.match(/--color-text-muted:\s*(#[0-9a-f]{6})/i)
+  expect(match?.[1], '--color-text-muted não encontrado em .superficie-da-capa').toBeDefined()
+  return match![1]!
+}
+
+describe('contraste do texto secundário na capa', () => {
+  it('sobrevive à foto de capa mais escura possível', () => {
+    expect(getContrastRatio(tokenDaCapa(), capaComFotoPreta())).toBeGreaterThanOrEqual(
+      WCAG_AA_MIN_CONTRAST,
+    )
+  })
+
+  /**
+   * O token global NÃO sobrevive — e é exatamente por isso que a capa tem escopo
+   * próprio. Se algum dia ele passar a sobreviver, este escopo virou peso morto e
+   * deve sair; é o teste que avisa.
+   */
+  it('e o token global não sobreviveria, que é a razão de o escopo existir', () => {
+    expect(getContrastRatio(TEXT_MUTED, capaComFotoPreta())).toBeLessThan(WCAG_AA_MIN_CONTRAST)
+  })
+
+  it('continua mais leve que o texto principal dentro da capa', () => {
+    const principal = token('--color-text')
+    expect(getContrastRatio(tokenDaCapa(), BASE_DA_CAPA)).toBeLessThan(
+      getContrastRatio(principal, BASE_DA_CAPA),
+    )
+  })
+})
+
 describe('contraste do texto secundário no site público', () => {
   it.each(FUNDOS)('passa no AA sobre %s', (_onde, fundo) => {
     expect(getContrastRatio(TEXT_MUTED, fundo)).toBeGreaterThanOrEqual(WCAG_AA_MIN_CONTRAST)
