@@ -47,6 +47,39 @@ export default defineNuxtConfig({
         })
       })
     },
+
+    // Continuação do achado acima. O plugin substituto faz `await
+    // import('@supabase/ssr')` e só executa em /admin, /login e /plataforma —
+    // mas plugin vive no chunk de entrada, e o Vite marca todo alvo de import
+    // dinâmico para `<link rel="prefetch">`. Resultado medido no build de
+    // produção: a página pública de um casamento não *executa* o SDK, mas
+    // manda o navegador baixar os ~61 kB gzip dele assim que fica ocioso —
+    // para todo convidado, que nunca vai fazer login. O early-return corta a
+    // execução, não o download.
+    //
+    // Prefetch desligado só para esses chunks: /admin e /login passam a
+    // baixar o SDK sob demanda, no próprio import do plugin. Troca deliberada
+    // — um custo único para o casal, que faz login raramente, em vez de um
+    // custo recorrente para cada convidado no celular.
+    (_options, nuxt) => {
+      nuxt.hook('build:manifest', (manifest) => {
+        const desligados: string[] = []
+        for (const [id, entrada] of Object.entries(manifest)) {
+          if (!id.includes('@supabase')) continue
+          entrada.prefetch = false
+          entrada.preload = false
+          desligados.push(id)
+        }
+        // Silêncio aqui significaria que o id do módulo mudou (atualização do
+        // pacote, outro layout de node_modules) e o prefetch voltou sem
+        // ninguém perceber — mesmo tipo de acoplamento do filtro acima.
+        console.info(
+          desligados.length
+            ? `[build] prefetch do SDK Supabase desligado: ${desligados.join(', ')}`
+            : '[build] AVISO: nenhum chunk @supabase encontrado no manifesto — o prefetch do SDK pode ter voltado para as páginas públicas.',
+        )
+      })
+    },
   ],
 
   css: ['~/assets/css/main.css'],

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -154,8 +154,8 @@ export type Database = {
           arquivado_em: string | null
           config_comunicacao: Json
           config_conteudo: Json | null
-          config_lembretes: Json
           config_faixas_etarias: Json
+          config_lembretes: Json
           config_tema: Json
           created_at: string
           data_evento: string
@@ -177,8 +177,8 @@ export type Database = {
           arquivado_em?: string | null
           config_comunicacao?: Json
           config_conteudo?: Json | null
-          config_lembretes?: Json
           config_faixas_etarias?: Json
+          config_lembretes?: Json
           config_tema?: Json
           created_at?: string
           data_evento: string
@@ -200,8 +200,8 @@ export type Database = {
           arquivado_em?: string | null
           config_comunicacao?: Json
           config_conteudo?: Json | null
-          config_lembretes?: Json
           config_faixas_etarias?: Json
+          config_lembretes?: Json
           config_tema?: Json
           created_at?: string
           data_evento?: string
@@ -551,10 +551,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gift_contributions_group_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gift_contributions_guest_id_fkey"
             columns: ["convidado_id"]
             isOneToOne: false
             referencedRelation: "convidados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_contributions_guest_id_fkey"
+            columns: ["convidado_id"]
+            isOneToOne: false
+            referencedRelation: "convidados_com_status"
             referencedColumns: ["id"]
           },
           {
@@ -745,6 +759,13 @@ export type Database = {
             referencedRelation: "convidados"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invites_responsible_guest_id_fkey"
+            columns: ["convidado_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "convidados_com_status"
+            referencedColumns: ["id"]
+          },
         ]
       }
       credenciais_acesso_convite: {
@@ -784,6 +805,13 @@ export type Database = {
             columns: ["convite_id"]
             isOneToOne: false
             referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_access_tokens_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
             referencedColumns: ["id"]
           },
           {
@@ -859,56 +887,6 @@ export type Database = {
           },
         ]
       }
-      elementos_planta: {
-        Row: {
-          casamento_id: string
-          created_at: string
-          id: string
-          largura_cm: number
-          nome: string | null
-          posicao_x_cm: number
-          posicao_y_cm: number
-          profundidade_cm: number
-          rotacao_graus: number
-          tipo: string
-          updated_at: string
-        }
-        Insert: {
-          casamento_id: string
-          created_at?: string
-          id?: string
-          largura_cm?: number
-          nome?: string | null
-          posicao_x_cm?: number
-          posicao_y_cm?: number
-          profundidade_cm?: number
-          rotacao_graus?: number
-          tipo: string
-          updated_at?: string
-        }
-        Update: {
-          casamento_id?: string
-          created_at?: string
-          id?: string
-          largura_cm?: number
-          nome?: string | null
-          posicao_x_cm?: number
-          posicao_y_cm?: number
-          profundidade_cm?: number
-          rotacao_graus?: number
-          tipo?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "elementos_planta_casamento_id_fkey"
-            columns: ["casamento_id"]
-            isOneToOne: false
-            referencedRelation: "casamentos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       documentos: {
         Row: {
           caminho_storage: string | null
@@ -975,6 +953,56 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elementos_planta: {
+        Row: {
+          casamento_id: string
+          created_at: string
+          id: string
+          largura_cm: number
+          nome: string | null
+          posicao_x_cm: number
+          posicao_y_cm: number
+          profundidade_cm: number
+          rotacao_graus: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          casamento_id: string
+          created_at?: string
+          id?: string
+          largura_cm?: number
+          nome?: string | null
+          posicao_x_cm?: number
+          posicao_y_cm?: number
+          profundidade_cm?: number
+          rotacao_graus?: number
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          casamento_id?: string
+          created_at?: string
+          id?: string
+          largura_cm?: number
+          nome?: string | null
+          posicao_x_cm?: number
+          posicao_y_cm?: number
+          profundidade_cm?: number
+          rotacao_graus?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elementos_planta_casamento_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
             referencedColumns: ["id"]
           },
         ]
@@ -1072,6 +1100,38 @@ export type Database = {
           },
         ]
       }
+      etiquetas_convite: {
+        Row: {
+          casamento_id: string
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          casamento_id: string
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          casamento_id?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_tags_wedding_id_fkey"
+            columns: ["casamento_id"]
+            isOneToOne: false
+            referencedRelation: "casamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eventos_email: {
         Row: {
           casamento_id: string
@@ -1117,31 +1177,90 @@ export type Database = {
           },
         ]
       }
-      etiquetas_convite: {
+      exclusoes_de_casamento: {
         Row: {
           casamento_id: string
+          contagem_convidados: number
           created_at: string
+          data_evento: string
           id: string
-          nome: string
-          updated_at: string
+          nomes_noivos: string
+          operador_id: string | null
+          slug: string
+          status_ciclo_vida: string
         }
         Insert: {
           casamento_id: string
+          contagem_convidados?: number
           created_at?: string
+          data_evento: string
           id?: string
-          nome: string
-          updated_at?: string
+          nomes_noivos: string
+          operador_id?: string | null
+          slug: string
+          status_ciclo_vida: string
         }
         Update: {
           casamento_id?: string
+          contagem_convidados?: number
           created_at?: string
+          data_evento?: string
           id?: string
-          nome?: string
+          nomes_noivos?: string
+          operador_id?: string | null
+          slug?: string
+          status_ciclo_vida?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exclusoes_de_casamento_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores_plataforma"
+            referencedColumns: ["usuario_id"]
+          },
+        ]
+      }
+      fila_processamento: {
+        Row: {
+          casamento_id: string | null
+          created_at: string
+          dados: Json
+          executar_em: string
+          id: string
+          status_tarefa: string
+          tentativas: number
+          tipo: string
+          ultimo_erro: string | null
+          updated_at: string
+        }
+        Insert: {
+          casamento_id?: string | null
+          created_at?: string
+          dados?: Json
+          executar_em?: string
+          id?: string
+          status_tarefa?: string
+          tentativas?: number
+          tipo: string
+          ultimo_erro?: string | null
+          updated_at?: string
+        }
+        Update: {
+          casamento_id?: string | null
+          created_at?: string
+          dados?: Json
+          executar_em?: string
+          id?: string
+          status_tarefa?: string
+          tentativas?: number
+          tipo?: string
+          ultimo_erro?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "invite_tags_wedding_id_fkey"
+            foreignKeyName: "jobs_wedding_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
@@ -1418,6 +1537,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invite_events_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invite_events_wedding_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
@@ -1650,6 +1776,13 @@ export type Database = {
             columns: ["convite_id"]
             isOneToOne: false
             referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_payments_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
             referencedColumns: ["id"]
           },
           {
@@ -1896,10 +2029,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gift_reservations_group_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gift_reservations_guest_id_fkey"
             columns: ["convidado_id"]
             isOneToOne: false
             referencedRelation: "convidados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_reservations_guest_id_fkey"
+            columns: ["convidado_id"]
+            isOneToOne: false
+            referencedRelation: "convidados_com_status"
             referencedColumns: ["id"]
           },
           {
@@ -1951,6 +2098,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "rsvp_responses_guest_id_fkey"
+            columns: ["convidado_id"]
+            isOneToOne: false
+            referencedRelation: "convidados_com_status"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "rsvp_responses_invite_id_fkey"
             columns: ["convite_id"]
             isOneToOne: false
@@ -1958,54 +2112,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rsvp_responses_wedding_id_fkey"
-            columns: ["casamento_id"]
+            foreignKeyName: "rsvp_responses_invite_id_fkey"
+            columns: ["convite_id"]
             isOneToOne: false
-            referencedRelation: "casamentos"
+            referencedRelation: "convites_com_resumo"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      fila_processamento: {
-        Row: {
-          casamento_id: string | null
-          created_at: string
-          dados: Json
-          executar_em: string
-          id: string
-          status_tarefa: string
-          tentativas: number
-          tipo: string
-          ultimo_erro: string | null
-          updated_at: string
-        }
-        Insert: {
-          casamento_id?: string | null
-          created_at?: string
-          dados?: Json
-          executar_em?: string
-          id?: string
-          status_tarefa?: string
-          tentativas?: number
-          tipo: string
-          ultimo_erro?: string | null
-          updated_at?: string
-        }
-        Update: {
-          casamento_id?: string | null
-          created_at?: string
-          dados?: Json
-          executar_em?: string
-          id?: string
-          status_tarefa?: string
-          tentativas?: number
-          tipo?: string
-          ultimo_erro?: string | null
-          updated_at?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "jobs_wedding_id_fkey"
+            foreignKeyName: "rsvp_responses_wedding_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
@@ -2060,50 +2174,6 @@ export type Database = {
           },
         ]
       }
-      exclusoes_de_casamento: {
-        Row: {
-          casamento_id: string
-          contagem_convidados: number
-          created_at: string
-          data_evento: string
-          id: string
-          nomes_noivos: string
-          operador_id: string | null
-          slug: string
-          status_ciclo_vida: string
-        }
-        Insert: {
-          casamento_id: string
-          contagem_convidados?: number
-          created_at?: string
-          data_evento: string
-          id?: string
-          nomes_noivos: string
-          operador_id?: string | null
-          slug: string
-          status_ciclo_vida: string
-        }
-        Update: {
-          casamento_id?: string
-          contagem_convidados?: number
-          created_at?: string
-          data_evento?: string
-          id?: string
-          nomes_noivos?: string
-          operador_id?: string | null
-          slug?: string
-          status_ciclo_vida?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "exclusoes_de_casamento_operador_id_fkey"
-            columns: ["operador_id"]
-            isOneToOne: false
-            referencedRelation: "operadores_plataforma"
-            referencedColumns: ["usuario_id"]
-          },
-        ]
-      }
       trilha_auditoria: {
         Row: {
           acao: string
@@ -2150,18 +2220,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "trilha_auditoria_autor_operador_id_fkey"
-            columns: ["autor_operador_id"]
-            isOneToOne: false
-            referencedRelation: "operadores_plataforma"
-            referencedColumns: ["usuario_id"]
-          },
-          {
             foreignKeyName: "audit_logs_wedding_id_fkey"
             columns: ["casamento_id"]
             isOneToOne: false
             referencedRelation: "casamentos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trilha_auditoria_autor_operador_id_fkey"
+            columns: ["autor_operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores_plataforma"
+            referencedColumns: ["usuario_id"]
           },
         ]
       }
@@ -2187,6 +2257,13 @@ export type Database = {
             columns: ["convite_id"]
             isOneToOne: false
             referencedRelation: "convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_tag_links_invite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "convites_com_resumo"
             referencedColumns: ["id"]
           },
           {
@@ -2324,6 +2401,7 @@ export type Database = {
         Args: { p_casamento_id: string; p_ids: string[] }
         Returns: Json
       }
+      buckets_contabilizados: { Args: never; Returns: string[] }
       buscar_convidados_por_nome: {
         Args: { p_busca: string; p_casamento_id: string; p_limite?: number }
         Returns: {
@@ -2340,56 +2418,6 @@ export type Database = {
           p_reserva_id: string
         }
         Returns: undefined
-      }
-      criar_casamento_com_dono: {
-        Args: {
-          p_data_evento: string
-          p_nomes_noivos: string
-          p_operador: string
-          p_slug: string
-          p_usuario_dono: string
-        }
-        Returns: {
-          arquivado_em: string | null
-          config_comunicacao: Json
-          config_conteudo: Json | null
-          config_lembretes: Json
-          config_faixas_etarias: Json
-          config_tema: Json
-          created_at: string
-          data_evento: string
-          handle_infinitepay: string | null
-          horario_evento: string | null
-          id: string
-          modo_entrega_presente_fisico: string
-          modo_lista_convidados: string
-          nomes_noivos: string
-          orcamento_total_centavos: number | null
-          planta_largura_cm: number | null
-          planta_profundidade_cm: number | null
-          prazo_rsvp: string | null
-          slug: string
-          status_ciclo_vida: string
-          updated_at: string
-        }
-      }
-      buckets_contabilizados: {
-        Args: Record<PropertyKey, never>
-        Returns: string[]
-      }
-      uso_de_storage_por_casamento: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          bytes: number
-          casamento_id: string
-        }[]
-      }
-      ultima_atividade_por_casamento: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          casamento_id: string
-          ultima_atividade: string
-        }[]
       }
       confirmar_pagamento_presente: {
         Args: { p_pagamento_id: string }
@@ -2428,6 +2456,64 @@ export type Database = {
         Args: { p_apelido: string; p_busca: string; p_nome_completo: string }
         Returns: boolean
       }
+      criar_casamento_com_dono: {
+        Args: {
+          p_data_evento: string
+          p_nomes_noivos: string
+          p_operador: string
+          p_slug: string
+          p_usuario_dono: string
+        }
+        Returns: {
+          arquivado_em: string | null
+          config_comunicacao: Json
+          config_conteudo: Json | null
+          config_faixas_etarias: Json
+          config_lembretes: Json
+          config_tema: Json
+          created_at: string
+          data_evento: string
+          handle_infinitepay: string | null
+          horario_evento: string | null
+          id: string
+          modo_entrega_presente_fisico: string
+          modo_lista_convidados: string
+          nomes_noivos: string
+          orcamento_total_centavos: number | null
+          planta_largura_cm: number | null
+          planta_profundidade_cm: number | null
+          prazo_rsvp: string | null
+          slug: string
+          status_ciclo_vida: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "casamentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      excluir_casamento: {
+        Args: { p_casamento_id: string; p_operador: string }
+        Returns: {
+          casamento_id: string
+          contagem_convidados: number
+          created_at: string
+          data_evento: string
+          id: string
+          nomes_noivos: string
+          operador_id: string | null
+          slug: string
+          status_ciclo_vida: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "exclusoes_de_casamento"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       finalizar_rsvp_convite: {
         Args: {
           p_acompanhantes?: Json
@@ -2458,23 +2544,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      importar_convidados: {
+        Args: {
+          p_casamento_id: string
+          p_criar_vinculos_novos?: boolean
+          p_linhas: Json
+        }
+        Returns: Json
+      }
       is_dono_casamento: { Args: { p_wedding_id: string }; Returns: boolean }
       is_membro_casamento: { Args: { p_wedding_id: string }; Returns: boolean }
-      excluir_casamento: {
-        Args: { p_casamento_id: string; p_operador: string }
-        Returns: {
-          casamento_id: string
-          contagem_convidados: number
-          created_at: string
-          data_evento: string
-          id: string
-          nomes_noivos: string
-          operador_id: string | null
-          slug: string
-          status_ciclo_vida: string
-        }
-      }
       is_slug_reservado: { Args: { p_slug: string }; Returns: boolean }
+      nome_normalizado: { Args: { p_nome: string }; Returns: string }
+      normalizar_nucleo_acompanhantes: {
+        Args: { p_nucleo_id: string }
+        Returns: undefined
+      }
+      pode_gerenciar_papel: {
+        Args: { p_papel_alvo: string; p_wedding_id: string }
+        Returns: boolean
+      }
+      posto_do_papel: { Args: { p_papel: string }; Returns: number }
       reservar_presente: {
         Args: {
           p_convidado_id?: string
@@ -2531,10 +2621,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      normalizar_nucleo_acompanhantes: {
-        Args: { p_nucleo_id: string }
-        Returns: undefined
-      }
       sincronizar_nucleo_convidado: {
         Args: {
           p_acompanhantes?: Json
@@ -2546,7 +2632,21 @@ export type Database = {
         }
         Returns: Json
       }
+      ultima_atividade_por_casamento: {
+        Args: never
+        Returns: {
+          casamento_id: string
+          ultima_atividade: string
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
+      uso_de_storage_por_casamento: {
+        Args: never
+        Returns: {
+          bytes: number
+          casamento_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -2565,12 +2665,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2594,11 +2694,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2619,11 +2719,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2644,11 +2744,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2661,11 +2761,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

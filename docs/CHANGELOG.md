@@ -51,6 +51,20 @@ Isso **não** absolve o LCP de 5,8s. Só move a investigação para onde ela tem
 
 **A lição de método, que vale mais que o número:** antes de registrar um achado de performance, medir o que se afirma. "O manifesto de rotas do admin entra no chunk inicial" era verdade e irrelevante; a frase seguinte ("hidratação bloqueada por JS do admin") não foi verificada e virou prioridade por oito meses.
 
+### O SDK do Supabase era prefetchado no site público — o que a medição acima não alcançou (medido em 2026-09-04, integrado em 2026-09-16)
+
+A entrada acima leu os `modulepreload` da resposta e concluiu que não há `GoTrueClient`/`SupabaseClient` no que a home pública **pré-carrega**. Continua verdade, e não fecha o assunto: `<link rel="prefetch">` é **outra** dica, sobre **outros** chunks. Por ela, o SDK do Supabase — `@supabase/ssr` + `@supabase/supabase-js`, 232 kB (**61 kB gzip**) — era baixado pelo navegador de todo convidado.
+
+A causa é uma sutileza de como o Vite trata import dinâmico. `app/plugins/supabase-auth.client.ts` já fazia a coisa certa: `await import('@supabase/ssr')` dentro de um plugin que retorna cedo em qualquer rota que não seja `/admin`, `/login` ou `/plataforma`. Só que **plugin vive no chunk de entrada**, e o Vite marca todo alvo de import dinâmico para prefetch. O early-return corta a *execução* do SDK; não corta o *download*. O navegador do convidado baixava os 61 kB assim que ficava ocioso, para nunca usá-los.
+
+**Correção**: um módulo inline em `nuxt.config.ts`, no hook `build:manifest`, desliga `prefetch`/`preload` das entradas `@supabase` do manifesto. `/admin` e `/login` passam a baixar o SDK sob demanda, no próprio import do plugin — custo único para o casal, que faz login raramente, no lugar de um custo recorrente para cada convidado no celular. O hook loga o que desligou e **avisa alto se não encontrar nada**, porque um id de módulo mudado (atualização do pacote) faria o prefetch voltar em silêncio — mesmo acoplamento do filtro de plugin logo acima dele.
+
+**Medido, antes → depois**, na página pública de um casamento: em 2026-09-04, prefetch de 7 chunks / 242 kB (67 kB gzip) → 6 chunks / 14 kB (**6 kB gzip**). Validado com Chromium de verdade na mesma data: em `/teste-dev` o chunk do SDK não é requisitado; em `/login` é, sem erro de console. **Reconferido em 2026-09-16**, no rebase sobre a `main` — o projeto cresceu muito no intervalo, e o número absoluto com ele: a home pública prefetcha 21 chunks / 88 kB (**32 kB gzip**), e o chunk do SDK (234 kB / **61 kB gzip**) continua fora deles. Com ele dentro, seriam 93 kB gzip — a economia é quase dois terços de tudo que a página manda o navegador buscar por antecipação.
+
+**A lição de método, irmã da de cima:** "não está no que se pré-carrega" não é "não é baixado". Uma medição de bundle precisa dizer **qual** dica ela leu — `modulepreload` e `prefetch` respondem perguntas diferentes, e é a segunda que descreve o que o celular do convidado gasta de rede sem nunca usar.
+
+**Observação não perseguida**: a página pública emite `Hydration completed but contains mismatches` no console. É anterior a esta mudança por mecanismo (desligar uma dica de `prefetch` não afeta render de servidor vs. cliente), e o achado do `UiSelect` (2026-09-16, mais abaixo) descreve um candidato concreto: `useId()` divergindo entre as duas passagens de render, com o subtree do `SelectRoot` recriado no cliente. Aquela correção trocou o nome acessível por texto, mas não removeu a divergência de id. Fica registrado para investigação à parte.
+
 ### Achado: campo de valor de presente empurrava os dígitos para a direita da vírgula
 
 Reportado pelo usuário: ao digitar no "Preço estimado" do formulário de presente, o campo chegava a estados como `1.00000` — cada tecla nova acrescentava um dígito à direita do separador decimal, em vez de manter o formato `0,00`.
