@@ -218,3 +218,79 @@ test('páginas públicas não estouram nem encostam nas bordas, de 320px a 1440p
     await deleteTestWedding(admin, wedding.id)
   }
 })
+
+/**
+ * A promessa de hidratação do site público: o servidor e o cliente produzem a
+ * MESMA árvore.
+ *
+ * Nasceu de um defeito real e silencioso — a página pública emitia `Hydration
+ * completed but contains mismatches` no console desde sempre, e ninguém
+ * falhava por isso. A causa era a contagem regressiva (o segundo calculado no
+ * SSR já tinha passado quando o cliente hidratava); a correção foi declarar a
+ * divergência com `data-allow-mismatch="text"` no nó certo.
+ *
+ * O teste assere o CONSOLE, e não o atributo, de propósito: um teste sobre o
+ * atributo só protege o defeito já conhecido, e este protege a promessa —
+ * qualquer nova divergência, de qualquer componente, falha aqui. É também o
+ * formato que sobrevive ao build de produção, onde o Vue já não diz qual nó
+ * divergiu, só que divergiu.
+ */
+test('site público hidrata sem divergência entre servidor e cliente', async ({ page }) => {
+  test.setTimeout(120_000)
+  const admin = getServiceRoleClient()
+
+  const wedding = await createTestWedding(admin, {
+    nomes_noivos: 'Helena & Rodrigo',
+    config_tema: {
+      showCountdown: true,
+      activeSections: [...DEFAULT_SECTION_ORDER],
+    },
+  })
+
+  const divergencias: string[] = []
+  page.on('console', (msg) => {
+    if (/hydrat/i.test(msg.text())) divergencias.push(msg.text())
+  })
+
+  /**
+   * Fora do CI o alvo é o dev server, que compila rota sob demanda e emite
+   * full reload enquanto faz isso — e uma hidratação interrompida no meio
+   * acusa divergência que não é do produto (a mesma corrida que tirou a suíte
+   * do dev server em CI). O critério que separa uma coisa da outra é a
+   * **repetição**: divergência de verdade é determinística, porque está no
+   * componente; a da compilação acontece uma vez e some quando a rota esfria.
+   *
+   * Daí a carga ser repetida até três vezes, falhando só se a divergência
+   * sobreviver a todas. Em CI, contra o `.output`, não há compilação nenhuma e
+   * a primeira tentativa já decide.
+   */
+  async function medirDivergencias(caminho: string): Promise<string[]> {
+    let ultimas: string[] = []
+
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      divergencias.length = 0
+      await page.goto(`/${wedding.slug}${caminho}`)
+      // A divergência é reportada durante a hidratação, que acontece depois do
+      // primeiro paint: sem esperar o bundle assentar, o teste passa por não
+      // ter chegado lá ainda.
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(1_000)
+
+      ultimas = [...divergencias]
+      if (ultimas.length === 0) return ultimas
+    }
+
+    return ultimas
+  }
+
+  try {
+    for (const caminho of CAMINHOS) {
+      expect(
+        await medirDivergencias(caminho),
+        `divergência de hidratação em /${caminho || ''}`,
+      ).toEqual([])
+    }
+  } finally {
+    await deleteTestWedding(admin, wedding.id)
+  }
+})
