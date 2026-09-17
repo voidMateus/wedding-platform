@@ -38,7 +38,14 @@ const BASE = arg('base', 'http://localhost:3000').replace(/\/$/, '')
 const SLUG = arg('slug', '')
 const CONCORRENCIA = Number(arg('concorrencia', '20'))
 const DURACAO_S = Number(arg('duracao', '15'))
-const BUSCA = arg('busca', 'a')
+/**
+ * Três letras, nunca uma: a busca por nome recusa termo mais curto que isso
+ * ("Digite ao menos 3 letras."), então o padrão anterior — `a` — fazia o
+ * cenário inteiro medir uma validação de 400, não uma busca. Apareceu na
+ * primeira execução de verdade do script, em 2026-09-16: dez respostas 400
+ * entre as 559, todas deste cenário.
+ */
+const BUSCA = arg('busca', 'ana')
 
 if (!SLUG) {
   console.error('Informe o casamento: --slug <slug-do-casamento>')

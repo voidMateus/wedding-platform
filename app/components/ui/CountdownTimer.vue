@@ -22,6 +22,24 @@ interface Props {
 
 const { targetDateTime, variant = 'cards', units = undefined } = defineProps<Props>()
 
+/**
+ * O relógio, e por que os números carregam `data-allow-mismatch="text"`.
+ *
+ * Sob SSR o número é calculado no servidor e recalculado na hidratação, e
+ * entre os dois instantes o tempo passa: medido no site público, o segundo
+ * saía 22 do servidor e 20 do cliente. Vue tratava isso como divergência de
+ * hidratação — o `Hydration completed but contains mismatches` que a página
+ * pública emitia no console, e que escondia qualquer divergência de verdade
+ * que aparecesse depois dele.
+ *
+ * `data-allow-mismatch="text"` é a declaração de que o texto DEVE divergir
+ * aqui (Vue 3.5): o valor certo é sempre o do cliente, e o do servidor é só o
+ * que evita o buraco na primeira pintura. As alternativas eram piores —
+ * `<ClientOnly>` deixaria o Hero sem a contagem até hidratar (deslocamento de
+ * layout em cima do elemento de LCP) e congelar o valor do servidor mostraria
+ * um número velho. O `allow-mismatch` é por nó e só cobre o texto: estrutura
+ * divergente continua sendo erro, que é o que se quer.
+ */
 const now = useNow({ interval: 1000 })
 
 const target = computed(() => new Date(targetDateTime))
@@ -61,13 +79,18 @@ const accessibleLabel = computed(() => {
     </slot>
   </div>
   <div v-else-if="variant === 'hero'" class="flex items-end gap-2">
-    <p class="sr-only">{{ accessibleLabel }}</p>
+    <p data-allow-mismatch="text" class="sr-only">{{ accessibleLabel }}</p>
     <span
       aria-hidden="true"
+      data-allow-mismatch="text"
       class="num text-7xl font-semibold leading-none tracking-tight text-text"
       >{{ days }}</span
     >
-    <span aria-hidden="true" class="mb-1.5 font-display text-xl font-medium text-text-muted">
+    <span
+      aria-hidden="true"
+      data-allow-mismatch="text"
+      class="mb-1.5 font-display text-xl font-medium text-text-muted"
+    >
       {{ days === 1 ? 'dia' : 'dias' }}
     </span>
   </div>
@@ -80,7 +103,7 @@ const accessibleLabel = computed(() => {
     aria-live="off"
     class="flex items-stretch gap-3 sm:gap-8"
   >
-    <p class="sr-only">{{ accessibleLabel }}</p>
+    <p data-allow-mismatch="text" class="sr-only">{{ accessibleLabel }}</p>
     <!--
       `aria-live="off"` explícito e `aria-hidden` nos dígitos: sem isso a
       contagem seria reanunciada a cada segundo. A frase acessível acima diz a
@@ -94,7 +117,10 @@ const accessibleLabel = computed(() => {
         aria-hidden="true"
       />
       <div class="flex flex-col items-center gap-1" aria-hidden="true">
-        <span class="font-display text-2xl leading-none text-heading tabular-nums sm:text-3xl">
+        <span
+          data-allow-mismatch="text"
+          class="font-display text-2xl leading-none text-heading tabular-nums sm:text-3xl"
+        >
           {{ String(part.value).padStart(2, '0') }}
         </span>
         <span
@@ -114,14 +140,17 @@ const accessibleLabel = computed(() => {
     aria-live="off"
     class="flex gap-3 sm:gap-4"
   >
-    <p class="sr-only">{{ accessibleLabel }}</p>
+    <p data-allow-mismatch="text" class="sr-only">{{ accessibleLabel }}</p>
     <div
       v-for="part in parts"
       :key="part.id"
       aria-hidden="true"
       class="flex w-16 flex-col items-center gap-1 rounded-lg border border-border bg-surface px-2 py-3 shadow-sm sm:w-20"
     >
-      <span class="font-display text-2xl font-semibold text-primary tabular-nums sm:text-3xl">
+      <span
+        data-allow-mismatch="text"
+        class="font-display text-2xl font-semibold text-primary tabular-nums sm:text-3xl"
+      >
         {{ String(part.value).padStart(2, '0') }}
       </span>
       <span class="text-xs uppercase tracking-wide text-text-muted">{{ part.label }}</span>

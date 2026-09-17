@@ -22,22 +22,26 @@ export default defineEventHandler(async (event) => {
 
   await garantirCasamentoPublicado(event, client, wedding.id)
 
-  const { data: gifts, error: giftsError } = await client
-    .from('presentes')
-    .select('*')
-    .eq('casamento_id', wedding.id)
-    .eq('esta_ativo', true)
-    .is('excluido_em', null)
-    .order('created_at', { ascending: true })
+  // As duas consultas não dependem uma da outra, e esta é a rota pública mais
+  // pesada da vitrine: medida sob 30 requisições simultâneas, ela respondia em
+  // 3,3s de mediana contra 243ms da home, e o que ela faz de diferente é
+  // encadear idas ao banco. Em série, cada uma custa uma viagem de rede
+  // inteira; em paralelo, as duas custam a mais lenta.
+  const [{ data: gifts, error: giftsError }, { data: categories, error: categoriesError }] =
+    await Promise.all([
+      client
+        .from('presentes')
+        .select('*')
+        .eq('casamento_id', wedding.id)
+        .eq('esta_ativo', true)
+        .is('excluido_em', null)
+        .order('created_at', { ascending: true }),
+      client.from('categorias_presentes').select('id, nome').eq('casamento_id', wedding.id),
+    ])
 
   if (giftsError) {
     throw badRequestError(giftsError.message)
   }
-
-  const { data: categories, error: categoriesError } = await client
-    .from('categorias_presentes')
-    .select('id, nome')
-    .eq('casamento_id', wedding.id)
 
   if (categoriesError) {
     throw badRequestError(categoriesError.message)

@@ -215,15 +215,18 @@ Em aberto:
   traduzir um produto inteiro escrito em pt-BR (textos de tela, e-mails,
   mensagens de erro, conteúdo padrão do site do casal) não cabe num sprint
   nem sai de um sprint sozinho — e nenhum usuário pediu ainda.
-- Revisão de performance com dados de casamentos grandes (500+ convidados), e
-  o LCP do site público — cujo alvo foi corrigido em 2026-09-13: o
-  "vazamento do bundle do admin" que constava como causa não existe (medido).
+- ~~Revisão de performance com dados de casamentos grandes (500+ convidados), e
+  o LCP do site público.~~ **Medidos em 2026-09-16** (`ROADMAP.md` seção 5):
+  volume de dado não degrada nada — página funda custa o mesmo que a primeira —,
+  e o LCP da home fica em 2,53s quando a medição inclui a compressão que a
+  hospedagem faz e a montagem local não fazia. Falta só confirmar em campo.
 - Observabilidade completa (Sentry + métricas de uso). Depende de escolher
   provedor e política de retenção — a aplicação trata dado pessoal de
   convidado, então não é decisão só de instrumentação.
-- Testes de carga nos endpoints públicos: o script existe
-  (`scripts/carga-publica.mjs`); falta rodá-lo contra dado de casamento
-  grande e registrar o resultado.
+- ~~Testes de carga nos endpoints públicos.~~ **Rodado em 2026-09-16** contra o
+  casamento de 520 convidados: 25,2 req/s, home em 243ms de mediana. O achado
+  foi a vitrine de presentes a 3,3s sob a mesma carga, por idas ao banco em
+  série — duas viraram paralelas no mesmo dia.
 - Revisão de segurança/RLS **por terceiros** — pré-requisito obrigatório
   antes da Fase 6 (abertura multi-tenant self-service), não do Hub em si.
   Não é trabalho de código: é contratar quem olhe de fora.

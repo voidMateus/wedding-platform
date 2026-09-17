@@ -67,3 +67,39 @@ O envio por e-mail (convites, lembretes de RSVP e avisos de pagamento) é **opci
 4. Reimplante: o painel só enxerga o canal depois de um build novo (a flag é avaliada em build, como a da busca de locais).
 
 Os avisos automáticos nascem **desligados** em cada casamento — quem liga é o casal, em Configurações › Avisos.
+
+#### O e-mail do Supabase Auth é outro canal, e ele tem limite próprio
+
+As variáveis acima cobrem o e-mail **da aplicação** (convite ao convidado, lembrete, aviso de vencimento). O e-mail **do login** — magic link, recuperação de senha e o convite que vincula o dono de um casamento novo (`inviteUserByEmail`) — sai pelo SMTP do **projeto Supabase**, que é configuração de projeto e não do código: nenhuma variável deste repositório o alcança.
+
+Com o SMTP embutido do Supabase, esse canal é limitado a poucos envios por hora (2/h no projeto de desenvolvimento). O efeito prático é concreto e já observado: criar casamentos em sequência pelo painel interno falha com `email rate limit exceeded` — e, por causa da ordem transacional (o usuário do dono é resolvido **antes** da transação), o casamento não chega a ser criado.
+
+**Aplicado em 2026-09-17** nos dois projetos (`wedding-platform` e `wedding-platform-prod`). A receita abaixo fica para projeto novo ou rotação de chave. Em **Authentication › Emails › SMTP Settings**:
+
+| Campo        | Valor                                               |
+| ------------ | --------------------------------------------------- |
+| Host         | `smtp.resend.com`                                   |
+| Port         | `465` (TLS implícito; `587` também serve)           |
+| Username     | `resend`                                            |
+| Password     | a mesma `RESEND_API_KEY` do `.env` daquele ambiente |
+| Sender email | o mesmo `EMAIL_REMETENTE` (domínio verificado)      |
+| Sender name  | `MeuSiteCasamento`                                  |
+
+Ative também o limite de envio por hora (`rate_limit_email_sent`, hoje em **30**), que continua valendo **depois** de trocar o SMTP — é limite do Auth, não do provedor. E 30 é deliberado: o plano free da Resend dá 100 e-mails por **dia**, então um teto horário de 100 deixaria um laço acidental queimar a cota do dia inteiro em minutos, levando junto os convites do casal, que saem da mesma conta.
+
+Equivalente por API, para quem preferir não abrir o painel (exige um Personal Access Token, `sbp_...`, gerado em Account › Access Tokens):
+
+```bash
+curl -X PATCH "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/config/auth" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"smtp_host":"smtp.resend.com","smtp_port":"465","smtp_user":"resend",
+       "smtp_pass":"'"$RESEND_API_KEY"'","smtp_admin_email":"'"$EMAIL_REMETENTE"'",
+       "smtp_sender_name":"MeuSiteCasamento","rate_limit_email_sent":30}'
+```
+
+**`smtp_port` vai como string** (`"465"`), não como número: com número a API devolve `400` sem dizer qual campo recusou. Só os campos enviados mudam. **Não** use `supabase config push` para isso: `supabase/config.toml` descreve o stack **local** (o `site_url` dele é `127.0.0.1:3000`), e empurrá-lo inteiro sobrescreveria a configuração do projeto hospedado com valores de desenvolvimento.
+
+#### O `site_url` do projeto é o que monta o link do e-mail
+
+Fica em **Authentication › URL Configuration**, e vale para todo link que o Auth envia: magic link, recuperação de senha e o convite que vincula o dono de um casamento novo. Os dois projetos nasceram com o default `http://localhost:3000` — em **produção**, isso mandava quem recebesse o e-mail para a própria máquina, e só o login por e-mail e senha escapava. Corrigido em 2026-09-17 para `https://www.meusitecasamento.com.br`. No projeto de desenvolvimento o valor certo continua sendo `localhost:3000`, e é por isso que o erro passou despercebido: nos dois lugares ele parecia igual, e num deles estava certo.
