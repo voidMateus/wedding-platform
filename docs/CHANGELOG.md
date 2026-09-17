@@ -65,6 +65,119 @@ A causa é uma sutileza de como o Vite trata import dinâmico. `app/plugins/supa
 
 **Observação não perseguida**: a página pública emite `Hydration completed but contains mismatches` no console. É anterior a esta mudança por mecanismo (desligar uma dica de `prefetch` não afeta render de servidor vs. cliente), e o achado do `UiSelect` (2026-09-16, mais abaixo) descreve um candidato concreto: `useId()` divergindo entre as duas passagens de render, com o subtree do `SelectRoot` recriado no cliente. Aquela correção trocou o nome acessível por texto, mas não removeu a divergência de id. Fica registrado para investigação à parte.
 
+### Achado real: o `site_url` de PRODUÇÃO apontava para `localhost:3000` (2026-09-17)
+
+Encontrado ao apontar o SMTP do Supabase Auth para a Resend — não era o que se procurava, e é mais grave do que o que se procurava.
+
+`site_url` é o endereço que o Supabase usa para montar o destino de **todo link que o Auth envia**: magic link, recuperação de senha e o convite que vincula o dono de um casamento novo. Os dois projetos estavam no default de fábrica, `http://localhost:3000` — inclusive o de produção. Ou seja: quem recebesse qualquer um desses e-mails em produção era mandado para a própria máquina depois de verificar. Só o login por e-mail e senha escapava, que é justamente o caminho que a equipe usa todo dia.
+
+**Por que sobreviveu tanto tempo**: em desenvolvimento o valor está *certo*, e é o mesmo. Uma configuração errada que parece idêntica à correta no ambiente onde se trabalha não tem como ser notada por uso — só por leitura deliberada, que foi o que aconteceu aqui por acaso.
+
+Corrigido para `https://www.meusitecasamento.com.br`. O projeto de desenvolvimento fica em `localhost:3000`.
+
+### O SMTP do Auth deixou de ser o do Supabase (2026-09-17)
+
+A Resend já servia o e-mail **da aplicação** desde 2026-09-16 (convite ao convidado, lembrete, aviso de vencimento). O e-mail do **Auth** é outro canal — configuração do projeto Supabase, que nenhuma variável do repositório alcança —, e continuava no SMTP embutido, com `rate_limit_email_sent: 2`. Era esse 2 que fazia criar casamentos em sequência falhar com `email rate limit exceeded`, sem o casamento chegar a existir (o convite do dono acontece **antes** da transação, e é de propósito: `docs/fase5-multievento.md` 6.2).
+
+Agora os dois projetos usam `smtp.resend.com:465`, com o mesmo remetente verificado, e limite de 30/hora — não 100, porque o plano free da Resend dá 100 por **dia**: um teto horário igual ao diário deixaria um laço acidental queimar a cota inteira em minutos, levando junto os convites do casal, que saem da mesma conta.
+
+**Duas armadilhas do caminho, registradas porque custam tempo:**
+
+- **`smtp_port` vai como string na Management API.** Com `465` numérico o `PATCH` devolve `400` e **não diz qual campo recusou** — o payload inteiro é rejeitado, o que faz parecer erro de credencial ou de permissão. Com `"465"`, `200`.
+- **Escrita na configuração do projeto é ação do dono, não do agente.** As duas tentativas foram barradas pelo classificador do Claude Code, por motivos diferentes e ambos corretos: o `PATCH` com o SMTP porque escreve um segredo num store remoto, e o `PATCH` só com `site_url` porque altera recurso compartilhado. Leitura passa. O procedimento ficou no `README.md` para ser executado por quem tem a credencial.
+
+**Validado com envio real** no projeto de desenvolvimento: um magic link e **três convites seguidos**, todos aceitos. O terceiro é o que prova a correção — sob o teto de 2/hora ele teria voltado `429 email rate limit exceeded`, que é exatamente a falha registrada na Fase 5. Os usuários criados pelos convites foram apagados depois.
+
+**Duas armadilhas de ambiente no meio da validação**, ambas capazes de fazer perder tempo procurando no lugar errado:
+
+- A rede corporativa passou a **resetar as conexões do Node** para `*.supabase.co` (`ECONNRESET`), enquanto o `curl` do mesmo terminal seguia recebendo `200` — stacks de TLS diferentes (OpenSSL contra schannel), sem proxy configurado no sistema. O dev server local cai junto e passa a responder 404 em toda página que precise do banco, o que parece defeito da aplicação. A validação foi refeita em HTTP puro.
+- E um erro de método meu, que vale mais que o primeiro: o script que checava se o endereço de teste já existia fazia `(data?.users ?? [])` e concluiu "não existe" quando na verdade a chamada tinha **falhado**. O `??` transformou erro em resposta vazia. Guarda que engole erro não protege: mente com a cara de quem respondeu.
+
+### Medição: LCP, carga e 520 convidados — e o que a montagem local estava medindo (2026-09-16)
+
+As três dívidas de performance do `ROADMAP.md` seção 5 foram medidas de uma vez, sobre um casamento semeado com **520 convidados**, 190 convites, 347 respostas de RSVP, 40 mesas e 36 presentes — porte que nenhum ambiente de teste tinha.
+
+**O achado de método veio primeiro, e muda a leitura de tudo o que veio antes.** O `node .output/server/index.mjs` local **não serve nada comprimido** (nenhum `.br`/`.gz` no `.output`, nenhum `Content-Encoding` na resposta); a Vercel serve brotli. Medir contra ele descreve uma rede que o convidado nunca usa:
+
+| Home pública, Pixel 5 + Slow 4G + CPU 4x | LCP (mediana) | Transferido |
+|---|---|---|
+| Servidor local, como estava | 4,78s | 983 kB |
+| O mesmo build atrás de um proxy que só acrescenta gzip | **2,53s** | 415 kB |
+
+O `entry.css` sozinho explica boa parte: 159 kB crus, 25 kB em gzip. Os 5,8s registrados na Fase Editorial foram medidos na mesma montagem sem compressão, então a comparação honesta é **5,8s → 4,78s** sem compressão, e **2,53s** no que se parece com produção. A meta de 2,5s está **na linha** (amostras de 2,26s a 2,79s), não vencida com folga — e o número de campo, contra o deployment real, continua por confirmar: a rede corporativa da máquina de desenvolvimento não alcança o domínio de produção.
+
+O elemento de LCP é texto do Hero, e FCP e LCP são o **mesmo instante** — não há imagem disputando o primeiro paint. O caminho crítico é HTML (48 kB) → CSS (159 kB) → 4 arquivos de fonte (131 kB), em série, com o chunk de entrada de 327 kB dividindo a mesma banda.
+
+**Carga** (`scripts/carga-publica.mjs --concorrencia 30 --duracao 20`, a primeira execução desde que o script nasceu): 25,2 req/s, home em 243ms de mediana (p95 644ms). O valor não estava na média — estava no desvio: `/api/public/:slug/gifts` respondeu em **3,3s de mediana**, 13× a home. Sequencialmente ela custa 450ms contra 80ms da home, e a diferença é inteiramente estrutural: **cinco idas ao banco em série**.
+
+Duas delas eram independentes (`presentes` e `categorias_presentes`) e viraram `Promise.all`. Medido antes → depois, na mesma carga:
+
+| | Antes | Depois |
+|---|---|---|
+| `gifts`, mediana | 3278ms | **2444ms** |
+| `gifts`, p95 | 4599ms | 3257ms |
+| Vazão total | 25,2 req/s | **35,1 req/s** |
+
+Uma ida de rede a menos vale 800ms de fila porque, sob contenção, cada requisição segura a conexão por todo o tempo que espera. As outras três ficam nomeadas, sem mexida: a mais óbvia é a segunda leitura de `casamentos` que `garantirCasamentoPublicado()` faz para reler `status_ciclo_vida` de uma linha que a rota **acabou de buscar** — desperdício real, não tocado aqui porque a função é metade do portão de rascunho e mudar a assinatura dela mexe no que a varredura `rotas-publicas-com-portao.spec.ts` verifica. Otimizar um portão de segurança não é trabalho para o fim de uma rodada de medição.
+
+**E o próprio script tinha um defeito, que só a primeira execução real revelaria**: o padrão `--busca a` produzia `400 — Digite ao menos 3 letras` em toda requisição do terceiro cenário. Dez das 559 respostas mediram uma validação, não uma busca. O padrão passou a ser `ana`.
+
+Registrado também que 107 das 559 respostas foram **429**: na busca por nome o rate limiting responde antes da aplicação. Não é defeito — é o limitador funcionando —, mas uma medição daquela rota que não diga isso está medindo o Upstash.
+
+**A fixture ficou de pé** no banco de desenvolvimento, com o nome do casal trocado para "Fixture de Carga (520 convidados)" (slug `carga-quinhentos`): remedir passa a custar um comando, e o nome diz o que ela é para quem a encontrar no painel interno.
+
+**520 convidados: o volume não é o problema.** Cada consulta ao Supabase custa ~90ms **desta máquina** (viagem de rede até a nuvem; em produção o Vercel fica ao lado do banco), e é esse custo que domina, não o trabalho do banco:
+
+| Rota do painel | Mediana | Observação |
+|---|---|---|
+| Convidados, página 1 (100/pág.) | 374ms | |
+| Convidados, última página (100/pág.) | 371ms | **página funda não custa mais que a primeira** |
+| Convidados, busca por nome | 361ms | |
+| Convites | 254ms | |
+| Mesas (planta inteira) | 263ms | 137 kB — a maior carga útil do painel |
+| Presentes (painel) | 629ms | a mais lenta; mesmo padrão de idas em série |
+| Resumo do painel / Planejamento / Financeiro | 190 / 149 / 176ms | |
+
+E no banco, direto: 200 linhas de `convidados_com_status` custam 106ms contra 97ms de 25 linhas. As duas views (`convidados_com_status`, `convites_com_resumo`) respondem numa ida só, que era exatamente o motivo de existirem.
+
+**A regra que fica**: nestas rotas, latência é **contagem de idas ao banco em série**, não tamanho de lista. Otimização que persegue o volume (índice novo, paginação mais esperta) resolve um problema que a medição não encontrou; a que persegue as idas resolve o que ela encontrou.
+
+### Achado real: a divergência de hidratação do site público era a contagem regressiva, não o `useId` (2026-09-16)
+
+A entrada acima registrou `Hydration completed but contains mismatches` como observação não perseguida, e apontou um candidato concreto: o `useId()` do `UiSelect` divergindo entre as duas passagens de render. **O candidato estava errado**, e descobrir isso custou uma medição, não uma leitura de código.
+
+**Como foi medido**: contra o **dev server**, não o build de produção. É uma inversão do método da entrada sobre a suíte E2E (que mudou para o build compilado justamente por ele ser o app de verdade), e ela é deliberada: em produção o Vue diz apenas *que* houve divergência; só o build de desenvolvimento diz **qual nó**, com o valor do servidor ao lado do valor do cliente. Para reproduzir usa-se o build de produção; para diagnosticar, o de desenvolvimento.
+
+O aviso apontou o nó na primeira tentativa:
+
+```
+[Vue warn]: Hydration text content mismatch
+  - rendered on server: 22
+  - expected on client: 20
+  at <UiCountdownTimer target-date-time="..." variant="inline">
+  at <PublicHero ...>
+```
+
+**Causa raiz**: `useNow({ interval: 1000 })`. O número é calculado quando o servidor renderiza e recalculado quando o cliente hidrata — e entre os dois instantes o tempo passa. Os segundos saíram 22 no servidor e 20 no cliente: dois segundos de rede, parse e hidratação. Não é bug de lógica, é a natureza de conteúdo derivado do relógio sob SSR; o `UiSelect` nem aparecia no caminho (a home não tem nenhum).
+
+**Correção**: `data-allow-mismatch="text"` (Vue 3.5) nos nós cujo texto sai do relógio — os dígitos das três variantes e a frase do leitor de tela. É a declaração de que **este** texto deve divergir, e só ele: divergência de estrutura continua sendo erro, que é o que se quer preservar. `<ClientOnly>` foi descartado porque a contagem fica no Hero, em cima do elemento de LCP — trocaria um aviso de console por deslocamento de layout na primeira pintura; congelar o valor do servidor foi descartado porque mostraria um número velho.
+
+**O que a correção realmente compra**: não é o aviso. É que o próximo `Hydration completed but contains mismatches` vá significar alguma coisa — um erro constante no console é um erro que ninguém lê, e este estava lá desde sempre, escondendo qualquer divergência nova que aparecesse depois dele.
+
+**Guarda**: `tests/e2e/site-publico-layout.spec.ts` ganhou um teste que falha se o console emitir qualquer coisa com "hydrat" nas quatro páginas públicas. Ele assere o **console**, não o atributo, de propósito: um teste sobre o atributo protegeria só o defeito já conhecido, e este protege a promessa — e é o formato que sobrevive ao build de produção, onde o Vue não diz mais qual nó divergiu.
+
+### Decisão: o painel É renderizado no servidor, e foi o CLAUDE.md que mudou (2026-09-16)
+
+A seção 4.3 do `CLAUDE.md` afirmava desde sempre: "Painel admin: client-side (`ssr: false`), não precisa de SEO". A Fase 5 do Hub descobriu que isso nunca foi verdade — não existe `ssr: false` em `nuxt.config.ts`, `routeRules` nem `definePageMeta` em página alguma — e deixou a decisão registrada como aberta (`docs/fase5-multievento.md` 13.1): mudar o código para casar com o documento, ou o documento para casar com o código.
+
+**Mudou o documento.** Três razões, em ordem de peso:
+
+1. O argumento que a própria seção dava — "não precisa de SEO" — justifica **não precisar** de SSR, nunca desligá-lo. O painel ganha primeira pintura de graça; desligar o SSR a devolveria em troca de nada que o produto peça.
+2. Desligar é mudança de comportamento com alcance próprio (primeira pintura, hidratação, os testes que leem o HTML inicial, a suíte E2E que roda contra o `.output`), e nenhum defeito conhecido a pede.
+3. O custo da frase errada já apareceu duas vezes, e é o custo típico de documentação que mente: o achado do `UiSelect` concluiu que "o painel não sofre (é `ssr: false`)" — uma explicação construída sobre um fato falso, que passou sem ninguém desconfiar.
+
+Isso deixa uma consequência prática, agora escrita na seção 4.3: conteúdo derivado do relógio diverge na hidratação **nas duas metades do app**. A contagem regressiva do dashboard admin (variante `hero`) recebeu o mesmo `data-allow-mismatch` por isso — nela o defeito é raro, não ausente: ela mostra só os dias, então só divergiria numa hidratação que atravessasse a meia-noite. Raro e silencioso é pior do que frequente: ninguém o reproduz para descobrir a causa.
+
 ### Achado: campo de valor de presente empurrava os dígitos para a direita da vírgula
 
 Reportado pelo usuário: ao digitar no "Preço estimado" do formulário de presente, o campo chegava a estados como `1.00000` — cada tecla nova acrescentava um dígito à direita do separador decimal, em vez de manter o formato `0,00`.

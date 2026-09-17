@@ -80,7 +80,9 @@ Detalhamento completo de cada fluxo (RSVP, presentes, sessão de posse): **[`doc
 
 ### 4.3 Renderização
 
-Site público: SSR (SEO, Open Graph para WhatsApp). Painel admin: client-side (`ssr: false`), não precisa de SEO. Dados que definem SEO (nome do casal, data) **precisam** vir de `useAsyncData` no server — nunca só `onMounted` + fetch client-side.
+**Tudo é SSR** — site público e painel, o app inteiro. Não existe `ssr: false` em `nuxt.config.ts`, `routeRules` nem `definePageMeta` em página nenhuma; esta seção afirmou o contrário até 2026-09-16, e a correção foi do documento, não do código (o porquê está em `docs/CHANGELOG.md`). A diferença entre os dois caminhos é de **motivo**, não de técnica: o público **precisa** de SSR (SEO, Open Graph para WhatsApp), o painel apenas o ganha de graça. Um achado real já se apoiou na frase errada e concluiu que o painel estava imune a um defeito de hidratação que só o SSR produz — quem ler "o painel não renderiza no servidor" vai errar de novo.
+
+Dados que definem SEO (nome do casal, data) **precisam** vir de `useAsyncData` no server — nunca só `onMounted` + fetch client-side. E, porque o painel também hidrata, conteúdo derivado do relógio (contagem regressiva, "há 3 dias") diverge entre as duas passagens de render nas duas metades do app: a saída é `data-allow-mismatch="text"` no nó, nunca `<ClientOnly>` em cima de algo que ocupa espaço na primeira pintura.
 
 ## 5. Estrutura de Pastas (resumo)
 

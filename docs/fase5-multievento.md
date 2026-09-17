@@ -1198,10 +1198,27 @@ registrados para não sumirem.
   `email rate limit exceeded`, com o casamento **não** criado, porque o convite
   acontece antes da transação. Na escala de hoje (equipe interna, um cliente de
   cada vez) é aceitável; um mutirão de cadastro não é. A saída é a mesma que o
-  produto já escolheu para o convidado: SMTP próprio via Resend, que já está
-  integrado atrás de `server/utils/email-provider.ts` mas ainda não provisionado.
+  produto já escolheu para o convidado: SMTP próprio via Resend.
   O teste de integração evita o caminho de propósito (cria o usuário do dono
   antes), para falhar por regressão e nunca por rate limit.
+
+  **Atualizado em 2026-09-16**: a Resend deixou de ser promessa — domínio
+  verificado, webhook e as três variáveis em Production e Preview, validada
+  ponta a ponta. Mas ela cobre o e-mail **da aplicação**, e este achado é de
+  outro canal: o e-mail do **Auth** (magic link, recuperação de senha e este
+  convite) sai pelo SMTP do projeto Supabase, que é configuração de projeto —
+  nenhuma variável do repositório o alcança, e nenhum código daqui o
+  substitui sem reimplementar o que o Auth já faz. O procedimento (campos do
+  painel e o `PATCH` equivalente da Management API) está no `README.md`,
+  seção "Envio de e-mail".
+
+  **Fechado em 2026-09-17**: os dois projetos passaram a usar `smtp.resend.com`
+  e o limite horário subiu de 2 para 30 — o `email rate limit exceeded` desta
+  entrada deixa de existir. No caminho apareceu um defeito maior e não
+  relacionado: o `site_url` de **produção** estava no default `localhost:3000`,
+  o que fazia todo link enviado pelo Auth (magic link, recuperação de senha e
+  este convite) mandar quem o recebia para a própria máquina. Relato dos dois
+  em `docs/CHANGELOG.md`.
 
 - **O painel administrativo NÃO é `ssr: false`, ao contrário do que o
   `CLAUDE.md` seção 4.3 afirma.** Não existe `ssr: false` nem `routeRules` em
@@ -1214,3 +1231,12 @@ registrados para não sumirem.
   do HTML inicial) — e porque a decisão é entre **mudar o código para casar com
   o documento** ou **mudar o documento para casar com o código**, que não é
   escolha de uma fase sobre multi-evento.
+
+  **Resolvido em 2026-09-16**: mudou o **documento**. `CLAUDE.md` seção 4.3
+  passa a dizer que o app inteiro é SSR, e que a diferença entre os dois
+  caminhos é de motivo (o público precisa; o painel ganha de graça), não de
+  técnica. O argumento que a seção dava — "não precisa de SEO" — justifica não
+  *precisar* de SSR, nunca desligá-lo, e desligar custaria primeira pintura num
+  painel que já funciona. O custo da frase errada, esse, já apareceu duas
+  vezes: a varredura de acessibilidade concluiu que o painel estava imune a um
+  defeito de hidratação que só o SSR produz.
