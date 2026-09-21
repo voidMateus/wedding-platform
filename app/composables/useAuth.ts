@@ -39,6 +39,31 @@ export function useAuth() {
     await $fetch('/api/auth/magic-link', { method: 'POST', body: { email } })
   }
 
+  /**
+   * Pede a redefinição de senha — também pelo servidor, e pelo mesmo motivo do
+   * link de acesso: é justamente quem está sem entrar que pode estar em outro
+   * aparelho.
+   */
+  async function pedirRedefinicaoDeSenha(input: LoginWithMagicLinkInput): Promise<void> {
+    const { email } = loginWithMagicLinkSchema.parse(input)
+    await $fetch('/api/auth/password-reset', { method: 'POST', body: { email } })
+  }
+
+  /**
+   * Grava a senha na sessão que **já existe**.
+   *
+   * Não há rota nossa no meio: quem autoriza a troca é o próprio Supabase, pela
+   * sessão do navegador — a de recuperação, a do convite, ou a de quem já está
+   * logado e troca a senha em Configurações. Um endpoint nosso só acrescentaria
+   * um lugar onde a senha passa.
+   */
+  async function definirSenha(senha: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ password: senha })
+    if (error) {
+      throw error
+    }
+  }
+
   async function signOut(): Promise<void> {
     await supabase.auth.signOut()
     authStore.clear()
@@ -92,8 +117,11 @@ export function useAuth() {
   return {
     signInWithPassword,
     signInWithMagicLink,
+    pedirRedefinicaoDeSenha,
+    definirSenha,
     signOut,
     completarAcessoPorLink,
+    aguardarUsuario: waitForSupabaseUser,
   }
 }
 

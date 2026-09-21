@@ -395,7 +395,7 @@ Hoje o caminho "equipe cria → dono recebe e-mail → dono entra" não fecha (s
 |---|---|---|---|
 | B1 | 1 | Endereço do site: sugerir e confirmar | ✅ concluído |
 | B2 | 3 | E-mail de convite é o template cru do Supabase | ✅ concluído — falta colar nos três ambientes |
-| B3 | 4 | Não existe definir nem redefinir senha | ⏳ |
+| B3 | 4 | Não existe definir nem redefinir senha | ✅ concluído |
 | B4 | 6 | Landing page com acesso ao login | ⏳ |
 
 ### B1 · Ponto 1 — endereço do site: sugerir e confirmar ✅
@@ -496,7 +496,27 @@ Aproveitar o layout que já existe.
   versionar o HTML em `supabase/templates/` com um README dizendo onde colar, para não
   existirem só no dashboard. Aplicar nos três ambientes.
 
-### B3 · Ponto 4 — não existe definir nem redefinir senha
+### B3 · Ponto 4 — não existe definir nem redefinir senha ✅
+
+**Concluído em 21/09/2026.** O ciclo fecha: `app/pages/auth/senha.vue` define e redefine a senha
+a partir da sessão que o e-mail acabou de provar, "Esqueci minha senha" na tela de login dispara
+`POST /api/auth/password-reset`, e o convite (B2) chega com `?novo=1` — que muda o texto de
+"escolher uma nova" para "definir a sua", porque quem nunca teve senha não está redefinindo nada.
+
+**Uma tela para os dois casos**, porque o que acontece nela é o mesmo: a pessoa tem uma sessão e
+escolhe a senha. E **nenhuma rota nossa no caminho da senha** — quem autoriza a troca é o próprio
+Supabase, pela sessão do navegador; um endpoint intermediário só acrescentaria um lugar por onde
+a senha passa.
+
+Trocar a própria senha entrou em **Configurações › Sua conta**, um assunto novo e o único do
+módulo que não guarda dado do evento: é a conta de quem está olhando, e vale igual em todos os
+casamentos que a pessoa acessa. A senha atual não é pedida — a sessão é a mesma garantia que
+abriu o painel.
+
+O teste (`tests/e2e/definir-senha.spec.ts`) percorre o ciclo inteiro, e não só a tela: uma senha
+que salva e um login que continua recusando a senha nova são dois sucessos que somam zero. Ele
+cobre também a resposta idêntica do pedido de redefinição para e-mail com e sem conta — a
+diferença permitiria varrer uma lista de endereços e descobrir quem é cliente da plataforma.
 
 **Diagnóstico.** `app/pages/login.vue` oferece senha **ou** link mágico. Não há "esqueci minha
 senha", não há tela de definir senha, e o convite não leva a lugar nenhum (A1). Na prática o

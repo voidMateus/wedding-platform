@@ -5,7 +5,7 @@ import { loginWithPasswordSchema } from '#shared/schemas/auth'
 
 definePageMeta({ layout: 'auth' })
 
-const { signInWithPassword, signInWithMagicLink } = useAuth()
+const { signInWithPassword, signInWithMagicLink, pedirRedefinicaoDeSenha } = useAuth()
 const route = useRoute()
 
 const { handleSubmit, defineField, errors, isSubmitting } = useForm({
@@ -16,11 +16,20 @@ const [email] = defineField('email')
 const [password] = defineField('password')
 
 const formError = ref<string | null>(null)
-const magicLinkSent = ref(false)
+
+/**
+ * Uma mensagem de sucesso, não uma por caminho: "link enviado" e "e-mail de
+ * redefinição enviado" nunca acontecem ao mesmo tempo, e dois avisos empilhados
+ * fariam a tela parecer ter feito duas coisas.
+ */
+const sucesso = ref<string | null>(null)
+
 const enviandoLink = ref(false)
+const enviandoRedefinicao = ref(false)
 
 const onSubmit = handleSubmit(async (values) => {
   formError.value = null
+  sucesso.value = null
   try {
     await signInWithPassword(values)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/admin'
@@ -30,19 +39,24 @@ const onSubmit = handleSubmit(async (values) => {
   }
 })
 
-async function handleMagicLink() {
+/** Os dois caminhos por e-mail precisam do endereço, e nenhum dos dois o adivinha. */
+function semEmail(aviso: string): boolean {
   formError.value = null
-  magicLinkSent.value = false
+  sucesso.value = null
 
-  if (!email.value) {
-    formError.value = 'Informe o e-mail para receber o link de acesso.'
-    return
-  }
+  if (email.value) return false
+
+  formError.value = aviso
+  return true
+}
+
+async function handleMagicLink() {
+  if (semEmail('Informe o e-mail para receber o link de acesso.')) return
 
   enviandoLink.value = true
   try {
-    await signInWithMagicLink({ email: email.value })
-    magicLinkSent.value = true
+    await signInWithMagicLink({ email: email.value as string })
+    sucesso.value = 'Link de acesso enviado — confira seu e-mail.'
   } catch {
     formError.value = 'Não foi possível enviar o link de acesso.'
   } finally {
@@ -50,7 +64,25 @@ async function handleMagicLink() {
   }
 }
 
-const ocupado = computed(() => isSubmitting.value || enviandoLink.value)
+async function handleEsqueciSenha() {
+  if (semEmail('Informe o e-mail para receber o link de redefinição.')) return
+
+  enviandoRedefinicao.value = true
+  try {
+    await pedirRedefinicaoDeSenha({ email: email.value as string })
+    // A frase não confirma que a conta existe: a resposta do servidor é a mesma
+    // nos dois casos, de propósito, e a tela não pode prometer mais do que ele.
+    sucesso.value = 'Se este e-mail tiver conta, o link para redefinir a senha está a caminho.'
+  } catch {
+    formError.value = 'Não foi possível enviar o link de redefinição.'
+  } finally {
+    enviandoRedefinicao.value = false
+  }
+}
+
+const ocupado = computed(
+  () => isSubmitting.value || enviandoLink.value || enviandoRedefinicao.value,
+)
 </script>
 
 <template>
@@ -71,13 +103,27 @@ const ocupado = computed(() => isSubmitting.value || enviandoLink.value)
         autocomplete="email"
         :error="errors.email"
       />
-      <UiInput
-        v-model="password"
-        type="password"
-        label="Senha"
-        autocomplete="current-password"
-        :error="errors.password"
-      />
+
+      <div class="flex flex-col gap-1.5">
+        <UiInput
+          v-model="password"
+          type="password"
+          label="Senha"
+          autocomplete="current-password"
+          :error="errors.password"
+        />
+
+        <!-- Abaixo do campo, discreto: é o caminho de quem já travou, não uma
+             das opções que a tela oferece de entrada. -->
+        <button
+          type="button"
+          class="self-end text-xs text-text-muted underline underline-offset-2 transition-brand hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="ocupado"
+          @click="handleEsqueciSenha"
+        >
+          {{ enviandoRedefinicao ? 'Enviando…' : 'Esqueci minha senha' }}
+        </button>
+      </div>
 
       <!-- Mensagem de estado com moldura, não texto solto: no desenho antigo
            ela nascia entre o campo e o botão, do mesmo tamanho do rótulo, e
@@ -91,12 +137,12 @@ const ocupado = computed(() => isSubmitting.value || enviandoLink.value)
         {{ formError }}
       </p>
       <p
-        v-if="magicLinkSent"
+        v-if="sucesso"
         class="flex items-start gap-2 rounded-md bg-success/10 px-3 py-2 text-sm text-success"
         role="status"
       >
         <Icon name="lucide:mail-check" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        Link de acesso enviado — confira seu e-mail.
+        {{ sucesso }}
       </p>
 
       <UiButton type="submit" size="lg" class="mt-1 w-full justify-center" :disabled="ocupado">

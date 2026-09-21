@@ -92,6 +92,7 @@ watch(secaoAtual, (secao) => rolarAteSecao(secao))
         @saved="refresh"
       />
       <AdminSettingsMembersTab v-else-if="assunto.id === 'colaboradores'" />
+      <AdminSettingsAccountTab v-else-if="assunto.id === 'conta'" />
     </template>
   </AdminSection>
 </template>

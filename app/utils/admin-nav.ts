@@ -148,6 +148,15 @@ export const SETTINGS_ASSUNTOS = [
       { id: 'acessos', label: 'Quem tem acesso', icon: 'lucide:users' },
     ],
   },
+  // O único assunto que NÃO é do evento: é a conta de quem está olhando, e
+  // vale igual em todos os casamentos que a pessoa acessa. Fica por último
+  // porque é manutenção de acesso, não trabalho de organizar o casamento.
+  {
+    id: 'conta',
+    label: 'Sua conta',
+    blurb: 'Seu acesso à plataforma.',
+    secoes: [{ id: 'senha', label: 'Senha', icon: 'lucide:lock' }],
+  },
 ] as const
 
 export type SettingsAssuntoId = (typeof SETTINGS_ASSUNTOS)[number]['id']
