@@ -54,6 +54,15 @@ const enderecoEditadoAMao = ref(false)
 type EstadoDoEndereco = 'ocioso' | 'checando' | 'livre' | 'ocupado'
 const estadoDoEndereco = ref<EstadoDoEndereco>('ocioso')
 
+/**
+ * A primeira alternativa livre, quando o endereço pedido está tomado.
+ *
+ * Só aparece como oferta para quem digitou o endereço à mão — a sugestão
+ * automática a adota sozinha, porque sugerir e reprovar a própria sugestão é
+ * pior do que não sugerir.
+ */
+const alternativaLivre = ref<string | null>(null)
+
 /** O endereço normalizado como o servidor vai gravá-lo, ou `null` se o formato ainda não fecha. */
 const enderecoNormalizado = computed(() => {
   const resultado = platformWeddingCreateSchema.shape.slug.safeParse(slug.value ?? '')
@@ -80,13 +89,32 @@ watch(nomesNoivos, (nomes) => {
 // consultas ao banco para responder uma pergunta só.
 const conferirEndereco = useDebounceFn(async (endereco: string) => {
   try {
-    const { slug: conferido, disponivel } = await verificarEnderecoDoSite(endereco)
+    const { slug: conferido, disponivel, sugestao } = await verificarEnderecoDoSite(endereco)
 
     // Resposta atrasada de um endereço que já não é o da tela: quem continuou
     // digitando receberia o veredito do texto anterior.
     if (conferido !== enderecoNormalizado.value) return
 
-    estadoDoEndereco.value = disponivel ? 'livre' : 'ocupado'
+    if (disponivel) {
+      estadoDoEndereco.value = 'livre'
+      return
+    }
+
+    // O endereço veio da SUGESTÃO e está tomado: troca-se por um livre, em
+    // silêncio. Mostrar "já existe" sobre um texto que o próprio formulário
+    // escreveu é cobrar do operador um erro que não foi dele — e "Ana e João"
+    // é nome comum o bastante para isso acontecer cedo.
+    //
+    // A troca redispara o watch, e o endereço novo é conferido como qualquer
+    // outro: a alternativa estava livre no instante da consulta, e é a segunda
+    // ida que confirma isso na tela.
+    if (!enderecoEditadoAMao.value && sugestao) {
+      slug.value = sugestao
+      return
+    }
+
+    estadoDoEndereco.value = 'ocupado'
+    alternativaLivre.value = sugestao
   } catch {
     // Falhar a conferência não pode bloquear a criação: ela é conveniência, e
     // a garantia real é o `unique` do banco, tratado no envio.
@@ -95,6 +123,8 @@ const conferirEndereco = useDebounceFn(async (endereco: string) => {
 }, 400)
 
 watch(enderecoNormalizado, (endereco) => {
+  alternativaLivre.value = null
+
   if (!endereco) {
     estadoDoEndereco.value = 'ocioso'
     return
@@ -103,6 +133,11 @@ watch(enderecoNormalizado, (endereco) => {
   conferirEndereco(endereco)
 })
 
+/** Aceitar a alternativa é escolha do operador, então continua valendo como digitada. */
+function usarAlternativa(endereco: string) {
+  aoDigitarEndereco(endereco)
+}
+
 const onSubmit = handleSubmit(async (values) => {
   try {
     await createWedding(values)
@@ -110,6 +145,7 @@ const onSubmit = handleSubmit(async (values) => {
     resetForm()
     enderecoEditadoAMao.value = false
     estadoDoEndereco.value = 'ocioso'
+    alternativaLivre.value = null
     aberto.value = false
     emit('created')
   } catch (err) {
@@ -173,7 +209,19 @@ const onSubmit = handleSubmit(async (values) => {
             Livre — o site do casal vai ficar em
             <strong class="font-medium">{{ enderecoFinal }}</strong>
           </span>
-          <span v-else>Já existe um casamento neste endereço. Escolha outro.</span>
+          <span v-else>
+            Já existe um casamento neste endereço.
+            <template v-if="alternativaLivre">
+              <button
+                type="button"
+                class="font-medium underline underline-offset-2"
+                @click="usarAlternativa(alternativaLivre)"
+              >
+                Usar {{ alternativaLivre }}
+              </button>
+            </template>
+            <template v-else>Escolha outro.</template>
+          </span>
         </p>
       </div>
 

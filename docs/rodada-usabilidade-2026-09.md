@@ -408,7 +408,17 @@ valer no instante em que o operador escreve o campo, e **volta** se ele o esvazi
 branco é desistência do texto próprio, não escolha pelo vazio.
 
 `GET /api/platform/slug-available` responde se o endereço está livre enquanto se digita (400ms
-de debounce), e a linha de situação mostra o endereço final com o domínio. Ela **não decide
+de debounce), e a linha de situação mostra o endereço final com o domínio.
+
+**A sugestão nunca oferece um endereço tomado** (corrigido em 21/09/2026, no primeiro uso): a
+primeira versão sugeria `ana-e-joao` a partir do nome do casal e reprovava a própria sugestão na
+linha seguinte — e "Ana e João" é nome comum o bastante para o segundo casal bater nisso cedo.
+A rota passou a devolver a primeira alternativa livre junto do veredito (`proximoEnderecoLivre`,
+sufixo numérico a partir de 2), e o formulário a adota **em silêncio** enquanto o endereço vier
+da sugestão. Endereço digitado à mão nunca é trocado por baixo de quem o escreveu: ali a
+alternativa é oferecida, e aceitá-la é um clique. Sufixo numérico e não o ano do evento — que
+seria mais bonito — porque a data é preenchida **depois** do endereço no formulário, e um
+desempate que às vezes existe é pior que um que sempre funciona. Ela **não decide
 nada**: entre a resposta e o Criar cabe outro operador, e quem garante um casamento só continua
 sendo o `unique` de `casamentos.slug` — o 409 passou a marcar o campo em vez de só aparecer no
 toast. A rota ficou **fora** de `weddings/` porque ali ela casaria com o mesmo padrão de rota

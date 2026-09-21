@@ -20,6 +20,11 @@ test.skip(
 
 const TEST_PASSWORD = 'teste-e2e-senha-fake-123!'
 
+const SUFIXO = Date.now().toString().slice(-8)
+const NOME_A = `Ana${SUFIXO}`
+const NOME_B = `Joao${SUFIXO}`
+const ENDERECO_TOMADO = `ana${SUFIXO}-e-joao${SUFIXO}`
+
 test('o endereço do site se sugere pelo nome do casal e diz se está livre', async ({ page }) => {
   test.setTimeout(90_000)
   const admin = getServiceRoleClient()
@@ -27,6 +32,15 @@ test('o endereço do site se sugere pelo nome do casal e diz se está livre', as
   // Um casamento que já existe é o que dá ao teste um endereço OCUPADO real —
   // sem ele, a conferência só teria o caso feliz para responder.
   const casamento = await createTestWedding(admin, { nomes_noivos: 'Endereço Já Tomado' })
+
+  // O endereço que a sugestão produziria para `NOME_A e NOME_B`, tomado de
+  // propósito: é o que põe o formulário na situação de sugerir algo ocupado.
+  // Os nomes carregam dígitos do relógio para o endereço não coincidir com o de
+  // um casamento real do ambiente.
+  const homonimo = await createTestWedding(admin, {
+    slug: ENDERECO_TOMADO,
+    nomes_noivos: `${NOME_A} e ${NOME_B}`,
+  })
 
   const email = `teste-e2e-criar-${Date.now()}@example.com`
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
@@ -89,12 +103,32 @@ test('o endereço do site se sugere pelo nome do casal e diz se está livre', as
       timeout: 10_000,
     })
 
+    // Endereço digitado à mão não é trocado por baixo de quem o escreveu — a
+    // alternativa é oferecida, e aceitá-la é um clique.
+    const oferta = page.getByRole('button', { name: `Usar ${casamento.slug}-2` })
+    await expect(oferta).toBeVisible()
+    await oferta.click()
+    await expect(endereco).toHaveValue(`${casamento.slug}-2`)
+    await expect(situacao).toContainText('Livre', { timeout: 10_000 })
+
     // --- esvaziar o campo devolve a sugestão ---
     await endereco.fill('')
     await page.getByLabel('Nome do casal').fill('Ana & Bruno')
     await expect(endereco).toHaveValue('ana-e-bruno')
+
+    // --- e a sugestão nunca oferece um endereço tomado ---
+    //
+    // Era o defeito relatado em 21/09/2026: o formulário sugeria `ana-e-joao` a
+    // partir do nome do casal e reprovava a própria sugestão na linha seguinte.
+    // O segundo casal com o mesmo primeiro nome batia nisso, e "Ana e João" não
+    // é um nome raro.
+    await endereco.fill('')
+    await page.getByLabel('Nome do casal').fill(`${NOME_A} e ${NOME_B}`)
+    await expect(endereco).toHaveValue(`${ENDERECO_TOMADO}-2`)
+    await expect(situacao).toContainText('Livre', { timeout: 10_000 })
   } finally {
     await deleteTestWedding(admin, casamento.id)
+    await deleteTestWedding(admin, homonimo.id)
     await admin.from('operadores_plataforma').delete().eq('usuario_id', operadorId)
     await admin.auth.admin.deleteUser(operadorId)
   }

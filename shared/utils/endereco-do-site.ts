@@ -61,3 +61,50 @@ export function sugerirEnderecoDoSite(nomesNoivos: string): string {
   // nasce com erro dentro ensina que o formulário está quebrado.
   return sugestao.length >= MINIMO && sugestao.length <= MAXIMO ? sugestao : ''
 }
+
+/**
+ * O primeiro endereço livre a partir de uma base: `ana-e-joao`, `ana-e-joao-2`,
+ * `ana-e-joao-3`...
+ *
+ * Existe porque sugerir e reprovar a própria sugestão é pior do que não
+ * sugerir: "Ana e João" é um nome comum, e o segundo casal Ana e João lia o
+ * sistema oferecer um endereço e recusá-lo na linha seguinte. Quem sugere
+ * precisa sugerir algo utilizável.
+ *
+ * Sufixo numérico, e não o ano do evento — que seria mais bonito: a data é
+ * preenchida DEPOIS do endereço no formulário, então na hora de sugerir ela
+ * quase sempre está vazia, e um desempate que às vezes existe e às vezes não é
+ * pior que um que sempre funciona.
+ *
+ * Devolve `null` quando desiste: aí o campo fica com a base e a tela diz que o
+ * endereço está tomado, que é a verdade.
+ */
+const MAXIMO_DE_TENTATIVAS = 99
+
+export function proximoEnderecoLivre(base: string, tomados: Iterable<string>): string | null {
+  const ocupados = new Set(tomados)
+
+  if (!ocupados.has(base)) {
+    return base
+  }
+
+  for (let numero = 2; numero <= MAXIMO_DE_TENTATIVAS; numero++) {
+    const sufixo = `-${numero}`
+    // A base é encurtada quando o sufixo não caberia no limite do campo, e o
+    // hífen solto que a fatia pode deixar no fim é removido — `ana-` não passa
+    // no formato, e uma sugestão inválida não é sugestão.
+    const raiz =
+      base.length + sufixo.length <= MAXIMO
+        ? base
+        : base.slice(0, MAXIMO - sufixo.length).replace(/-+$/, '')
+
+    // O tamanho que precisa caber na faixa do schema é o do CANDIDATO, não o da
+    // raiz: `jo-2` é endereço válido, embora `jo` sozinho não fosse.
+    const candidato = `${raiz}${sufixo}`
+    if (raiz.length > 0 && candidato.length >= MINIMO && !ocupados.has(candidato)) {
+      return candidato
+    }
+  }
+
+  return null
+}

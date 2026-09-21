@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { platformWeddingCreateSchema } from '#shared/schemas/platform-wedding'
+import { proximoEnderecoLivre } from '#shared/utils/endereco-do-site'
 
 /**
  * O endereço do site está livre? — conveniência do formulário, nunca a garantia.
@@ -14,6 +15,12 @@ import { platformWeddingCreateSchema } from '#shared/schemas/platform-wedding'
  * `unique` de `casamentos.slug`, que é a chave de idempotência da criação
  * (docs/fase5-multievento.md 6.3). Tratar esta consulta como autoridade seria
  * trocar uma restrição do banco por uma corrida.
+ *
+ * Ela devolve também **uma alternativa livre** quando o endereço está tomado, e
+ * isso não é enfeite: sem ela, o formulário sugeria `ana-e-joao` a partir do
+ * nome do casal e reprovava a própria sugestão na linha seguinte — o segundo
+ * casal Ana e João do produto batia nisso. Quem sugere precisa sugerir algo
+ * utilizável, e quem conhece os endereços tomados é o servidor.
  *
  * Caminho Plataforma (CLAUDE.md 4.2): `requirePlatformOperator()` é o portão, e
  * só depois dele entra o `service_role` — `casamentos` não tem policy que
@@ -30,11 +37,22 @@ export default defineEventHandler(async (event) => {
 
   const admin = supabaseAdmin(event)
 
-  const { data, error } = await admin.from('casamentos').select('id').eq('slug', slug).maybeSingle()
+  // Os vizinhos do endereço pedido, e não só ele: é o que permite achar a
+  // primeira alternativa livre numa consulta só, em vez de perguntar
+  // `ana-e-joao-2`, `-3`, `-4` uma de cada vez. O formato do slug não admite
+  // `%` nem `_`, então o prefixo entra no `like` sem virar curinga.
+  const { data, error } = await admin.from('casamentos').select('slug').like('slug', `${slug}%`)
 
   if (error) {
     throw badRequestError(error.message)
   }
 
-  return { slug, disponivel: !data }
+  const tomados = (data ?? []).map((casamento) => casamento.slug)
+  const disponivel = !tomados.includes(slug)
+
+  return {
+    slug,
+    disponivel,
+    sugestao: disponivel ? null : proximoEnderecoLivre(slug, tomados),
+  }
 })

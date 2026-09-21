@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sugerirEnderecoDoSite } from '#shared/utils/endereco-do-site'
+import { proximoEnderecoLivre, sugerirEnderecoDoSite } from '#shared/utils/endereco-do-site'
 import { platformWeddingCreateSchema } from '#shared/schemas/platform-wedding'
 
 describe('sugerirEnderecoDoSite', () => {
@@ -49,5 +49,58 @@ describe('sugerirEnderecoDoSite', () => {
     const sugestao = sugerirEnderecoDoSite(nomes)
     expect(sugestao).not.toBe('')
     expect(platformWeddingCreateSchema.shape.slug.safeParse(sugestao).success).toBe(true)
+  })
+})
+
+describe('proximoEnderecoLivre', () => {
+  it('devolve a própria base quando ela está livre', () => {
+    expect(proximoEnderecoLivre('ana-e-joao', [])).toBe('ana-e-joao')
+    expect(proximoEnderecoLivre('ana-e-joao', ['outro-casal'])).toBe('ana-e-joao')
+  })
+
+  it('numera a partir do 2, e pula os que já existem', () => {
+    expect(proximoEnderecoLivre('ana-e-joao', ['ana-e-joao'])).toBe('ana-e-joao-2')
+    expect(proximoEnderecoLivre('ana-e-joao', ['ana-e-joao', 'ana-e-joao-2'])).toBe('ana-e-joao-3')
+  })
+
+  it('encurta a base para o sufixo caber no limite do campo', () => {
+    const base = 'a'.repeat(60)
+    const livre = proximoEnderecoLivre(base, [base])
+
+    expect(livre).toBe(`${'a'.repeat(58)}-2`)
+    expect(livre).toHaveLength(60)
+    expect(platformWeddingCreateSchema.shape.slug.safeParse(livre).success).toBe(true)
+  })
+
+  it('não deixa hífen solto quando encurta', () => {
+    // A fatia cairia bem no meio do último hífen: `...-` + `-2` seria `--2`,
+    // que o formato recusa.
+    const base = `${'a'.repeat(57)}-bb`
+    const livre = proximoEnderecoLivre(base, [base])
+
+    expect(livre).toBe(`${'a'.repeat(57)}-2`)
+    expect(platformWeddingCreateSchema.shape.slug.safeParse(livre).success).toBe(true)
+  })
+
+  it('desiste em vez de devolver algo inválido', () => {
+    const tomados = ['ana-e-joao', ...Array.from({ length: 98 }, (_, i) => `ana-e-joao-${i + 2}`)]
+    expect(proximoEnderecoLivre('ana-e-joao', tomados)).toBeNull()
+  })
+
+  it('numera até uma base que sozinha seria curta demais', () => {
+    // `jo` não passa no mínimo de 3 do schema, mas `jo-2` passa — e quem digitou
+    // `jo` à mão merece a mesma oferta de alternativa que os outros.
+    expect(proximoEnderecoLivre('jo', ['jo'])).toBe('jo-2')
+  })
+
+  /** O contrato que sustenta os dois: o que se oferece, o campo aceita. */
+  it.each([
+    ['ana-e-joao', ['ana-e-joao']],
+    ['jo', ['jo']],
+    ['ana-e-joao', ['ana-e-joao', 'ana-e-joao-2', 'ana-e-joao-3']],
+  ] as const)('a alternativa para "%s" passa no schema de criação', (base, tomados) => {
+    const livre = proximoEnderecoLivre(base, tomados)
+    if (livre === null) return
+    expect(platformWeddingCreateSchema.shape.slug.safeParse(livre).success).toBe(true)
   })
 })
