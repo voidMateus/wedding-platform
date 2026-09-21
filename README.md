@@ -30,6 +30,30 @@ npx supabase db push
 
 Em **produção não se faz isso à mão**: o job `migrate-prod` do CI aplica as migrations pendentes a cada merge em `main` (docs/ARCHITECTURE.md seção 4.2).
 
+### Primeiro operador da plataforma
+
+`operadores_plataforma` nasce vazia e sem tela de gestão (a tela é a Fase H de `docs/rodada-usabilidade-2026-09.md`). Até ela existir, o caminho oficial é este script — que cria o usuário no Auth, promove a operador e confere o projeto alvo antes de escrever:
+
+```bash
+# PowerShell, da raiz do repo
+$env:SUPABASE_SERVICE_ROLE_KEY = "<service_role do projeto alvo>"
+node scripts/criar-operador-plataforma.mjs --ref <project-ref> --email voce@exemplo.com
+```
+
+O `.env` **não** é lido de propósito: o alvo vai na linha de comando e é conferido contra o `ref` assinado dentro da própria chave, porque escrever no projeto errado é a falha muda clássica deste repositório. Rodar de novo com o mesmo e-mail é seguro.
+
+### Links de e-mail (convite, acesso, senha)
+
+Os links que o Supabase Auth envia voltam para `/auth/callback`, que troca o código por sessão e redireciona (`?next=`). O endereço é montado em tempo de execução a partir da origem, então vale igual em local, preview e produção — **mas cada ambiente precisa ter o seu na allowlist do projeto Supabase**, em Authentication → URL Configuration → Redirect URLs:
+
+```
+http://localhost:3000/auth/callback
+https://<preview>.vercel.app/auth/callback
+https://meusitecasamento.com.br/auth/callback
+```
+
+Sem isso o Supabase ignora o `emailRedirectTo` e manda a pessoa para o `site_url` — que era exatamente o beco do link mágico antes desta rodada (`docs/rodada-usabilidade-2026-09.md`, item A1). É configuração do **projeto**, não do repositório: não há migration que a aplique.
+
 ## Desenvolvimento
 
 ```bash
