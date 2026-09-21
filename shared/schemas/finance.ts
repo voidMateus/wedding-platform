@@ -200,6 +200,21 @@ export const vendorContractSchema = z.object({
 })
 export type VendorContractInput = z.infer<typeof vendorContractSchema>
 
+/**
+ * Registrar o valor fechado de um GASTO — a mesma contratação, vista do objeto
+ * certo (o gasto é quem tem custo final; o fornecedor é quem o cobra).
+ *
+ * `despesaId` não entra: ele é o parâmetro da rota. `fornecedorId` é opcional
+ * por ora — a Fase C da rodada de usabilidade (item C5) torna o fornecedor
+ * obrigatório ao contratar, e é aqui que a exigência vai passar a valer.
+ */
+export const expenseContractSchema = z.object({
+  valorCentavos: valorCentavosSchema,
+  parcelamento: parcelamentoSchema.optional(),
+  fornecedorId: z.string().uuid().nullish(),
+})
+export type ExpenseContractInput = z.infer<typeof expenseContractSchema>
+
 export const installmentInputSchema = z.object({
   venceEm: dataSchema,
   valorCentavos: valorCentavosSchema.refine((valor) => valor > 0, 'A parcela precisa de um valor.'),

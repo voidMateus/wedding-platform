@@ -84,48 +84,45 @@ export function useFinance() {
    * mostraria um total que discorda da outra.
    */
   async function atualizarFinanceiro() {
-    await Promise.all([
-      refreshNuxtData(chaveResumo()),
-      refreshNuxtData(chaveOrcamento()),
-      refreshNuxtData(chaveCategorias()),
-      refreshNuxtData(chavePagamentos()),
+    // Hook direto, e NÃO `refreshNuxtData` — que é o mesmo hook precedido de um
+    // `requestIdleCallback` cuja espera não tem prazo: quando ela não chega, a
+    // mutação vai ao banco e a tela não muda, sem erro nenhum para acusar.
+    // Planejamento e Onboarding já tinham sido corrigidos; o Financeiro era o
+    // último a depender de a aba ficar ociosa para mostrar o que o casal
+    // acabou de salvar (rodada de usabilidade de 20/09/2026, seção 1.1).
+    await useNuxtApp().hooks.callHookParallel('app:data:refresh', [
+      chaveResumo(),
+      chaveOrcamento(),
+      chaveCategorias(),
+      chavePagamentos(),
     ])
-  }
-
-  /** Contratar: a cotação do fornecedor vira o custo final de um gasto planejado. */
-  async function contratarFornecedor(fornecedorId: string, input: VendorContractInput) {
-    const despesa = await $fetch<Despesa>(`/api/finance/vendors/${fornecedorId}/contract`, {
-      method: 'POST',
-      body: input,
-    })
-    await atualizarFinanceiro()
-    return despesa
   }
 
   /**
    * Registrar o valor fechado de um gasto — com ou sem fornecedor.
    *
-   * Com fornecedor é o fluxo completo (estágio + vínculo + parcelas), que o
-   * endpoint de contratação já faz sozinho. SEM fornecedor era só gravar o
-   * custo final — e o plano de pagamento ia para o lixo em silêncio: o casal
-   * preenchia entrada e parcelas, lia "o pagamento já está em Pagamentos" e
-   * não havia parcela nenhuma. O PATCH da despesa não aceita parcelamento, por
-   * isso o segundo passo existe.
+   * **Um ato, uma chamada, uma releitura.** Sem fornecedor, isto eram duas
+   * mutações em série (PATCH da despesa e POST de parcelas), cada uma
+   * disparando as quatro releituras do módulo: a ficha remontava em estados
+   * intermediários com a modal ainda aberta, e o casal via telas indo e vindo
+   * antes de o registro terminar (rodada de usabilidade de 20/09/2026, ponto
+   * 16). O servidor passou a fazer o trabalho inteiro em
+   * `server/utils/contratar-gasto.ts`.
    *
-   * `substituirEmAberto` para espelhar a contratação com fornecedor:
-   * registrar de novo o valor de um gasto é renegociação, e a parcela antiga
-   * descreve um acordo que não existe mais.
+   * A rota é sempre a do GASTO — o objeto que ganha custo final. O fornecedor
+   * vai como vínculo quando existe.
    */
   async function registrarContratacao(fornecedorId: string | null, input: VendorContractInput) {
-    if (fornecedorId) return contratarFornecedor(fornecedorId, input)
-
-    await atualizarDespesa(input.despesaId, { valorCentavos: input.valorCentavos })
-    if (input.parcelamento && input.parcelamento.modo !== 'depois') {
-      await gerarParcelasDaDespesa(input.despesaId, {
+    const despesa = await $fetch<Despesa>(`/api/finance/expenses/${input.despesaId}/contract`, {
+      method: 'POST',
+      body: {
+        valorCentavos: input.valorCentavos,
         parcelamento: input.parcelamento,
-        substituirEmAberto: true,
-      })
-    }
+        fornecedorId,
+      },
+    })
+    await atualizarFinanceiro()
+    return despesa
   }
 
   async function definirTetoDoOrcamento(orcamentoTotalCentavos: number | null) {
@@ -235,7 +232,6 @@ export function useFinance() {
     getResumo,
     getOrcamento,
     getPagamentos,
-    contratarFornecedor,
     registrarContratacao,
     listCategorias,
     atualizarFinanceiro,

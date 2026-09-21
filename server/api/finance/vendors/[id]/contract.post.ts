@@ -1,6 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
 import { vendorContractSchema } from '#shared/schemas/finance'
-import { gerarParcelasComEntrada } from '#shared/utils/orcamento'
 
 /**
  * Contratar um fornecedor — a ponte entre as três telas do módulo.
@@ -17,6 +16,15 @@ import { gerarParcelasComEntrada } from '#shared/utils/orcamento'
  * A cotação continua fora de qualquer total: três buffets concorrentes somariam
  * três vezes o mesmo gasto. É contratar, e só contratar, que move dinheiro para
  * o orçamento real.
+ *
+ * O trabalho em si vive em `server/utils/contratar-gasto.ts`, compartilhado com
+ * `POST /expenses/:id/contract` — que é o mesmo ato a partir do gasto, para
+ * quem fecha um valor sem ter cotado ninguém. Duas portas, um caminho: era a
+ * cópia dessa lógica no client que fazia a tela piscar (rodada de usabilidade
+ * de 20/09/2026, ponto 16).
+ *
+ * auditoria delegada: server/utils/contratar-gasto.ts — contratar é um fato
+ * só, e registrá-lo nas duas rotas seria duplicar a chance de elas divergirem.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -28,134 +36,10 @@ export default defineEventHandler(async (event) => {
   const input = await validateBody(event, vendorContractSchema)
   const client = await serverSupabaseClient(event)
 
-  const [fornecedorResult, despesaResult] = await Promise.all([
-    client
-      .from('fornecedores')
-      .select('id, nome, categoria_id')
-      .eq('id', id)
-      .eq('casamento_id', weddingId)
-      .is('excluido_em', null)
-      .maybeSingle(),
-    client
-      .from('despesas')
-      .select('id, descricao, categoria_id, valor_centavos')
-      .eq('id', input.despesaId)
-      .eq('casamento_id', weddingId)
-      .is('excluido_em', null)
-      .maybeSingle(),
-  ])
-
-  if (fornecedorResult.error) throw badRequestError(fornecedorResult.error.message)
-  if (despesaResult.error) throw badRequestError(despesaResult.error.message)
-  if (!fornecedorResult.data) throw notFoundError('Fornecedor não encontrado.')
-  if (!despesaResult.data) throw notFoundError('Gasto não encontrado.')
-
-  const { data: despesa, error: erroDespesa } = await client
-    .from('despesas')
-    .update({
-      valor_centavos: input.valorCentavos,
-      fornecedor_id: fornecedorResult.data.id,
-      // A categoria do fornecedor só é adotada quando o gasto não tinha uma:
-      // o casal classificou o gasto no planejamento, e contratar não é hora de
-      // remanejar o orçamento por baixo dele.
-      categoria_id: despesaResult.data.categoria_id ?? fornecedorResult.data.categoria_id,
-    })
-    .eq('id', input.despesaId)
-    .eq('casamento_id', weddingId)
-    .select()
-    .single()
-
-  if (erroDespesa) {
-    throw badRequestError(erroDespesa.message)
-  }
-
-  // O vínculo é gravado nos DOIS sentidos. Só `despesas.fornecedor_id` deixava
-  // a cotação contratada órfã na tela de Fornecedores — ela caía em "Sem gasto
-  // definido" enquanto Pagamentos já mostrava o nome dela no gasto, e as duas
-  // telas descreviam realidades diferentes do mesmo contrato.
-  const { error: erroFornecedor } = await client
-    .from('fornecedores')
-    .update({ estagio: 'contratado', despesa_id: input.despesaId })
-    .eq('id', id)
-    .eq('casamento_id', weddingId)
-
-  if (erroFornecedor) {
-    throw badRequestError(erroFornecedor.message)
-  }
-
-  if (input.parcelamento && input.parcelamento.modo !== 'depois') {
-    // Entrada e forma do saldo são duas perguntas, não uma: dar entrada é a
-    // maneira normal de contratar fornecedor de casamento, e antes só existia
-    // "parcelas iguais" — quem segurava a data com um sinal criava as linhas
-    // à mão, uma a uma.
-    const parcelas = gerarParcelasComEntrada(
-      input.valorCentavos,
-      input.parcelamento.entrada ?? null,
-      input.parcelamento.modo === 'a_vista'
-        ? { quantidade: 1, primeiroVencimento: input.parcelamento.venceEm }
-        : {
-            quantidade: input.parcelamento.quantidade,
-            primeiroVencimento: input.parcelamento.primeiroVencimento,
-          },
-    )
-
-    // Substitui o que estava em aberto: contratar de novo o mesmo gasto é
-    // renegociação, e a parcela antiga descreveria um acordo que não existe
-    // mais. Parcela paga nunca é tocada — é fato registrado.
-    const { data: emAberto } = await client
-      .from('parcelas_despesa')
-      .select('id')
-      .eq('despesa_id', input.despesaId)
-      .is('pago_em', null)
-
-    if (emAberto && emAberto.length > 0) {
-      // O erro é checado: um delete que falha volta 200 sem apagar nada, e o
-      // insert logo abaixo duplicaria o parcelamento em silêncio.
-      const { error: erroLimpeza } = await client
-        .from('parcelas_despesa')
-        .delete()
-        .in(
-          'id',
-          emAberto.map((parcela) => parcela.id),
-        )
-
-      if (erroLimpeza) {
-        throw badRequestError(erroLimpeza.message)
-      }
-    }
-
-    const { data: pagas } = await client
-      .from('parcelas_despesa')
-      .select('numero')
-      .eq('despesa_id', input.despesaId)
-
-    const maiorNumero = (pagas ?? []).reduce((maior, p) => Math.max(maior, p.numero), 0)
-
-    const { error: erroParcelas } = await client.from('parcelas_despesa').insert(
-      parcelas.map((parcela) => ({
-        casamento_id: weddingId,
-        despesa_id: input.despesaId,
-        numero: maiorNumero + parcela.numero,
-        vence_em: parcela.vence_em,
-        valor_centavos: parcela.valor_centavos,
-      })),
-    )
-
-    if (erroParcelas) {
-      throw badRequestError(erroParcelas.message)
-    }
-  }
-
-  await recordAuditLog(event, weddingId, memberId, {
-    action: 'finance.vendor.contract',
-    entityType: 'vendor',
-    entityId: id,
-    metadata: {
-      despesaId: input.despesaId,
-      valorCentavos: input.valorCentavos,
-      fornecedor: fornecedorResult.data.nome,
-    },
+  return contratarGasto(event, client, weddingId, memberId, {
+    despesaId: input.despesaId,
+    valorCentavos: input.valorCentavos,
+    parcelamento: input.parcelamento,
+    fornecedorId: id,
   })
-
-  return despesa
 })
