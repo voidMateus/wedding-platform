@@ -24,6 +24,17 @@ const { completarAcessoPorLink } = useAuth()
 const erro = ref<string | null>(null)
 
 /**
+ * O que o Supabase respondeu, cru.
+ *
+ * Fica visível na tela abaixo da mensagem amigável. Traduzir toda falha para
+ * "o link expirou" é confortável e inútil: as causas são diferentes (link já
+ * consumido por varredura de e-mail, fluxo PKCE sem verificador, projeto sem a
+ * URL na allowlist) e cada uma pede uma ação diferente de quem está tentando
+ * entrar — ou de quem vai depurar.
+ */
+const detalhe = ref<string | null>(null)
+
+/**
  * Para onde ir depois de a sessão existir.
  *
  * Só caminho interno: `next` vem da URL, e um destino absoluto transformaria
@@ -35,24 +46,41 @@ const destino = computed(() => {
   return pedido.startsWith('/') && !pedido.startsWith('//') ? pedido : DESTINO_PADRAO
 })
 
+/** Lê um parâmetro na query **ou** no fragmento (`#`) — o Supabase usa os dois. */
+function parametroDoLink(nome: string): string {
+  const naQuery = route.query[nome]
+  if (typeof naQuery === 'string' && naQuery) return naQuery
+
+  // O fluxo implícito devolve tudo depois do `#`, que não faz parte da query e
+  // que o servidor nunca vê. Ignorá-lo fazia um erro explicado pelo Supabase
+  // chegar aqui como "endereço sem link válido".
+  if (import.meta.client && window.location.hash.length > 1) {
+    return new URLSearchParams(window.location.hash.slice(1)).get(nome) ?? ''
+  }
+  return ''
+}
+
 onMounted(async () => {
-  const code = typeof route.query.code === 'string' ? route.query.code : ''
+  const code = parametroDoLink('code')
 
-  // O Supabase também devolve o erro na própria URL (link expirado, já usado)
-  // — e nesse caso não há código nenhum para tentar trocar.
-  const erroDoLink =
-    typeof route.query.error_description === 'string' ? route.query.error_description : ''
+  const codigoDoErro = parametroDoLink('error_code')
+  const descricaoDoErro = parametroDoLink('error_description').replace(/\+/g, ' ')
 
-  if (erroDoLink || !code) {
-    erro.value = erroDoLink
-      ? 'Este link expirou ou já foi usado.'
-      : 'Este endereço não tem um link de acesso válido.'
+  if (codigoDoErro || descricaoDoErro || !code) {
+    erro.value =
+      codigoDoErro === 'otp_expired'
+        ? 'Este link expirou ou já foi usado.'
+        : codigoDoErro || descricaoDoErro
+          ? 'O provedor de acesso recusou este link.'
+          : 'Este endereço não tem um link de acesso válido.'
+    detalhe.value = [codigoDoErro, descricaoDoErro].filter(Boolean).join(' — ') || null
     return
   }
 
   try {
     await completarAcessoPorLink(code)
-  } catch {
+  } catch (falha) {
+    detalhe.value = falha instanceof Error ? falha.message : null
     // A causa mais comum não é link inválido: é link aberto em OUTRO navegador.
     // O PKCE guarda o verificador em quem pediu o link, então abrir no celular
     // um e-mail pedido no computador falha aqui — e a mensagem precisa dizer
@@ -74,6 +102,10 @@ onMounted(async () => {
       </h1>
       <p class="mt-1.5 text-sm text-text-muted">
         {{ erro ?? 'Só um instante — estamos confirmando seu acesso.' }}
+      </p>
+      <!-- A resposta crua do provedor: é ela que diz o que fazer a seguir. -->
+      <p v-if="detalhe" class="mt-2 font-mono text-xs break-words text-text-muted/80">
+        {{ detalhe }}
       </p>
     </div>
 

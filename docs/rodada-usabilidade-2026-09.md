@@ -139,7 +139,7 @@ Seis defeitos confirmados no código. Nenhum é de opinião.
 
 | Item | Ponto | O que é | Situação |
 |---|---|---|---|
-| A1 | 5 | Link mágico não leva ao login | ✅ concluído (falta config do projeto) |
+| A1 | 5 | Link mágico não leva ao login | ✅ concluído — com limite conhecido (ver abaixo) |
 | A2 | 7 | Primeiros passos não se marcam | ✅ concluído |
 | A3 | 14 | Gasto entra duas vezes | ✅ concluído |
 | A4 | 16 | Tela pisca ao registrar contrato | ✅ concluído |
@@ -167,6 +167,40 @@ faria deste callback um redirecionador aberto.
 > **Pendência que não é código:** cada ambiente precisa ter `<origem>/auth/callback` na
 > allowlist de **Redirect URLs** do projeto Supabase (Authentication → URL Configuration).
 > Sem isso o Supabase ignora o `emailRedirectTo`. Documentado no `README.md`.
+> Aplicado no projeto de desenvolvimento em 21/09/2026.
+
+**O que o teste em 21/09/2026 revelou, e que não estava no diagnóstico.** Com a allowlist
+configurada, o link deixou de morrer na raiz e passou a chegar ao callback — mas a troca falhou
+com `PKCE code verifier not found in storage`.
+
+Não é defeito da correção — e a causa, medida no navegador em 21/09/2026, é mais estreita e
+mais grave do que "outro navegador":
+
+1. O verificador **é** gravado ao pedir o link (três cookies: o slot do fluxo, o índice e a
+   chave fixa), **sobrevive** ao SSR do callback, e `Secure` não atrapalha em `localhost`.
+2. O link do e-mail **não carrega identificação do fluxo** — a flag que faria isso
+   (`appendPkceFlowIdToRedirects`) é experimental e vem desligada. Sem ela, a troca lê a
+   **chave fixa**, que o próprio `auth-js` documenta como espelho do **fluxo mais recente**.
+3. Logo: **pedir um segundo link invalida o primeiro**, no mesmo navegador e dentro do prazo.
+   Quem pede de novo porque "o e-mail não chegou" queima o link que estava a caminho.
+4. E o verificador é **apagado** quando o pedido falha (um 500 do provedor de e-mail, por
+   exemplo), deixando o link que chegou sem par.
+
+Some a isso o que já se sabia: o verificador vive no navegador que pediu, então **o casal que
+pede no computador e abre o e-mail no celular nunca entra**. Esse é o caso normal do produto,
+não a exceção.
+
+A saída é o fluxo que o próprio Supabase recomenda para aplicação com servidor: o link carrega
+`token_hash` e a verificação acontece no **servidor** (`verifyOtp`), sem depender de storage de
+navegador nenhum. Ela exige mudar o template do e-mail — que é exatamente o item **B2**, onde
+os templates serão reescritos de qualquer forma.
+
+**Decidido em 21/09/2026: fica para a Fase B.** O que este PR entrega continua valendo — o
+link sai do e-mail e chega a uma tela que tenta a troca e **explica o resultado**, em vez de
+morrer numa página neutra. A tela passou a mostrar a resposta crua do provedor abaixo da
+mensagem amigável: traduzir toda falha para "o link expirou" é confortável e inútil, porque
+cada causa pede uma ação diferente — foi ela que revelou este diagnóstico em vez de escondê-lo.
+Até a Fase B, o caminho garantido de entrada é **e-mail e senha**.
 
 **Diagnóstico.** `app/composables/useAuth.ts:30` chama `supabase.auth.signInWithOtp({ email })`
 sem `emailRedirectTo`. O link do e-mail cai no `site_url` do projeto Supabase — a raiz do
@@ -381,6 +415,11 @@ Aproveitar o layout que já existe.
 **Escopo.**
 - Templates do Auth (convite, link mágico, recuperação, confirmação) reescritos com o mesmo
   layout, marca e tom das nossas mensagens.
+- **Migrar o link para `token_hash` + `verifyOtp` no servidor** (achado de 21/09/2026, ver
+  item A1): com PKCE, o link só funciona no navegador que o pediu **e só enquanto for o
+  pedido mais recente** — pedir de novo queima o anterior. O template é justamente onde essa troca se faz
+  (`{{ .TokenHash }}` no lugar do `{{ .ConfirmationURL }}`), então as duas coisas andam
+  juntas — e é por isso que o A1 parou onde parou.
 - Conteúdo do convite: quem criou o evento, o que é a plataforma, o que fazer agora, e um
   botão único que leva ao callback (A1).
 - Os templates do Auth são **configuração do projeto Supabase**, não do repositório:
