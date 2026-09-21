@@ -139,7 +139,7 @@ Seis defeitos confirmados no código. Nenhum é de opinião.
 
 | Item | Ponto | O que é | Situação |
 |---|---|---|---|
-| A1 | 5 | Link mágico não leva ao login | ✅ concluído — com limite conhecido (ver abaixo) |
+| A1 | 5 | Link mágico não leva ao login | ✅ concluído — validado ponta a ponta (ver abaixo) |
 | A2 | 7 | Primeiros passos não se marcam | ✅ concluído |
 | A3 | 14 | Gasto entra duas vezes | ✅ concluído |
 | A4 | 16 | Tela pisca ao registrar contrato | ✅ concluído |
@@ -169,38 +169,43 @@ faria deste callback um redirecionador aberto.
 > Sem isso o Supabase ignora o `emailRedirectTo`. Documentado no `README.md`.
 > Aplicado no projeto de desenvolvimento em 21/09/2026.
 
-**O que o teste em 21/09/2026 revelou, e que não estava no diagnóstico.** Com a allowlist
-configurada, o link deixou de morrer na raiz e passou a chegar ao callback — mas a troca falhou
-com `PKCE code verifier not found in storage`.
+**O que o teste em 21/09/2026 revelou.** Com a allowlist configurada, o link deixou de morrer
+na raiz e passou a chegar ao callback — mas a troca falhou com `PKCE code verifier not found in
+storage`. **A causa era um defeito desta própria correção**, e levou três hipóteses erradas até
+ser medida.
 
-Não é defeito da correção — e a causa, medida no navegador em 21/09/2026, é mais estreita e
-mais grave do que "outro navegador":
+`createBrowserClient` liga `detectSessionInUrl` por padrão, e `_isPKCECallback` reconhece o
+`?code=` da URL: o client **já troca o código sozinho** ao inicializar. O `onMounted` da página
+trocava de novo — e o verificador é de uso único, então a segunda troca não achava mais nada. O
+acesso funcionava, e a tela dizia que não. `completarAcessoPorLink` passou a **olhar antes de
+agir** (`getSession()`), e só troca quando ninguém trocou. **Validado ponta a ponta em
+21/09/2026.**
 
-1. O verificador **é** gravado ao pedir o link (três cookies: o slot do fluxo, o índice e a
-   chave fixa), **sobrevive** ao SSR do callback, e `Secure` não atrapalha em `localhost`.
-2. O link do e-mail **não carrega identificação do fluxo** — a flag que faria isso
-   (`appendPkceFlowIdToRedirects`) é experimental e vem desligada. Sem ela, a troca lê a
-   **chave fixa**, que o próprio `auth-js` documenta como espelho do **fluxo mais recente**.
-3. Logo: **pedir um segundo link invalida o primeiro**, no mesmo navegador e dentro do prazo.
-   Quem pede de novo porque "o e-mail não chegou" queima o link que estava a caminho.
-4. E o verificador é **apagado** quando o pedido falha (um 500 do provedor de e-mail, por
-   exemplo), deixando o link que chegou sem par.
+As três hipóteses erradas ficam registradas porque o custo delas foi de quem esperava: varredura
+de links do Outlook consumindo o link, "pedir um segundo link invalida o primeiro" e
+incompatibilidade de cookie entre `localhost` e `127.0.0.1`. Todas plausíveis, nenhuma medida —
+e o que derrubou cada uma foi um teste no navegador real, que devia ter vindo primeiro.
 
-Some a isso o que já se sabia: o verificador vive no navegador que pediu, então **o casal que
-pede no computador e abre o e-mail no celular nunca entra**. Esse é o caso normal do produto,
-não a exceção.
+**O limite que sobra é outro, e é real.** Medido no mesmo dia:
+
+1. o verificador vive no navegador que **pediu** o link — o casal que pede no computador e abre
+   o e-mail no celular não entra, e esse é o caso normal do produto, não a exceção;
+2. o link não carrega identificação do fluxo (`appendPkceFlowIdToRedirects` é experimental e vem
+   desligada), então a troca lê a **chave fixa**, que o próprio `auth-js` documenta como espelho
+   do fluxo **mais recente**: pedir um segundo link inutiliza o primeiro, mesmo no mesmo
+   navegador e dentro do prazo;
+3. e o verificador é apagado quando o pedido falha (um 500 do provedor de e-mail, por exemplo),
+   deixando sem par o link que porventura tenha saído.
 
 A saída é o fluxo que o próprio Supabase recomenda para aplicação com servidor: o link carrega
 `token_hash` e a verificação acontece no **servidor** (`verifyOtp`), sem depender de storage de
-navegador nenhum. Ela exige mudar o template do e-mail — que é exatamente o item **B2**, onde
-os templates serão reescritos de qualquer forma.
+navegador nenhum. Ela exige mudar o template do e-mail — que é exatamente o item **B2**, onde os
+templates serão reescritos de qualquer forma. **Decidido em 21/09/2026: fica para a Fase B.**
 
-**Decidido em 21/09/2026: fica para a Fase B.** O que este PR entrega continua valendo — o
-link sai do e-mail e chega a uma tela que tenta a troca e **explica o resultado**, em vez de
-morrer numa página neutra. A tela passou a mostrar a resposta crua do provedor abaixo da
-mensagem amigável: traduzir toda falha para "o link expirou" é confortável e inútil, porque
-cada causa pede uma ação diferente — foi ela que revelou este diagnóstico em vez de escondê-lo.
-Até a Fase B, o caminho garantido de entrada é **e-mail e senha**.
+A tela mostrar a resposta crua do provedor abaixo da mensagem amigável é o que fechou este item:
+traduzir toda falha para "o link expirou" é confortável e inútil, porque cada causa pede uma
+ação diferente — e foi esse detalhe que trouxe o `PKCE code verifier not found in storage` para
+a tela, em vez de esconder o defeito atrás de uma frase gentil.
 
 **Diagnóstico.** `app/composables/useAuth.ts:30` chama `supabase.auth.signInWithOtp({ email })`
 sem `emailRedirectTo`. O link do e-mail cai no `site_url` do projeto Supabase — a raiz do
