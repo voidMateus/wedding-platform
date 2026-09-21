@@ -69,10 +69,25 @@ export function useAuth() {
    * entrado com sucesso.
    */
   async function completarAcessoPorLink(code: string): Promise<void> {
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (error) {
-      throw error
+    // OLHAR ANTES DE AGIR. O client do navegador já troca o código sozinho ao
+    // inicializar — `detectSessionInUrl` vem ligado por padrão, e
+    // `_isPKCECallback` reconhece o `?code=` da URL. Quando ele consegue, o
+    // verificador (de uso único) já foi consumido, e uma segunda troca falha
+    // com `PKCE code verifier not found in storage`.
+    //
+    // Era o que acontecia: o acesso funcionava e a tela relatava um erro sobre
+    // a tentativa redundante, apontando para uma causa que não existia.
+    // `getSession()` espera a inicialização do client terminar, então esta
+    // leitura não corre com a troca automática.
+    const { data: jaLogado } = await supabase.auth.getSession()
+
+    if (!jaLogado.session) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (error) {
+        throw error
+      }
     }
+
     await waitForSupabaseUser()
     await authStore.fetchSession()
   }
