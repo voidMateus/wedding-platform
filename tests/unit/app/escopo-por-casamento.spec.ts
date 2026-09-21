@@ -94,4 +94,58 @@ describe('escopo por casamento', () => {
       )
     }
   })
+
+  /**
+   * A outra metade da mesma regra: escopar a chave da requisição não adianta
+   * se a INVALIDAÇÃO mira outra coisa.
+   *
+   * `useOnboarding` registrava `onboarding@<slug>` e invalidava `'onboarding'`
+   * — uma chave que nenhuma requisição carrega. O roteiro de Primeiros passos
+   * nunca era relido, e o casal terminava as etapas para ler "0 de 4
+   * concluídos" (rodada de usabilidade de 20/09/2026, ponto 7).
+   *
+   * A falha é muda nos dois sentidos: o refresh não erra, ele simplesmente não
+   * encontra nada para atualizar. Por isso a varredura — corrigir a chave de
+   * hoje não impede a de amanhã.
+   */
+  const comInvalidacao = composables.filter((nome) =>
+    /app:data:refresh|refreshNuxtData\(/.test(readFileSync(join(RAIZ, nome), 'utf8')),
+  )
+
+  it('encontra os composables do painel que invalidam cache', () => {
+    expect(comInvalidacao.length).toBeGreaterThan(2)
+  })
+
+  it.each(comInvalidacao)('%s invalida a chave resolvida, nunca a base crua', (nome) => {
+    const conteudo = readFileSync(join(RAIZ, nome), 'utf8')
+
+    const içadas = new Set(
+      [...conteudo.matchAll(/const\s+(\w+)\s*=\s*useWeddingScopedKey\(/g)].map(
+        ([, ident]) => ident,
+      ),
+    )
+
+    const invalidadas = [
+      // `callHookParallel('app:data:refresh', [ ... ])` — o array inteiro.
+      ...[...conteudo.matchAll(/app:data:refresh['"]\s*,\s*\[([^\]]*)\]/g)].flatMap(([, lista]) =>
+        (lista ?? '').split(',').map((item) => item.trim()),
+      ),
+      // `refreshNuxtData(...)` — um argumento por chamada.
+      ...[...conteudo.matchAll(/refreshNuxtData\(([^)]*\)?)\)/g)].map(([, arg]) =>
+        (arg ?? '').trim(),
+      ),
+    ].filter(Boolean)
+
+    for (const alvo of invalidadas) {
+      // Só a chave **chamada** vale: `chaveRoteiro()` resolve para
+      // `onboarding@<slug>`; `chaveRoteiro` (sem chamar) é a função, e
+      // `'onboarding'` é a base que ninguém registrou.
+      const identificador = alvo.match(/^(\w+)\(\)$/)?.[1]
+
+      expect(
+        Boolean(identificador && içadas.has(identificador)),
+        `${nome}: invalidação de "${alvo}" não usa uma chave de useWeddingScopedKey resolvida`,
+      ).toBe(true)
+    }
+  })
 })
