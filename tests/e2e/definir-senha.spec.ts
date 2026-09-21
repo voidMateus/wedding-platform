@@ -60,6 +60,16 @@ test('o link de recuperação leva à tela de senha, e a senha nova passa a vale
     await page.getByRole('button', { name: 'Entrar', exact: true }).click()
 
     await expect(page).toHaveURL(new RegExp(`/admin/${casamento.slug}`), { timeout: 20_000 })
+
+    // --- e trocar a senha fica a um clique do bloco de identidade ---
+    //
+    // Antes ela estava a três: abrir Configurações, achar o assunto, achar a
+    // seção. Conta se procura no canto superior direito, em qualquer sistema.
+    await page.getByRole('button', { name: /^Conta:/ }).click()
+    await page.getByRole('menuitem', { name: 'Senha' }).click()
+
+    await expect(page).toHaveURL(/configuracoes\?secao=senha/, { timeout: 20_000 })
+    await expect(page.getByRole('heading', { name: 'Senha', exact: true })).toBeVisible()
   } finally {
     await deleteTestWedding(admin, casamento.id)
     await deleteTestMember(admin, membro.userId)

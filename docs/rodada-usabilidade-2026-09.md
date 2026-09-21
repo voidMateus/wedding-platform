@@ -523,6 +523,14 @@ módulo que não guarda dado do evento: é a conta de quem está olhando, e vale
 casamentos que a pessoa acessa. A senha atual não é pedida — a sessão é a mesma garantia que
 abriu o painel.
 
+**E o caminho até ela sai do cabeçalho** (ajustado em 21/09/2026, no primeiro uso): dentro de
+Configurações a tela estava a três cliques, e conta se procura no canto superior direito, em
+qualquer sistema. O bloco de identidade virou menu (`AdminAccountMenu`), com o e-mail inteiro,
+**Senha** e **Sair** — e o botão de ícone de sair, que ficava solto ao lado dele nas três cascas,
+saiu: ele duplicava o mesmo assunto em dois controles. Na lista de eventos e no painel interno o
+menu fica só com "Sair", porque a tela de senha vive dentro das Configurações de um casamento e
+ali nenhum evento está aberto.
+
 O teste (`tests/e2e/definir-senha.spec.ts`) percorre o ciclo inteiro, e não só a tela: uma senha
 que salva e um login que continua recusando a senha nova são dois sucessos que somam zero. Ele
 cobre também a resposta idêntica do pedido de redefinição para e-mail com e sem conta — a

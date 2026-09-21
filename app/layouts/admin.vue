@@ -11,6 +11,8 @@ import { adminPrimaryNav, adminSectionMenu } from '~/utils/admin-nav'
 provide(ADMIN_UI_CONTEXT_KEY, true)
 
 const route = useRoute()
+// Continua aqui por causa da barra de abas do celular, que tem o "Sair" dela
+// no painel "Mais" — no cabeçalho quem o oferece agora é o menu de conta.
 const { signOut } = useAuth()
 const uiStore = useUiStore()
 const authStore = useAuthStore()
@@ -155,6 +157,17 @@ const operatorRoleLabel = computed(() =>
 )
 
 /**
+ * A tela de conta, alcançável a partir do bloco de identidade.
+ *
+ * Ela vive dentro das Configurações de um casamento, e não numa rota própria
+ * da conta, porque é lá que está o resto do formulário — mas o caminho até
+ * ela sai daqui, que é onde se procura conta em qualquer sistema.
+ */
+const enderecoDaConta = computed(
+  () => `/admin/${activeSlug.value}/configuracoes?${QUERY_SECAO_CONFIGURACOES}=senha`,
+)
+
+/**
  * O botão de recolher fica DENTRO da barra, então ao clicá-lo o ponteiro
  * continua sobre ela e a expansão por hover dispararia na hora — o clique
  * pareceria não ter feito nada. A expansão fica suprimida até o ponteiro sair
@@ -227,23 +240,12 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
       <AdminPrimaryNav :itens="navPrimaria" class="mx-auto shrink-0" />
 
       <div class="ml-auto flex shrink-0 items-center gap-2 lg:ml-0 lg:gap-3">
-        <AdminAccountBadge
+        <AdminAccountMenu
           :email="operatorEmail"
           :legenda="operatorRoleLabel"
+          :conta-href="enderecoDaConta"
           class="lg:border-l lg:border-border lg:pl-3"
         />
-
-        <!-- Só no desktop: no celular "Sair" vive no painel "Mais" da barra
-             inferior, para não disputar os poucos alvos de toque do topo. -->
-        <button
-          type="button"
-          aria-label="Sair"
-          title="Sair"
-          class="hidden shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:block"
-          @click="signOut"
-        >
-          <Icon name="lucide:log-out" class="h-5 w-5" />
-        </button>
       </div>
     </header>
 

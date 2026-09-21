@@ -15,7 +15,6 @@
 // produto — a do casamento só entra dentro de `/admin/{slug}`.
 provide(ADMIN_UI_CONTEXT_KEY, true)
 
-const { signOut } = useAuth()
 const authStore = useAuthStore()
 
 useHead({ bodyAttrs: { class: 'admin-ui marca-da-plataforma' } })
@@ -33,19 +32,9 @@ const email = computed(() => authStore.user?.email ?? '')
       <UiBrandMark class="shrink-0" />
 
       <div class="ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
-        <AdminAccountBadge :email="email" class="lg:border-l lg:border-border lg:pl-3" />
-
-        <!-- Sempre visível, inclusive no celular: aqui não existe a barra de
-             abas que guarda o "Sair" dentro do painel. -->
-        <button
-          type="button"
-          aria-label="Sair"
-          title="Sair"
-          class="shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          @click="signOut"
-        >
-          <Icon name="lucide:log-out" class="h-5 w-5" />
-        </button>
+        <!-- Sem `conta-href`: a tela de senha vive nas Configurações de um
+             casamento, e aqui nenhum evento está aberto. -->
+        <AdminAccountMenu :email="email" class="lg:border-l lg:border-border lg:pl-3" />
       </div>
     </header>
 
