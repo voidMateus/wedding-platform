@@ -47,6 +47,19 @@ export interface HomeSectionDefinition {
    * para as reticências e "Presentear" diz o mesmo em um terço da largura.
    */
   navLabel?: string
+  /**
+   * Fica fora do MENU de navegação?
+   *
+   * O menu é derivado deste catálogo (a barra tinha uma lista fixa de cinco
+   * destinos escrita à mão, e foi assim que a lista de presentes sumiu da
+   * navegação inteira quando o destaque do casal era outro — rodada de
+   * usabilidade de 20/09/2026, ponto 26). A curadoria continua existindo, mas
+   * agora é DADO: duas seções ficam fora porque não são destino de navegação
+   * — Boas-vindas é o primeiro parágrafo logo abaixo da capa, a um gesto de
+   * rolagem, e o Versículo é uma faixa de três linhas. Levar alguém até elas
+   * por um clique entrega menos do que o clique prometeu.
+   */
+  noMenu?: boolean
   /** Ícone lucide do atalho no Hero. */
   shortcutIcon: string
   /**
@@ -63,6 +76,7 @@ export const HOME_SECTION_CATALOG: HomeSectionDefinition[] = [
     label: 'Boas-vindas',
     hint: 'Primeiro texto depois da capa.',
     toneMode: 'alternating',
+    noMenu: true,
     shortcutLabel: 'Boas-vindas',
     shortcutIcon: 'lucide:hand-heart',
     shortcutHref: '/#boas-vindas',
@@ -72,6 +86,7 @@ export const HOME_SECTION_CATALOG: HomeSectionDefinition[] = [
     label: 'Versículo',
     hint: 'Faixa cheia na cor primária, com texto em dourado.',
     toneMode: 'primary',
+    noMenu: true,
     shortcutLabel: 'Versículo',
     shortcutIcon: 'lucide:quote',
     shortcutHref: '/#versiculo',

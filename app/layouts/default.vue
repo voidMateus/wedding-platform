@@ -32,6 +32,12 @@ const monogramImageUrl = computed(() => theme.value.monogramImageUrl ?? null)
 // seção que não existe na página (mesma regra dos atalhos do Hero).
 const activeSections = computed(() => theme.value.activeSections ?? [])
 
+// A ordem que o casal salvou — o menu é derivado das MESMAS seções da home
+// (shared/home-sections.ts), então ele precisa da ordem pelo mesmo motivo que
+// a página: um menu que lista os capítulos em outra sequência descreve uma
+// página que não existe.
+const sectionOrder = computed(() => theme.value.sectionOrder)
+
 // Estilo tipográfico dos títulos (config_tema.headingStyle). Vai como atributo
 // no wrapper DESTE layout, não em <html>: o painel administrativo compartilha
 // o mesmo documento e não pode herdar a caixa alta do tema de um casamento.
@@ -88,6 +94,7 @@ useHead({
       :featured-button-id="heroFeaturedButton"
       :monogram-image-url="monogramImageUrl"
       :active-sections="activeSections"
+      :section-order="sectionOrder"
       :current-path="route.path"
     />
     <!--
