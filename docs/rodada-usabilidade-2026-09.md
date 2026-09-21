@@ -394,7 +394,7 @@ Hoje o caminho "equipe cria → dono recebe e-mail → dono entra" não fecha (s
 | Item | Ponto | O que é | Situação |
 |---|---|---|---|
 | B1 | 1 | Endereço do site: sugerir e confirmar | ✅ concluído |
-| B2 | 3 | E-mail de convite é o template cru do Supabase | ⏳ |
+| B2 | 3 | E-mail de convite é o template cru do Supabase | ✅ concluído — falta colar nos três ambientes |
 | B3 | 4 | Não existe definir nem redefinir senha | ⏳ |
 | B4 | 6 | Landing page com acesso ao login | ⏳ |
 
@@ -436,7 +436,43 @@ do servidor, depois do Criar.
 - O 409 continua sendo a garantia real (é a chave de idempotência do `unique`) — a checagem
   prévia é conveniência, não autoridade.
 
-### B2 · Ponto 3 — o e-mail de convite é o template cru do Supabase
+### B2 · Ponto 3 — o e-mail de convite é o template cru do Supabase ✅
+
+**Concluído em 21/09/2026 — com uma pendência de configuração.** Os quatro templates (convite,
+link mágico, recuperação, confirmação) são **gerados** por `scripts/templates-de-email.mjs` a
+partir de uma casca só e versionados em `supabase/templates/`, com um README dizendo onde colar
+cada um. Quatro HTMLs editados à mão divergiriam no primeiro ajuste — a lição do catálogo de
+atalhos do Hero —, então `tests/unit/scripts/templates-de-email.spec.ts` falha quando o arquivo
+commitado se afasta do gerador. A cor é a **da plataforma** (`#44507a`), nunca a de um casamento:
+quem recebe isto está entrando na ferramenta, não vendo o site de um casal.
+
+**E o link mudou de mecânica.** Ele carrega `{{ .TokenHash }}`, e quem verifica é o servidor
+(`server/routes/auth/confirmar.get.ts`), que troca o token por sessão e grava os cookies na
+resposta antes de redirecionar. Isso derruba as três limitações do A1 de uma vez: o link passa a
+funcionar no aparelho que abre o e-mail, pedir um segundo não inutiliza o primeiro, e um envio
+que falha não deixa nada pela metade. Para o link nascer assim, quem o **pede** também mudou de
+lugar: `POST /api/auth/magic-link` usa um client sem PKCE (`server/utils/link-de-acesso.ts`) — um
+client PKCE no navegador é justamente o que prendia o acesso a ele.
+
+Dois achados que vieram junto e não estavam no diagnóstico:
+
+- **A tela de login criava conta.** `signInWithOtp` sem `shouldCreateUser: false` cria o usuário
+  de qualquer e-mail digitado — e a plataforma não tem cadastro self-service. O usuário nascia
+  sem casamento nenhum e ficava em `auth.users` e na listagem do painel interno. Fechado, com a
+  resposta **igual** para e-mail com e sem conta: a diferença transformaria o login num
+  verificador de quem é cliente.
+- **Os pedidos de e-mail não tinham rate limit.** Cada chamada manda mensagem para um endereço
+  escolhido por quem chama, com o nome da plataforma no remetente. Entraram no mesmo middleware
+  do caminho do convidado, em grupo próprio (5/min por IP).
+
+O teste é de ponta a ponta (`tests/e2e/link-de-acesso.spec.ts`) e prova exatamente o que o item
+promete: um link gerado pela API de administração, aberto numa aba que nunca pediu link nenhum,
+loga — e não loga duas vezes.
+
+> **Pendência que não é código:** colar os quatro templates em Authentication → Emails, nos
+> **três** ambientes, junto dos assuntos (campo separado no dashboard). Até lá, o ambiente com o
+> template antigo continua mandando o link no formato `?code=`, que `/auth/callback` ainda
+> atende — os dois caminhos convivem de propósito durante a troca.
 
 **Diagnóstico.** "You've been invited / Accept invitation" é o template padrão do Supabase
 Auth. A plataforma já tem layout de e-mail próprio (`server/utils/email-layout.ts`:

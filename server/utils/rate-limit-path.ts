@@ -20,18 +20,29 @@
  * removendo a query string antes de testar os regexes, não os regexes em
  * si — nenhum caminho deveria depender de vir sem `?`.
  */
-export type RateLimitPathKind = 'rsvp' | 'rsvp-search' | 'gift-mutation'
+export type RateLimitPathKind = 'rsvp' | 'rsvp-search' | 'gift-mutation' | 'email-de-acesso'
 
 const GIFT_MUTATION_PATH = /^\/api\/public\/gifts\/[^/]+\/(reserve|checkout|cancel)$/
 const GIFT_PAYMENT_STATUS_PATH = /^\/api\/public\/gifts\/payments\/[^/]+\/status$/
 const RSVP_SEARCH_PATH = /^\/api\/public\/(?:[^/]+\/rsvp-search|rsvp-search\/(?:select|confirm))$/
+/**
+ * Pedir link de acesso e pedir redefinição de senha: públicas, anônimas, e cada
+ * chamada manda um e-mail para um endereço escolhido por quem chama. Sem
+ * limite, a tela de login vira um disparador de e-mail em nome da plataforma
+ * — e o domínio que paga por isso é o nosso.
+ */
+const EMAIL_DE_ACESSO_PATH = /^\/api\/auth\/(magic-link|password-reset)$/
 
 export function classifyRateLimitPath(path: string): RateLimitPathKind | null {
   const pathWithoutQuery = path.split('?')[0] ?? path
 
   if (pathWithoutQuery.startsWith('/api/rsvp/')) return 'rsvp'
+  if (EMAIL_DE_ACESSO_PATH.test(pathWithoutQuery)) return 'email-de-acesso'
   if (RSVP_SEARCH_PATH.test(pathWithoutQuery)) return 'rsvp-search'
-  if (GIFT_MUTATION_PATH.test(pathWithoutQuery) || GIFT_PAYMENT_STATUS_PATH.test(pathWithoutQuery)) {
+  if (
+    GIFT_MUTATION_PATH.test(pathWithoutQuery) ||
+    GIFT_PAYMENT_STATUS_PATH.test(pathWithoutQuery)
+  ) {
     return 'gift-mutation'
   }
   return null

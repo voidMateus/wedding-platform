@@ -26,31 +26,17 @@ export function useAuth() {
   }
 
   /**
-   * Para onde o link do e-mail volta.
+   * Pede o link de acesso — pelo SERVIDOR, nunca pelo client daqui.
    *
-   * Sem isto, o Supabase mandava a pessoa para o `site_url` do projeto — a raiz
-   * do domínio, que é uma página neutra sem nada que troque o `code` por
-   * sessão. O link mágico chegava, era clicado, e não logava ninguém (rodada de
-   * usabilidade de 20/09/2026, ponto 5).
-   *
-   * Montado a partir de `window.location.origin` para valer igual em local,
-   * preview e produção — cada ambiente tem o seu, e fixar um deles quebraria os
-   * outros dois. O endereço precisa estar na allowlist de **Redirect URLs** do
-   * projeto Supabase; não basta o código pedir.
+   * Quem pede decide o formato do link: pedido por um client PKCE, ele só vale
+   * no navegador que o pediu, e o casal que pede no computador e abre o e-mail
+   * no celular nunca entra. `POST /api/auth/magic-link` pede sem PKCE, e o
+   * e-mail passa a trazer o `token_hash` que o servidor verifica
+   * (`server/utils/link-de-acesso.ts`).
    */
-  function enderecoDeRetorno(destino = '/admin'): string {
-    return `${window.location.origin}/auth/callback?next=${encodeURIComponent(destino)}`
-  }
-
   async function signInWithMagicLink(input: LoginWithMagicLinkInput): Promise<void> {
     const { email } = loginWithMagicLinkSchema.parse(input)
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: enderecoDeRetorno() },
-    })
-    if (error) {
-      throw error
-    }
+    await $fetch('/api/auth/magic-link', { method: 'POST', body: { email } })
   }
 
   async function signOut(): Promise<void> {
@@ -60,7 +46,14 @@ export function useAuth() {
   }
 
   /**
-   * Troca o `code` do link de e-mail por uma sessão.
+   * Fecha o acesso que veio de um link de e-mail, venha ele como vier.
+   *
+   * São três chegadas possíveis, e as três passam por aqui: o `?code=` do PKCE
+   * (o que os templates antigos do Auth ainda produzem), os tokens no fragmento
+   * do fluxo implícito — que o próprio client já recolhe ao inicializar — e a
+   * sessão que `/auth/confirmar` gravou nos cookies antes de redirecionar. Por
+   * isso o `code` é opcional: sessão que já existe é acesso concluído, não
+   * falta de parâmetro.
    *
    * Espera o usuário reativo aparecer pelo mesmo motivo de
    * `signInWithPassword`: o cookie é gravado antes de `useSupabaseUser()`
@@ -68,7 +61,7 @@ export function useAuth() {
    * usuário — que devolveria a pessoa para o login logo depois de ela ter
    * entrado com sucesso.
    */
-  async function completarAcessoPorLink(code: string): Promise<void> {
+  async function completarAcessoPorLink(code: string | null): Promise<void> {
     // OLHAR ANTES DE AGIR. O client do navegador já troca o código sozinho ao
     // inicializar — `detectSessionInUrl` vem ligado por padrão, e
     // `_isPKCECallback` reconhece o `?code=` da URL. Quando ele consegue, o
@@ -82,6 +75,10 @@ export function useAuth() {
     const { data: jaLogado } = await supabase.auth.getSession()
 
     if (!jaLogado.session) {
+      if (!code) {
+        throw new Error('Este endereço não tem um link de acesso válido.')
+      }
+
       const { error } = await supabase.auth.exchangeCodeForSession(code)
       if (error) {
         throw error
@@ -96,7 +93,6 @@ export function useAuth() {
     signInWithPassword,
     signInWithMagicLink,
     signOut,
-    enderecoDeRetorno,
     completarAcessoPorLink,
   }
 }
