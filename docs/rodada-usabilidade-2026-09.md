@@ -389,7 +389,36 @@ estiver na tela, ela não tem função.
 
 Hoje o caminho "equipe cria → dono recebe e-mail → dono entra" não fecha (seção 1.3).
 
-### B1 · Ponto 1 — endereço do site: sugerir e confirmar
+**Progresso** — branch `feature/rodada-usabilidade-fase-b`, iniciada em 21/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| B1 | 1 | Endereço do site: sugerir e confirmar | ✅ concluído |
+| B2 | 3 | E-mail de convite é o template cru do Supabase | ⏳ |
+| B3 | 4 | Não existe definir nem redefinir senha | ⏳ |
+| B4 | 6 | Landing page com acesso ao login | ⏳ |
+
+### B1 · Ponto 1 — endereço do site: sugerir e confirmar ✅
+
+**Concluído em 21/09/2026.** `shared/utils/endereco-do-site.ts` sugere o endereço a partir do
+nome do casal usando **só o primeiro nome de cada lado** ("Lucas Almeida e Maria Almeida" vira
+`lucas-e-maria`): o sobrenome costuma se repetir entre os dois, então alonga o endereço sem
+distinguir nada — e este endereço é o que o casal vai ditar por telefone. A sugestão para de
+valer no instante em que o operador escreve o campo, e **volta** se ele o esvaziar: campo em
+branco é desistência do texto próprio, não escolha pelo vazio.
+
+`GET /api/platform/slug-available` responde se o endereço está livre enquanto se digita (400ms
+de debounce), e a linha de situação mostra o endereço final com o domínio. Ela **não decide
+nada**: entre a resposta e o Criar cabe outro operador, e quem garante um casamento só continua
+sendo o `unique` de `casamentos.slug` — o 409 passou a marcar o campo em vez de só aparecer no
+toast. A rota ficou **fora** de `weddings/` porque ali ela casaria com o mesmo padrão de rota
+tipada de `/api/platform/weddings/${id}`, e o `updateWedding` do client passava a ser tipado
+como rota só de GET.
+
+As duas metades falham em silêncio — sugestão que não dispara deixa o campo como era, e
+conferência que não chega ao servidor deixa a tela dizendo "livre" sobre endereço tomado —,
+então o teste é de ponta a ponta (`tests/e2e/criar-casamento.spec.ts`), com um casamento real
+para colidir.
 
 **Diagnóstico.** `app/components/platform/PlatformWeddingCreateModal.vue:61` tem só `:error` —
 validação negativa. Nada confirma que o endereço está bom, e nada sugere um a partir do nome

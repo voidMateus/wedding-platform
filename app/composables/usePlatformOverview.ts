@@ -33,6 +33,17 @@ export function usePlatformOverview() {
     return $fetch('/api/platform/weddings', { method: 'POST', body: input })
   }
 
+  /**
+   * O endereço está livre? — enquanto se digita, para a colisão não esperar o
+   * Criar. É conveniência: a garantia é o `unique` do banco, e o 409 continua
+   * sendo tratado no envio.
+   */
+  async function verificarEnderecoDoSite(slug: string) {
+    return $fetch<{ slug: string; disponivel: boolean }>('/api/platform/slug-available', {
+      query: { slug },
+    })
+  }
+
   /** A ficha de um casamento — rota própria, como a ficha do gasto. */
   function getWedding(id: MaybeRefOrGetter<string>) {
     return useFetch<{ data: PlatformWeddingDetail }>(
@@ -72,6 +83,7 @@ export function usePlatformOverview() {
   return {
     getOverview,
     createWedding,
+    verificarEnderecoDoSite,
     getWedding,
     updateWedding,
     deleteWedding,
