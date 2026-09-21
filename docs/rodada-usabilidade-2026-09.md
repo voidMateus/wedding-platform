@@ -396,7 +396,7 @@ Hoje o caminho "equipe cria → dono recebe e-mail → dono entra" não fecha (s
 | B1 | 1 | Endereço do site: sugerir e confirmar | ✅ concluído |
 | B2 | 3 | E-mail de convite é o template cru do Supabase | ✅ concluído — falta colar nos três ambientes |
 | B3 | 4 | Não existe definir nem redefinir senha | ✅ concluído |
-| B4 | 6 | Landing page com acesso ao login | ⏳ |
+| B4 | 6 | Landing page com acesso ao login | ✅ concluído |
 
 ### B1 · Ponto 1 — endereço do site: sugerir e confirmar ✅
 
@@ -532,7 +532,26 @@ casal só entra por link mágico — e, com o ponto 5, nem isso.
   caminho alternativo, não como único.
 - Trocar a própria senha entra em Configurações (conta), não no wizard.
 
-### B4 · Ponto 6 — landing page com acesso ao login
+### B4 · Ponto 6 — landing page com acesso ao login ✅
+
+**Concluído em 21/09/2026.** A raiz virou a **porta**: "Entre no seu painel", uma frase sobre o
+que a plataforma faz e para quem, e **Entrar** em destaque — com o aviso ao convidado logo
+abaixo, como segunda leitura. Ela continua `noindex`.
+
+Reaproveita o layout `auth` em vez de ganhar desenho próprio: aquele layout já é a fronteira
+entre a marca (à esquerda, na linguagem do convite) e a ferramenta (à direita, na do painel), e
+entrar é atravessar de um lado ao outro. Um desenho novo seria uma terceira linguagem para dizer
+a mesma coisa.
+
+**O SDK do Supabase continua fora desta rota** — `supabase-auth.client.ts` só o importa em
+`/admin`, `/login`, `/plataforma` e `/auth` —, e é por isso que "Entrar" é um link para a tela
+de login, nunca um formulário aqui dentro.
+
+A página comercial ficou **nomeada** em `docs/ROADMAP.md`, junto do que depende de billing: ela
+não é uma versão maior desta — tem outro público, outra métrica, e indexar é decisão dela.
+
+O `smoke.spec.ts` deixou de conferir "o cabeçalho de verificação do scaffold" e passou a cobrir
+os **dois** visitantes da raiz: a correção podia facilmente ter trocado um pelo outro.
 
 **Diagnóstico.** `app/pages/index.vue` é uma página neutra `noindex` que diz "acesse pelo link
 do casamento que você recebeu". Foi escrita para o convidado que erra o endereço — e hoje é
