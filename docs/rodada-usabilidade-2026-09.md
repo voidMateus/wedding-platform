@@ -622,7 +622,7 @@ ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 | C4 | 15 | Não dá para excluir um gasto de dentro da categoria | ✅ concluído |
 | C5 | 17 | Contratar sem proposta não cria fornecedor | ✅ concluído |
 | C6 | 18 | Falta a lista de fornecedores | ⏳ |
-| C7 | 19 | A ordem da ficha do gasto é ao contrário | ⏳ |
+| C7 | 19 | A ordem da ficha do gasto é ao contrário | ✅ concluído |
 | C8 | 20 | Falta ver o que já paguei e o que vou pagar | ⏳ |
 
 ### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros ✅
@@ -828,7 +828,22 @@ por casamento respondem uma pergunta que a lista de gastos não responde.
 - Atualizar `CLAUDE.md` seção 12 e `docs/fase1-financeiro.md`: a frase "fornecedor não tem
   lista própria" passa a ser "fornecedor não tem **cadastro** próprio".
 
-### C7 · Ponto 19 — a ordem da ficha do gasto é ao contrário
+### C7 · Ponto 19 — a ordem da ficha do gasto é ao contrário ✅
+
+**Concluído em 22/09/2026.** A ficha passou a seguir a vida do gasto: **Detalhes → Propostas →
+Contrato → Pagamentos → Documentos**. Pagamentos continua depois de Contrato porque só existe a
+partir dele, e continua sumindo quando não há contrato.
+
+**Detalhes deixou de ser um formulário.** Ele era o único bloco do módulo com botão "Salvar
+alterações" no rodapé — a primeira coisa que a tela pedia e a última que ela confirmava. Agora
+salva no lugar, como a linha de gasto na categoria: ao sair do bloco, e imediatamente quando a
+categoria muda (escolher já é o commit; esperar o foco sair deixaria a tela mostrando uma
+categoria que o gasto ainda não tem). O "Salvo" aparece por alguns segundos — edição no lugar
+sem confirmação é o outro lado do ponto 14, e quem não vê nada acontecer repete o gesto.
+
+**"Excluir gasto" saiu do meio dos campos** e foi para o menu do cabeçalho, junto das outras
+ações destrutivas do painel: no rodapé do formulário ele dividia a linha com "Salvar
+alterações", que é o pior vizinho possível para ele.
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/gastos/[id].vue`: Propostas (421) →
 Contrato (508) → Pagamentos (536) → Documentos (580) → **Detalhes (625)**. O nome, a categoria

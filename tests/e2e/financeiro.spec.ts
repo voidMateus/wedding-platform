@@ -658,7 +658,10 @@ test('contratar com entrada gera o sinal e o saldo, não parcelas iguais', async
     // `abrirFicha` e não um clique cru: ele já trata a corrida com a hidratação.
     // Limpeza que falha aqui mascararia o erro do corpo do teste.
     await abrirFicha(page, slug, nome)
-    await page.getByRole('button', { name: 'Excluir gasto' }).click()
+    // "Excluir gasto" saiu do rodapé do formulário de Detalhes e foi para o menu
+    // do cabeçalho, junto das outras ações destrutivas do painel (ponto 19).
+    await page.getByRole('button', { name: 'Ações do gasto' }).click()
+    await page.getByRole('menuitem', { name: 'Excluir gasto' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
       timeout: 20_000,
