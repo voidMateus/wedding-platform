@@ -620,7 +620,7 @@ ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 | C2 | 13 | A tela de Categorias não diz que serve para planejar | ✅ concluído |
 | C3 | 11 | Nome de categoria não cabe | ✅ concluído |
 | C4 | 15 | Não dá para excluir um gasto de dentro da categoria | ✅ concluído |
-| C5 | 17 | Contratar sem proposta não cria fornecedor | ⏳ |
+| C5 | 17 | Contratar sem proposta não cria fornecedor | ✅ concluído |
 | C6 | 18 | Falta a lista de fornecedores | ⏳ |
 | C7 | 19 | A ordem da ficha do gasto é ao contrário | ⏳ |
 | C8 | 20 | Falta ver o que já paguei e o que vou pagar | ⏳ |
@@ -754,7 +754,33 @@ gesto que custou um Enter.
   documento); gasto só planejado sai direto, com desfazer no toast.
 - A exclusão continua sendo soft delete, como o resto do módulo.
 
-### C5 · Ponto 17 — contratar sem proposta não cria fornecedor
+### C5 · Ponto 17 — contratar sem proposta não cria fornecedor ✅
+
+**Concluído em 22/09/2026.** A modal passou a perguntar **"com quem vocês fecharam?"**, e o
+campo é obrigatório. É texto com sugestões, não um seletor: a resposta certa é quase sempre um
+fornecedor que ainda **não existe** — uma lista fechada obrigaria a sair da modal, cadastrar e
+voltar, que é o atrito que este ponto descreve. O texto vira `fornecedorId` quando bate com um
+nome existente (sem caixa, sem espaço sobrando) e `fornecedorNome` quando não bate; sem essa
+resolução, contratar duas vezes com o mesmo nome criaria dois fornecedores idênticos disputando o
+mesmo gasto.
+
+A exigência vive no **schema** (`expenseContractSchema`), então vale no servidor e não só na
+tela, e o fornecedor novo nasce dentro de `contratarGasto()` — já com `despesa_id` e
+`estagio: 'contratado'`, porque é isso que está acontecendo: criá-lo "em análise" e promovê-lo na
+linha seguinte abriria uma janela em que ele aparece disputando um gasto que já ganhou. Um ato,
+uma chamada, como o A4 deixou.
+
+O fornecedor saiu de **parâmetro solto** de `registrarContratacao` para dentro do input: um
+argumento ao lado convidava cada chamador a resolvê-lo por conta própria, e foi exatamente assim
+que o caminho sem proposta acabou sem fornecedor nenhum — as duas telas passavam `null` sem que
+nada acusasse.
+
+Gastos já contratados sem fornecedor **ficam como estão**: não inventamos nome para dado antigo.
+
+O teste (`tests/e2e/financeiro-contratar.spec.ts`) confere as duas metades: sem o nome a modal
+recusa, e com ele o vínculo aparece nos **dois** sentidos no banco. A falha era muda — a
+contratação dava certo, o dinheiro chegava a Pagamentos, e a ausência só se descobria meses
+depois, procurando o telefone de alguém.
 
 **Diagnóstico.** `useFinance.registrarContratacao` (`app/composables/useFinance.ts:119`): sem
 `fornecedorId`, ele só grava `valorCentavos` na despesa e gera parcelas. **Nenhum fornecedor é

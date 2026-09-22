@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { hojeNoFusoDoEvento } from '#shared/utils/orcamento'
-import type { VendorContractInput } from '#shared/schemas/finance'
+import type { RegistrarContratacaoInput } from '#shared/schemas/finance'
 import type { DespesaComParcelas, FornecedorComSituacao } from '~/types/finance'
 
 interface Props {
@@ -27,7 +27,7 @@ const { modelValue, fornecedor, despesas, despesaPadrao = null } = defineProps<P
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  contratar: [input: VendorContractInput]
+  contratar: [input: RegistrarContratacaoInput]
   criarGasto: []
 }>()
 
@@ -35,9 +35,43 @@ const despesaId = ref('')
 const valor = ref<number | null>(null)
 const erro = ref('')
 
+/**
+ * Com quem vocês fecharam.
+ *
+ * Campo de texto com sugestões, e não um seletor: a resposta certa é quase
+ * sempre um fornecedor que ainda NÃO existe — quem fecha com o buffet sem ter
+ * cadastrado cotação era exatamente o caso que ficava sem contraparte (ponto
+ * 17). Uma lista fechada obrigaria a sair daqui, criar o fornecedor e voltar.
+ *
+ * O texto vira id quando bate com um nome que já existe, e vira fornecedor novo
+ * quando não bate. Sem isso, contratar duas vezes com o mesmo nome criaria dois
+ * fornecedores idênticos disputando o mesmo gasto.
+ */
+const { listVendors } = useVendors()
+const { data: listaDeFornecedores } = listVendors()
+
+const nomeDoFornecedor = ref('')
+
+const fornecedoresAtivos = computed(() =>
+  (listaDeFornecedores.value?.data ?? []).filter((atual) => !atual.excluido_em),
+)
+
+const nomesSugeridos = computed(() => fornecedoresAtivos.value.map((atual) => atual.nome))
+
+/** Comparação sem caixa e sem espaço sobrando — "Buffet Leila" e "buffet leila" são um só. */
+const fornecedorExistente = computed(() => {
+  const alvo = nomeDoFornecedor.value.trim().toLocaleLowerCase('pt-BR')
+  if (!alvo) return null
+  return (
+    fornecedoresAtivos.value.find(
+      (atual) => atual.nome.trim().toLocaleLowerCase('pt-BR') === alvo,
+    ) ?? null
+  )
+})
+
 // O plano de pagamento (entrada + restante) vive no componente de campos, que
 // é o mesmo usado em "Agendar pagamento". Aqui só guardamos o que ele produz.
-const plano = ref<VendorContractInput['parcelamento']>(undefined)
+const plano = ref<RegistrarContratacaoInput['parcelamento']>(undefined)
 const planoPronto = ref(true)
 
 /** Sem valor fechado primeiro: é o que se está contratando agora. */
@@ -64,6 +98,9 @@ watch(
     // A cotação é a melhor sugestão de valor que existe — e continua editável,
     // porque o preço fechado costuma diferir da proposta.
     valor.value = fornecedor?.valor_proposto_centavos ?? null
+    // Contratando A PARTIR de uma proposta, o nome já vem escrito: o atrito do
+    // campo novo é só para quem fechou com quem ninguém cotou.
+    nomeDoFornecedor.value = fornecedor?.nome ?? ''
   },
 )
 
@@ -76,7 +113,10 @@ watch(despesaEscolhida, (despesa) => {
 
 // Função nomeada: `@evento` no template é UMA expressão, e duas atribuições
 // soltas ali viram erro de sintaxe que o typecheck não acusa.
-function receberPlano(payload: { plano: VendorContractInput['parcelamento']; pronto: boolean }) {
+function receberPlano(payload: {
+  plano: RegistrarContratacaoInput['parcelamento']
+  pronto: boolean
+}) {
   plano.value = payload.plano
   planoPronto.value = payload.pronto
 }
@@ -91,15 +131,23 @@ function submeter() {
     erro.value = 'Informe o valor fechado.'
     return
   }
+  if (!nomeDoFornecedor.value.trim()) {
+    erro.value = 'Informe com quem vocês fecharam.'
+    return
+  }
   if (!planoPronto.value) {
     erro.value = 'Complete os dados do pagamento.'
     return
   }
 
+  const existente = fornecedorExistente.value
+
   emit('contratar', {
     despesaId: despesaId.value,
     valorCentavos: valor.value,
     parcelamento: plano.value,
+    fornecedorId: existente?.id ?? null,
+    fornecedorNome: existente ? undefined : nomeDoFornecedor.value.trim(),
   })
 }
 </script>
@@ -140,6 +188,18 @@ function submeter() {
       </div>
 
       <template v-if="opcoesDespesa.length > 0">
+        <UiInput
+          v-model="nomeDoFornecedor"
+          label="Com quem vocês fecharam?"
+          placeholder="Nome do fornecedor"
+          :suggestions="nomesSugeridos"
+          :hint="
+            fornecedorExistente
+              ? 'Vai ficar vinculado a este fornecedor.'
+              : 'Ainda não existe — será criado junto com a contratação.'
+          "
+        />
+
         <UiCurrencyInput v-model="valor" label="Valor fechado" />
 
         <AdminFinancePaymentPlanFields

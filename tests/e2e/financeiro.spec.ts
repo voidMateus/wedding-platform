@@ -617,6 +617,10 @@ test('contratar com entrada gera o sinal e o saldo, não parcelas iguais', async
       await expect(page.getByLabel('Valor fechado')).toBeVisible({ timeout: 3_000 })
     }).toPass({ timeout: 30_000 })
 
+    // Com quem fechou — obrigatório desde o item C5: contrato sem contraparte
+    // era o buraco do ponto 17. O nome é novo, então o fornecedor nasce junto.
+    await page.getByLabel('Com quem vocês fecharam?').fill(`Banda ${nome}`)
+
     // "Dei 10% para segurar a data, o resto pago numa data só."
     await page.getByLabel('Valor fechado').fill('10.000,00')
     await page.getByLabel('Teve entrada (sinal)').check()
@@ -633,10 +637,10 @@ test('contratar com entrada gera o sinal e o saldo, não parcelas iguais', async
 
     await page.getByRole('button', { name: 'Confirmar contratação' }).click()
 
-    // Espera o diálogo fechar antes de navegar. Contratar um gasto SEM
-    // fornecedor são duas requisições (grava o valor, depois cria as parcelas),
-    // e sair da página no meio aborta a segunda — o teste via uma parcela só e
-    // acusava o produto de um defeito que era dele mesmo.
+    // Espera o diálogo fechar antes de navegar: sair da página com a requisição
+    // em voo a aborta, e o teste acusaria o produto de um defeito que era dele
+    // mesmo. (Eram DUAS requisições até o item A4 — grava o valor, depois cria
+    // as parcelas; hoje é uma só, e a espera continua valendo.)
     await expect(page.getByRole('button', { name: 'Confirmar contratação' })).toBeHidden({
       timeout: 20_000,
     })

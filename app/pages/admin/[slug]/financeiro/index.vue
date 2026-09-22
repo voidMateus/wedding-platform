@@ -18,7 +18,7 @@
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { faseDoGasto, numeroDoGasto, type FaseDoGasto } from '#shared/utils/orcamento'
-import type { ExpenseInput, VendorContractInput } from '#shared/schemas/finance'
+import type { ExpenseInput, RegistrarContratacaoInput } from '#shared/schemas/finance'
 import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
 import type { AdminTableColumn } from '~/types/table'
 import type {
@@ -284,13 +284,13 @@ function abrirContratacao(despesa: DespesaComParcelas) {
   contratoAberto.value = true
 }
 
-async function confirmarContratacao(input: VendorContractInput) {
-  const despesa = todasDespesas.value.find((atual) => atual.id === input.despesaId)
+async function confirmarContratacao(input: RegistrarContratacaoInput) {
   try {
-    // O fornecedor é opcional em todo o módulo — e é o composable que sabe a
-    // diferença entre os dois caminhos. Aqui, gravar o valor e esquecer o plano
-    // de pagamento era perda silenciosa de dado.
-    await registrarContratacao(despesa?.fornecedor?.id ?? null, input)
+    // O fornecedor vem DENTRO do input: quem o escolheu foi a modal, que
+    // pergunta "com quem vocês fecharam" desde o item C5. Aqui se resolvia pelo
+    // fornecedor já vinculado ao gasto — e quando não havia nenhum, a
+    // contratação nascia sem contraparte.
+    await registrarContratacao(input)
     contratoAberto.value = false
     toast.success('Valor fechado registrado — o pagamento já está em Pagamentos.')
   } catch (erro) {

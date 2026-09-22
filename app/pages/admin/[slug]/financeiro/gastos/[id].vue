@@ -18,7 +18,7 @@ import {
   ROTULOS_ESTAGIO_FORNECEDOR,
   type EstagioFornecedor,
   type TipoDocumento,
-  type VendorContractInput,
+  type RegistrarContratacaoInput,
   type VendorInput,
 } from '#shared/schemas/finance'
 import type { DocumentoComVinculos, FornecedorComSituacao } from '~/types/finance'
@@ -189,12 +189,11 @@ function abrirContratacao(fornecedor: FornecedorComSituacao | null) {
   contratoAberto.value = true
 }
 
-async function confirmarContratacao(input: VendorContractInput) {
+async function confirmarContratacao(input: RegistrarContratacaoInput) {
   try {
-    await registrarContratacao(
-      fornecedorDoContrato.value?.id ?? despesa.value?.fornecedor?.id ?? null,
-      input,
-    )
+    // O fornecedor vem DENTRO do input: quem o escolheu foi a modal, que
+    // pergunta "com quem vocês fecharam" desde o item C5.
+    await registrarContratacao(input)
     // A lista de fornecedores tem cache próprio: sem este refresh a proposta
     // recém-contratada continuaria desenhada como "em análise" logo abaixo.
     await atualizarFornecedores()
