@@ -87,3 +87,42 @@ test('pedir redefinição responde igual para e-mail com e sem conta', async ({ 
   expect(semConta.status()).toBe(200)
   expect(await semConta.json()).toEqual({ enviado: true })
 })
+
+/**
+ * A recuperação no formato ANTIGO do link cai na mesma ponte.
+ *
+ * `/auth/senha` é a outra tela que recebe os tokens no fragmento enquanto os
+ * templates não forem trocados, e ela falharia do mesmo jeito mudo do callback:
+ * esperando uma sessão que o client recusou sem avisar, e terminando em "este
+ * link expirou" sobre um link recém-gerado.
+ */
+test('a recuperação no formato antigo do link abre a tela de senha com sessão', async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  const admin = getServiceRoleClient()
+
+  const casamento = await createTestWedding(admin, { nomes_noivos: 'Recuperar & Antigo' })
+  const membro = await createTestMember(admin, casamento.id, 'dono')
+
+  try {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: membro.email,
+      options: { redirectTo: 'http://localhost:3000/auth/senha' },
+    })
+    if (error || !data.properties?.action_link) {
+      throw new Error(`Falha ao gerar o link de recuperação: ${error?.message}`)
+    }
+
+    await page.goto(data.properties.action_link)
+
+    await expect(page).toHaveURL(/\/auth\/senha$/, { timeout: 20_000 })
+    // O formulário, e não o aviso de link inválido: é a sessão que decide qual
+    // dos dois a tela mostra.
+    await expect(page.getByLabel('Nova senha', { exact: true })).toBeVisible({ timeout: 20_000 })
+  } finally {
+    await deleteTestWedding(admin, casamento.id)
+    await deleteTestMember(admin, membro.userId)
+  }
+})

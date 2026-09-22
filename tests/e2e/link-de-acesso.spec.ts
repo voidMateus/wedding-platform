@@ -46,7 +46,9 @@ test('o link de acesso verificado no servidor loga num navegador que não o pedi
       `/auth/confirmar?token_hash=${data.properties.hashed_token}&type=magiclink&next=/admin/${casamento.slug}`,
     )
 
-    await expect(page).toHaveURL(new RegExp(`/admin/${casamento.slug}`), { timeout: 20_000 })
+    // `$` ancora o fim: sem ele o regex casa com o próprio `?next=/admin/<slug>`
+    // da URL do callback, e o teste aprova antes de a navegação acontecer.
+    await expect(page).toHaveURL(new RegExp(`/admin/${casamento.slug}$`), { timeout: 20_000 })
     await expect(page.locator('header').first()).toContainText('Link & Acesso')
 
     // --- e o link é de uso único ---
@@ -59,6 +61,54 @@ test('o link de acesso verificado no servidor loga num navegador que não o pedi
     )
     await expect(page).toHaveURL(/\/auth\/callback\?error_code=/, { timeout: 20_000 })
     await expect(page.getByRole('heading', { name: 'Não foi possível entrar' })).toBeVisible()
+  } finally {
+    await deleteTestWedding(admin, casamento.id)
+    await deleteTestMember(admin, membro.userId)
+  }
+})
+
+/**
+ * O formato ANTIGO do link — o que os templates ainda no dashboard produzem.
+ *
+ * Enquanto os quatro templates não forem colados nos três ambientes, o
+ * `{{ .ConfirmationURL }}` devolve a sessão no FRAGMENTO da URL
+ * (`#access_token=...`). E o client do navegador recusa esse formato em
+ * silêncio: `createBrowserClient` fixa `flowType: 'pkce'`, e o auth-js descarta
+ * um retorno implícito nesse caso sem nada chegar à tela.
+ *
+ * Foi o que quebrou o acesso em 22/09/2026, depois de o pedido do link deixar
+ * de usar PKCE. O teste existe porque a falha é muda: nenhum erro no console,
+ * nenhum cookie, e a tela culpando o link.
+ *
+ * `action_link` é exatamente o endereço que o template antigo põe no e-mail.
+ */
+test('o formato antigo do link, com os tokens no fragmento, também loga', async ({ page }) => {
+  test.setTimeout(90_000)
+  const admin = getServiceRoleClient()
+
+  const casamento = await createTestWedding(admin, { nomes_noivos: 'Formato & Antigo' })
+  const membro = await createTestMember(admin, casamento.id, 'dono')
+
+  try {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: membro.email,
+      options: { redirectTo: `http://localhost:3000/auth/callback?next=/admin/${casamento.slug}` },
+    })
+    if (error || !data.properties?.action_link) {
+      throw new Error(`Falha ao gerar o link de acesso: ${error?.message}`)
+    }
+
+    await page.goto(data.properties.action_link)
+
+    // `$` ancora o fim: sem ele o regex casa com o próprio `?next=/admin/<slug>`
+    // da URL do callback, e o teste aprova antes de a navegação acontecer.
+    await expect(page).toHaveURL(new RegExp(`/admin/${casamento.slug}$`), { timeout: 20_000 })
+    await expect(page.locator('header').first()).toContainText('Formato & Antigo')
+
+    // O token de acesso não fica no histórico do navegador: credencial guardada
+    // onde ninguém a apaga é credencial vazando.
+    expect(page.url()).not.toContain('access_token')
   } finally {
     await deleteTestWedding(admin, casamento.id)
     await deleteTestMember(admin, membro.userId)

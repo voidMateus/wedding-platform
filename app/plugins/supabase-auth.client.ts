@@ -58,6 +58,50 @@ export default defineNuxtPlugin({
 
     nuxtApp.provide('supabase', { client })
 
+    // --- ponte do formato antigo de link de e-mail ---
+    //
+    // O pedido do link deixou de usar PKCE (`server/utils/link-de-acesso.ts`),
+    // e enquanto os templates do Auth não forem trocados nos três ambientes o
+    // `{{ .ConfirmationURL }}` devolve a sessão do jeito antigo: os tokens no
+    // FRAGMENTO da URL (`#access_token=...&refresh_token=...`).
+    //
+    // Este client não aceita esse formato, e não avisa. `createBrowserClient`
+    // do `@supabase/ssr` fixa `flowType: 'pkce'`, e o `_getSessionFromURL` do
+    // auth-js recusa o retorno implicito nesse caso
+    // (`case 'implicit': if (this.flowType === 'pkce') throw`) — um erro que
+    // `_initialize` engole. O efeito medido em 22/09/2026: o link chegava ao
+    // callback, nenhum cookie era gravado, e a tela dizia "este endereço não
+    // tem um link de acesso válido" sobre um acesso perfeitamente válido.
+    //
+    // Guardar a sessão aqui, e não na página de callback, porque a recusa é
+    // propriedade DO CLIENT: `/auth/senha` recebe o mesmo formato na
+    // recuperação de senha, e qualquer tela futura de `/auth` receberia também.
+    //
+    const fragmento = new URLSearchParams(window.location.hash.slice(1))
+    const accessToken = fragmento.get('access_token')
+    const refreshToken = fragmento.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      await client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+
+      // O fragmento sai do endereço — token de acesso no histórico do navegador
+      // é credencial guardada onde ninguém a apaga.
+      //
+      // Depois do mount, e não aqui: este plugin roda com `enforce: 'pre'`, antes
+      // de o roteador terminar a navegação inicial, e ele reescreve o endereço a
+      // partir do `fullPath` que leu na entrada — devolvendo o fragmento. Em
+      // `/auth/callback` isso passava despercebido porque a página navega para
+      // outro lugar logo em seguida; em `/auth/senha`, que fica onde está, o
+      // token permanecia à vista.
+      nuxtApp.hook('app:mounted', () => {
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${window.location.pathname}${window.location.search}`,
+        )
+      })
+    }
+
     const currentSession = useSupabaseSession()
     const currentUser = useSupabaseUser()
 

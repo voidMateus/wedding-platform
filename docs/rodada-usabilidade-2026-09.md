@@ -479,6 +479,23 @@ O teste é de ponta a ponta (`tests/e2e/link-de-acesso.spec.ts`) e prova exatame
 promete: um link gerado pela API de administração, aberto numa aba que nunca pediu link nenhum,
 loga — e não loga duas vezes.
 
+**A troca deixou o formato antigo sem entrada, e isso só apareceu no uso** (22/09/2026). Com o
+pedido sem PKCE e o template ainda antigo, o `{{ .ConfirmationURL }}` devolve a sessão nos
+**tokens do fragmento** — e o client do navegador recusa esse formato **em silêncio**:
+`createBrowserClient` fixa `flowType: 'pkce'`, e o `_getSessionFromURL` do auth-js lança
+`Not a valid PKCE flow url` para um retorno implícito, erro que o `_initialize` engole. Medido:
+o link chegava ao callback, nenhum cookie era gravado, e a tela acusava o link por um acesso que
+estava perfeitamente válido — a coexistência entre os dois formatos, que este item prometia,
+não existia.
+
+A ponte ficou no **plugin** (`app/plugins/supabase-auth.client.ts`), e não na página de callback,
+porque a recusa é propriedade do client: `/auth/senha` recebe o mesmo formato na recuperação de
+senha, e qualquer tela futura de `/auth` receberia também. O fragmento é lido, vira sessão
+(`setSession`) e sai do endereço **depois do mount** — antes dele, o roteador reescreve a URL a
+partir do `fullPath` de entrada e devolve o token à vista. Os dois formatos têm teste de ponta a
+ponta, com o `action_link` que a API de administração gera sendo exatamente o que o template
+antigo põe no e-mail.
+
 > **Pendência que não é código:** colar os quatro templates em Authentication → Emails, nos
 > **três** ambientes, junto dos assuntos (campo separado no dashboard). Até lá, o ambiente com o
 > template antigo continua mandando o link no formato `?code=`, que `/auth/callback` ainda
