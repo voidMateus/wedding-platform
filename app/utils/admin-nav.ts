@@ -338,6 +338,16 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
             label: 'Planejar por categoria',
             icon: 'lucide:tags',
           },
+          // Leitura, e só: o fornecedor continua nascendo dentro da ficha do
+          // gasto que ele cota — é isso que impede cotação órfã. O que esta tela
+          // responde é outra pergunta, que a lista de gastos não responde: quem
+          // vai atender o casamento, e como falar com cada um no dia (rodada de
+          // usabilidade de 20/09/2026, ponto 18).
+          {
+            to: `${base}/financeiro/fornecedores`,
+            label: 'Fornecedores',
+            icon: 'lucide:contact',
+          },
           {
             to: `${base}/financeiro/pagamentos`,
             label: 'Pagamentos',

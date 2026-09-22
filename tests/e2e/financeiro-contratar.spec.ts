@@ -22,6 +22,11 @@ test.skip(
   'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
 )
 
+// O segundo teste lê o fornecedor que o primeiro cria, na mesma conta: com
+// `fullyParallel: true` no config eles correriam junto, e a lista chegaria
+// vazia. Serial aqui descreve a dependência, não a esconde.
+test.describe.configure({ mode: 'serial' })
+
 let conta: ContaDeTeste
 
 test.beforeAll(async () => {
@@ -93,4 +98,39 @@ test('contratar sem proposta cria o fornecedor e o vincula ao gasto', async ({ p
 
   expect(despesa?.fornecedor_id).toBe(criado?.id)
   expect(despesa?.valor_centavos).toBe(1_800_000)
+})
+
+/**
+ * A lista de fornecedores existe para ser LEVADA — e não para cadastrar.
+ *
+ * Fornecedor só existia dentro da ficha do gasto, decisão deliberada e certa
+ * para o cadastro (nenhuma cotação órfã). O caso que ela não previu é o da
+ * cerimonialista no dia do evento: quem é o buffet, quem é o DJ, o telefone de
+ * cada um (rodada de usabilidade de 20/09/2026, ponto 18).
+ *
+ * O teste guarda as duas metades: a lista mostra, e não deixa criar.
+ */
+test('a lista de fornecedores mostra quem atende o casamento, e não cadastra', async ({ page }) => {
+  test.setTimeout(120_000)
+
+  const slug = await entrarComo(page, conta)
+  await page.goto(`/admin/${slug}/financeiro/fornecedores`)
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Fornecedores' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // O fornecedor criado pelo teste anterior, na contratação sem proposta.
+  await expect(page.getByRole('cell', { name: /Buffet Recanto/ })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('cell', { name: 'Jantar dos convidados' })).toBeVisible()
+
+  // Nada de criar aqui: é o que mantém a garantia de que nenhuma cotação exista
+  // sem um gasto para disputar.
+  await expect(
+    page.getByRole('button', { name: /Adicionar fornecedor|Novo fornecedor/ }),
+  ).toHaveCount(0)
+
+  // E os dois caminhos de levar a lista para fora.
+  await expect(page.getByRole('button', { name: 'Imprimir lista' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Exportar' })).toBeEnabled()
 })

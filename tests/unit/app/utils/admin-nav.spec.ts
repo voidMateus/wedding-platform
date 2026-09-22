@@ -156,21 +156,25 @@ describe('menu da seção do Financeiro', () => {
     },
   )
 
-  // Um objeto e três perguntas, na ordem do dinheiro na vida do casal: Gastos é
+  // Um objeto e quatro perguntas, na ordem do dinheiro na vida do casal: Gastos é
   // a lista, "Planejar por categoria" é onde ele se planeja e se soma ("onde
   // está indo?"), e Pagamentos é o mesmo dinheiro no eixo do tempo. Fornecedores
-  // e Documentos deixaram de ser tela — viraram seções da ficha.
+  // e Documentos deixaram de ser tela — viraram seções da ficha. Fornecedores
+  // voltou em 22/09/2026 como tela de LEITURA (ponto 18): o cadastro continua
+  // dentro da ficha do gasto, e o que ela responde é quem vai atender o
+  // casamento — a lista que se leva para o dia do evento.
   //
   // O rótulo do meio era "Categorias", o nome do OBJETO: quem entrava em
   // Financeiro não tinha pista de que o planejamento por categoria existia
   // (rodada de usabilidade de 20/09/2026, ponto 13).
-  it('tem três telas, e nenhuma delas relista a outra', () => {
+  it('tem quatro telas, e nenhuma delas relista a outra', () => {
     const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
 
     expect(menu.map((g) => g.label)).toEqual(['Financeiro'])
     expect(menu[0]!.itens.map((i) => i.label)).toEqual([
       'Gastos',
       'Planejar por categoria',
+      'Fornecedores',
       'Pagamentos',
     ])
   })

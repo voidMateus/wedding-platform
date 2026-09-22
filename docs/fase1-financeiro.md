@@ -1562,6 +1562,22 @@ Então o planejamento mora em **Planejar por categoria** (a tela se chamava
 os gastos dela, editáveis no lugar. Gastos continua plana e continua respondendo
 "o que falta decidir".
 
+### 24.2.1 Fornecedores voltou a ter tela — de leitura
+
+Em 22/09/2026 (ponto 18 da rodada de usabilidade). A decisão de não ter tela
+continua certa para o **cadastro**: o fornecedor nasce como proposta dentro da
+ficha do gasto que disputa, e é isso que impede cotação órfã. O que ela não
+previu foi um caso de **leitura**: passar a lista para a cerimonialista no dia
+do evento — quem é o buffet, quem é o DJ, o telefone de cada um. A ficha do
+gasto responde "quanto custou isto"; ninguém monta dali uma lista de contatos
+sem abrir gasto por gasto.
+
+É o mesmo critério que o módulo já usa para admitir tela nova — eixo novo ou
+agregação — e aqui é agregação. Por isso `/financeiro/fornecedores` **não tem
+botão de criar** e tem botão de imprimir: ela lista, imprime e exporta.
+Arquivado fica de fora (quem saiu da operação não está no dia do evento), e a
+ficha continua sendo o lugar de reencontrar uma proposta arquivada.
+
 ### 24.3 As decisões da edição no lugar
 
 - **Salva ao sair da LINHA, não do campo.** Passar do nome para o valor é

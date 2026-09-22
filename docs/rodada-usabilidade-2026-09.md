@@ -621,7 +621,7 @@ ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 | C3 | 11 | Nome de categoria não cabe | ✅ concluído |
 | C4 | 15 | Não dá para excluir um gasto de dentro da categoria | ✅ concluído |
 | C5 | 17 | Contratar sem proposta não cria fornecedor | ✅ concluído |
-| C6 | 18 | Falta a lista de fornecedores | ⏳ |
+| C6 | 18 | Falta a lista de fornecedores | ✅ concluído |
 | C7 | 19 | A ordem da ficha do gasto é ao contrário | ✅ concluído |
 | C8 | 20 | Falta ver o que já paguei e o que vou pagar | ✅ concluído |
 
@@ -806,7 +806,25 @@ proposta.
 - Migração dos gastos já contratados sem fornecedor: ficam como estão (não inventamos nome),
   e a ficha mostra o campo vazio convidando a preencher.
 
-### C6 · Ponto 18 — falta a lista de fornecedores
+### C6 · Ponto 18 — falta a lista de fornecedores ✅
+
+**Concluído em 22/09/2026.** `/financeiro/fornecedores` é uma tela de **leitura**: quem, de que
+gasto, contato, valor fechado e a situação derivada das parcelas — ordenada por nome, que é
+como se procura alguém numa lista impressa.
+
+**Sem botão de criar, e com botão de imprimir.** A decisão original segue certa para o
+cadastro: o fornecedor nasce dentro da ficha do gasto que disputa, e é isso que impede cotação
+órfã. O estado vazio manda para os **gastos**, não para um formulário. Arquivado fica de fora —
+quem saiu da operação não está no dia do evento.
+
+A exportação vive em `shared/utils/exportacao-fornecedores.ts`, com a mesma separação das outras
+do produto: a regra de conteúdo (quais colunas, em que ordem, como cada valor vira texto) fica no
+util testável, e a página só entrega o arquivo. Célula vazia é ausência e "R$ 0,00" é um valor:
+fornecedor que só cotou sai com o dinheiro em branco, porque escrever zero diria que ele custou
+zero.
+
+`CLAUDE.md` seção 12 e `docs/fase1-financeiro.md` foram corrigidos: "fornecedor não tem lista
+própria" passou a ser "não tem **cadastro** próprio".
 
 **Diagnóstico.** Fornecedor hoje só existe **dentro** da ficha do gasto — decisão deliberada e
 documentada ("Fornecedor não tem lista própria… é uma proposta DENTRO da ficha do gasto que
