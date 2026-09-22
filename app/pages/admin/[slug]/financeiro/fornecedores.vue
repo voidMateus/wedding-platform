@@ -15,7 +15,12 @@
   É o mesmo critério que o módulo já usa para admitir tela nova: eixo novo ou
   agregação. Aqui é agregação — os mesmos fornecedores somados por casamento.
 
-  Por isso não há botão de criar, e há botão de imprimir.
+  **Ela nasceu só de leitura, e isso durou um dia.** A ideia era que não ter
+  botão de criar aqui protegia o invariante da cotação órfã — mas quem protege
+  esse invariante é o formulário, que pergunta QUAL gasto e ainda deixa criar o
+  gasto de dentro dele. É o mesmo `FinanceVendorModal` da ficha: não há segundo
+  caminho de cadastro, há o mesmo caminho alcançável de mais um lugar. E uma
+  lista de telefones que não deixa corrigir um telefone é metade de uma lista.
 -->
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
@@ -23,7 +28,9 @@ import {
   gerarCsvDeFornecedores,
   nomeDoArquivoDeFornecedores,
 } from '#shared/utils/exportacao-fornecedores'
+import { getApiErrorMessage } from '~/utils/api-error'
 import { baixarArquivo } from '~/utils/download'
+import type { VendorInput } from '#shared/schemas/finance'
 import type { AdminTableColumn } from '~/types/table'
 import type { FornecedorComSituacao } from '~/types/finance'
 
@@ -32,8 +39,74 @@ definePageMeta({ layout: 'admin' })
 const slug = useActiveWeddingSlug()
 const base = `/admin/${slug}/financeiro`
 
-const { listVendors } = useVendors()
+const toast = useToast()
+const { listVendors, criarFornecedor, atualizarFornecedor } = useVendors()
 const { data, status, error, refresh } = listVendors()
+
+// O formulário pede o gasto que a cotação disputa e a categoria — e é por isso
+// que esta tela precisa das duas listas, mesmo não as mostrando.
+const { getOrcamento, listCategorias, criarDespesa } = useFinance()
+const { data: orcamento } = getOrcamento()
+const { data: todasCategorias } = listCategorias()
+
+const todasDespesas = computed(() =>
+  (orcamento.value?.categorias ?? []).flatMap((categoria) => categoria.despesas),
+)
+
+const categoriasAtivas = computed(() =>
+  (todasCategorias.value?.data ?? []).filter((categoria) => !categoria.excluido_em),
+)
+
+const modalAberto = ref(false)
+const emEdicao = ref<FornecedorComSituacao | null>(null)
+
+function novoFornecedor() {
+  emEdicao.value = null
+  modalAberto.value = true
+}
+
+function editarFornecedor(fornecedor: FornecedorComSituacao) {
+  emEdicao.value = fornecedor
+  modalAberto.value = true
+}
+
+async function salvarFornecedor(input: VendorInput) {
+  try {
+    if (emEdicao.value) {
+      await atualizarFornecedor(emEdicao.value.id, input)
+    } else {
+      await criarFornecedor(input)
+    }
+    modalAberto.value = false
+    toast.success('Fornecedor salvo.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o fornecedor.'))
+  }
+}
+
+/**
+ * O gasto que faltava, criado de dentro do formulário.
+ *
+ * O modal emite e continua aberto, com o campo de volta em "Ainda não sei": é o
+ * que impede o formulário de apontar para um gasto que a criação não conseguiu
+ * gravar. Sem tratar este evento, escolher "criar um gasto novo" no seletor não
+ * faria nada — e o casal ficaria preso num campo que não avança.
+ */
+async function criarGastoDoFormulario(payload: {
+  descricao: string
+  valorEstimadoCentavos: number | null
+}) {
+  try {
+    await criarDespesa({
+      descricao: payload.descricao,
+      valorEstimadoCentavos: payload.valorEstimadoCentavos,
+      observacao: null,
+    })
+    toast.success('Gasto criado — escolha ele na lista acima.')
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível criar o gasto.'))
+  }
+}
 
 /**
  * Arquivado fica de fora: a lista existe para ser levada ao dia do evento, e
@@ -58,6 +131,7 @@ const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
   { key: 'contato', label: 'Contato' },
   { key: 'contratado', label: 'Valor fechado', align: 'right' },
   { key: 'situacao', label: 'Situação' },
+  { key: 'acoes', label: '', align: 'right' },
 ])
 
 function exportar() {
@@ -91,6 +165,10 @@ function exportar() {
         <Icon name="lucide:download" class="h-4 w-4" />
         Exportar
       </UiButton>
+      <UiButton @click="novoFornecedor">
+        <Icon name="lucide:plus" class="h-4 w-4" />
+        Adicionar fornecedor
+      </UiButton>
     </template>
 
     <UiSkeleton v-if="status === 'pending'" class="h-96 w-full" />
@@ -112,7 +190,7 @@ function exportar() {
       title="Nenhum fornecedor ainda"
       description="Fornecedor entra como proposta dentro da ficha de um gasto — é o que garante que nenhuma cotação fique solta."
     >
-      <UiButton :to="base">Ir para os gastos</UiButton>
+      <UiButton @click="novoFornecedor">Adicionar fornecedor</UiButton>
     </UiEmptyState>
 
     <AdminPanel v-else title="Quem vai atender o casamento">
@@ -169,7 +247,27 @@ function exportar() {
             {{ ROTULOS_SITUACAO[row.situacaoFinanceira].label }}
           </UiBadge>
         </template>
+
+        <!-- Editar é a ação que esta lista existe para permitir: corrigir um
+             telefone enquanto se olha a lista de telefones. Fica fora de menu
+             porque é a única. -->
+        <template #cell-acoes="{ row }">
+          <AdminRowAction
+            icon="lucide:pencil"
+            :label="`Editar ${row.nome}`"
+            @click="editarFornecedor(row)"
+          />
+        </template>
       </AdminTable>
     </AdminPanel>
+
+    <AdminFinanceVendorModal
+      v-model="modalAberto"
+      :fornecedor="emEdicao"
+      :categorias="categoriasAtivas"
+      :despesas="todasDespesas"
+      @salvar="salvarFornecedor"
+      @criar-gasto="criarGastoDoFormulario"
+    />
   </AdminSection>
 </template>

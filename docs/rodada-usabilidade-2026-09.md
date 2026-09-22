@@ -660,15 +660,21 @@ começo do planejamento, e o planejamento acontece lá.
 
 ### C2 · Ponto 13 — a tela de Categorias não diz que serve para planejar ✅
 
-**Concluído em 22/09/2026.** O menu diz **"Planejar por categoria"** e a tela se chama **"Onde o
-dinheiro está indo"** — o rótulo antigo nomeava o objeto, e nenhum dos dois dizia que ali se
-planeja. A ordem do menu **não** mudou: inverter penalizaria todo uso recorrente do módulo para
-ajudar o primeiro, e o primeiro ganhou caminho melhor no C1.
+**Concluído em 22/09/2026.** O menu diz **"Planejar"** e a tela se chama **"Onde o dinheiro está
+indo"** — o rótulo antigo nomeava o objeto, e nenhum dos dois dizia que ali se planeja. A ordem
+do menu **não** mudou: inverter penalizaria todo uso recorrente do módulo para ajudar o
+primeiro, e o primeiro ganhou caminho melhor no C1.
 
-O verbo curto no menu, em vez de "Planejamento por categoria", por duas razões medidas: a coluna
-do menu trunca — é o mesmo corte que o ponto 11 descreve, e seria estranho consertar num lugar e
-criar no outro — e "Planejamento" sozinho já é o nome de outro módulo na nav primária. A frase
-inteira vive no título da tela, que deixou de repetir a pergunta no painél de dentro.
+**Uma palavra, e eu cheguei nela errando.** A primeira tentativa foi "Planejar por categoria", e
+ela truncou na coluna do menu — o mesmo corte que o ponto 11 descreve, criado por quem tinha
+acabado de consertá-lo, e num lugar em que eu havia escrito que ia conferir e não conferi.
+"Planejamento" caberia, mas é o nome de outro módulo na nav primária. Sobrou o verbo, que
+acompanha o ritmo dos três vizinhos (Gastos, Fornecedores, Pagamentos) e diz o que a tela faz; a
+pergunta inteira é o título dela, que deixou de repetir a frase no painel de dentro.
+
+A lição virou teste: `tests/e2e/financeiro-categorias.spec.ts` mede agora **todos** os rótulos do
+menu da seção, do mesmo jeito que mede os nomes das categorias — conferido falhando com o
+rótulo antigo (141px numa caixa de 135px) antes de passar com o novo.
 
 `CLAUDE.md` seção 12 e `docs/fase1-financeiro.md` foram atualizados com o nome novo **e com o
 motivo** — a ordem "listar, planejar, pagar" continua valendo e agora está explicada onde se
@@ -812,10 +818,15 @@ proposta.
 gasto, contato, valor fechado e a situação derivada das parcelas — ordenada por nome, que é
 como se procura alguém numa lista impressa.
 
-**Sem botão de criar, e com botão de imprimir.** A decisão original segue certa para o
-cadastro: o fornecedor nasce dentro da ficha do gasto que disputa, e é isso que impede cotação
-órfã. O estado vazio manda para os **gastos**, não para um formulário. Arquivado fica de fora —
-quem saiu da operação não está no dia do evento.
+**Ela nasceu só de leitura, e isso durou um dia.** O plano dizia "sem cadastro solto", e eu li
+isso como "sem botão" — mas quem protege o invariante da cotação órfã é o **formulário**, que
+pergunta qual gasto a cotação disputa e ainda deixa criar o gasto de dentro dele. Esconder o
+botão não protegia nada que o formulário já não protegesse, e cobrava um desvio: uma lista de
+telefones que não deixa corrigir um telefone é metade de uma lista.
+
+Criar e editar saem da tela pelo **mesmo** `FinanceVendorModal` da ficha — não há segundo
+caminho de cadastro, há o mesmo caminho alcançável de mais um lugar. Arquivado continua fora da
+lista: quem saiu da operação não está no dia do evento.
 
 A exportação vive em `shared/utils/exportacao-fornecedores.ts`, com a mesma separação das outras
 do produto: a regra de conteúdo (quais colunas, em que ordem, como cada valor vira texto) fica no

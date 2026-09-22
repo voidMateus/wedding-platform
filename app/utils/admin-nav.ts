@@ -329,13 +329,15 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
           // do módulo para ajudar o primeiro, e o primeiro já tem caminho melhor:
           // o estado vazio de Gastos leva até aqui.
           //
-          // Verbo curto e não "Planejamento por categoria" por duas razões
-          // medidas: a coluna do menu trunca (é o mesmo corte que o ponto 11
-          // descreve), e "Planejamento" sozinho é o nome de OUTRO módulo na nav
-          // primária. A frase inteira vive no título da tela.
+          // **Uma palavra**, como os três vizinhos. "Planejar por categoria" foi a
+          // primeira tentativa e truncou na coluna em 22/09/2026 — exatamente o
+          // corte que o ponto 11 descreve, criado por quem tinha acabado de
+          // consertá-lo. "Planejamento" caberia, mas é o nome de OUTRO módulo na
+          // nav primária. Sobra o verbo, e ele diz o que a tela faz; a pergunta
+          // inteira é o título dela ("Onde o dinheiro está indo").
           {
             to: `${base}/financeiro/categorias`,
-            label: 'Planejar por categoria',
+            label: 'Planejar',
             icon: 'lucide:tags',
           },
           // Leitura, e só: o fornecedor continua nascendo dentro da ficha do

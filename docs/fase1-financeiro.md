@@ -1556,7 +1556,7 @@ abaixo. A nossa é de **gastos**. Por isso pré-criar trinta itens é inofensivo
 e tóxico aqui — viraria trinta linhas de "R$ 0,00 estimado" na tela de Gastos, e
 o chip diria "Planejado · 30".
 
-Então o planejamento mora em **Planejar por categoria** (a tela se chamava
+Então o planejamento mora em **Planejar** (a tela se chamava
 "Categorias" até 22/09/2026 — o nome descrevia o objeto, não a pergunta; ponto
 13 da rodada de usabilidade): a linha da categoria abre e mostra
 os gastos dela, editáveis no lugar. Gastos continua plana e continua respondendo
@@ -1573,8 +1573,12 @@ gasto responde "quanto custou isto"; ninguém monta dali uma lista de contatos
 sem abrir gasto por gasto.
 
 É o mesmo critério que o módulo já usa para admitir tela nova — eixo novo ou
-agregação — e aqui é agregação. Por isso `/financeiro/fornecedores` **não tem
-botão de criar** e tem botão de imprimir: ela lista, imprime e exporta.
+agregação — e aqui é agregação. Ela nasceu só de leitura, e isso durou um dia:
+uma lista de telefones que não deixa corrigir um telefone é metade de uma lista.
+Criar e editar saem dali pelo **mesmo** `FinanceVendorModal` da ficha — não há
+segundo caminho de cadastro, há o mesmo caminho alcançável de mais um lugar, e
+quem protege o invariante da cotação órfã é o formulário (que pergunta qual
+gasto e deixa criá-lo de dentro), nunca a ausência do botão.
 Arquivado fica de fora (quem saiu da operação não está no dia do evento), e a
 ficha continua sendo o lugar de reencontrar uma proposta arquivada.
 

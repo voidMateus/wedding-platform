@@ -456,7 +456,7 @@ test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }
   // tela não têm rótulo desenhado (a linha inteira é o rótulo), então é
   // exatamente aqui que um `aria-label` faltando passaria despercebido.
   await expectNoAccessibilityViolations(page, {
-    rotulo: 'Financeiro — Planejar por categoria, com a linha em edição',
+    rotulo: 'Financeiro — Planejar, com a linha em edição',
   })
 
   try {

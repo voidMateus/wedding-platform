@@ -110,7 +110,9 @@ test('contratar sem proposta cria o fornecedor e o vincula ao gasto', async ({ p
  *
  * O teste guarda as duas metades: a lista mostra, e não deixa criar.
  */
-test('a lista de fornecedores mostra quem atende o casamento, e não cadastra', async ({ page }) => {
+test('a lista de fornecedores mostra quem atende o casamento, e deixa corrigir', async ({
+  page,
+}) => {
   test.setTimeout(120_000)
 
   const slug = await entrarComo(page, conta)
@@ -120,17 +122,29 @@ test('a lista de fornecedores mostra quem atende o casamento, e não cadastra', 
     timeout: 20_000,
   })
 
-  // O fornecedor criado pelo teste anterior, na contratação sem proposta.
-  await expect(page.getByRole('cell', { name: /Buffet Recanto/ })).toBeVisible({ timeout: 20_000 })
+  // O fornecedor criado pelo teste anterior, na contrataÃ§Ã£o sem proposta.
+  // `.first()` porque a aÃ§Ã£o de editar tambÃ©m carrega o nome no rÃ³tulo.
+  await expect(page.getByRole('cell', { name: /^Buffet Recanto/ }).first()).toBeVisible({
+    timeout: 20_000,
+  })
   await expect(page.getByRole('cell', { name: 'Jantar dos convidados' })).toBeVisible()
 
-  // Nada de criar aqui: é o que mantém a garantia de que nenhuma cotação exista
-  // sem um gasto para disputar.
-  await expect(
-    page.getByRole('button', { name: /Adicionar fornecedor|Novo fornecedor/ }),
-  ).toHaveCount(0)
-
-  // E os dois caminhos de levar a lista para fora.
+  // Os dois caminhos de levar a lista para fora â Ã© para isso que ela existe.
   await expect(page.getByRole('button', { name: 'Imprimir lista' })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Exportar' })).toBeEnabled()
+
+  // --- e dÃ¡ para corrigir o contato sem sair da lista ---
+  //
+  // A tela nasceu sÃ³ de leitura, e isso durou um dia: uma lista de telefones que
+  // nÃ£o deixa corrigir um telefone Ã© metade de uma lista. Quem protege o
+  // invariante da cotaÃ§Ã£o Ã³rfÃ£ Ã© o formulÃ¡rio, que pergunta qual gasto Ã© esse.
+  await expect(async () => {
+    await page.getByRole('button', { name: /^Editar Buffet Recanto/ }).click({ timeout: 3_000 })
+    await expect(page.getByLabel('Nome', { exact: true })).toBeVisible({ timeout: 3_000 })
+  }).toPass({ timeout: 30_000 })
+
+  await page.getByLabel('Telefone').fill('(11) 98888-7777')
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click()
+
+  await expect(page.getByRole('cell', { name: /98888-7777/ })).toBeVisible({ timeout: 20_000 })
 })
