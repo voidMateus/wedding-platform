@@ -44,6 +44,21 @@ async function entrar(page: import('@playwright/test').Page): Promise<string> {
   return slug
 }
 
+/**
+ * Apaga um gasto pela própria linha da categoria.
+ *
+ * O menu de linha é o caminho desde o ponto 15 da rodada de usabilidade — e
+ * gasto só planejado sai sem pergunta, com o desfazer no toast.
+ */
+async function excluirPelaLinha(page: import('@playwright/test').Page, nome: string) {
+  await page
+    .getByRole('button', { name: `Ações de ${nome}` })
+    .first()
+    .click()
+  await page.getByRole('menuitem', { name: 'Excluir' }).click()
+  await expect(page.getByLabel(`Nome do gasto ${nome}`)).toBeHidden({ timeout: 20_000 })
+}
+
 /** Abre a lista de gastos e espera a hidratação. */
 async function abrirGastos(page: import('@playwright/test').Page, slug: string) {
   await page.goto(`/admin/${slug}/financeiro`)
@@ -456,16 +471,10 @@ test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }
       timeout: 20_000,
     })
   } finally {
-    // Limpeza pela ficha — o casamento de demonstração é compartilhado.
-    await page.getByRole('link', { name: `Abrir ficha de ${nome}` }).click()
-    await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible({
-      timeout: 20_000,
-    })
-    await page.getByRole('button', { name: 'Excluir gasto' }).click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
-      timeout: 20_000,
-    })
+    // Limpeza pela própria linha — o casamento de demonstração é compartilhado.
+    // Era pela ficha, em três telas; o menu de linha encurtou isso para dois
+    // cliques (rodada de usabilidade de 20/09/2026, ponto 15).
+    await excluirPelaLinha(page, nome)
   }
 })
 
@@ -512,18 +521,7 @@ test('Enter e clicar fora criam UM gasto, não dois', async ({ page }) => {
     }).toPass({ timeout: 30_000 })
     await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveCount(1)
   } finally {
-    await page
-      .getByRole('link', { name: `Abrir ficha de ${nome}` })
-      .first()
-      .click()
-    await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible({
-      timeout: 20_000,
-    })
-    await page.getByRole('button', { name: 'Excluir gasto' }).click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
-      timeout: 20_000,
-    })
+    await excluirPelaLinha(page, nome)
   }
 })
 
@@ -559,18 +557,14 @@ test('a categoria oferece o que costuma faltar, e a sugestão vira gasto', async
 
     // E some da fileira: a sugestão não se repete depois de virar gasto — mas
     // as outras continuam lá, porque a lista não se esgota.
-    await expect(page.getByRole('button', { name: new RegExp(item) })).toHaveCount(0)
+    //
+    // `exact`, e não um regex solto: o menu da linha se chama "Ações de <gasto>"
+    // e conteria o nome do item, fazendo a assertição falhar por casar com o
+    // controle que o próprio teste acabou de criar.
+    await expect(page.getByRole('button', { name: item, exact: true })).toHaveCount(0)
     await expect(page.getByText('Faltou algo?')).toBeVisible()
   } finally {
-    await page.getByRole('link', { name: `Abrir ficha de ${item}` }).click()
-    await expect(page.getByRole('heading', { level: 1, name: item })).toBeVisible({
-      timeout: 20_000,
-    })
-    await page.getByRole('button', { name: 'Excluir gasto' }).click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
-      timeout: 20_000,
-    })
+    await excluirPelaLinha(page, item)
   }
 })
 

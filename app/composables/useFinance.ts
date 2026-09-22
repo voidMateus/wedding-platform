@@ -202,6 +202,21 @@ export function useFinance() {
     return resposta
   }
 
+  /**
+   * Desfazer a exclusão — o par de `excluirDespesa`.
+   *
+   * O soft delete sempre permitiu voltar atrás; o que faltava era o caminho. É
+   * ele que torna aceitável excluir sem perguntar na tela onde criar custa um
+   * Enter (rodada de usabilidade de 20/09/2026, ponto 15).
+   */
+  async function restaurarDespesa(id: string) {
+    const despesa = await $fetch<Despesa>(`/api/finance/expenses/${id}/restore`, {
+      method: 'POST',
+    })
+    await atualizarFinanceiro()
+    return despesa
+  }
+
   async function gerarParcelasDaDespesa(id: string, input: InstallmentsGenerateInput) {
     const resposta = await $fetch<{ data: ParcelaDespesa[] }>(
       `/api/finance/expenses/${id}/installments`,
@@ -244,6 +259,7 @@ export function useFinance() {
     criarDespesa,
     atualizarDespesa,
     excluirDespesa,
+    restaurarDespesa,
     gerarParcelasDaDespesa,
     atualizarParcela,
     excluirParcela,

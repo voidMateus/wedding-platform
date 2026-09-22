@@ -241,8 +241,15 @@ async function arquivar(id: string, arquivada: boolean) {
               :aria-expanded="aberta(linha)"
               @click="alternar(linha)"
             >
+              <!-- A largura serve ao NOSSO catálogo: "Cerimônia e assessoria" e
+                   "Papelaria e lembranças" pedem 152px de texto, e a coluna de
+                   176px dava 136px — a plataforma cortava nomes que ela mesma
+                   semeou. 224px deixa 184px de caixa, folga que absorve
+                   diferença de métrica de fonte entre sistemas. Nome que o
+                   casal inventa maior continua truncando, com o texto inteiro
+                   no `title`. -->
               <span
-                class="flex min-w-0 items-center gap-2 text-sm font-medium text-text sm:w-44 sm:flex-none"
+                class="flex min-w-0 items-center gap-2 text-sm font-medium text-text sm:w-56 sm:flex-none"
               >
                 <Icon
                   name="lucide:chevron-down"
@@ -257,12 +264,14 @@ async function arquivar(id: string, arquivada: boolean) {
                     backgroundColor: corDaCategoria(linha.corIndice, linha.corPersonalizada).solida,
                   }"
                 />
-                <span class="truncate">{{ linha.nome }}</span>
+                <span class="truncate" data-testid="nome-da-categoria" :title="linha.nome">{{
+                  linha.nome
+                }}</span>
               </span>
 
               <!-- aria-hidden: a mesma informação está no texto ao lado. -->
               <span
-                class="relative block h-2 w-full overflow-hidden rounded-full bg-text/10 sm:flex-1"
+                class="relative block h-2 w-full overflow-hidden rounded-full bg-text/10 sm:min-w-16 sm:flex-1"
                 aria-hidden="true"
               >
                 <template v-if="proporcao(linha)">

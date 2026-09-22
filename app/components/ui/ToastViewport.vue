@@ -7,7 +7,19 @@
   que o provocou.
 -->
 <script setup lang="ts">
+import type { Toast } from '~/stores/ui.store'
+
 const uiStore = useUiStore()
+
+/**
+ * A ação roda e o cartão sai — desfazer é um gesto só, e um toast que
+ * permanecesse depois de a ação acontecer convidaria a um segundo clique sobre
+ * algo que já não existe.
+ */
+async function executarAcao(toast: Toast) {
+  uiStore.dismissToast(toast.id)
+  await toast.action?.run()
+}
 </script>
 
 <template>
@@ -29,7 +41,9 @@ const uiStore = useUiStore()
       <UiToast
         :tone="toast.tone"
         :message="toast.message"
+        :action-label="toast.action?.label"
         @dismiss="uiStore.dismissToast(toast.id)"
+        @action="executarAcao(toast)"
       />
     </div>
   </TransitionGroup>

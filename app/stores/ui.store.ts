@@ -2,10 +2,24 @@ import { defineStore } from 'pinia'
 
 export type ToastTone = 'success' | 'error' | 'info' | 'warning'
 
+/**
+ * A ação de um toast — hoje, o desfazer.
+ *
+ * Existe porque é ela que torna aceitável destruir sem perguntar: numa tela em
+ * que criar custa um Enter, um diálogo de confirmação a cada exclusão cobra
+ * mais do que o gesto que ele protege. O caminho de volta substitui a pergunta
+ * — mas só vale quando existe: sem desfazer, confirmação.
+ */
+export interface ToastAction {
+  label: string
+  run: () => void | Promise<void>
+}
+
 export interface Toast {
   id: string
   tone: ToastTone
   message: string
+  action?: ToastAction
 }
 
 /**
@@ -33,12 +47,15 @@ export const useUiStore = defineStore('ui', () => {
    * é isso que impede a mesma ação impedida de empilhar seis cartões iguais.
    * Quem chama (`useToast`) reinicia a contagem desse id.
    */
-  function pushToast(tone: ToastTone, message: string): string {
+  function pushToast(tone: ToastTone, message: string, action?: ToastAction): string {
     const jaNaTela = toasts.value.find((toast) => toast.tone === tone && toast.message === message)
-    if (jaNaTela) return jaNaTela.id
+    // Com ação, nunca se reaproveita o cartão que já está na tela: o botão
+    // desfaria a exclusão ANTERIOR, e quem apagou duas linhas seguidas
+    // recuperaria a errada.
+    if (jaNaTela && !action && !jaNaTela.action) return jaNaTela.id
 
     const id = crypto.randomUUID()
-    toasts.value.push({ id, tone, message })
+    toasts.value.push({ id, tone, message, action })
     return id
   }
 

@@ -612,6 +612,19 @@ existir: ela não é uma versão maior desta página, é outra coisa.
 Oito pontos, todos no módulo mais denso do painel. Dois temas os organizam: **planejar tem de
 ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 
+**Progresso** — branch `feature/rodada-usabilidade-fase-c`, iniciada em 22/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| C1 | 10 | "Categorias sugeridas" devolve uma tela de zeros | ⏳ |
+| C2 | 13 | A tela de Categorias não diz que serve para planejar | ⏳ |
+| C3 | 11 | Nome de categoria não cabe | ✅ concluído |
+| C4 | 15 | Não dá para excluir um gasto de dentro da categoria | ✅ concluído |
+| C5 | 17 | Contratar sem proposta não cria fornecedor | ⏳ |
+| C6 | 18 | Falta a lista de fornecedores | ⏳ |
+| C7 | 19 | A ordem da ficha do gasto é ao contrário | ⏳ |
+| C8 | 20 | Falta ver o que já paguei e o que vou pagar | ⏳ |
+
 ### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/index.vue:328`: `comecarComSugeridas()`
@@ -649,7 +662,19 @@ primeiro uso já tem um caminho melhor: o estado vazio.
 - Conferir que o nome novo cabe no menu recolhido e na barra de abas do celular; se não
   couber inteiro, o menu abrevia e o título da tela carrega a frase completa.
 
-### C3 · Ponto 11 — nome de categoria não cabe
+### C3 · Ponto 11 — nome de categoria não cabe ✅
+
+**Concluído em 22/09/2026.** A largura saiu de 176px para 224px, e o número não foi escolhido
+no olho: medido no navegador, "Cerimônia e assessoria" e "Papelaria e lembranças" pedem 152px de
+texto, e a coluna antiga oferecia 136px — a plataforma cortava nomes que ela mesma semeou. Os
+184px de caixa que sobram agora absorvem diferença de métrica de fonte entre sistemas. A barra
+de proporção cede o espaço (ela é comparativa), com piso para nunca sumir.
+
+Nome que o casal inventa maior continua truncando, agora com o texto inteiro no `title`. E o
+teste é de **medição**, não de aparência (`tests/e2e/financeiro-categorias.spec.ts`): `truncate`
+não muda o DOM — o texto continua lá, com as reticências por cima —, então nenhuma asserção
+sobre texto pega o corte. O teste compara `scrollWidth` com `clientWidth` de cada nome do
+catálogo, na menor largura em que a coluna existe.
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/categorias.vue:245` fixa a coluna do nome
 em `sm:w-44` com `truncate`. "Cerimônia e assessoria" vira "Cerimônia e asses…" — e são nomes
@@ -666,7 +691,25 @@ acessível sem depender do olho.
   `aria-label` — tooltip nativo, sem componente novo (o sistema de tooltips é o item D3).
 - Teste de regressão: nenhum nome do catálogo de sugeridas trunca na largura mínima suportada.
 
-### C4 · Ponto 15 — não dá para excluir um gasto de dentro da categoria
+### C4 · Ponto 15 — não dá para excluir um gasto de dentro da categoria ✅
+
+**Concluído em 22/09/2026.** A linha ganhou `AdminRowMenu` com **Abrir ficha** e **Excluir** —
+menu, e não dois ícones, porque a ação principal da linha é a edição no lugar, que acontece nos
+campos: as outras duas são secundárias, que é exatamente o caso que o componente descreve.
+
+**A pergunta só aparece quando há o que perder** (fornecedor, contrato ou parcela). Gasto só
+planejado sai direto, com **Desfazer no toast** — e foi isso que exigiu duas coisas novas: uma
+ação no toast (`ToastAction`, no `ui.store`) e `POST /api/finance/expenses/:id/restore`. O soft
+delete sempre permitiu voltar atrás; o que não existia era o caminho. Numa tela em que criar
+custa um Enter, um diálogo a cada exclusão cobra mais do que o gesto que ele protege — mas só
+dá para dispensar a pergunta **porque** existe o caminho de volta.
+
+O toast com ação nunca reaproveita um cartão já na tela (o botão desfaria a exclusão anterior,
+e quem apagou duas linhas seguidas recuperaria a errada), e a ação some junto com ele:
+arrependimento é imediato, e um botão permanente viraria uma segunda forma de editar o dado.
+
+Os três testes da suíte de Financeiro que abriam a ficha **só para limpar** o gasto passaram a
+usar a linha — o desvio de três telas que o ponto descreve existia também nos testes.
 
 **Diagnóstico.** `FinanceCategoryExpenses.vue:206` tem uma única ação por linha: abrir a ficha.
 Para apagar um gasto criado por engano — ou uma das duas linhas duplicadas do ponto 14 — é
