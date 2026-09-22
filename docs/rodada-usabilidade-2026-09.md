@@ -623,7 +623,7 @@ ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 | C5 | 17 | Contratar sem proposta não cria fornecedor | ✅ concluído |
 | C6 | 18 | Falta a lista de fornecedores | ⏳ |
 | C7 | 19 | A ordem da ficha do gasto é ao contrário | ✅ concluído |
-| C8 | 20 | Falta ver o que já paguei e o que vou pagar | ⏳ |
+| C8 | 20 | Falta ver o que já paguei e o que vou pagar | ✅ concluído |
 
 ### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros ✅
 
@@ -861,7 +861,26 @@ depois de quatro painéis.
 - "Excluir gasto" sai do meio dos campos e vai para o menu do cabeçalho da ficha, junto das
   outras ações destrutivas do painel.
 
-### C8 · Ponto 20 — falta ver o que já paguei e o que vou pagar
+### C8 · Ponto 20 — falta ver o que já paguei e o que vou pagar ✅
+
+**Concluído em 22/09/2026.** Pagamentos abre com um **índice das faixas**: vencido, o que vence
+nos próximos 30 dias, o que ficou sem data e o que já foi pago — cada um com valor e contagem,
+e cada um **filtrando a lista abaixo**. Nenhum abre outra tela.
+
+Vale dizer o que ele **não** é: a régua de cinco números que morava aqui e foi removida repetia
+o agregado do módulo, que vive no topo de Gastos — o mesmo número em duas telas, pedindo
+reconferência. Este índice traz os números das **próprias faixas que estão logo abaixo**, e
+existe para responder de uma olhada o que antes só se montava somando cabeçalhos com o olho.
+
+Os valores vêm do `resumo` do endpoint, que é sempre do conjunto todo: se viessem das linhas
+visíveis, clicar num deles mudaria os outros três e o índice passaria a descrever o próprio
+clique. Faixa sem nenhum lançamento **não vira botão** — atalho para lugar nenhum —, e "Mais
+para frente" ficou de fora de propósito: não é pergunta que se faz com pressa, e se alcança
+limpando o filtro.
+
+Na ficha do gasto, o painel Pagamentos ganhou a mesma leitura no recorte dele: pago (e em quantas
+parcelas), quanto falta e quanto está vencido. Pisos aplicados **por linha antes de somar**, e o
+vencido derivado de `pago_em` e `vence_em` contra hoje — nunca de coluna de status.
 
 **Diagnóstico.** A tela de Pagamentos existe e é o eixo do tempo do módulo. O que o relatório
 não encontrou é o **fechamento**: sinal pago, parcelas quitadas, o que vem a seguir. Hoje o

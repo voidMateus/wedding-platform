@@ -215,6 +215,24 @@ watch(edicaoCategoria, () => {
   salvarDetalhes()
 })
 
+/**
+ * Quantas parcelas já saíram, e quanto está vencido NESTE gasto.
+ *
+ * `pago_em` é a única fonte do estado de pagamento (CLAUDE.md, seção 12), e o
+ * vencido se deriva dele e de `vence_em` contra hoje — nunca de uma coluna de
+ * status. Pisos por LINHA: somar primeiro faria uma parcela paga compensar
+ * outra em atraso e as duas anomalias sumiriam.
+ */
+const parcelasPagas = computed(
+  () => parcelas.value.filter((parcela) => parcela.pago_em !== null).length,
+)
+
+const vencidoDoGasto = computed(() =>
+  parcelas.value
+    .filter((parcela) => situacaoDaParcela(parcela, hoje) === 'vencida')
+    .reduce((soma, parcela) => soma + Math.max(0, parcela.valor_centavos), 0),
+)
+
 // --- contratar ---
 const contratoAberto = ref(false)
 const fornecedorDoContrato = ref<FornecedorComSituacao | null>(null)
@@ -619,6 +637,29 @@ async function confirmarExclusao() {
             Ver no calendário
           </UiButton>
         </template>
+
+        <!-- A mesma leitura do índice de Pagamentos, no recorte deste gasto: o
+             painel listava as parcelas uma a uma e deixava "quanto já saiu e
+             quanto falta" para quem somasse de cabeça (ponto 20). -->
+        <p
+          v-if="parcelas.length > 0"
+          class="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-border px-4 py-3 text-sm"
+        >
+          <span class="text-text-muted">
+            Pago
+            <span class="num font-medium text-text">{{ formatCentsToBRL(totais.pago) }}</span>
+            em {{ parcelasPagas }}
+            {{ parcelasPagas === 1 ? 'parcela' : 'parcelas' }}
+          </span>
+          <span v-if="totais.aPagar > 0" class="text-text-muted">
+            Falta
+            <span class="num font-medium text-text">{{ formatCentsToBRL(totais.aPagar) }}</span>
+          </span>
+          <span v-if="vencidoDoGasto > 0" class="text-danger">
+            Vencido
+            <span class="num font-medium">{{ formatCentsToBRL(vencidoDoGasto) }}</span>
+          </span>
+        </p>
 
         <ul v-if="parcelas.length > 0" class="flex flex-col divide-y divide-border">
           <li
