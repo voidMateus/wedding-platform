@@ -1556,7 +1556,9 @@ abaixo. A nossa é de **gastos**. Por isso pré-criar trinta itens é inofensivo
 e tóxico aqui — viraria trinta linhas de "R$ 0,00 estimado" na tela de Gastos, e
 o chip diria "Planejado · 30".
 
-Então o planejamento mora em **Categorias**: a linha da categoria abre e mostra
+Então o planejamento mora em **Planejar por categoria** (a tela se chamava
+"Categorias" até 22/09/2026 — o nome descrevia o objeto, não a pergunta; ponto
+13 da rodada de usabilidade): a linha da categoria abre e mostra
 os gastos dela, editáveis no lugar. Gastos continua plana e continua respondendo
 "o que falta decidir".
 

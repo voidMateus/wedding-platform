@@ -21,9 +21,18 @@ interface Props {
   categoria: CategoriaComDespesas
   /** Base do módulo (`/admin/<slug>/financeiro`) — destino da ficha. */
   base: string
+  /**
+   * Abre já com a linha em branco esperando o primeiro gasto.
+   *
+   * Vale só no primeiro planejamento (ponto 10): quem chega de "começar com as
+   * sugeridas" cai no gesto em vez de numa lista para contemplar. Fora disso a
+   * linha nova continua nascendo de "Adicionar gasto" — um campo aberto em toda
+   * categoria seria um formulário que ninguém pediu.
+   */
+  comecarDigitando?: boolean
 }
 
-const { categoria, base } = defineProps<Props>()
+const { categoria, base, comecarDigitando = false } = defineProps<Props>()
 
 const toast = useToast()
 const { criarDespesa, atualizarDespesa, excluirDespesa, restaurarDespesa } = useFinance()
@@ -262,6 +271,13 @@ function aoEscolherNoMenu(despesa: DespesaComParcelas, chave: string) {
 function adicionar() {
   nova.value = { descricao: '', estimado: null, focarValor: false }
 }
+
+// `onMounted`, e não um valor inicial: o componente só monta quando a categoria
+// abre, então este é o momento em que a linha em branco aparece na tela de quem
+// a expandiu.
+onMounted(() => {
+  if (comecarDigitando && categoria.despesas.length === 0) adicionar()
+})
 
 function usarSugestao(item: string) {
   nova.value = { descricao: item, estimado: null, focarValor: true }

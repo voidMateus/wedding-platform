@@ -16,6 +16,13 @@ test.skip(
   'SUPABASE_SERVICE_ROLE_KEY não configurado — necessário para provisionar a conta de teste.',
 )
 
+// Os dois testes dividem a MESMA conta, e o segundo cria e apaga um gasto nela
+// — o que muda o estado que o primeiro observa (com gasto, a tela deixa de ser
+// "primeiro planejamento" e a categoria não abre sozinha). Com
+// `fullyParallel: true` no config, eles correriam junto: serial aqui não é
+// precaução, é a descrição do que eles são.
+test.describe.configure({ mode: 'serial' })
+
 /** O `sm:` do Tailwind: abaixo dele a linha empilha e a coluna deixa de existir. */
 const MENOR_LARGURA_COM_COLUNA = 640
 
@@ -80,9 +87,7 @@ test('o gasto se exclui da própria linha, e o toast desfaz', async ({ page }) =
   const slug = await entrarComo(page, conta)
   await page.goto(`/admin/${slug}/financeiro/categorias`)
 
-  const linha = page
-    .getByRole('button', { name: new RegExp(`^${primeiraCategoria.nome}`) })
-    .first()
+  const linha = page.getByRole('button', { name: new RegExp(`^${primeiraCategoria.nome}`) }).first()
   await expect(linha).toBeVisible({ timeout: 20_000 })
 
   const campo = page.getByLabel(`Nome do gasto ${gasto.descricao}`)

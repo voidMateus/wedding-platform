@@ -320,7 +320,24 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
           // lista de linhas individuais não responde. Vem ANTES de Pagamentos
           // porque é ali que se planeja: a ordem do menu é a ordem do dinheiro
           // na vida do casal — listar, planejar, pagar.
-          { to: `${base}/financeiro/categorias`, label: 'Categorias', icon: 'lucide:tags' },
+          //
+          // "Planejar por categoria", e não "Categorias": o nome antigo descrevia
+          // o OBJETO, e quem entra em Financeiro vê Gastos primeiro e não tinha
+          // pista de que o planejamento por categoria existia (rodada de
+          // usabilidade de 20/09/2026, ponto 13). Resolvido pelo nome, e não
+          // invertendo a ordem do menu — inverter penalizaria todo uso recorrente
+          // do módulo para ajudar o primeiro, e o primeiro já tem caminho melhor:
+          // o estado vazio de Gastos leva até aqui.
+          //
+          // Verbo curto e não "Planejamento por categoria" por duas razões
+          // medidas: a coluna do menu trunca (é o mesmo corte que o ponto 11
+          // descreve), e "Planejamento" sozinho é o nome de OUTRO módulo na nav
+          // primária. A frase inteira vive no título da tela.
+          {
+            to: `${base}/financeiro/categorias`,
+            label: 'Planejar por categoria',
+            icon: 'lucide:tags',
+          },
           {
             to: `${base}/financeiro/pagamentos`,
             label: 'Pagamentos',

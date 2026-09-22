@@ -322,11 +322,22 @@ async function salvarTeto(valor: number | null) {
 // por categoria passaram a viver.
 const semeando = ref(false)
 
+/**
+ * Semear e **ir** — a ação leva para onde o trabalho continua.
+ *
+ * Antes ela criava as categorias, mostrava um toast e ficava em Gastos: o
+ * estado vazio sumia (agora existem categorias), mas a lista continuava vazia,
+ * e o casal clicava em "começar" para receber a mesma tela com zeros (rodada de
+ * usabilidade de 20/09/2026, ponto 10). Não havia nada errado no dado — o erro
+ * era o destino. Semear categorias é o começo do planejamento, e o planejamento
+ * acontece em `/financeiro/categorias`.
+ */
 async function comecarComSugeridas() {
   semeando.value = true
   try {
     const criadas = await criarCategoriasSugeridas()
     toast.success(`${criadas.length} categorias criadas.`)
+    await navigateTo(`${base}/categorias`)
   } catch (erro) {
     toast.error(getApiErrorMessage(erro, 'Não foi possível criar as categorias.'))
   } finally {

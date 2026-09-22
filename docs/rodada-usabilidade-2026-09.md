@@ -616,8 +616,8 @@ ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 
 | Item | Ponto | O que é | Situação |
 |---|---|---|---|
-| C1 | 10 | "Categorias sugeridas" devolve uma tela de zeros | ⏳ |
-| C2 | 13 | A tela de Categorias não diz que serve para planejar | ⏳ |
+| C1 | 10 | "Categorias sugeridas" devolve uma tela de zeros | ✅ concluído |
+| C2 | 13 | A tela de Categorias não diz que serve para planejar | ✅ concluído |
 | C3 | 11 | Nome de categoria não cabe | ✅ concluído |
 | C4 | 15 | Não dá para excluir um gasto de dentro da categoria | ✅ concluído |
 | C5 | 17 | Contratar sem proposta não cria fornecedor | ⏳ |
@@ -625,7 +625,22 @@ ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 | C7 | 19 | A ordem da ficha do gasto é ao contrário | ⏳ |
 | C8 | 20 | Falta ver o que já paguei e o que vou pagar | ⏳ |
 
-### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros
+### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros ✅
+
+**Concluído em 22/09/2026.** Semear passou a **levar**: depois de criar as categorias, a ação
+navega para o planejamento, que é onde o trabalho continua. Lá, quem chega pela primeira vez
+encontra três coisas, nesta ordem: uma linha dizendo o que é aquela tela, a primeira categoria
+**já aberta**, e dentro dela o campo de gasto esperando o cursor. O casal cai no gesto, não numa
+lista de treze linhas para contemplar.
+
+As três somem sozinhas quando o primeiro gasto entra (`primeiroPlanejamento`): a explicação
+serve ao primeiro dia e atrapalha no trigésimo, e a partir dali a pergunta da tela volta a ser
+"onde o dinheiro está indo?" — que se responde com o agregado, não com um formulário aberto. É
+a mesma lógica de acolhimento do Início, e por isso **não é modal**: nada a fechar.
+
+O teste (`tests/e2e/financeiro-primeiro-plano.spec.ts`) percorre o caminho inteiro numa conta
+sem nada — clicar em começar, chegar no planejamento, escrever o primeiro gasto — e termina
+conferindo que o acolhimento sumiu.
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/index.vue:328`: `comecarComSugeridas()`
 cria as categorias, mostra um toast e **fica em Gastos**. O estado vazio some (agora existem
@@ -643,7 +658,21 @@ começo do planejamento, e o planejamento acontece lá.
 - A categoria vem aberta, com o campo de gasto pronto para digitar: o casal cai no gesto, não
   numa lista para contemplar.
 
-### C2 · Ponto 13 — a tela de Categorias não diz que serve para planejar
+### C2 · Ponto 13 — a tela de Categorias não diz que serve para planejar ✅
+
+**Concluído em 22/09/2026.** O menu diz **"Planejar por categoria"** e a tela se chama **"Onde o
+dinheiro está indo"** — o rótulo antigo nomeava o objeto, e nenhum dos dois dizia que ali se
+planeja. A ordem do menu **não** mudou: inverter penalizaria todo uso recorrente do módulo para
+ajudar o primeiro, e o primeiro ganhou caminho melhor no C1.
+
+O verbo curto no menu, em vez de "Planejamento por categoria", por duas razões medidas: a coluna
+do menu trunca — é o mesmo corte que o ponto 11 descreve, e seria estranho consertar num lugar e
+criar no outro — e "Planejamento" sozinho já é o nome de outro módulo na nav primária. A frase
+inteira vive no título da tela, que deixou de repetir a pergunta no painél de dentro.
+
+`CLAUDE.md` seção 12 e `docs/fase1-financeiro.md` foram atualizados com o nome novo **e com o
+motivo** — a ordem "listar, planejar, pagar" continua valendo e agora está explicada onde se
+procura por ela.
 
 **Diagnóstico.** O nome "Categorias" descreve o **objeto**, não a **pergunta**. Quem entra em
 Financeiro vê Gastos primeiro (`app/utils/admin-nav.ts:308-318`) e não tem pista de que o

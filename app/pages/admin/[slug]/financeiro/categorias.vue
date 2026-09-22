@@ -115,6 +115,36 @@ function resumo(linha: CategoriaComDespesas): string {
  */
 const expandidas = ref<string[]>([])
 
+/**
+ * Ninguém planejou nada ainda?
+ *
+ * Categoria existe, gasto nenhum — exatamente o estado de quem acabou de semear
+ * as sugeridas e foi trazido para cá (ponto 10). É o único momento em que a
+ * tela precisa dizer o que é, e ela para de dizer sozinha: some quando o
+ * primeiro gasto entra, como o acolhimento do Início — nunca um modal.
+ */
+const primeiroPlanejamento = computed(
+  () => linhas.value.length > 0 && linhas.value.every((linha) => linha.despesas.length === 0),
+)
+
+/**
+ * A primeira categoria abre sozinha, e só no primeiro planejamento.
+ *
+ * Chegar aqui e encontrar treze linhas fechadas para contemplar é o mesmo erro
+ * do ponto 10 um passo adiante: o casal precisa cair no GESTO. Depois que
+ * existe gasto, a tela volta a abrir fechada — aí a pergunta é "onde o
+ * dinheiro está indo?", e a resposta é o agregado, não um formulário.
+ */
+watch(
+  [primeiroPlanejamento, linhas],
+  ([primeiro, atuais]) => {
+    if (!primeiro || expandidas.value.length > 0) return
+    const primeiraLinha = atuais[0]
+    if (primeiraLinha) expandidas.value = [chave(primeiraLinha)]
+  },
+  { immediate: true },
+)
+
 function chave(linha: CategoriaComDespesas): string {
   return linha.categoriaId ?? 'sem-categoria'
 }
@@ -169,7 +199,7 @@ async function arquivar(id: string, arquivada: boolean) {
 </script>
 
 <template>
-  <AdminSection title="Categorias" :meta="totalLabel">
+  <AdminSection title="Onde o dinheiro está indo" :meta="totalLabel">
     <template #actions>
       <UiButton @click="novaCategoria">
         <Icon name="lucide:plus" class="h-4 w-4" />
@@ -177,7 +207,24 @@ async function arquivar(id: string, arquivada: boolean) {
       </UiButton>
     </template>
 
-    <AdminPanel title="Onde o dinheiro está indo">
+    <!-- Sem título próprio: a pergunta subiu para o título da TELA quando ela
+         deixou de se chamar "Categorias" (ponto 13), e repeti-la aqui seria o
+         mesmo texto duas vezes na mesma dobra. -->
+    <!-- A linha de acolhimento, e não um modal: quem chega de "começar com as
+         sugeridas" precisa saber o que fazer com treze categorias vazias
+         (ponto 10). Ela some sozinha quando o primeiro gasto entra — mesma
+         lógica do Início: a explicação serve ao primeiro dia e atrapalha no
+         trigésimo. -->
+    <p
+      v-if="primeiroPlanejamento"
+      class="mb-4 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-sm leading-relaxed text-text-muted"
+    >
+      <strong class="font-medium text-text">É aqui que vocês planejam.</strong>
+      Abra uma categoria e escreva o que pretendem contratar, com quanto imaginam gastar — um item
+      por linha, sem formulário. O valor pode ficar em branco enquanto vocês não souberem.
+    </p>
+
+    <AdminPanel>
       <template #headerActions>
         <AdminFilterChips
           v-model="recorte"
@@ -332,7 +379,11 @@ async function arquivar(id: string, arquivada: boolean) {
           </div>
 
           <div v-if="aberta(linha)" class="border-t border-border px-4 py-2 sm:px-5 sm:pl-12">
-            <AdminFinanceCategoryExpenses :categoria="linha" :base="base" />
+            <AdminFinanceCategoryExpenses
+              :categoria="linha"
+              :base="base"
+              :comecar-digitando="primeiroPlanejamento"
+            />
           </div>
         </li>
       </ul>
