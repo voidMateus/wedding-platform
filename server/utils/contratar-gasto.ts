@@ -26,16 +26,24 @@ import type { Database } from '~/types/database.types'
  *   3. o estágio do fornecedor vai para `contratado`;
  *   4. as parcelas nascem — e o dinheiro aparece em Pagamentos.
  *
- * `fornecedorId` é opcional **por ora**: registrar valor fechado sem fornecedor
- * é o caminho de hoje. A Fase C da mesma rodada (item C5) torna o fornecedor
- * obrigatório na contratação, e é aqui que a exigência vai passar a valer —
- * uma vez, para os dois caminhos.
+ * **Todo contrato tem um fornecedor** (item C5 da mesma rodada), e ele chega
+ * por um dos dois lados: `fornecedorId`, quando a proposta já existia, ou
+ * `fornecedorNome`, quando o casal fechou com quem nunca foi cotado. Neste
+ * segundo caso o fornecedor **nasce aqui**, no mesmo ato — era o buraco do
+ * ponto 17: contratar sem proposta gravava o valor e não deixava contraparte
+ * nenhuma, e o casal ficava sem a quem pendurar documento ou telefone.
+ *
+ * Os dois continuam opcionais no TIPO porque os gastos já contratados sem
+ * fornecedor ficam como estão — não inventamos nome para dado antigo. Quem
+ * exige um dos dois é o schema, na entrada.
  */
 export interface ContratacaoDoGasto {
   despesaId: string
   valorCentavos: number
   parcelamento?: ParcelamentoInput
   fornecedorId?: string | null
+  /** Fornecedor novo, criado no mesmo ato da contratação. */
+  fornecedorNome?: string | null
 }
 
 export async function contratarGasto(
@@ -71,17 +79,42 @@ export async function contratarGasto(
     throw notFoundError('Fornecedor não encontrado.')
   }
 
+  // O fornecedor que ainda não existe nasce AQUI, dentro do mesmo ato.
+  //
+  // Já com `despesa_id` e `estagio: 'contratado'`, porque é exatamente isso que
+  // está acontecendo: criar como "em análise" e promover na linha seguinte
+  // abriria uma janela em que ele aparece disputando um gasto que já ganhou.
+  let fornecedor = fornecedorResult.data
+  if (!fornecedor && input.fornecedorNome) {
+    const { data: criado, error: erroCriar } = await client
+      .from('fornecedores')
+      .insert({
+        casamento_id: weddingId,
+        nome: input.fornecedorNome,
+        despesa_id: input.despesaId,
+        categoria_id: despesaResult.data.categoria_id,
+        estagio: 'contratado',
+      })
+      .select('id, nome, categoria_id')
+      .single()
+
+    if (erroCriar) {
+      throw badRequestError(erroCriar.message)
+    }
+    fornecedor = criado
+  }
+
   const { data: despesa, error: erroDespesa } = await client
     .from('despesas')
     .update({
       valor_centavos: input.valorCentavos,
-      ...(fornecedorResult.data
+      ...(fornecedor
         ? {
-            fornecedor_id: fornecedorResult.data.id,
+            fornecedor_id: fornecedor.id,
             // A categoria do fornecedor só é adotada quando o gasto não tinha
             // uma: o casal classificou o gasto no planejamento, e contratar não
             // é hora de remanejar o orçamento por baixo dele.
-            categoria_id: despesaResult.data.categoria_id ?? fornecedorResult.data.categoria_id,
+            categoria_id: despesaResult.data.categoria_id ?? fornecedor.categoria_id,
           }
         : {}),
     })
@@ -98,11 +131,11 @@ export async function contratarGasto(
   // a cotação contratada órfã na tela de Fornecedores — ela caía em "Sem gasto
   // definido" enquanto Pagamentos já mostrava o nome dela no gasto, e as duas
   // telas descreviam realidades diferentes do mesmo contrato.
-  if (fornecedorResult.data) {
+  if (fornecedor) {
     const { error: erroFornecedor } = await client
       .from('fornecedores')
       .update({ estagio: 'contratado', despesa_id: input.despesaId })
-      .eq('id', fornecedorResult.data.id)
+      .eq('id', fornecedor.id)
       .eq('casamento_id', weddingId)
 
     if (erroFornecedor) {
@@ -178,12 +211,12 @@ export async function contratarGasto(
   // dois verbos diferentes para o mesmo fato.
   await recordAuditLog(event, weddingId, memberId, {
     action: 'finance.vendor.contract',
-    entityType: fornecedorResult.data ? 'vendor' : 'expense',
-    entityId: fornecedorResult.data?.id ?? input.despesaId,
+    entityType: fornecedor ? 'vendor' : 'expense',
+    entityId: fornecedor?.id ?? input.despesaId,
     metadata: {
       despesaId: input.despesaId,
       valorCentavos: input.valorCentavos,
-      ...(fornecedorResult.data ? { fornecedor: fornecedorResult.data.nome } : {}),
+      ...(fornecedor ? { fornecedor: fornecedor.nome } : {}),
     },
   })
 

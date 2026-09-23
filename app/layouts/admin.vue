@@ -163,6 +163,10 @@ const operatorRoleLabel = computed(() =>
  * da conta, porque é lá que está o resto do formulário — mas o caminho até
  * ela sai daqui, que é onde se procura conta em qualquer sistema.
  */
+// A ajuda da tela atual — o cabeçalho só precisa saber SE existe uma e como
+// reabri-la; o texto é problema do bloco que a desenha.
+const { ajuda: ajudaDaTelaAtual, reabrir: reabrirAjuda } = useAjudaDeTela()
+
 const enderecoDaConta = computed(
   () => `/admin/${activeSlug.value}/configuracoes?${QUERY_SECAO_CONFIGURACOES}=senha`,
 )
@@ -240,6 +244,19 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
       <AdminPrimaryNav :itens="navPrimaria" class="mx-auto shrink-0" />
 
       <div class="ml-auto flex shrink-0 items-center gap-2 lg:ml-0 lg:gap-3">
+        <!-- Reabre a explicação da tela atual. Só aparece onde existe uma:
+             um "?" que não responde nada é pior que nenhum. -->
+        <button
+          v-if="ajudaDaTelaAtual"
+          type="button"
+          class="hidden shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:block"
+          aria-label="O que é esta tela?"
+          title="O que é esta tela?"
+          @click="reabrirAjuda"
+        >
+          <Icon name="lucide:circle-help" class="h-5 w-5" />
+        </button>
+
         <AdminAccountMenu
           :email="operatorEmail"
           :legenda="operatorRoleLabel"
@@ -314,6 +331,13 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
            que torna a chrome imune à trava de scroll dos dropdowns. O padding
            inferior no celular libera a barra de abas fixa. -->
       <main class="min-w-0 flex-1 overflow-y-auto px-4 pt-5 pb-24 sm:px-6 lg:pt-7 lg:pb-8">
+        <!-- A ajuda da tela vive AQUI, e não no `AdminSection`: seis páginas do
+             painel montam o próprio cabeçalho e não passam por ele — Convidados
+             entre elas, que é uma das que o ponto 8 nomeia. O layout é o único
+             ponto por onde TODA tela passa, e é o que impede a próxima de nascer
+             sem explicação. O componente decide sozinho se há o que mostrar. -->
+        <AdminScreenHelp />
+
         <slot />
       </main>
     </div>

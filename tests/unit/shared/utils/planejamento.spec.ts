@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   destaqueDoPlanejamento,
   diasAteOEvento,
+  JANELAS,
+  faseDoPrazo,
   janelaDaSugestao,
   janelaDaTarefa,
   prazoSugerido,
@@ -33,11 +35,73 @@ describe('janelaDaTarefa', () => {
     expect(janelaDaTarefa(tarefa(HOJE), HOJE)).toBe('esta_semana')
   })
 
-  it('as bordas das janelas: 7 dias é semana, 8 é mês, 31 é mais adiante', () => {
-    expect(janelaDaTarefa(tarefa('2026-09-20'), HOJE)).toBe('esta_semana')
-    expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE)).toBe('este_mes')
-    expect(janelaDaTarefa(tarefa('2026-10-13'), HOJE)).toBe('este_mes')
+  it('a urgência vence a régua: 7 dias ainda é "desta semana"', () => {
+    // Mesmo com data de evento, um prazo dentro de sete dias é urgência — quem
+    // tem algo para amanhã não quer ler "9 meses antes" primeiro.
+    expect(janelaDaTarefa(tarefa('2026-09-20'), HOJE, EVENTO)).toBe('esta_semana')
+    expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE, EVENTO)).toBe('nove_meses')
+  })
+
+  /**
+   * A régua mudou no item D2: era a distância até HOJE ("Próximos 30 dias"),
+   * virou a distância até o EVENTO ("6 meses antes") — que é como se fala de
+   * casamento. O eixo continua sendo o tempo.
+   */
+  it('agrupa pela contagem regressiva do evento, não pela distância até hoje', () => {
+    // 2027-06-12 é o evento. 180 dias antes = 2026-12-14.
+    expect(janelaDaTarefa(tarefa('2026-12-14'), HOJE, EVENTO)).toBe('seis_meses')
+    // Um dia mais cedo já pertence à faixa anterior.
+    expect(janelaDaTarefa(tarefa('2026-12-13'), HOJE, EVENTO)).toBe('nove_meses')
+  })
+
+  it('sem data de evento, degrada para "mais adiante" em vez de inventar fase', () => {
+    expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE)).toBe('mais_adiante')
     expect(janelaDaTarefa(tarefa('2026-10-14'), HOJE)).toBe('mais_adiante')
+  })
+})
+
+describe('a ordem das janelas', () => {
+  /**
+   * O que não tem data para se cobrar sozinho precisa estar à vista: embaixo de
+   * dez faixas de meses, "sem prazo" e "de etapas que já passaram" ficam
+   * invisíveis. Foi o que o uso mostrou em 22/09/2026.
+   */
+  it('põe o que pede decisão antes da contagem regressiva', () => {
+    const posicao = (janela: string) => JANELAS.indexOf(janela as never)
+
+    expect(posicao('ja_passou')).toBeLessThan(posicao('doze_meses'))
+    expect(posicao('sem_prazo')).toBeLessThan(posicao('doze_meses'))
+  })
+
+  it('mas depois do prazo real perdido', () => {
+    const posicao = (janela: string) => JANELAS.indexOf(janela as never)
+
+    expect(posicao('vencida')).toBeLessThan(posicao('ja_passou'))
+    expect(posicao('esta_semana')).toBeLessThan(posicao('ja_passou'))
+  })
+
+  it('e concluídas por último — histórico não disputa a primeira dobra', () => {
+    expect(JANELAS.at(-1)).toBe('concluida')
+  })
+})
+
+describe('faseDoPrazo', () => {
+  it('cai na primeira fase que ainda comporta o prazo', () => {
+    // 200 dias antes está entre 270 e 180: pertence à faixa de 9 meses.
+    expect(faseDoPrazo('2026-11-24', EVENTO)).toBe('nove_meses')
+  })
+
+  it('prazo mais distante que a fase mais distante fica nela mesma', () => {
+    // "Mais de um ano antes" não é um grupo útil.
+    expect(faseDoPrazo('2020-01-01', EVENTO)).toBe('doze_meses')
+  })
+
+  it('prazo depois do evento vai para "Depois do casamento"', () => {
+    expect(faseDoPrazo('2027-07-01', EVENTO)).toBe('depois')
+  })
+
+  it('o dia do evento pertence à semana dele', () => {
+    expect(faseDoPrazo(EVENTO, EVENTO)).toBe('semana')
   })
 })
 
@@ -70,7 +134,10 @@ describe('janelaDaSugestao', () => {
   })
 
   it('cai na janela do próprio prazo sugerido — mesmo eixo das tarefas', () => {
-    expect(janelaDaSugestao(sugestao('depois'), EVENTO, HOJE)).toBe('mais_adiante')
+    // E agora também com o mesmo RÓTULO: a sugestão da fase "depois" cai no
+    // grupo "Depois do casamento", não num "Mais adiante" genérico.
+    expect(janelaDaSugestao(sugestao('depois'), EVENTO, HOJE)).toBe('depois')
+    expect(janelaDaSugestao(sugestao('seis_meses'), EVENTO, HOJE)).toBe('seis_meses')
   })
 
   it('fase já passada vai para o grupo de contexto, nunca para "vencida"', () => {
@@ -83,7 +150,7 @@ describe('janelaDaSugestao', () => {
 })
 
 describe('resumoDoPlanejamento', () => {
-  it('conta cada tarefa uma vez, na janela dela', () => {
+  it('conta cada tarefa uma vez', () => {
     const resumo = resumoDoPlanejamento(
       [tarefa('2026-09-01'), tarefa('2026-09-02'), tarefa(HOJE), tarefa('2027-01-01', true)],
       HOJE,
@@ -91,10 +158,25 @@ describe('resumoDoPlanejamento', () => {
     expect(resumo).toMatchObject({
       total: 4,
       vencidas: 2,
-      estaSemana: 1,
+      noMes: 1,
       concluidas: 1,
       percentualConcluido: 25,
     })
+  })
+
+  /**
+   * A janela de atenção virou o MÊS quando a régua da tela virou a contagem
+   * regressiva (item D2): o painel cobrava sete dias, um recorte que o
+   * Planejamento nem agrupa mais. E `noMes` sai do PRAZO, não de uma janela —
+   * nenhuma delas corresponde a "os próximos trinta dias".
+   */
+  it('a janela de atenção é o mês, e ela inclui a semana', () => {
+    // HOJE é 2026-09-13. 20 dias à frente entra; 31 dias fica de fora.
+    const resumo = resumoDoPlanejamento(
+      [tarefa(HOJE), tarefa('2026-10-03'), tarefa('2026-10-14')],
+      HOJE,
+    )
+    expect(resumo.noMes).toBe(2)
   })
 
   it('lista vazia não produz percentual — indicador sem base é omitido, não zerado', () => {
@@ -114,9 +196,9 @@ describe('destaqueDoPlanejamento', () => {
     expect(destaqueDoPlanejamento(resumo)).toEqual({ tipo: 'vencidas', quantidade: 1 })
   })
 
-  it('sem vencidas, a semana; sem as duas, o progresso', () => {
+  it('sem vencidas, o mês; sem as duas, o progresso', () => {
     expect(destaqueDoPlanejamento(resumoDoPlanejamento([tarefa(HOJE)], HOJE))).toEqual({
-      tipo: 'esta_semana',
+      tipo: 'no_mes',
       quantidade: 1,
     })
     expect(

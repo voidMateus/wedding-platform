@@ -320,7 +320,36 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
           // lista de linhas individuais não responde. Vem ANTES de Pagamentos
           // porque é ali que se planeja: a ordem do menu é a ordem do dinheiro
           // na vida do casal — listar, planejar, pagar.
-          { to: `${base}/financeiro/categorias`, label: 'Categorias', icon: 'lucide:tags' },
+          //
+          // "Planejar por categoria", e não "Categorias": o nome antigo descrevia
+          // o OBJETO, e quem entra em Financeiro vê Gastos primeiro e não tinha
+          // pista de que o planejamento por categoria existia (rodada de
+          // usabilidade de 20/09/2026, ponto 13). Resolvido pelo nome, e não
+          // invertendo a ordem do menu — inverter penalizaria todo uso recorrente
+          // do módulo para ajudar o primeiro, e o primeiro já tem caminho melhor:
+          // o estado vazio de Gastos leva até aqui.
+          //
+          // **Uma palavra**, como os três vizinhos. "Planejar por categoria" foi a
+          // primeira tentativa e truncou na coluna em 22/09/2026 — exatamente o
+          // corte que o ponto 11 descreve, criado por quem tinha acabado de
+          // consertá-lo. "Planejamento" caberia, mas é o nome de OUTRO módulo na
+          // nav primária. Sobra o verbo, e ele diz o que a tela faz; a pergunta
+          // inteira é o título dela ("Onde o dinheiro está indo").
+          {
+            to: `${base}/financeiro/categorias`,
+            label: 'Planejar',
+            icon: 'lucide:tags',
+          },
+          // Leitura, e só: o fornecedor continua nascendo dentro da ficha do
+          // gasto que ele cota — é isso que impede cotação órfã. O que esta tela
+          // responde é outra pergunta, que a lista de gastos não responde: quem
+          // vai atender o casamento, e como falar com cada um no dia (rodada de
+          // usabilidade de 20/09/2026, ponto 18).
+          {
+            to: `${base}/financeiro/fornecedores`,
+            label: 'Fornecedores',
+            icon: 'lucide:contact',
+          },
           {
             to: `${base}/financeiro/pagamentos`,
             label: 'Pagamentos',

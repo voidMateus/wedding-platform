@@ -177,10 +177,10 @@ const alertaPlanejamento = computed(() => {
     }
   }
 
-  if (destaque.tipo === 'esta_semana') {
+  if (destaque.tipo === 'no_mes') {
     return {
       valor: String(destaque.quantidade),
-      descricao: `${plural(destaque.quantidade)} para os próximos 7 dias`,
+      descricao: `${plural(destaque.quantidade)} para os próximos 30 dias`,
       destino,
       tone: 'warning' as const,
     }

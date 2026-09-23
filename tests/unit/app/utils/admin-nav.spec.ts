@@ -156,23 +156,35 @@ describe('menu da seção do Financeiro', () => {
     },
   )
 
-  // Um objeto e três perguntas, na ordem do dinheiro na vida do casal: Gastos é
-  // a lista, Categorias é onde ele se planeja e se soma ("onde está indo?"), e
-  // Pagamentos é o mesmo dinheiro no eixo do tempo. Fornecedores e Documentos
-  // deixaram de ser tela — viraram seções da ficha.
-  it('tem três telas, e nenhuma delas relista a outra', () => {
+  // Um objeto e quatro perguntas, na ordem do dinheiro na vida do casal: Gastos é
+  // a lista, "Planejar" é onde ele se planeja e se soma ("onde
+  // está indo?"), e Pagamentos é o mesmo dinheiro no eixo do tempo. Fornecedores
+  // e Documentos deixaram de ser tela — viraram seções da ficha. Fornecedores
+  // voltou em 22/09/2026 como tela de LEITURA (ponto 18): o cadastro continua
+  // dentro da ficha do gasto, e o que ela responde é quem vai atender o
+  // casamento — a lista que se leva para o dia do evento.
+  //
+  // O rótulo do meio era "Categorias", o nome do OBJETO: quem entrava em
+  // Financeiro não tinha pista de que o planejamento por categoria existia
+  // (rodada de usabilidade de 20/09/2026, ponto 13).
+  it('tem quatro telas, e nenhuma delas relista a outra', () => {
     const menu = adminSectionMenu(SLUG, `${BASE}/financeiro`)
 
     expect(menu.map((g) => g.label)).toEqual(['Financeiro'])
-    expect(menu[0]!.itens.map((i) => i.label)).toEqual(['Gastos', 'Categorias', 'Pagamentos'])
+    expect(menu[0]!.itens.map((i) => i.label)).toEqual([
+      'Gastos',
+      'Planejar',
+      'Fornecedores',
+      'Pagamentos',
+    ])
   })
 
-  // `exact` em Gastos protege Pagamentos; Categorias precisa da mesma prova,
+  // `exact` em Gastos protege Pagamentos; o planejamento precisa da mesma prova,
   // porque também é subrota da raiz do módulo.
-  it('Gastos não acende dentro de Categorias', () => {
+  it('Gastos não acende dentro do planejamento por categoria', () => {
     const financeiro = adminSectionMenu(SLUG, `${BASE}/financeiro`)[0]!
     const gastos = financeiro.itens.find((i) => i.label === 'Gastos')!
-    const categorias = financeiro.itens.find((i) => i.label === 'Categorias')!
+    const categorias = financeiro.itens.find((i) => i.label === 'Planejar')!
 
     expect(ehItemAtivo(gastos, rota(`${BASE}/financeiro/categorias`))).toBe(false)
     expect(ehItemAtivo(categorias, rota(`${BASE}/financeiro/categorias`))).toBe(true)

@@ -42,14 +42,52 @@ export const DIAS_ESTE_MES = 30
  * partir dela nasce SEM prazo (`prazoSugerido` devolve null), porque o sistema
  * não inventa atraso que o casal talvez não tenha.
  */
+/**
+ * O que pede decisão — sempre no topo, acima da contagem regressiva.
+ *
+ * As duas primeiras são urgência pura: quem tem algo atrasado não quer ler
+ * "6 meses antes" primeiro (rodada de usabilidade de 20/09/2026, ponto 9).
+ *
+ * As duas seguintes sobem por outro motivo, e ele veio do uso (22/09/2026):
+ * embaixo de dez faixas de meses, elas ficam **invisíveis** — e são justamente
+ * o que não tem data para se cobrar sozinho. "De etapas que já passaram" é a
+ * primeira coisa que quem descobre o produto a quatro meses do casamento
+ * precisa ver; "Sem prazo" é a tarefa que o casal parou de decidir.
+ *
+ * Elas ficam DEPOIS de vencida e desta semana, e não antes: prazo real perdido
+ * pesa mais que sugestão de fase antiga.
+ */
+const JANELAS_DO_TOPO = ['vencida', 'esta_semana', 'ja_passou', 'sem_prazo'] as const
+
+/**
+ * E as duas do fim.
+ *
+ * `mais_adiante` sobreviveu à troca de régua como **degradação**: sem data do
+ * evento não existe "6 meses antes" de nada, e uma tarefa com prazo próprio
+ * precisa cair em algum lugar honesto. `concluida` é histórico, e histórico não
+ * disputa a primeira dobra.
+ */
+const JANELAS_FINAIS = ['mais_adiante', 'concluida'] as const
+
+/**
+ * As janelas, na ordem em que a tela as mostra.
+ *
+ * **O eixo continua sendo o tempo; o que mudou foi a régua.** Era "Próximos 30
+ * dias / Mais adiante", que descreve a distância até HOJE — e ninguém organiza
+ * casamento assim: fala-se em "dez meses antes". A régua agora é a mesma que
+ * propõe os prazos das sugestões (`FASES_DO_PLANEJAMENTO`), o que apaga a última
+ * taxonomia dupla da tela — tarefa e sugestão passam a cair no mesmo grupo pelo
+ * mesmo motivo.
+ *
+ * `ja_passou` é só de sugestão, nunca de tarefa: é a fase do planejamento que
+ * já ficou para trás para quem descobriu o produto tarde. Uma tarefa criada a
+ * partir dela nasce SEM prazo (`prazoSugerido` devolve null), porque o sistema
+ * não inventa atraso que o casal talvez não tenha.
+ */
 export const JANELAS = [
-  'vencida',
-  'esta_semana',
-  'este_mes',
-  'mais_adiante',
-  'sem_prazo',
-  'ja_passou',
-  'concluida',
+  ...JANELAS_DO_TOPO,
+  ...FASES_DO_PLANEJAMENTO.map((fase) => fase.id),
+  ...JANELAS_FINAIS,
 ] as const
 
 export type JanelaId = (typeof JANELAS)[number]
@@ -75,11 +113,39 @@ export type JanelaId = (typeof JANELAS)[number]
 export const ROTULOS_JANELA: Record<JanelaId, string> = {
   vencida: 'Vencidas',
   esta_semana: 'Próximos 7 dias',
-  este_mes: 'Próximos 30 dias',
+  // Os rótulos das fases são os do catálogo, e isso não é economia de digitação:
+  // é o que garante que a sugestão "6 meses antes" caia num grupo chamado
+  // "6 meses antes". Duas listas de texto divergiriam na primeira redação.
+  ...(Object.fromEntries(FASES_DO_PLANEJAMENTO.map((fase) => [fase.id, fase.rotulo])) as Record<
+    FaseId,
+    string
+  >),
   mais_adiante: 'Mais adiante',
   sem_prazo: 'Sem prazo',
   ja_passou: 'De etapas que já passaram',
   concluida: 'Concluídas',
+}
+
+/**
+ * A fase em que um prazo cai, contando para trás a partir da data do evento.
+ *
+ * As faixas descem: "12 meses antes" guarda de 365 dias para cima, "9 meses"
+ * guarda 270..271-, e assim por diante — ou seja, a tarefa cai na primeira
+ * fase que ainda a comporta. Prazo depois do evento vai para "Depois do
+ * casamento", que é a única fase de `diasAntes` negativo.
+ */
+export function faseDoPrazo(prazo: DataISO, dataEvento: DataISO): FaseId {
+  const diasAntes = diasAteOEvento(dataEvento, prazo) ?? 0
+  if (diasAntes < 0) {
+    return 'depois'
+  }
+
+  const cabe = FASES_DO_PLANEJAMENTO.filter(
+    (fase) => fase.diasAntes >= 0 && fase.diasAntes >= diasAntes,
+  )
+  // Nenhuma comporta: o prazo está mais longe que a fase mais distante, e o
+  // lugar dele é ela mesma — "mais de um ano antes" não é um grupo útil.
+  return (cabe.at(-1) ?? FASES_DO_PLANEJAMENTO[0]).id
 }
 
 /** O mínimo de uma tarefa para o cálculo — a linha do banco satisfaz. */
@@ -95,13 +161,22 @@ export interface TarefaCalculavel {
  * é "vencida", é feita — e continuar mostrando-a em vermelho transformaria a
  * checklist num registro de culpa.
  */
-export function janelaDaTarefa(tarefa: TarefaCalculavel, hoje: DataISO): JanelaId {
+export function janelaDaTarefa(
+  tarefa: TarefaCalculavel,
+  hoje: DataISO,
+  dataEvento: DataISO | null = null,
+): JanelaId {
   if (tarefa.concluida_em) return 'concluida'
   if (!tarefa.prazo) return 'sem_prazo'
   if (tarefa.prazo < hoje) return 'vencida'
   if (tarefa.prazo <= somarDias(hoje, DIAS_ESTA_SEMANA)) return 'esta_semana'
-  if (tarefa.prazo <= somarDias(hoje, DIAS_ESTE_MES)) return 'este_mes'
-  return 'mais_adiante'
+
+  // Sem data do evento não existe "6 meses antes" de nada. A tarefa com prazo
+  // próprio cai em "Mais adiante", que é o que ela de fato é — e não numa fase
+  // inventada.
+  if (!dataEvento) return 'mais_adiante'
+
+  return faseDoPrazo(tarefa.prazo, dataEvento)
 }
 
 /**
@@ -144,14 +219,22 @@ export function janelaDaSugestao(
   // que elas são nesse caso.
   if (!dataEvento) return 'sem_prazo'
   if (!prazo) return 'ja_passou'
-  return janelaDaTarefa({ prazo, concluida_em: null }, hoje)
+  return janelaDaTarefa({ prazo, concluida_em: null }, hoje, dataEvento)
 }
 
 export interface ResumoDoPlanejamento {
   total: number
   concluidas: number
   vencidas: number
-  estaSemana: number
+  /**
+   * Com prazo nos próximos 30 dias — a janela de atenção do painel.
+   *
+   * Eram sete dias, e sete dias deixou de conversar com a tela quando a régua
+   * virou a contagem regressiva em meses (item D2): o painel cobrava uma
+   * urgência que o Planejamento nem agrupa mais. Trinta dias é o recorte que
+   * responde "o que merece atenção agora" na mesma linguagem do módulo.
+   */
+  noMes: number
   /** `null` quando não há nenhuma tarefa — indicador sem base é omitido, nunca exibido como 0%. */
   percentualConcluido: number | null
 }
@@ -162,20 +245,31 @@ export function resumoDoPlanejamento(
 ): ResumoDoPlanejamento {
   let concluidas = 0
   let vencidas = 0
-  let estaSemana = 0
+  let noMes = 0
+
+  // O limite é calculado uma vez: `noMes` sai do PRAZO, e não da janela — desde
+  // o item D2 as janelas medem a distância até o evento, e nenhuma delas
+  // corresponde a "os próximos trinta dias".
+  const limiteDoMes = somarDias(hoje, DIAS_ESTE_MES)
 
   for (const tarefa of tarefas) {
     const janela = janelaDaTarefa(tarefa, hoje)
-    if (janela === 'concluida') concluidas += 1
-    else if (janela === 'vencida') vencidas += 1
-    else if (janela === 'esta_semana') estaSemana += 1
+    if (janela === 'concluida') {
+      concluidas += 1
+      continue
+    }
+    if (janela === 'vencida') {
+      vencidas += 1
+      continue
+    }
+    if (tarefa.prazo && tarefa.prazo <= limiteDoMes) noMes += 1
   }
 
   return {
     total: tarefas.length,
     concluidas,
     vencidas,
-    estaSemana,
+    noMes,
     percentualConcluido:
       tarefas.length === 0 ? null : Math.round((concluidas / tarefas.length) * 100),
   }
@@ -184,21 +278,21 @@ export function resumoDoPlanejamento(
 /**
  * O que o painel mostra do módulo: UM número, o que pede providência hoje.
  *
- * Vencidas primeiro; sem vencidas, as desta semana; sem nenhuma das duas, o
+ * Vencidas primeiro; sem vencidas, as do mês; sem nenhuma das duas, o
  * progresso. Nunca os três — é a mesma regra do alerta do Financeiro, e ela
  * existe porque um painel com quatro números de quatro módulos deixa de ser
  * painel.
  */
 export type DestaqueDoPlanejamento =
   | { tipo: 'vencidas'; quantidade: number }
-  | { tipo: 'esta_semana'; quantidade: number }
+  | { tipo: 'no_mes'; quantidade: number }
   | { tipo: 'progresso'; concluidas: number; total: number }
   | null
 
 export function destaqueDoPlanejamento(resumo: ResumoDoPlanejamento): DestaqueDoPlanejamento {
   if (resumo.total === 0) return null
   if (resumo.vencidas > 0) return { tipo: 'vencidas', quantidade: resumo.vencidas }
-  if (resumo.estaSemana > 0) return { tipo: 'esta_semana', quantidade: resumo.estaSemana }
+  if (resumo.noMes > 0) return { tipo: 'no_mes', quantidade: resumo.noMes }
   return { tipo: 'progresso', concluidas: resumo.concluidas, total: resumo.total }
 }
 

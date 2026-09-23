@@ -201,19 +201,63 @@ export const vendorContractSchema = z.object({
 export type VendorContractInput = z.infer<typeof vendorContractSchema>
 
 /**
- * Registrar o valor fechado de um GASTO — a mesma contratação, vista do objeto
- * certo (o gasto é quem tem custo final; o fornecedor é quem o cobra).
+ * **Todo contrato tem um fornecedor** — e ele vem de um dos dois lados: um que
+ * já existe (`fornecedorId`, a proposta que ganhou) ou um nome novo
+ * (`fornecedorNome`, quem fechou sem ter passado por cotação).
  *
- * `despesaId` não entra: ele é o parâmetro da rota. `fornecedorId` é opcional
- * por ora — a Fase C da rodada de usabilidade (item C5) torna o fornecedor
- * obrigatório ao contratar, e é aqui que a exigência vai passar a valer.
+ * Era opcional, e o caminho sem proposta não criava nem vinculava ninguém: o
+ * casal que fechava com o buffet sem ter cadastrado cotação ficava com um gasto
+ * contratado e **sem contraparte** — sem a quem pendurar documento, sem telefone
+ * para a cerimonialista, sem nada a relacionar depois (rodada de usabilidade de
+ * 20/09/2026, ponto 17). O `CLAUDE.md` já afirmava que contratar grava o vínculo
+ * nos dois sentidos; o que faltava era a porta por onde o fornecedor nasce.
+ *
+ * A regra vive no schema, e não só na tela, para valer também no servidor — quem
+ * fecha um valor sabe com quem fechou, e o atrito é de um campo que já vem
+ * preenchido quando há proposta.
  */
-export const expenseContractSchema = z.object({
+const nomeDeFornecedorOpcional = z
+  .string()
+  .trim()
+  .min(1, 'Informe com quem vocês fecharam.')
+  .max(160, 'O nome do fornecedor é longo demais.')
+  .optional()
+
+const MENSAGEM_SEM_FORNECEDOR = 'Informe com quem vocês fecharam.'
+
+function temFornecedor(valores: {
+  fornecedorId?: string | null
+  fornecedorNome?: string | null
+}): boolean {
+  return Boolean(valores.fornecedorId) || Boolean(valores.fornecedorNome)
+}
+
+const camposDaContratacao = {
   valorCentavos: valorCentavosSchema,
   parcelamento: parcelamentoSchema.optional(),
-  fornecedorId: z.string().uuid().nullish(),
-})
+  fornecedorId: uuidOpcional,
+  fornecedorNome: nomeDeFornecedorOpcional,
+}
+
+/**
+ * O corpo de `POST /finance/expenses/:id/contract` — a contratação vista do
+ * objeto certo (o gasto é quem tem custo final; o fornecedor é quem o cobra).
+ *
+ * `despesaId` não entra: ele é o parâmetro da rota.
+ */
+export const expenseContractSchema = z
+  .object(camposDaContratacao)
+  .refine(temFornecedor, { message: MENSAGEM_SEM_FORNECEDOR, path: ['fornecedorNome'] })
 export type ExpenseContractInput = z.infer<typeof expenseContractSchema>
+
+/** O mesmo, do lado do client: a tela também escolhe QUAL gasto está contratando. */
+export const registrarContratacaoSchema = z
+  .object({
+    despesaId: z.string().uuid('Escolha o gasto correspondente.'),
+    ...camposDaContratacao,
+  })
+  .refine(temFornecedor, { message: MENSAGEM_SEM_FORNECEDOR, path: ['fornecedorNome'] })
+export type RegistrarContratacaoInput = z.infer<typeof registrarContratacaoSchema>
 
 export const installmentInputSchema = z.object({
   venceEm: dataSchema,

@@ -18,7 +18,7 @@
 <script setup lang="ts">
 import { formatCentsToBRL } from '#shared/utils/format-currency'
 import { faseDoGasto, numeroDoGasto, type FaseDoGasto } from '#shared/utils/orcamento'
-import type { ExpenseInput, VendorContractInput } from '#shared/schemas/finance'
+import type { ExpenseInput, RegistrarContratacaoInput } from '#shared/schemas/finance'
 import type { AdminRowMenuItem } from '~/components/admin/AdminRowMenu.vue'
 import type { AdminTableColumn } from '~/types/table'
 import type {
@@ -183,9 +183,18 @@ const colunas = computed<AdminTableColumn<GastoNaLista>[]>(() => [
   {
     key: 'fase',
     label: 'Situação',
+    ajuda:
+      'A fase do gasto, derivada dos dados: planejado enquanto só há estimativa, em cotação quando existe proposta, contratado quando o valor foi fechado, quitado quando tudo foi pago.',
     filter: { type: 'select', multiple: true, options: [...FASES] },
   },
-  { key: 'valor', label: 'Valor', align: 'right', sort: 'numeric' },
+  {
+    key: 'valor',
+    label: 'Valor',
+    align: 'right',
+    sort: 'numeric',
+    ajuda:
+      'Um número por linha, escolhido pela fase: o estimado quando planejado, a melhor proposta em cotação, o que falta pagar quando contratado, e o que custou quando quitado. Os demais valores estão na ficha.',
+  },
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
 
@@ -284,13 +293,13 @@ function abrirContratacao(despesa: DespesaComParcelas) {
   contratoAberto.value = true
 }
 
-async function confirmarContratacao(input: VendorContractInput) {
-  const despesa = todasDespesas.value.find((atual) => atual.id === input.despesaId)
+async function confirmarContratacao(input: RegistrarContratacaoInput) {
   try {
-    // O fornecedor é opcional em todo o módulo — e é o composable que sabe a
-    // diferença entre os dois caminhos. Aqui, gravar o valor e esquecer o plano
-    // de pagamento era perda silenciosa de dado.
-    await registrarContratacao(despesa?.fornecedor?.id ?? null, input)
+    // O fornecedor vem DENTRO do input: quem o escolheu foi a modal, que
+    // pergunta "com quem vocês fecharam" desde o item C5. Aqui se resolvia pelo
+    // fornecedor já vinculado ao gasto — e quando não havia nenhum, a
+    // contratação nascia sem contraparte.
+    await registrarContratacao(input)
     contratoAberto.value = false
     toast.success('Valor fechado registrado — o pagamento já está em Pagamentos.')
   } catch (erro) {
@@ -322,11 +331,22 @@ async function salvarTeto(valor: number | null) {
 // por categoria passaram a viver.
 const semeando = ref(false)
 
+/**
+ * Semear e **ir** — a ação leva para onde o trabalho continua.
+ *
+ * Antes ela criava as categorias, mostrava um toast e ficava em Gastos: o
+ * estado vazio sumia (agora existem categorias), mas a lista continuava vazia,
+ * e o casal clicava em "começar" para receber a mesma tela com zeros (rodada de
+ * usabilidade de 20/09/2026, ponto 10). Não havia nada errado no dado — o erro
+ * era o destino. Semear categorias é o começo do planejamento, e o planejamento
+ * acontece em `/financeiro/categorias`.
+ */
 async function comecarComSugeridas() {
   semeando.value = true
   try {
     const criadas = await criarCategoriasSugeridas()
     toast.success(`${criadas.length} categorias criadas.`)
+    await navigateTo(`${base}/categorias`)
   } catch (erro) {
     toast.error(getApiErrorMessage(erro, 'Não foi possível criar as categorias.'))
   } finally {

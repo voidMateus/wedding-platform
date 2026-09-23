@@ -44,6 +44,19 @@ export interface AdminTableColumn<T> {
   align?: 'left' | 'right'
   /** Coluna de ações: rótulo só para leitor de tela, nunca desenhado. */
   labelHidden?: boolean
+  /**
+   * Uma frase explicando o que a coluna quer dizer — vira tooltip no cabeçalho.
+   *
+   * Existe para o caso que o ponto 12 da rodada de usabilidade descreve: coluna
+   * cujo título é uma palavra que só o produto entende, ou cujo valor é
+   * derivado ("Valor" muda de significado conforme a fase do gasto). Aqui, e
+   * não em cada página, porque é o mesmo mecanismo em toda tabela — e porque
+   * uma explicação por página divergiria de formato na terceira.
+   *
+   * **É descrição, nunca o nome da coluna.** O `label` continua sendo o nome, e
+   * continua legível sozinho: no celular o tooltip não existe.
+   */
+  ajuda?: string
   /** Valor padrão da célula quando a página não passa o slot `cell-<key>`. */
   value?: (row: T) => string | number
   /**

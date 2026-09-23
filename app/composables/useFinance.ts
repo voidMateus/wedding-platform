@@ -5,7 +5,7 @@ import type {
   ExpensePatch,
   InstallmentPatch,
   InstallmentsGenerateInput,
-  VendorContractInput,
+  RegistrarContratacaoInput,
 } from '#shared/schemas/finance'
 import type {
   CategoriaComDespesas,
@@ -110,15 +110,19 @@ export function useFinance() {
    * `server/utils/contratar-gasto.ts`.
    *
    * A rota é sempre a do GASTO — o objeto que ganha custo final. O fornecedor
-   * vai como vínculo quando existe.
+   * viaja DENTRO do input (por id ou por nome), e não mais como primeiro
+   * argumento: desde o item C5 ele é obrigatório, e um parâmetro solto ao lado
+   * convidava cada chamador a resolvê-lo por conta própria — que foi como o
+   * caminho sem proposta acabou sem fornecedor nenhum.
    */
-  async function registrarContratacao(fornecedorId: string | null, input: VendorContractInput) {
+  async function registrarContratacao(input: RegistrarContratacaoInput) {
     const despesa = await $fetch<Despesa>(`/api/finance/expenses/${input.despesaId}/contract`, {
       method: 'POST',
       body: {
         valorCentavos: input.valorCentavos,
         parcelamento: input.parcelamento,
-        fornecedorId,
+        fornecedorId: input.fornecedorId,
+        fornecedorNome: input.fornecedorNome,
       },
     })
     await atualizarFinanceiro()
@@ -202,6 +206,21 @@ export function useFinance() {
     return resposta
   }
 
+  /**
+   * Desfazer a exclusão — o par de `excluirDespesa`.
+   *
+   * O soft delete sempre permitiu voltar atrás; o que faltava era o caminho. É
+   * ele que torna aceitável excluir sem perguntar na tela onde criar custa um
+   * Enter (rodada de usabilidade de 20/09/2026, ponto 15).
+   */
+  async function restaurarDespesa(id: string) {
+    const despesa = await $fetch<Despesa>(`/api/finance/expenses/${id}/restore`, {
+      method: 'POST',
+    })
+    await atualizarFinanceiro()
+    return despesa
+  }
+
   async function gerarParcelasDaDespesa(id: string, input: InstallmentsGenerateInput) {
     const resposta = await $fetch<{ data: ParcelaDespesa[] }>(
       `/api/finance/expenses/${id}/installments`,
@@ -244,6 +263,7 @@ export function useFinance() {
     criarDespesa,
     atualizarDespesa,
     excluirDespesa,
+    restaurarDespesa,
     gerarParcelasDaDespesa,
     atualizarParcela,
     excluirParcela,

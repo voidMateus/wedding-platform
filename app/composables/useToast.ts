@@ -1,4 +1,4 @@
-import type { ToastTone } from '~/stores/ui.store'
+import type { ToastAction, ToastTone } from '~/stores/ui.store'
 
 // Duração por tom — erros/avisos exigem mais tempo de leitura do que uma
 // confirmação simples (CLAUDE.md, seção 20.1/21).
@@ -29,8 +29,8 @@ const relogios = new Map<string, ReturnType<typeof setTimeout>>()
 export function useToast() {
   const uiStore = useUiStore()
 
-  function show(tone: ToastTone, message: string): void {
-    const id = uiStore.pushToast(tone, message)
+  function show(tone: ToastTone, message: string, action?: ToastAction): void {
+    const id = uiStore.pushToast(tone, message, action)
 
     const anterior = relogios.get(id)
     if (anterior) clearTimeout(anterior)
@@ -45,7 +45,12 @@ export function useToast() {
   }
 
   return {
-    success: (message: string) => show('success', message),
+    /**
+     * `action` é o caminho de volta (hoje, "Desfazer"), e ele tem o tempo do
+     * toast: some junto. É deliberado — desfazer é arrependimento imediato, e
+     * um botão que ficasse na tela viraria uma segunda forma de editar o dado.
+     */
+    success: (message: string, action?: ToastAction) => show('success', message, action),
     error: (message: string) => show('error', message),
     warning: (message: string) => show('warning', message),
     info: (message: string) => show('info', message),

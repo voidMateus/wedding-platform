@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "ajuda_vista",
+      "value": "%5B%22convidados%22%2C%20%22convites%22%2C%20%22grupos%22%2C%20%22mesas%22%2C%20%22comunicacoes%22%2C%20%22presentes%22%2C%20%22planejamento%22%2C%20%22financeiro-planejar%22%2C%20%22financeiro-fornecedores%22%2C%20%22financeiro-pagamentos%22%2C%20%22financeiro-gastos%22%2C%20%22cronograma%22%2C%20%22galeria%22%5D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

@@ -177,6 +177,51 @@ Primitivas de campo da tela, todas em `components/admin/settings/`:
 | `Accordion` | Headless via Reka UI (`AccordionRoot`/`Item`/`Header`/`Trigger`/`Content`), `type="single" collapsible`; navegação por teclado e `aria-expanded` nativos do primitive — usado pela seção de FAQ pública. Slot com escopo `#content="{ item }"` (opcional) permite conteúdo rico por item além do texto simples de `item.content` — usado nas mensagens do site em `/admin/[slug]/configuracoes` e nas coordenadas opcionais em `/admin/cronograma`. Variantes: `card` (default — o acordeão premium do público: `rounded-xl`, `shadow-sm`, chevron num disco `bg-primary/10`); `plain` (a linha de configuração: `rounded-md` de 1px, título com linha de apoio `item.hint`, chevron solto e `bg-surface-muted/40` quando aberto — vários itens empilhados numa seção sem que cada um pareça um cartão independente). Prop `defaultOpenId` abre um item no primeiro render |
 | `CountdownTimer` | Contagem regressiva até a data/hora do evento; sem conhecimento de domínio (props `targetDateTime`, `variant` — `'cards'` default/caixas, `'inline'` números soltos com separador, `'hero'` só os dias em corpo gigante —, `units` com as unidades exibidas, slot `past` para a mensagem de "já aconteceu") — usado no Hero público (`variant="inline"`, condicionado a `config_tema.showCountdown`, unidades de `config_tema.countdownUnits`) e no dashboard admin (`variant="hero"`, sempre visível). Quanto vale cada número sai de `computeCountdownParts()` (`shared/countdown-units.ts`), nunca do componente: o mês é calendário (nunca 30 dias), a maior unidade acumula tudo que está acima dela e a menor descarta o resto |
 
+### 3.2.1 Tooltip: quando usar, e quando o texto tem de estar na tela
+
+`UiTooltip` existe desde 22/09/2026 (ponto 12 da rodada de usabilidade). Ele
+nasceu **antes** do inventário de propósito: sem componente, cada caso viraria
+uma solução local, e quarenta casos virariam quarenta implementações; com ele,
+cada caso é uma linha de texto.
+
+**É sempre DESCRIÇÃO, nunca o nome do controle.** O Reka o liga por
+`aria-describedby`, e isso não é detalhe: nome acessível não se apoia em id
+(seção "Nome acessível de controle nunca se apoia em id" do `CLAUDE.md`), porque
+`for`/`labelledby` atravessam duas passagens de render e sob SSR podem apontar
+para um elemento que já não existe. Descrição pode se perder sem consequência; o
+controle continua nomeado.
+
+**No toque, tooltip não existe.** Não há hover no celular, e o primitive só abre
+por foco — que num toque só acontece depois de o controle já ter sido acionado.
+Disso decorre a regra que decide todo caso:
+
+| A informação é… | Onde ela vai |
+|---|---|
+| **Necessária** para usar o controle | Texto visível (rótulo, `hint` do campo, linha de apoio) |
+| **Útil para quem quer entender** o que um número ou palavra significa | Tooltip |
+| O **nome** do controle | `aria-label`, nunca tooltip |
+
+Quem escreve um tooltip está escolhendo que aquilo **não apareça no celular**. Se
+essa frase parecer errada para o caso, ele não é tooltip.
+
+O inventário começou pelo que o relatório prioriza — números derivados e cabeçalho
+de coluna que só o produto entende:
+
+- **Estimado / Contratado / Pago**, na ficha do gasto: os dois primeiros soam
+  sinônimos para quem nunca planejou um casamento, e a diferença entre eles é a
+  fronteira do módulo inteiro.
+- **"Valor"** e **"Situação"**, na lista de Gastos: o primeiro muda de significado
+  conforme a fase da linha; o segundo é derivado dos dados.
+- **"Situação"**, em Fornecedores: derivada das parcelas, nunca marcada à mão.
+
+Cabeçalho de coluna tem mecanismo próprio: `AdminTableColumn.ajuda` — uma frase,
+e a tabela desenha o tooltip. Aqui, e não em cada página, porque é o mesmo
+mecanismo em toda tabela, e uma explicação por página divergiria de formato na
+terceira.
+
+O sublinhado pontilhado é o que anuncia que há algo a ler: sem ele, o tooltip só
+é descoberto por acidente.
+
 ### 3.3 Regras de governança
 
 - Nenhum estilo visual (cor, espaçamento, tipografia) é definido diretamente em componentes de domínio — sempre via classes Tailwind mapeadas aos tokens, ou via componente de `components/ui/`.

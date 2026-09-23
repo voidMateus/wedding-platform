@@ -612,7 +612,35 @@ existir: ela não é uma versão maior desta página, é outra coisa.
 Oito pontos, todos no módulo mais denso do painel. Dois temas os organizam: **planejar tem de
 ser barato** (C1-C4) e **o fornecedor é um objeto de primeira classe** (C5-C8).
 
-### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros
+**Progresso** — branch `feature/rodada-usabilidade-fase-c`, iniciada em 22/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| C1 | 10 | "Categorias sugeridas" devolve uma tela de zeros | ✅ concluído |
+| C2 | 13 | A tela de Categorias não diz que serve para planejar | ✅ concluído |
+| C3 | 11 | Nome de categoria não cabe | ✅ concluído |
+| C4 | 15 | Não dá para excluir um gasto de dentro da categoria | ✅ concluído |
+| C5 | 17 | Contratar sem proposta não cria fornecedor | ✅ concluído |
+| C6 | 18 | Falta a lista de fornecedores | ✅ concluído |
+| C7 | 19 | A ordem da ficha do gasto é ao contrário | ✅ concluído |
+| C8 | 20 | Falta ver o que já paguei e o que vou pagar | ✅ concluído |
+
+### C1 · Ponto 10 — "categorias sugeridas" devolve uma tela de zeros ✅
+
+**Concluído em 22/09/2026.** Semear passou a **levar**: depois de criar as categorias, a ação
+navega para o planejamento, que é onde o trabalho continua. Lá, quem chega pela primeira vez
+encontra três coisas, nesta ordem: uma linha dizendo o que é aquela tela, a primeira categoria
+**já aberta**, e dentro dela o campo de gasto esperando o cursor. O casal cai no gesto, não numa
+lista de treze linhas para contemplar.
+
+As três somem sozinhas quando o primeiro gasto entra (`primeiroPlanejamento`): a explicação
+serve ao primeiro dia e atrapalha no trigésimo, e a partir dali a pergunta da tela volta a ser
+"onde o dinheiro está indo?" — que se responde com o agregado, não com um formulário aberto. É
+a mesma lógica de acolhimento do Início, e por isso **não é modal**: nada a fechar.
+
+O teste (`tests/e2e/financeiro-primeiro-plano.spec.ts`) percorre o caminho inteiro numa conta
+sem nada — clicar em começar, chegar no planejamento, escrever o primeiro gasto — e termina
+conferindo que o acolhimento sumiu.
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/index.vue:328`: `comecarComSugeridas()`
 cria as categorias, mostra um toast e **fica em Gastos**. O estado vazio some (agora existem
@@ -630,7 +658,27 @@ começo do planejamento, e o planejamento acontece lá.
 - A categoria vem aberta, com o campo de gasto pronto para digitar: o casal cai no gesto, não
   numa lista para contemplar.
 
-### C2 · Ponto 13 — a tela de Categorias não diz que serve para planejar
+### C2 · Ponto 13 — a tela de Categorias não diz que serve para planejar ✅
+
+**Concluído em 22/09/2026.** O menu diz **"Planejar"** e a tela se chama **"Onde o dinheiro está
+indo"** — o rótulo antigo nomeava o objeto, e nenhum dos dois dizia que ali se planeja. A ordem
+do menu **não** mudou: inverter penalizaria todo uso recorrente do módulo para ajudar o
+primeiro, e o primeiro ganhou caminho melhor no C1.
+
+**Uma palavra, e eu cheguei nela errando.** A primeira tentativa foi "Planejar por categoria", e
+ela truncou na coluna do menu — o mesmo corte que o ponto 11 descreve, criado por quem tinha
+acabado de consertá-lo, e num lugar em que eu havia escrito que ia conferir e não conferi.
+"Planejamento" caberia, mas é o nome de outro módulo na nav primária. Sobrou o verbo, que
+acompanha o ritmo dos três vizinhos (Gastos, Fornecedores, Pagamentos) e diz o que a tela faz; a
+pergunta inteira é o título dela, que deixou de repetir a frase no painel de dentro.
+
+A lição virou teste: `tests/e2e/financeiro-categorias.spec.ts` mede agora **todos** os rótulos do
+menu da seção, do mesmo jeito que mede os nomes das categorias — conferido falhando com o
+rótulo antigo (141px numa caixa de 135px) antes de passar com o novo.
+
+`CLAUDE.md` seção 12 e `docs/fase1-financeiro.md` foram atualizados com o nome novo **e com o
+motivo** — a ordem "listar, planejar, pagar" continua valendo e agora está explicada onde se
+procura por ela.
 
 **Diagnóstico.** O nome "Categorias" descreve o **objeto**, não a **pergunta**. Quem entra em
 Financeiro vê Gastos primeiro (`app/utils/admin-nav.ts:308-318`) e não tem pista de que o
@@ -649,7 +697,19 @@ primeiro uso já tem um caminho melhor: o estado vazio.
 - Conferir que o nome novo cabe no menu recolhido e na barra de abas do celular; se não
   couber inteiro, o menu abrevia e o título da tela carrega a frase completa.
 
-### C3 · Ponto 11 — nome de categoria não cabe
+### C3 · Ponto 11 — nome de categoria não cabe ✅
+
+**Concluído em 22/09/2026.** A largura saiu de 176px para 224px, e o número não foi escolhido
+no olho: medido no navegador, "Cerimônia e assessoria" e "Papelaria e lembranças" pedem 152px de
+texto, e a coluna antiga oferecia 136px — a plataforma cortava nomes que ela mesma semeou. Os
+184px de caixa que sobram agora absorvem diferença de métrica de fonte entre sistemas. A barra
+de proporção cede o espaço (ela é comparativa), com piso para nunca sumir.
+
+Nome que o casal inventa maior continua truncando, agora com o texto inteiro no `title`. E o
+teste é de **medição**, não de aparência (`tests/e2e/financeiro-categorias.spec.ts`): `truncate`
+não muda o DOM — o texto continua lá, com as reticências por cima —, então nenhuma asserção
+sobre texto pega o corte. O teste compara `scrollWidth` com `clientWidth` de cada nome do
+catálogo, na menor largura em que a coluna existe.
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/categorias.vue:245` fixa a coluna do nome
 em `sm:w-44` com `truncate`. "Cerimônia e assessoria" vira "Cerimônia e asses…" — e são nomes
@@ -666,7 +726,25 @@ acessível sem depender do olho.
   `aria-label` — tooltip nativo, sem componente novo (o sistema de tooltips é o item D3).
 - Teste de regressão: nenhum nome do catálogo de sugeridas trunca na largura mínima suportada.
 
-### C4 · Ponto 15 — não dá para excluir um gasto de dentro da categoria
+### C4 · Ponto 15 — não dá para excluir um gasto de dentro da categoria ✅
+
+**Concluído em 22/09/2026.** A linha ganhou `AdminRowMenu` com **Abrir ficha** e **Excluir** —
+menu, e não dois ícones, porque a ação principal da linha é a edição no lugar, que acontece nos
+campos: as outras duas são secundárias, que é exatamente o caso que o componente descreve.
+
+**A pergunta só aparece quando há o que perder** (fornecedor, contrato ou parcela). Gasto só
+planejado sai direto, com **Desfazer no toast** — e foi isso que exigiu duas coisas novas: uma
+ação no toast (`ToastAction`, no `ui.store`) e `POST /api/finance/expenses/:id/restore`. O soft
+delete sempre permitiu voltar atrás; o que não existia era o caminho. Numa tela em que criar
+custa um Enter, um diálogo a cada exclusão cobra mais do que o gesto que ele protege — mas só
+dá para dispensar a pergunta **porque** existe o caminho de volta.
+
+O toast com ação nunca reaproveita um cartão já na tela (o botão desfaria a exclusão anterior,
+e quem apagou duas linhas seguidas recuperaria a errada), e a ação some junto com ele:
+arrependimento é imediato, e um botão permanente viraria uma segunda forma de editar o dado.
+
+Os três testes da suíte de Financeiro que abriam a ficha **só para limpar** o gasto passaram a
+usar a linha — o desvio de três telas que o ponto descreve existia também nos testes.
 
 **Diagnóstico.** `FinanceCategoryExpenses.vue:206` tem uma única ação por linha: abrir a ficha.
 Para apagar um gasto criado por engano — ou uma das duas linhas duplicadas do ponto 14 — é
@@ -682,7 +760,33 @@ gesto que custou um Enter.
   documento); gasto só planejado sai direto, com desfazer no toast.
 - A exclusão continua sendo soft delete, como o resto do módulo.
 
-### C5 · Ponto 17 — contratar sem proposta não cria fornecedor
+### C5 · Ponto 17 — contratar sem proposta não cria fornecedor ✅
+
+**Concluído em 22/09/2026.** A modal passou a perguntar **"com quem vocês fecharam?"**, e o
+campo é obrigatório. É texto com sugestões, não um seletor: a resposta certa é quase sempre um
+fornecedor que ainda **não existe** — uma lista fechada obrigaria a sair da modal, cadastrar e
+voltar, que é o atrito que este ponto descreve. O texto vira `fornecedorId` quando bate com um
+nome existente (sem caixa, sem espaço sobrando) e `fornecedorNome` quando não bate; sem essa
+resolução, contratar duas vezes com o mesmo nome criaria dois fornecedores idênticos disputando o
+mesmo gasto.
+
+A exigência vive no **schema** (`expenseContractSchema`), então vale no servidor e não só na
+tela, e o fornecedor novo nasce dentro de `contratarGasto()` — já com `despesa_id` e
+`estagio: 'contratado'`, porque é isso que está acontecendo: criá-lo "em análise" e promovê-lo na
+linha seguinte abriria uma janela em que ele aparece disputando um gasto que já ganhou. Um ato,
+uma chamada, como o A4 deixou.
+
+O fornecedor saiu de **parâmetro solto** de `registrarContratacao` para dentro do input: um
+argumento ao lado convidava cada chamador a resolvê-lo por conta própria, e foi exatamente assim
+que o caminho sem proposta acabou sem fornecedor nenhum — as duas telas passavam `null` sem que
+nada acusasse.
+
+Gastos já contratados sem fornecedor **ficam como estão**: não inventamos nome para dado antigo.
+
+O teste (`tests/e2e/financeiro-contratar.spec.ts`) confere as duas metades: sem o nome a modal
+recusa, e com ele o vínculo aparece nos **dois** sentidos no banco. A falha era muda — a
+contratação dava certo, o dinheiro chegava a Pagamentos, e a ausência só se descobria meses
+depois, procurando o telefone de alguém.
 
 **Diagnóstico.** `useFinance.registrarContratacao` (`app/composables/useFinance.ts:119`): sem
 `fornecedorId`, ele só grava `valorCentavos` na despesa e gera parcelas. **Nenhum fornecedor é
@@ -708,7 +812,30 @@ proposta.
 - Migração dos gastos já contratados sem fornecedor: ficam como estão (não inventamos nome),
   e a ficha mostra o campo vazio convidando a preencher.
 
-### C6 · Ponto 18 — falta a lista de fornecedores
+### C6 · Ponto 18 — falta a lista de fornecedores ✅
+
+**Concluído em 22/09/2026.** `/financeiro/fornecedores` é uma tela de **leitura**: quem, de que
+gasto, contato, valor fechado e a situação derivada das parcelas — ordenada por nome, que é
+como se procura alguém numa lista impressa.
+
+**Ela nasceu só de leitura, e isso durou um dia.** O plano dizia "sem cadastro solto", e eu li
+isso como "sem botão" — mas quem protege o invariante da cotação órfã é o **formulário**, que
+pergunta qual gasto a cotação disputa e ainda deixa criar o gasto de dentro dele. Esconder o
+botão não protegia nada que o formulário já não protegesse, e cobrava um desvio: uma lista de
+telefones que não deixa corrigir um telefone é metade de uma lista.
+
+Criar e editar saem da tela pelo **mesmo** `FinanceVendorModal` da ficha — não há segundo
+caminho de cadastro, há o mesmo caminho alcançável de mais um lugar. Arquivado continua fora da
+lista: quem saiu da operação não está no dia do evento.
+
+A exportação vive em `shared/utils/exportacao-fornecedores.ts`, com a mesma separação das outras
+do produto: a regra de conteúdo (quais colunas, em que ordem, como cada valor vira texto) fica no
+util testável, e a página só entrega o arquivo. Célula vazia é ausência e "R$ 0,00" é um valor:
+fornecedor que só cotou sai com o dinheiro em branco, porque escrever zero diria que ele custou
+zero.
+
+`CLAUDE.md` seção 12 e `docs/fase1-financeiro.md` foram corrigidos: "fornecedor não tem lista
+própria" passou a ser "não tem **cadastro** próprio".
 
 **Diagnóstico.** Fornecedor hoje só existe **dentro** da ficha do gasto — decisão deliberada e
 documentada ("Fornecedor não tem lista própria… é uma proposta DENTRO da ficha do gasto que
@@ -730,7 +857,22 @@ por casamento respondem uma pergunta que a lista de gastos não responde.
 - Atualizar `CLAUDE.md` seção 12 e `docs/fase1-financeiro.md`: a frase "fornecedor não tem
   lista própria" passa a ser "fornecedor não tem **cadastro** próprio".
 
-### C7 · Ponto 19 — a ordem da ficha do gasto é ao contrário
+### C7 · Ponto 19 — a ordem da ficha do gasto é ao contrário ✅
+
+**Concluído em 22/09/2026.** A ficha passou a seguir a vida do gasto: **Detalhes → Propostas →
+Contrato → Pagamentos → Documentos**. Pagamentos continua depois de Contrato porque só existe a
+partir dele, e continua sumindo quando não há contrato.
+
+**Detalhes deixou de ser um formulário.** Ele era o único bloco do módulo com botão "Salvar
+alterações" no rodapé — a primeira coisa que a tela pedia e a última que ela confirmava. Agora
+salva no lugar, como a linha de gasto na categoria: ao sair do bloco, e imediatamente quando a
+categoria muda (escolher já é o commit; esperar o foco sair deixaria a tela mostrando uma
+categoria que o gasto ainda não tem). O "Salvo" aparece por alguns segundos — edição no lugar
+sem confirmação é o outro lado do ponto 14, e quem não vê nada acontecer repete o gesto.
+
+**"Excluir gasto" saiu do meio dos campos** e foi para o menu do cabeçalho, junto das outras
+ações destrutivas do painel: no rodapé do formulário ele dividia a linha com "Salvar
+alterações", que é o pior vizinho possível para ele.
 
 **Diagnóstico.** `app/pages/admin/[slug]/financeiro/gastos/[id].vue`: Propostas (421) →
 Contrato (508) → Pagamentos (536) → Documentos (580) → **Detalhes (625)**. O nome, a categoria
@@ -748,7 +890,26 @@ depois de quatro painéis.
 - "Excluir gasto" sai do meio dos campos e vai para o menu do cabeçalho da ficha, junto das
   outras ações destrutivas do painel.
 
-### C8 · Ponto 20 — falta ver o que já paguei e o que vou pagar
+### C8 · Ponto 20 — falta ver o que já paguei e o que vou pagar ✅
+
+**Concluído em 22/09/2026.** Pagamentos abre com um **índice das faixas**: vencido, o que vence
+nos próximos 30 dias, o que ficou sem data e o que já foi pago — cada um com valor e contagem,
+e cada um **filtrando a lista abaixo**. Nenhum abre outra tela.
+
+Vale dizer o que ele **não** é: a régua de cinco números que morava aqui e foi removida repetia
+o agregado do módulo, que vive no topo de Gastos — o mesmo número em duas telas, pedindo
+reconferência. Este índice traz os números das **próprias faixas que estão logo abaixo**, e
+existe para responder de uma olhada o que antes só se montava somando cabeçalhos com o olho.
+
+Os valores vêm do `resumo` do endpoint, que é sempre do conjunto todo: se viessem das linhas
+visíveis, clicar num deles mudaria os outros três e o índice passaria a descrever o próprio
+clique. Faixa sem nenhum lançamento **não vira botão** — atalho para lugar nenhum —, e "Mais
+para frente" ficou de fora de propósito: não é pergunta que se faz com pressa, e se alcança
+limpando o filtro.
+
+Na ficha do gasto, o painel Pagamentos ganhou a mesma leitura no recorte dele: pago (e em quantas
+parcelas), quanto falta e quanto está vencido. Pisos aplicados **por linha antes de somar**, e o
+vencido derivado de `pago_em` e `vence_em` contra hoje — nunca de coluna de status.
 
 **Diagnóstico.** A tela de Pagamentos existe e é o eixo do tempo do módulo. O que o relatório
 não encontrou é o **fechamento**: sinal pago, parcelas quitadas, o que vem a seguir. Hoje o
@@ -773,7 +934,43 @@ e quanto falta, e quando" não está em nenhum lugar de forma direta.
 Três pedidos que, tratados como lista de textos, viram 40 implementações diferentes. Tratados
 como sistema, são um mecanismo e um catálogo.
 
-### D1 · Ponto 8 — ajuda por tela, no primeiro acesso
+**Progresso** — branch `feature/rodada-usabilidade-fase-c`, continuada em 22/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| D1 | 8 | Ajuda por tela, no primeiro acesso | ✅ concluído |
+| D2 | 9 | Modelo padrão de tarefas, organizado em meses | ✅ concluído |
+| D3 | 12 | Tooltips onde fazem falta | ✅ concluído |
+
+### D1 · Ponto 8 — ajuda por tela, no primeiro acesso ✅
+
+**Concluído em 22/09/2026.** `shared/ajuda-de-tela.ts` é o catálogo — treze telas, e as **mesmas
+três perguntas** em todas: o que esta tela responde, o que dá para fazer aqui, por onde começar.
+Escrito tela a tela, o formato divergiria no terceiro item e ninguém perceberia; por isso um
+catálogo, pelo mesmo motivo de `home-sections.ts`.
+
+O bloco vive no **layout**, não no `AdminSection`: seis páginas do painel montam o próprio
+cabeçalho e não passam por ele — Convidados entre elas, que é uma das telas que o ponto nomeia.
+O layout é o único ponto por onde toda tela passa, e é o que impede a próxima de nascer sem
+explicação. Tela fora do catálogo não desenha nada.
+
+**"Visto" é da pessoa, e vem num cookie.** Atravessa a troca de casamento de propósito (a
+exceção que o CLAUDE.md seção 12 descreve): quem já leu o que é Mesas não releia ao abrir o
+segundo evento. Cookie e não `localStorage` porque o painel é renderizado no servidor — com
+storage do navegador o bloco apareceria na primeira pintura para quem já o dispensou, e sumiria
+depois da hidratação: um piscar por tela visitada.
+
+O "?" do cabeçalho reabre a ajuda da tela atual, e só aparece onde existe uma — um ponto de
+interrogação que não responde nada é pior que nenhum. Reabrir **não** desfaz o "visto":
+é consulta pontual, e gravar faria o bloco voltar sozinho na próxima visita.
+
+**Um efeito colateral que virou decisão de suíte.** O texto da ajuda usa o mesmo vocabulário da
+tela de propósito, e isso fez um `getByText('Falta acomodar')` em Mesas casar com duas coisas.
+A correção não foi no locator: a suíte inteira passou a rodar com a ajuda **já dispensada**
+(`storageState` no `playwright.config.ts`), porque deixar trinta specs dependendo de um banner de
+primeira visita é tratar como cenário o que é acidente. Quem exercita a primeira visita é
+`tests/e2e/ajuda-de-tela.spec.ts`, que limpa o cookie — e cobre o ciclo inteiro: aparece,
+dispensa, sobrevive ao recarregar, não contamina a tela vizinha, e volta pelo "?".
 
 **Diagnóstico.** O Início tem acolhimento (o roteiro de Primeiros passos) e o Financeiro tem
 estado vazio bem escrito. Fora isso, quem abre Convidados, Mesas, Comunicações ou Presentes
@@ -794,7 +991,53 @@ dispensável, que volta pelo ponto de interrogação do cabeçalho.
 - O estado vazio de cada tela continua existindo e **não** é substituído pela ajuda: um
   descreve a tela, o outro descreve a ausência de dado.
 
-### D2 · Ponto 9 — modelo padrão de tarefas, organizado em meses
+### D2 · Ponto 9 — modelo padrão de tarefas, organizado em meses ✅
+
+**Concluído em 22/09/2026.** Dois movimentos, e nenhum deles quebra a regra de que sugestão não
+é linha no banco.
+
+**A régua das janelas mudou de referência.** Era a distância até HOJE ("Próximos 30 dias",
+"Mais adiante"), virou a distância até o EVENTO ("12 meses antes", "6 meses antes", "Semana do
+casamento") — que é como se fala de casamento. O eixo continua sendo o tempo, e vencida e desta
+semana continuam no topo: quem tem algo atrasado não quer ler "6 meses antes" primeiro.
+
+Os rótulos vêm de `FASES_DO_PLANEJAMENTO`, o mesmo catálogo que propõe os prazos das sugestões
+— e isso apaga a última taxonomia dupla da tela: a sugestão "6 meses antes" agora cai num grupo
+chamado "6 meses antes". Sem data do evento a régua não existe, e a tarefa com prazo próprio
+degrada para "Mais adiante" em vez de cair numa fase inventada.
+
+**"Sem prazo" e "De etapas que já passaram" subiram para o topo** (ajustado em 22/09/2026, no
+uso): embaixo de dez faixas de meses elas ficavam invisíveis, e são justamente as duas que não
+têm data para se cobrar sozinhas — "etapas que já passaram" é a primeira coisa que quem descobre
+o produto a quatro meses do casamento precisa ver. Ficam **depois** de vencida e desta semana,
+não antes: prazo real perdido pesa mais que sugestão de fase antiga.
+
+**E o cronograma padrão passou a ser aplicável.** A tela dizia, num comentário, que "não existe
+criar tudo de uma vez — quarenta e cinco linhas nascidas juntas fazem o progresso começar em 0
+de 45". O motivo era bom, mas a regra que importa nunca foi "poucas linhas": é **nada nasce sem
+o clique do casal**. O botão preserva a regra e resolve o "cai aqui perdido demais" — ele diz
+**quantas** vai criar antes (o número é a parte surpreendente: "começar com o cronograma padrão"
+soa pequeno, e cinquenta linhas mudam a tela inteira) e **desfaz** depois, pelo toast.
+
+O desfazer apaga **só aquela leva**, por id: "tudo que veio do catálogo" levaria junto as
+sugestões que o casal tinha aceitado uma a uma antes. Tarefa já concluída fica — entre aplicar e
+desfazer cabe um clique numa caixinha, e apagar o que alguém marcou como feito é apagar trabalho
+declarado. E o conteúdo é resolvido no servidor, nunca aceito do client: o que chega é a
+intenção.
+
+O catálogo já tinha as 49 tarefas e as fases em meses desde a Fase 3 — não foi preciso
+acrescentar nenhuma para o modelo ser um cronograma de verdade.
+
+**Dois ajustes que vieram do uso, no mesmo dia:**
+
+- **O painel do Início passou a cobrar o MÊS**, não os próximos 7 dias. Sete dias era um
+  recorte que o Planejamento nem agrupa mais desde a troca de régua — o painel cobrava uma
+  urgência que a tela não sabia mostrar. A métrica do topo da própria tela seguiu junto. O
+  número sai do **prazo**, e não de uma janela: nenhuma delas corresponde a "os próximos
+  trinta dias".
+- **Recolher e expandir tudo**, como em Pagamentos. Com dez faixas de meses, percorrer a lista
+  sem atalho custa uma rolagem longa. Isso exigiu tirar o "aberto" de dentro de cada grupo e
+  dá-lo à página: dez componentes com dez refs próprios não têm como ser alcançados juntos.
 
 **Diagnóstico.** `app/pages/admin/[slug]/planejamento/index.vue` abre com a checklist vazia por
 decisão registrada, e oferece sugestões no rodapé de cada janela. O relatório diz que, na
@@ -820,7 +1063,36 @@ banco (seção 2): **aplicar um modelo continua sendo um clique explícito do ca
 - Atualizar `docs/fase3-planejamento.md` com a fronteira: catálogo sugere, modelo é aplicado a
   pedido, nada nasce sozinho.
 
-### D3 · Ponto 12 — tooltips onde fazem falta
+### D3 · Ponto 12 — tooltips onde fazem falta ✅
+
+**Concluído em 22/09/2026.** Primeiro o componente, depois o inventário — e a ordem é o item:
+sem `UiTooltip`, cada caso viraria uma solução local, e quarenta casos virariam quarenta
+implementações.
+
+**É sempre descrição, nunca o nome do controle** (`aria-describedby`, nunca `aria-labelledby`).
+A lição do `CLAUDE.md` seção 13 vale inteira: nome acessível não se apoia em id, porque ele
+atravessa duas passagens de render e sob SSR pode apontar para um elemento que já não existe.
+Descrição pode se perder sem consequência — o controle continua nomeado.
+
+**No toque, tooltip não existe**, e daí sai a regra que decide todo caso do inventário:
+informação NECESSÁRIA vira texto visível; tooltip é para o que ajuda quem quer entender. Quem
+escreve um tooltip está escolhendo que aquilo não apareça no celular — se essa frase parecer
+errada para o caso, ele não é tooltip. Está documentado em `docs/DESIGN-SYSTEM.md` (3.2.1), com
+a tabela de decisão.
+
+Cabeçalho de coluna ganhou mecanismo próprio — `AdminTableColumn.ajuda`, uma frase, e a tabela
+desenha o tooltip —, pelo mesmo motivo de tudo nesta fase: uma explicação escrita por página
+divergiria de formato na terceira.
+
+O inventário começou pelos números derivados (Estimado/Contratado/Pago na ficha, "Valor" e
+"Situação" na lista de Gastos, "Situação" em Fornecedores) — exatamente a prioridade que o
+relatório pede.
+
+**O teste custou mais que o componente, e o achado vale registro.** O gatilho não abria sob o
+`hover()` do Playwright, e a causa não era o componente: o Reka tem uma "grace area" que marca o
+ponteiro como em trânsito por 300ms depois de ele sair de outro elemento, e nesse intervalo
+ignora o `pointermove` de propósito — é o que impede o balão de piscar quando o cursor só
+atravessa a tela. Medido evento a evento: o primeiro caia dentro da janela, o segundo abria.
 
 **Diagnóstico.** O relatório pede uma análise detalhada, e ele está certo em não listar: hoje
 não existe componente de tooltip no design system, então cada caso viraria uma solução local.

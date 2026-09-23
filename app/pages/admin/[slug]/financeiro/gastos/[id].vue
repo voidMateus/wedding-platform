@@ -18,7 +18,7 @@ import {
   ROTULOS_ESTAGIO_FORNECEDOR,
   type EstagioFornecedor,
   type TipoDocumento,
-  type VendorContractInput,
+  type RegistrarContratacaoInput,
   type VendorInput,
 } from '#shared/schemas/finance'
 import type { DocumentoComVinculos, FornecedorComSituacao } from '~/types/finance'
@@ -162,8 +162,17 @@ const mudou = computed(() => {
   )
 })
 
+/**
+ * Alguns segundos de "salvo" depois de cada gravação.
+ *
+ * Edição no lugar sem confirmação nenhuma é o outro lado do ponto 14: quem não
+ * vê nada acontecer repete o gesto para "garantir".
+ */
+const salvoRecentemente = ref(false)
+let relogioDoSalvo: ReturnType<typeof setTimeout> | undefined
+
 async function salvarDetalhes() {
-  if (!despesa.value || !mudou.value) return
+  if (!despesa.value || !mudou.value || salvando.value) return
   salvando.value = true
   try {
     await atualizarDespesa(despesa.value.id, {
@@ -172,13 +181,57 @@ async function salvarDetalhes() {
       valorEstimadoCentavos: edicaoEstimado.value,
       observacao: edicaoObservacao.value.trim() || null,
     })
-    toast.success('Gasto atualizado.')
+    salvoRecentemente.value = true
+    clearTimeout(relogioDoSalvo)
+    relogioDoSalvo = setTimeout(() => {
+      salvoRecentemente.value = false
+    }, 2500)
   } catch (erro) {
     toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o gasto.'))
   } finally {
     salvando.value = false
   }
 }
+
+/**
+ * Salva quando o foco deixa o BLOCO, não o campo — mesma regra da linha de
+ * gasto na categoria: passar do nome para o valor é continuar editando, e
+ * salvar ali dispararia um refetch no meio da digitação.
+ *
+ * O `UiSelect` é portalado para fora do formulário, então abri-lo parece sair do
+ * bloco. Não faz mal: `salvarDetalhes` só age quando algo mudou, e a escolha da
+ * categoria salva por conta própria logo abaixo.
+ */
+function aoSairDoBloco(evento: FocusEvent) {
+  const bloco = evento.currentTarget as HTMLElement
+  const proximo = evento.relatedTarget as Node | null
+  if (proximo && bloco.contains(proximo)) return
+  salvarDetalhes()
+}
+
+// A categoria é escolha discreta: escolher JÁ é o commit, e esperar o foco sair
+// deixaria a tela mostrando uma categoria que o gasto ainda não tem.
+watch(edicaoCategoria, () => {
+  salvarDetalhes()
+})
+
+/**
+ * Quantas parcelas já saíram, e quanto está vencido NESTE gasto.
+ *
+ * `pago_em` é a única fonte do estado de pagamento (CLAUDE.md, seção 12), e o
+ * vencido se deriva dele e de `vence_em` contra hoje — nunca de uma coluna de
+ * status. Pisos por LINHA: somar primeiro faria uma parcela paga compensar
+ * outra em atraso e as duas anomalias sumiriam.
+ */
+const parcelasPagas = computed(
+  () => parcelas.value.filter((parcela) => parcela.pago_em !== null).length,
+)
+
+const vencidoDoGasto = computed(() =>
+  parcelas.value
+    .filter((parcela) => situacaoDaParcela(parcela, hoje) === 'vencida')
+    .reduce((soma, parcela) => soma + Math.max(0, parcela.valor_centavos), 0),
+)
 
 // --- contratar ---
 const contratoAberto = ref(false)
@@ -189,12 +242,11 @@ function abrirContratacao(fornecedor: FornecedorComSituacao | null) {
   contratoAberto.value = true
 }
 
-async function confirmarContratacao(input: VendorContractInput) {
+async function confirmarContratacao(input: RegistrarContratacaoInput) {
   try {
-    await registrarContratacao(
-      fornecedorDoContrato.value?.id ?? despesa.value?.fornecedor?.id ?? null,
-      input,
-    )
+    // O fornecedor vem DENTRO do input: quem o escolheu foi a modal, que
+    // pergunta "com quem vocês fecharam" desde o item C5.
+    await registrarContratacao(input)
     // A lista de fornecedores tem cache próprio: sem este refresh a proposta
     // recém-contratada continuaria desenhada como "em análise" logo abaixo.
     await atualizarFornecedores()
@@ -380,6 +432,17 @@ async function confirmarExclusao() {
       <UiButton v-if="totais && totais.contratado === null" @click="abrirContratacao(null)">
         Registrar valor fechado
       </UiButton>
+      <!-- Ação destrutiva no menu do cabeçalho, como no resto do painel — ela
+           ficava no rodapé do formulário de Detalhes, ao lado de "Salvar
+           alterações", que é o pior vizinho possível para ela. -->
+      <AdminRowMenu
+        v-if="despesa"
+        label="Ações do gasto"
+        :items="[
+          { key: 'excluir', label: 'Excluir gasto', icon: 'lucide:trash-2', tone: 'danger' },
+        ]"
+        @select="confirmandoExclusao = true"
+      />
     </template>
 
     <UiSkeleton v-if="status === 'pending'" class="h-96 w-full" />
@@ -397,26 +460,88 @@ async function confirmarExclusao() {
       <!-- O dinheiro do gasto, nas mesmas três palavras do resto do módulo. A
            lista mostra UM número por linha; aqui, onde a pergunta é "como está
            isto?", os três cabem — e são exatamente três. -->
+      <!-- Os três números são a dúvida mais repetida do módulo: "estimado" e
+           "contratado" soam sinônimos para quem nunca planejou um casamento, e
+           a diferença entre eles é a fronteira do produto inteiro. O tooltip
+           explica; os rótulos continuam legiveis sozinhos (rodada de
+           usabilidade de 20/09/2026, ponto 12). -->
       <dl class="grid grid-cols-3 gap-px overflow-clip rounded-lg border border-border bg-border">
         <div class="bg-surface-elevated px-4 py-3">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Estimado</dt>
+          <UiTooltip
+            texto="Quanto vocês imaginam gastar. É planejamento — muda quando quiserem, e não compromete nada."
+          >
+            <dt
+              class="w-fit cursor-help text-xs font-medium tracking-wide text-text-muted uppercase underline decoration-dotted underline-offset-4"
+            >
+              Estimado
+            </dt>
+          </UiTooltip>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(totais.estimado) }}
           </dd>
         </div>
         <div class="bg-surface-elevated px-4 py-3">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Contratado</dt>
+          <UiTooltip
+            texto="O valor que vocês fecharam com o fornecedor. É ele que transforma o gasto em compromisso e o manda para Pagamentos."
+          >
+            <dt
+              class="w-fit cursor-help text-xs font-medium tracking-wide text-text-muted uppercase underline decoration-dotted underline-offset-4"
+            >
+              Contratado
+            </dt>
+          </UiTooltip>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ totais.contratado === null ? '—' : formatCentsToBRL(totais.contratado) }}
           </dd>
         </div>
         <div class="bg-surface-elevated px-4 py-3">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Pago</dt>
+          <UiTooltip texto="Quanto já saiu da conta — a soma das parcelas com baixa dada.">
+            <dt
+              class="w-fit cursor-help text-xs font-medium tracking-wide text-text-muted uppercase underline decoration-dotted underline-offset-4"
+            >
+              Pago
+            </dt>
+          </UiTooltip>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(totais.pago) }}
           </dd>
         </div>
       </dl>
+
+      <!-- A ficha segue a VIDA do gasto: planejo, cotei, fechei, paguei, anexei.
+           Detalhes ficava por último, depois de quatro painéis — o nome, a
+           categoria e a estimativa são o que o casal escreveu primeiro e o que
+           ele revisa mais (rodada de usabilidade de 20/09/2026, ponto 19). -->
+      <AdminPanel title="Detalhes">
+        <template #headerActions>
+          <span class="text-xs text-success" role="status">
+            {{ salvoRecentemente ? 'Salvo' : '' }}
+          </span>
+        </template>
+
+        <!-- Sem botão de salvar: o módulo inteiro edita no lugar, e um
+             formulário com rodapé próprio fazia Detalhes ser a primeira coisa que
+             a tela pede e a última que ela confirma. -->
+        <div class="flex flex-col gap-4 px-4 py-4" @focusout="aoSairDoBloco">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <UiInput v-model="edicaoDescricao" label="Nome do gasto" />
+            <UiSelect
+              v-model="edicaoCategoria"
+              label="Categoria"
+              :options="[
+                { value: '', label: 'Sem categoria' },
+                ...categoriasAtivas.map((categoria) => ({
+                  value: categoria.id,
+                  label: categoria.nome,
+                })),
+              ]"
+            />
+            <UiCurrencyInput v-model="edicaoEstimado" label="Valor estimado" />
+          </div>
+
+          <UiTextarea v-model="edicaoObservacao" label="Observação" :rows="2" />
+        </div>
+      </AdminPanel>
 
       <AdminPanel
         title="Propostas"
@@ -540,6 +665,29 @@ async function confirmarExclusao() {
           </UiButton>
         </template>
 
+        <!-- A mesma leitura do índice de Pagamentos, no recorte deste gasto: o
+             painel listava as parcelas uma a uma e deixava "quanto já saiu e
+             quanto falta" para quem somasse de cabeça (ponto 20). -->
+        <p
+          v-if="parcelas.length > 0"
+          class="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-border px-4 py-3 text-sm"
+        >
+          <span class="text-text-muted">
+            Pago
+            <span class="num font-medium text-text">{{ formatCentsToBRL(totais.pago) }}</span>
+            em {{ parcelasPagas }}
+            {{ parcelasPagas === 1 ? 'parcela' : 'parcelas' }}
+          </span>
+          <span v-if="totais.aPagar > 0" class="text-text-muted">
+            Falta
+            <span class="num font-medium text-text">{{ formatCentsToBRL(totais.aPagar) }}</span>
+          </span>
+          <span v-if="vencidoDoGasto > 0" class="text-danger">
+            Vencido
+            <span class="num font-medium">{{ formatCentsToBRL(vencidoDoGasto) }}</span>
+          </span>
+        </p>
+
         <ul v-if="parcelas.length > 0" class="flex flex-col divide-y divide-border">
           <li
             v-for="parcela in parcelas"
@@ -617,41 +765,6 @@ async function confirmarExclusao() {
             />
           </li>
         </ul>
-      </AdminPanel>
-
-      <!-- Os campos do próprio gasto, editáveis no lugar. Ficam por último de
-           propósito: a pergunta de quem abre a ficha é "como está isto?", e só
-           depois "quero mudar". -->
-      <AdminPanel title="Detalhes">
-        <form class="flex flex-col gap-4 px-4 py-4" @submit.prevent="salvarDetalhes">
-          <div class="grid gap-4 sm:grid-cols-2">
-            <UiInput v-model="edicaoDescricao" label="Nome do gasto" />
-            <UiSelect
-              v-model="edicaoCategoria"
-              label="Categoria"
-              :options="[
-                { value: '', label: 'Sem categoria' },
-                ...categoriasAtivas.map((categoria) => ({
-                  value: categoria.id,
-                  label: categoria.nome,
-                })),
-              ]"
-            />
-            <UiCurrencyInput v-model="edicaoEstimado" label="Valor estimado" />
-          </div>
-
-          <UiTextarea v-model="edicaoObservacao" label="Observação" :rows="2" />
-
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <UiButton variant="ghost" @click="confirmandoExclusao = true">
-              <Icon name="lucide:trash-2" class="h-4 w-4" />
-              Excluir gasto
-            </UiButton>
-            <UiButton type="submit" :disabled="!mudou || salvando">
-              {{ salvando ? 'Salvando…' : 'Salvar alterações' }}
-            </UiButton>
-          </div>
-        </form>
       </AdminPanel>
 
       <AdminFinanceContractModal

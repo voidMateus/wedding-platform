@@ -11,6 +11,14 @@
   cabeçalho de cada faixa carrega a contagem e o total; a régua de cinco números
   que ficava no topo saiu, porque o único agregado do módulo mora em Gastos.
 
+  O que voltou ao topo em 22/09/2026 NÃO é aquela régua (ponto 20 da rodada de
+  usabilidade): são os mesmos números que as faixas já mostram, servindo de
+  ÍNDICE delas — cada um filtra a lista abaixo, nenhum abre outra tela. A régua
+  antiga repetia o agregado do módulo em duas telas, e era isso que pedia
+  reconferência; aqui o número é o da própria faixa que está logo abaixo, e
+  existe para responder de uma olhada "quanto já saiu, o que vence e o que
+  ficou sem data" — a leitura que o relatório não encontrou em lugar nenhum.
+
   **Contratar é o que traz o gasto para cá — não ter parcela definida não o
   esconde.** Quem fechou com o buffet e escolheu "defino depois" encontra o
   compromisso aqui em "Sem data", com o caminho para agendar.
@@ -108,6 +116,46 @@ const linhasFiltradas = computed(() =>
   }),
 )
 
+/**
+ * O índice das faixas, no topo — cada número filtra a lista abaixo.
+ *
+ * Os valores vêm do `resumo` do endpoint, que é sempre do CONJUNTO TODO: se
+ * viessem das linhas visíveis, clicar num deles mudaria os outros três, e o
+ * índice passaria a descrever o próprio clique em vez do dinheiro.
+ *
+ * Quatro, e não as cinco faixas: "Mais para frente" não é uma pergunta que
+ * alguém faz com pressa — ela se alcança limpando o filtro. E faixa vazia não
+ * vira botão: um atalho para lugar nenhum.
+ */
+const INDICE_DE_FAIXAS = [
+  { faixa: 'vencidos', label: 'Vencido', chave: 'vencidos', tom: 'danger' },
+  {
+    faixa: 'proximos',
+    label: `Vence em ${DIAS_HORIZONTE_VENCIMENTO} dias`,
+    chave: 'proximos30Dias',
+    tom: 'default',
+  },
+  { faixa: 'sem-data', label: 'Sem data', chave: 'semData', tom: 'default' },
+  { faixa: 'pagos', label: 'Pago', chave: 'pago', tom: 'success' },
+] as const
+
+const resumo = computed(() => data.value?.resumo ?? null)
+
+const indice = computed(() =>
+  INDICE_DE_FAIXAS.map((item) => ({ ...item, bloco: resumo.value?.[item.chave] ?? null })).filter(
+    (item) => (item.bloco?.quantidade ?? 0) > 0,
+  ),
+)
+
+/** A faixa em foco — `null` é a tela inteira, que é o estado normal. */
+const faixaEmFoco = ref<Faixa | null>(null)
+
+function focarFaixa(faixa: Faixa) {
+  faixaEmFoco.value = faixaEmFoco.value === faixa ? null : faixa
+  // Focar uma faixa e encontrá-la recolhida seria o clique não fazer nada.
+  if (faixaEmFoco.value) recolhidos.value = recolhidos.value.filter((id) => id !== faixa)
+}
+
 // Pagos nasce recolhido: é histórico, não é pendência. Ele continua na tela
 // (some seria esconder dinheiro que saiu), mas não ocupa a primeira dobra.
 const recolhidos = ref<string[]>(['pagos'])
@@ -127,7 +175,11 @@ const secoes = computed<AdminTableSection<PagamentoListado>[]>(() => {
     porFaixa.set(faixa, lista)
   }
 
-  return FAIXAS.filter((faixa) => (porFaixa.get(faixa.id) ?? []).length > 0).map((faixa) => {
+  return FAIXAS.filter(
+    (faixa) =>
+      (porFaixa.get(faixa.id) ?? []).length > 0 &&
+      (faixaEmFoco.value === null || faixaEmFoco.value === faixa.id),
+  ).map((faixa) => {
     const linhas = porFaixa.get(faixa.id) ?? []
     const total = linhas.reduce((soma, pagamento) => soma + pagamento.valor_centavos, 0)
 
@@ -381,8 +433,44 @@ const opcoesForma = [
       <UiButton :to="base">Ir para os gastos</UiButton>
     </UiEmptyState>
 
+    <!-- O índice das faixas: "quanto já saiu, o que vence, o que ficou sem data"
+         de uma olhada — e cada número leva à própria faixa, logo abaixo. -->
+    <div v-else-if="indice.length > 0" class="mb-4 flex flex-wrap gap-2">
+      <button
+        v-for="item in indice"
+        :key="item.faixa"
+        type="button"
+        class="flex min-w-36 flex-col items-start rounded-lg border px-3 py-2 text-left transition-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :class="
+          faixaEmFoco === item.faixa
+            ? 'border-primary bg-primary/5'
+            : 'border-border bg-surface-elevated hover:bg-surface-muted'
+        "
+        :aria-pressed="faixaEmFoco === item.faixa"
+        @click="focarFaixa(item.faixa)"
+      >
+        <span class="text-xs font-medium tracking-wide text-text-muted uppercase">
+          {{ item.label }}
+        </span>
+        <span
+          class="num mt-0.5 text-base font-semibold"
+          :class="{
+            'text-danger': item.tom === 'danger',
+            'text-success': item.tom === 'success',
+            'text-text': item.tom === 'default',
+          }"
+        >
+          {{ formatCentsToBRL(item.bloco?.valor ?? 0) }}
+        </span>
+        <span class="text-xs text-text-muted">
+          {{ item.bloco?.quantidade }}
+          {{ item.bloco?.quantidade === 1 ? 'lançamento' : 'lançamentos' }}
+        </span>
+      </button>
+    </div>
+
     <AdminPanel
-      v-else
+      v-if="pagamentos.length > 0 && !error && status !== 'pending'"
       title="Calendário"
       :meta="`${linhasFiltradas.length} de ${pagamentos.length}`"
     >

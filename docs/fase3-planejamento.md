@@ -74,6 +74,25 @@ confusão que qualquer pessoa nova vai fazer:
 Nenhum dado desta fase tem rota pública, pelo mesmo motivo de Mesas e
 Financeiro: "ainda não escolhemos o celebrante" não é informação de convidado.
 
+
+## O catálogo sugere, o modelo se aplica, nada nasce sozinho
+
+Atualizado em 22/09/2026 (ponto 9 da rodada de usabilidade). A fronteira tem
+três níveis, e vale a pena escrevê-los juntos porque os dois primeiros já
+existiam e o terceiro é novo:
+
+1. **O catálogo sugere.** `shared/planejamento-tarefas.ts` diz o que costuma
+   entrar em cada janela. Nada dali é linha no banco.
+2. **A sugestão vira tarefa num clique**, uma a uma, e não se esgota: volta se
+   a tarefa for excluída.
+3. **O modelo se aplica de uma vez**, por um botão do estado vazio que diz
+   quantas tarefas vai criar e oferece desfazer. É o mesmo catálogo, o mesmo
+   clique explícito — muda a granularidade do gesto, não a autoridade.
+
+O que continua proibido é o que sempre foi: a plataforma semear sozinha. Um
+`trigger` que criasse as tarefas na criação do casamento, ou um "modelo padrão"
+aplicado por default, põem cinquenta linhas no progresso de quem nunca pediu.
+
 ## 2. Escopo da v1
 
 ### 2.1 Entra

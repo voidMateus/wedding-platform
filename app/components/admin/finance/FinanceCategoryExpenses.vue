@@ -21,12 +21,21 @@ interface Props {
   categoria: CategoriaComDespesas
   /** Base do módulo (`/admin/<slug>/financeiro`) — destino da ficha. */
   base: string
+  /**
+   * Abre já com a linha em branco esperando o primeiro gasto.
+   *
+   * Vale só no primeiro planejamento (ponto 10): quem chega de "começar com as
+   * sugeridas" cai no gesto em vez de numa lista para contemplar. Fora disso a
+   * linha nova continua nascendo de "Adicionar gasto" — um campo aberto em toda
+   * categoria seria um formulário que ninguém pediu.
+   */
+  comecarDigitando?: boolean
 }
 
-const { categoria, base } = defineProps<Props>()
+const { categoria, base, comecarDigitando = false } = defineProps<Props>()
 
 const toast = useToast()
-const { criarDespesa, atualizarDespesa } = useFinance()
+const { criarDespesa, atualizarDespesa, excluirDespesa, restaurarDespesa } = useFinance()
 
 /**
  * O que está sendo digitado, por gasto.
@@ -207,9 +216,68 @@ function aoSairDaLinha(evento: FocusEvent, acao: () => void) {
   acao()
 }
 
+/**
+ * O gasto tem algo pendurado nele?
+ *
+ * É o que decide entre perguntar e desfazer. Linha só planejada — um nome e
+ * talvez um valor — custou um Enter, e um diálogo para apagá-la cobraria mais
+ * do que o gesto que ele protege; o caminho de volta fica no toast. Com
+ * fornecedor, contrato ou parcela, o que se apaga deixou de ser um rascunho, e
+ * aí a pergunta se paga.
+ *
+ * Documento não entra na conta porque a listagem não o carrega — e um gasto
+ * com documento anexado praticamente sempre tem também fornecedor ou contrato.
+ */
+function temVinculos(despesa: DespesaComParcelas): boolean {
+  return (
+    despesa.fornecedor !== null || despesa.valor_centavos !== null || despesa.parcelas.length > 0
+  )
+}
+
+const confirmandoExclusao = ref<DespesaComParcelas | null>(null)
+
+async function excluir(despesa: DespesaComParcelas) {
+  confirmandoExclusao.value = null
+
+  try {
+    await excluirDespesa(despesa.id)
+  } catch {
+    toast.error(`Não foi possível excluir ${despesa.descricao}.`)
+    return
+  }
+
+  toast.success(`${despesa.descricao} excluído.`, {
+    label: 'Desfazer',
+    run: async () => {
+      try {
+        await restaurarDespesa(despesa.id)
+      } catch {
+        toast.error(`Não foi possível restaurar ${despesa.descricao}.`)
+      }
+    },
+  })
+}
+
+function aoEscolherNoMenu(despesa: DespesaComParcelas, chave: string) {
+  if (chave !== 'excluir') return
+
+  if (temVinculos(despesa)) {
+    confirmandoExclusao.value = despesa
+    return
+  }
+  excluir(despesa)
+}
+
 function adicionar() {
   nova.value = { descricao: '', estimado: null, focarValor: false }
 }
+
+// `onMounted`, e não um valor inicial: o componente só monta quando a categoria
+// abre, então este é o momento em que a linha em branco aparece na tela de quem
+// a expandiu.
+onMounted(() => {
+  if (comecarDigitando && categoria.despesas.length === 0) adicionar()
+})
 
 function usarSugestao(item: string) {
   nova.value = { descricao: item, estimado: null, focarValor: true }
@@ -264,10 +332,29 @@ function usarSugestao(item: string) {
           </span>
         </span>
 
-        <AdminRowAction
-          icon="lucide:arrow-right"
-          :label="`Abrir ficha de ${despesa.descricao}`"
-          :to="`${base}/gastos/${despesa.id}`"
+        <!-- Menu, e não dois ícones: a ação principal desta linha é a edição no
+             lugar, que acontece nos campos — abrir a ficha e excluir são as
+             duas secundárias, e é exatamente o caso que o `AdminRowMenu`
+             descreve. Sem ele, apagar um gasto criado por engano exigia abrir a
+             ficha, rolar até Detalhes e achar "Excluir gasto": três telas para
+             desfazer um gesto que custou um Enter. -->
+        <AdminRowMenu
+          :label="`Ações de ${despesa.descricao}`"
+          :items="[
+            { key: 'abrir', label: 'Abrir ficha', icon: 'lucide:arrow-right' },
+            {
+              key: 'excluir',
+              label: 'Excluir',
+              icon: 'lucide:trash-2',
+              tone: 'danger',
+              separarAntes: true,
+            },
+          ]"
+          @select="
+            $event === 'abrir'
+              ? navigateTo(`${base}/gastos/${despesa.id}`)
+              : aoEscolherNoMenu(despesa, $event)
+          "
         />
       </li>
     </ul>
@@ -297,6 +384,25 @@ function usarSugestao(item: string) {
       />
       <span class="hidden sm:block sm:w-8" aria-hidden="true" />
     </div>
+
+    <!-- A pergunta só aparece quando há o que perder: fornecedor, contrato ou
+         parcela. O resto sai direto, com o desfazer no toast. -->
+    <UiModal
+      :model-value="confirmandoExclusao !== null"
+      title="Excluir gasto"
+      :description="`“${confirmandoExclusao?.descricao ?? ''}” tem fornecedor, contrato ou parcelas — excluir tira tudo isso de Pagamentos e dos totais.`"
+      @update:model-value="confirmandoExclusao = null"
+    >
+      <template #footer>
+        <UiButton variant="ghost" @click="confirmandoExclusao = null">Cancelar</UiButton>
+        <UiButton
+          variant="destructive"
+          @click="confirmandoExclusao && excluir(confirmandoExclusao)"
+        >
+          Excluir
+        </UiButton>
+      </template>
+    </UiModal>
 
     <!-- Borda tracejada porque ainda não é nada: a sugestão é um convite, não
          um gasto. Ela não some depois de usada uma vez — o casal volta em

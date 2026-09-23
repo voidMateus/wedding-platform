@@ -32,5 +32,6 @@ export default defineEventHandler(async (event) => {
     valorCentavos: input.valorCentavos,
     parcelamento: input.parcelamento,
     fornecedorId: input.fornecedorId ?? null,
+    fornecedorNome: input.fornecedorNome ?? null,
   })
 })

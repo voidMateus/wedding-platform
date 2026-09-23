@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { sugestoesQueFaltam, type TarefaSugerida } from '#shared/planejamento-tarefas'
+import {
+  TAREFAS_SUGERIDAS,
+  sugestoesQueFaltam,
+  type TarefaSugerida,
+} from '#shared/planejamento-tarefas'
 import {
   JANELAS,
   ROTULOS_JANELA,
@@ -12,7 +16,8 @@ import type { Tarefa } from '~/types/planning'
 
 definePageMeta({ layout: 'admin' })
 
-const { listTasks } = usePlanning()
+const { listTasks, aplicarCronogramaPadrao, desfazerCronogramaPadrao } = usePlanning()
+const toast = useToast()
 const { data, status, error, refresh } = listTasks()
 
 const hoje = computed(() => data.value?.hoje ?? '')
@@ -68,7 +73,9 @@ const grupos = computed(() => {
   }
 
   for (const tarefa of tarefas.value) {
-    porJanela.get(janelaDaTarefa(tarefa, hoje.value))?.tarefas.push(tarefa)
+    // A data do evento entra porque a régua é a contagem regressiva desde o item
+    // D2: sem ela, "6 meses antes" não existe e a tarefa cai em "Mais adiante".
+    porJanela.get(janelaDaTarefa(tarefa, hoje.value, dataEvento.value))?.tarefas.push(tarefa)
   }
   for (const sugestao of sugestoes.value) {
     porJanela
@@ -101,9 +108,13 @@ const metrics = computed(() => {
   if (resumo.value.vencidas > 0) {
     itens.push({ label: 'Vencidas', value: resumo.value.vencidas, tone: 'danger' })
   }
+  // "Próximos 30 dias", e não o rótulo de uma janela: desde o item D2 as janelas
+  // medem a distância até o evento, e nenhuma delas é "os próximos trinta dias".
+  // A métrica é do MÊS porque é essa a pergunta de quem abre a tela — a mesma
+  // que o painel do Início passou a responder.
   itens.push({
-    label: ROTULOS_JANELA.esta_semana,
-    value: resumo.value.estaSemana,
+    label: 'Próximos 30 dias',
+    value: resumo.value.noMes,
     tone: 'primary',
   })
   // "1 de 5" sozinho não diz de quê: sugestão não é linha no banco, então o
@@ -123,11 +134,76 @@ const metrics = computed(() => {
  * fases que ficaram para trás para quem chegou tarde — contexto, não pendência;
  * e "Concluídas" é registro.
  */
-function recolhido(janela: JanelaId) {
+function nasceRecolhido(janela: JanelaId) {
   return janela === 'concluida' || janela === 'ja_passou'
 }
 
+/**
+ * Quais grupos estão recolhidos — estado da PÁGINA, não de cada grupo.
+ *
+ * Era um `ref` dentro de cada `PlanningTaskGroup`, e um "recolher tudo" no
+ * cabeçalho não teria como alcançar dez refs independentes. Mesmo desenho das
+ * faixas de Pagamentos.
+ */
+const recolhidos = ref<JanelaId[]>(JANELAS.filter(nasceRecolhido))
+
+function alternarGrupo(janela: JanelaId) {
+  recolhidos.value = recolhidos.value.includes(janela)
+    ? recolhidos.value.filter((atual) => atual !== janela)
+    : [...recolhidos.value, janela]
+}
+
+/**
+ * `every` sobre os grupos VISÍVEIS, e não a contagem crua: grupo vazio não é
+ * desenhado, e comparar tamanhos diria "tudo recolhido" com a tela aberta.
+ */
+const tudoRecolhido = computed(
+  () => grupos.value.length > 0 && grupos.value.every((g) => recolhidos.value.includes(g.janela)),
+)
+
+function alternarTudo() {
+  recolhidos.value = tudoRecolhido.value ? [] : grupos.value.map((g) => g.janela)
+}
+
 const vazio = computed(() => status.value === 'success' && tarefas.value.length === 0)
+
+/**
+ * Aplicar o cronograma padrão — com a conta **antes** e o desfazer **depois**.
+ *
+ * A confirmação diz quantas tarefas vão nascer porque o número é a parte
+ * surpreendente: "começar com o cronograma padrão" soa pequeno, e cinquenta
+ * linhas de uma vez mudam a tela inteira. E o desfazer no toast é o que torna o
+ * botão aceitável — sem ele, seria porta de mão única no meio do planejamento.
+ */
+const confirmandoModelo = ref(false)
+const aplicando = ref(false)
+
+const quantasVaoNascer = computed(() => TAREFAS_SUGERIDAS.length)
+
+async function aplicarModelo() {
+  confirmandoModelo.value = false
+  aplicando.value = true
+  try {
+    const criadas = await aplicarCronogramaPadrao()
+    toast.success(
+      `${criadas.length} ${criadas.length === 1 ? 'tarefa criada' : 'tarefas criadas'}.`,
+      {
+        label: 'Desfazer',
+        run: async () => {
+          try {
+            await desfazerCronogramaPadrao(criadas.map((tarefa) => tarefa.id))
+          } catch {
+            toast.error('Não foi possível desfazer.')
+          }
+        },
+      },
+    )
+  } catch (erro) {
+    toast.error(getApiErrorMessage(erro, 'Não foi possível aplicar o cronograma.'))
+  } finally {
+    aplicando.value = false
+  }
+}
 </script>
 
 <template>
@@ -135,6 +211,16 @@ const vazio = computed(() => status.value === 'success' && tarefas.value.length 
     title="Planejamento"
     description="O que falta fazer até o casamento — e o que já passou da hora."
   >
+    <template v-if="!vazio" #actions>
+      <UiButton variant="ghost" @click="alternarTudo">
+        <Icon
+          :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
+          class="h-4 w-4"
+        />
+        {{ tudoRecolhido ? 'Expandir tudo' : 'Recolher tudo' }}
+      </UiButton>
+    </template>
+
     <div v-if="status === 'pending'" class="flex flex-col gap-5">
       <UiSkeleton class="h-20 w-full" />
       <UiSkeleton class="h-64 w-full" />
@@ -152,15 +238,29 @@ const vazio = computed(() => status.value === 'success' && tarefas.value.length 
     <div v-else class="flex flex-col gap-5">
       <AdminMetricStrip v-if="!vazio" :metrics="metrics" />
 
-      <!-- Quem chega sem nenhuma tarefa não vê uma tela vazia com um botão:
-           vê as sugestões da fase em que o casamento está, que é a resposta
-           literal a "por onde eu começo?". Não existe "criar tudo de uma vez"
-           — quarenta e cinco linhas nascidas juntas fazem o progresso começar
-           em 0 de 45, o oposto de acolhedor. -->
-      <p v-if="vazio" class="text-sm text-text-muted">
-        A checklist começa vazia de propósito. Escreva a primeira tarefa, ou aproveite o que costuma
-        entrar em cada etapa — nada é criado sem o seu clique.
-      </p>
+      <!-- Quem chega sem nenhuma tarefa vê as sugestões da fase em que o
+           casamento está, que é a resposta literal a "por onde eu começo?".
+           
+           Até 22/09/2026 não existia "criar tudo de uma vez", e o motivo era
+           bom: cinquenta linhas nascidas juntas fazem o progresso começar em
+           0 de 50. Na prática, porém, o casal "cai aqui perdido demais"
+           (rodada de usabilidade, ponto 9) — e a regra que importa nunca foi
+           "poucas linhas", foi **nada nasce sem o clique do casal**. O botão
+           preserva essa regra: ele diz quantas vai criar antes, e desfaz
+           depois. -->
+      <div
+        v-if="vazio"
+        class="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/60 px-4 py-4"
+      >
+        <p class="text-sm leading-relaxed text-text-muted">
+          A checklist começa vazia de propósito — nada é criado sem o seu clique. Escreva a primeira
+          tarefa, aceite as sugestões uma a uma, ou comece com o cronograma inteiro.
+        </p>
+        <UiButton class="self-start" :disabled="aplicando" @click="confirmandoModelo = true">
+          <Icon name="lucide:list-checks" class="h-4 w-4" />
+          Começar com o cronograma padrão
+        </UiButton>
+      </div>
 
       <!-- A checklist mora no mesmo painel branco da tabela de Convidados
            (`AdminPanel`), e não solta sobre o fundo da página: é a mesma coisa
@@ -180,10 +280,26 @@ const vazio = computed(() => status.value === 'success' && tarefas.value.length 
             :tarefas="grupo.tarefas"
             :sugestoes="grupo.sugestoes"
             :responsaveis-conhecidos="responsaveisConhecidos"
-            :recolhido-por-padrao="recolhido(grupo.janela)"
+            :aberto="!recolhidos.includes(grupo.janela)"
+            @alternar="alternarGrupo(grupo.janela)"
           />
         </div>
       </AdminPanel>
+
+      <!-- A conta vem ANTES: "começar com o cronograma padrão" soa pequeno, e
+           cinquenta linhas de uma vez mudam a tela inteira. -->
+      <UiModal
+        v-model="confirmandoModelo"
+        title="Começar com o cronograma padrão"
+        :description="`Vamos criar ${quantasVaoNascer} tarefas, com prazos calculados a partir da data do casamento. Vocês podem editar, excluir e marcar como feita cada uma — e desfazer tudo logo depois.`"
+      >
+        <template #footer>
+          <UiButton variant="ghost" @click="confirmandoModelo = false">Cancelar</UiButton>
+          <UiButton :disabled="aplicando" @click="aplicarModelo">
+            {{ aplicando ? 'Criando…' : `Criar ${quantasVaoNascer} tarefas` }}
+          </UiButton>
+        </template>
+      </UiModal>
     </div>
   </AdminSection>
 </template>
