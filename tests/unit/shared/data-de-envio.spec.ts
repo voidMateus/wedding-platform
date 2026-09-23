@@ -7,7 +7,11 @@ import { diaLocal, instanteDoEnvio } from '#shared/utils/data-de-envio'
  * na véspera e o "faz quanto tempo" do funil sai errado para a lista inteira.
  */
 describe('instante do envio', () => {
-  const AGORA = new Date('2026-09-23T15:00:00-03:00')
+  // Componentes LOCAIS, nunca um instante com fuso fixo: `diaLocal` responde no
+  // fuso de quem roda, então um `-03:00` aqui faria o teste afirmar coisas
+  // diferentes em máquinas diferentes — foi assim que este arquivo reprovou uma
+  // função correta no CI, que roda em UTC.
+  const AGORA = new Date(2026, 8, 23, 15, 0)
 
   it('devolve meio-dia do dia escolhido', () => {
     const iso = instanteDoEnvio('2026-09-20', AGORA)
@@ -42,10 +46,18 @@ describe('instante do envio', () => {
     expect(instanteDoEnvio('', AGORA)).toBeUndefined()
   })
 
-  /** Nunca `toISOString().slice(0, 10)`, que é UTC: à noite, ele já é amanhã. */
+  /**
+   * Nunca `toISOString().slice(0, 10)`, que é UTC: à noite, ele já é amanhã.
+   *
+   * A data é montada por COMPONENTES LOCAIS, e não por um instante com fuso
+   * fixo. A primeira versão deste teste fixava 23:30 em Brasília e esperava o
+   * dia 23 — o que só é verdade em parte dos fusos: no CI, que roda em UTC,
+   * esse mesmo instante já é dia 24, e o teste reprovou uma função correta.
+   * Um teste que depende do relógio da máquina não afirma nada sobre o código.
+   */
   it('o dia local é o de quem está olhando, não o de UTC', () => {
-    const quaseMeiaNoiteEmBrasilia = new Date('2026-09-23T23:30:00-03:00')
+    const quaseMeiaNoite = new Date(2026, 8, 23, 23, 30)
 
-    expect(diaLocal(quaseMeiaNoiteEmBrasilia)).toBe('2026-09-23')
+    expect(diaLocal(quaseMeiaNoite)).toBe('2026-09-23')
   })
 })
