@@ -307,7 +307,7 @@ describe('menu da seção de Configurações', () => {
     })
     const acesos = itens.filter((item) => ehItemAtivo(item, naFaixa))
 
-    expect(acesos.map((i) => i.label)).toEqual(['Classificação etária'])
+    expect(acesos.map((i) => i.label)).toEqual(['Faixas etárias'])
   })
 
   it('todo item de seção tem ícone — o menu recolhido só mostra ícone', () => {

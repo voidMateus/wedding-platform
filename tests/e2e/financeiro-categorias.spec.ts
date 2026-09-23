@@ -120,23 +120,3 @@ test('o gasto se exclui da própria linha, e o toast desfaz', async ({ page }) =
  * coluna onde ninguém pensa em conferir. A lição é a mesma: `truncate` não muda
  * o DOM, então só medir acusa.
  */
-test('nenhum rótulo do menu do Financeiro é cortado', async ({ page }) => {
-  test.setTimeout(90_000)
-
-  const slug = await entrarComo(page, conta)
-  await page.goto(`/admin/${slug}/financeiro`)
-
-  const menu = page.getByRole('navigation', { name: 'Seção atual' })
-  await expect(menu).toBeVisible({ timeout: 20_000 })
-
-  const cortados = await menu.getByRole('link').evaluateAll((elementos) =>
-    elementos
-      .flatMap((el) => Array.from(el.querySelectorAll('span')))
-      .filter((span) => span.scrollWidth > span.clientWidth)
-      .map(
-        (span) => `${span.textContent?.trim()} (${span.scrollWidth}px em ${span.clientWidth}px)`,
-      ),
-  )
-
-  expect(cortados, 'rótulos cortados no menu da seção').toEqual([])
-})

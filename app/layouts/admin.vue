@@ -305,11 +305,18 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
         :class="uiStore.menuDaSecaoRecolhido ? 'w-14' : 'w-52'"
         @mouseleave="hoverSuprimido = false"
       >
+        <!--
+          `rolagem-estavel` só no estado ABERTO, e isso foi medido: a calha
+          reservada tira 16px do conteúdo, e na trilha recolhida (56px, com
+          24px de padding) sobra exatamente a largura do ícone — ele encostaria
+          na esquerda em vez de ficar centrado. Aberto, a calha é justamente o
+          que faz a largura do rótulo ser a mesma em toda máquina.
+        -->
         <div
           class="absolute inset-y-0 left-0 z-20 flex flex-col overflow-y-auto border-r border-border bg-surface px-3 py-5 transition-brand transition-[width]"
           :class="
             !uiStore.menuDaSecaoRecolhido
-              ? 'w-52'
+              ? 'rolagem-estavel w-52'
               : menuExpandeNoHover
                 ? 'w-14 group-hover/menu:w-52 group-hover/menu:bg-surface-elevated group-hover/menu:shadow-xl'
                 : 'w-14'

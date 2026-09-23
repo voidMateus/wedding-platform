@@ -118,6 +118,12 @@ const ROTAS_DO_MODULO_PLANEJAMENTO = ['/planejamento'] as const
  *
  * `termos` alimenta a busca do painel, e são os SINÔNIMOS — o rótulo já é
  * procurado. Quem digita "countdown" está atrás da contagem regressiva.
+ *
+ * **O `label` é o do MENU, e cabe na coluna** (~120px, medidos): o nome inteiro
+ * do assunto vive no título do cartão, que tem a largura da tela. É a mesma
+ * regra do ponto 11, e ela foi quebrada aqui no dia seguinte a ser escrita —
+ * "Classificação etária", "Avisos automáticos" e "Presentes e pagamentos"
+ * nasceram cortados. `tests/e2e/menu-de-secao.spec.ts` mede os quatro menus.
  */
 export const SETTINGS_ASSUNTOS = [
   {
@@ -162,7 +168,7 @@ export const SETTINGS_ASSUNTOS = [
       },
       {
         id: 'ordem',
-        label: 'Ordem das seções',
+        label: 'Seções da home',
         icon: 'lucide:list-ordered',
         aba: 'aparencia',
         termos: ['seções', 'home', 'página inicial', 'ligar', 'desligar', 'esconder'],
@@ -176,7 +182,7 @@ export const SETTINGS_ASSUNTOS = [
     secoes: [
       {
         id: 'mensagens',
-        label: 'Mensagens do site',
+        label: 'Mensagens',
         icon: 'lucide:message-square-text',
         aba: 'conteudo',
         termos: ['texto', 'história', 'versículo', 'faq', 'manual', 'dress code', 'presentes'],
@@ -196,8 +202,10 @@ export const SETTINGS_ASSUNTOS = [
         termos: ['prazo', 'confirmação', 'presença', 'lista aberta', 'lista fechada'],
       },
       {
+        // O mesmo rótulo que o menu de Convidados já usa para esta seção: dois
+        // nomes para o mesmo destino fazem parecer que são dois lugares.
         id: 'faixas-etarias',
-        label: 'Classificação etária',
+        label: 'Faixas etárias',
         icon: 'lucide:chart-no-axes-column',
         aba: 'geral',
         termos: ['idade', 'criança', 'adolescente', 'bebê', 'faixa etária'],
@@ -211,7 +219,7 @@ export const SETTINGS_ASSUNTOS = [
     secoes: [
       {
         id: 'avisos',
-        label: 'Avisos automáticos',
+        label: 'Lembretes',
         icon: 'lucide:bell',
         aba: 'avisos',
         termos: ['lembrete', 'e-mail automático', 'cobrança', 'vencimento'],
@@ -232,7 +240,7 @@ export const SETTINGS_ASSUNTOS = [
       },
       {
         id: 'acessos',
-        label: 'Quem tem acesso',
+        label: 'Acessos',
         icon: 'lucide:users',
         aba: 'colaboradores',
         termos: ['membros', 'remover acesso', 'dono', 'planejador'],
@@ -250,14 +258,14 @@ export const SETTINGS_ASSUNTOS = [
     secoes: [
       {
         id: 'avancado',
-        label: 'Opções avançadas',
+        label: 'Ajuste fino',
         icon: 'lucide:sliders-horizontal',
         aba: 'aparencia',
         termos: ['cor personalizada', 'ornamento', 'moldura', 'título', 'corpo', 'hex'],
       },
       {
         id: 'pagamentos',
-        label: 'Presentes e pagamentos',
+        label: 'Pagamentos',
         icon: 'lucide:credit-card',
         aba: 'geral',
         termos: ['infinitepay', 'pix', 'cartão', 'receber', 'handle', 'presente físico'],
