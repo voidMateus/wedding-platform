@@ -61,6 +61,31 @@ export function usePlanning() {
     return criarTarefa({ chaveCatalogo } as TaskInput)
   }
 
+  /**
+   * Aplica o cronograma padrão — o catálogo inteiro de uma vez.
+   *
+   * Devolve as tarefas criadas, e é por isso que ele devolve: desfazer é apagar
+   * exatamente estas, e não "tudo que veio do catálogo" — o casal pode ter
+   * aceitado sugestões antes, e elas não entraram nesta aplicação.
+   */
+  async function aplicarCronogramaPadrao() {
+    const resposta = await $fetch<{ data: Tarefa[] }>('/api/planning/tasks/seed', {
+      method: 'POST',
+    })
+    await atualizarPlanejamento()
+    return resposta.data
+  }
+
+  /** Desfaz a aplicação — só as tarefas daquela leva, nunca "tudo do catálogo". */
+  async function desfazerCronogramaPadrao(ids: string[]) {
+    const resposta = await $fetch<{ removidas: number }>('/api/planning/tasks/seed', {
+      method: 'DELETE',
+      body: { ids },
+    })
+    await atualizarPlanejamento()
+    return resposta
+  }
+
   async function atualizarTarefa(id: string, input: TaskPatch) {
     const tarefa = await $fetch<Tarefa>(`/api/planning/tasks/${id}`, {
       method: 'PATCH',
@@ -78,6 +103,8 @@ export function usePlanning() {
 
   return {
     listTasks,
+    aplicarCronogramaPadrao,
+    desfazerCronogramaPadrao,
     getResumo,
     atualizarPlanejamento,
     criarTarefa,

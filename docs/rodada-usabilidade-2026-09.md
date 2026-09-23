@@ -939,7 +939,7 @@ como sistema, são um mecanismo e um catálogo.
 | Item | Ponto | O que é | Situação |
 |---|---|---|---|
 | D1 | 8 | Ajuda por tela, no primeiro acesso | ✅ concluído |
-| D2 | 9 | Modelo padrão de tarefas, organizado em meses | ⏳ |
+| D2 | 9 | Modelo padrão de tarefas, organizado em meses | ✅ concluído |
 | D3 | 12 | Tooltips onde fazem falta | ⏳ |
 
 ### D1 · Ponto 8 — ajuda por tela, no primeiro acesso ✅
@@ -991,7 +991,36 @@ dispensável, que volta pelo ponto de interrogação do cabeçalho.
 - O estado vazio de cada tela continua existindo e **não** é substituído pela ajuda: um
   descreve a tela, o outro descreve a ausência de dado.
 
-### D2 · Ponto 9 — modelo padrão de tarefas, organizado em meses
+### D2 · Ponto 9 — modelo padrão de tarefas, organizado em meses ✅
+
+**Concluído em 22/09/2026.** Dois movimentos, e nenhum deles quebra a regra de que sugestão não
+é linha no banco.
+
+**A régua das janelas mudou de referência.** Era a distância até HOJE ("Próximos 30 dias",
+"Mais adiante"), virou a distância até o EVENTO ("12 meses antes", "6 meses antes", "Semana do
+casamento") — que é como se fala de casamento. O eixo continua sendo o tempo, e vencida e desta
+semana continuam no topo: quem tem algo atrasado não quer ler "6 meses antes" primeiro.
+
+Os rótulos vêm de `FASES_DO_PLANEJAMENTO`, o mesmo catálogo que propõe os prazos das sugestões
+— e isso apaga a última taxonomia dupla da tela: a sugestão "6 meses antes" agora cai num grupo
+chamado "6 meses antes". Sem data do evento a régua não existe, e a tarefa com prazo próprio
+degrada para "Mais adiante" em vez de cair numa fase inventada.
+
+**E o cronograma padrão passou a ser aplicável.** A tela dizia, num comentário, que "não existe
+criar tudo de uma vez — quarenta e cinco linhas nascidas juntas fazem o progresso começar em 0
+de 45". O motivo era bom, mas a regra que importa nunca foi "poucas linhas": é **nada nasce sem
+o clique do casal**. O botão preserva a regra e resolve o "cai aqui perdido demais" — ele diz
+**quantas** vai criar antes (o número é a parte surpreendente: "começar com o cronograma padrão"
+soa pequeno, e cinquenta linhas mudam a tela inteira) e **desfaz** depois, pelo toast.
+
+O desfazer apaga **só aquela leva**, por id: "tudo que veio do catálogo" levaria junto as
+sugestões que o casal tinha aceitado uma a uma antes. Tarefa já concluída fica — entre aplicar e
+desfazer cabe um clique numa caixinha, e apagar o que alguém marcou como feito é apagar trabalho
+declarado. E o conteúdo é resolvido no servidor, nunca aceito do client: o que chega é a
+intenção.
+
+O catálogo já tinha as 49 tarefas e as fases em meses desde a Fase 3 — não foi preciso
+acrescentar nenhuma para o modelo ser um cronograma de verdade.
 
 **Diagnóstico.** `app/pages/admin/[slug]/planejamento/index.vue` abre com a checklist vazia por
 decisão registrada, e oferece sugestões no rodapé de cada janela. O relatório diz que, na

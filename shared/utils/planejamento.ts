@@ -42,14 +42,44 @@ export const DIAS_ESTE_MES = 30
  * partir dela nasce SEM prazo (`prazoSugerido` devolve null), porque o sistema
  * não inventa atraso que o casal talvez não tenha.
  */
+/**
+ * As duas janelas de URGÊNCIA, sempre no topo.
+ *
+ * Elas vencem a régua da contagem regressiva de propósito: quem tem algo
+ * atrasado não quer ler "6 meses antes" primeiro (rodada de usabilidade de
+ * 20/09/2026, ponto 9).
+ */
+const JANELAS_DE_URGENCIA = ['vencida', 'esta_semana'] as const
+
+/**
+ * E as três do fim, que não são tempo: ausência de prazo, fase que ficou para
+ * trás e histórico.
+ *
+ * `mais_adiante` sobreviveu à troca de régua como **degradação**: sem data do
+ * evento não existe "6 meses antes" de nada, e uma tarefa com prazo próprio
+ * precisa cair em algum lugar honesto.
+ */
+const JANELAS_FINAIS = ['mais_adiante', 'sem_prazo', 'ja_passou', 'concluida'] as const
+
+/**
+ * As janelas, na ordem em que a tela as mostra.
+ *
+ * **O eixo continua sendo o tempo; o que mudou foi a régua.** Era "Próximos 30
+ * dias / Mais adiante", que descreve a distância até HOJE — e ninguém organiza
+ * casamento assim: fala-se em "dez meses antes". A régua agora é a mesma que
+ * propõe os prazos das sugestões (`FASES_DO_PLANEJAMENTO`), o que apaga a última
+ * taxonomia dupla da tela — tarefa e sugestão passam a cair no mesmo grupo pelo
+ * mesmo motivo.
+ *
+ * `ja_passou` é só de sugestão, nunca de tarefa: é a fase do planejamento que
+ * já ficou para trás para quem descobriu o produto tarde. Uma tarefa criada a
+ * partir dela nasce SEM prazo (`prazoSugerido` devolve null), porque o sistema
+ * não inventa atraso que o casal talvez não tenha.
+ */
 export const JANELAS = [
-  'vencida',
-  'esta_semana',
-  'este_mes',
-  'mais_adiante',
-  'sem_prazo',
-  'ja_passou',
-  'concluida',
+  ...JANELAS_DE_URGENCIA,
+  ...FASES_DO_PLANEJAMENTO.map((fase) => fase.id),
+  ...JANELAS_FINAIS,
 ] as const
 
 export type JanelaId = (typeof JANELAS)[number]
@@ -75,11 +105,39 @@ export type JanelaId = (typeof JANELAS)[number]
 export const ROTULOS_JANELA: Record<JanelaId, string> = {
   vencida: 'Vencidas',
   esta_semana: 'Próximos 7 dias',
-  este_mes: 'Próximos 30 dias',
+  // Os rótulos das fases são os do catálogo, e isso não é economia de digitação:
+  // é o que garante que a sugestão "6 meses antes" caia num grupo chamado
+  // "6 meses antes". Duas listas de texto divergiriam na primeira redação.
+  ...(Object.fromEntries(FASES_DO_PLANEJAMENTO.map((fase) => [fase.id, fase.rotulo])) as Record<
+    FaseId,
+    string
+  >),
   mais_adiante: 'Mais adiante',
   sem_prazo: 'Sem prazo',
   ja_passou: 'De etapas que já passaram',
   concluida: 'Concluídas',
+}
+
+/**
+ * A fase em que um prazo cai, contando para trás a partir da data do evento.
+ *
+ * As faixas descem: "12 meses antes" guarda de 365 dias para cima, "9 meses"
+ * guarda 270..271-, e assim por diante — ou seja, a tarefa cai na primeira
+ * fase que ainda a comporta. Prazo depois do evento vai para "Depois do
+ * casamento", que é a única fase de `diasAntes` negativo.
+ */
+export function faseDoPrazo(prazo: DataISO, dataEvento: DataISO): FaseId {
+  const diasAntes = diasAteOEvento(dataEvento, prazo) ?? 0
+  if (diasAntes < 0) {
+    return 'depois'
+  }
+
+  const cabe = FASES_DO_PLANEJAMENTO.filter(
+    (fase) => fase.diasAntes >= 0 && fase.diasAntes >= diasAntes,
+  )
+  // Nenhuma comporta: o prazo está mais longe que a fase mais distante, e o
+  // lugar dele é ela mesma — "mais de um ano antes" não é um grupo útil.
+  return (cabe.at(-1) ?? FASES_DO_PLANEJAMENTO[0]).id
 }
 
 /** O mínimo de uma tarefa para o cálculo — a linha do banco satisfaz. */
@@ -95,13 +153,22 @@ export interface TarefaCalculavel {
  * é "vencida", é feita — e continuar mostrando-a em vermelho transformaria a
  * checklist num registro de culpa.
  */
-export function janelaDaTarefa(tarefa: TarefaCalculavel, hoje: DataISO): JanelaId {
+export function janelaDaTarefa(
+  tarefa: TarefaCalculavel,
+  hoje: DataISO,
+  dataEvento: DataISO | null = null,
+): JanelaId {
   if (tarefa.concluida_em) return 'concluida'
   if (!tarefa.prazo) return 'sem_prazo'
   if (tarefa.prazo < hoje) return 'vencida'
   if (tarefa.prazo <= somarDias(hoje, DIAS_ESTA_SEMANA)) return 'esta_semana'
-  if (tarefa.prazo <= somarDias(hoje, DIAS_ESTE_MES)) return 'este_mes'
-  return 'mais_adiante'
+
+  // Sem data do evento não existe "6 meses antes" de nada. A tarefa com prazo
+  // próprio cai em "Mais adiante", que é o que ela de fato é — e não numa fase
+  // inventada.
+  if (!dataEvento) return 'mais_adiante'
+
+  return faseDoPrazo(tarefa.prazo, dataEvento)
 }
 
 /**
@@ -144,7 +211,7 @@ export function janelaDaSugestao(
   // que elas são nesse caso.
   if (!dataEvento) return 'sem_prazo'
   if (!prazo) return 'ja_passou'
-  return janelaDaTarefa({ prazo, concluida_em: null }, hoje)
+  return janelaDaTarefa({ prazo, concluida_em: null }, hoje, dataEvento)
 }
 
 export interface ResumoDoPlanejamento {

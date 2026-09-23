@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   destaqueDoPlanejamento,
   diasAteOEvento,
+  faseDoPrazo,
   janelaDaSugestao,
   janelaDaTarefa,
   prazoSugerido,
@@ -33,11 +34,48 @@ describe('janelaDaTarefa', () => {
     expect(janelaDaTarefa(tarefa(HOJE), HOJE)).toBe('esta_semana')
   })
 
-  it('as bordas das janelas: 7 dias é semana, 8 é mês, 31 é mais adiante', () => {
-    expect(janelaDaTarefa(tarefa('2026-09-20'), HOJE)).toBe('esta_semana')
-    expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE)).toBe('este_mes')
-    expect(janelaDaTarefa(tarefa('2026-10-13'), HOJE)).toBe('este_mes')
+  it('a urgência vence a régua: 7 dias ainda é "desta semana"', () => {
+    // Mesmo com data de evento, um prazo dentro de sete dias é urgência — quem
+    // tem algo para amanhã não quer ler "9 meses antes" primeiro.
+    expect(janelaDaTarefa(tarefa('2026-09-20'), HOJE, EVENTO)).toBe('esta_semana')
+    expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE, EVENTO)).toBe('nove_meses')
+  })
+
+  /**
+   * A régua mudou no item D2: era a distância até HOJE ("Próximos 30 dias"),
+   * virou a distância até o EVENTO ("6 meses antes") — que é como se fala de
+   * casamento. O eixo continua sendo o tempo.
+   */
+  it('agrupa pela contagem regressiva do evento, não pela distância até hoje', () => {
+    // 2027-06-12 é o evento. 180 dias antes = 2026-12-14.
+    expect(janelaDaTarefa(tarefa('2026-12-14'), HOJE, EVENTO)).toBe('seis_meses')
+    // Um dia mais cedo já pertence à faixa anterior.
+    expect(janelaDaTarefa(tarefa('2026-12-13'), HOJE, EVENTO)).toBe('nove_meses')
+  })
+
+  it('sem data de evento, degrada para "mais adiante" em vez de inventar fase', () => {
+    expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE)).toBe('mais_adiante')
     expect(janelaDaTarefa(tarefa('2026-10-14'), HOJE)).toBe('mais_adiante')
+  })
+})
+
+describe('faseDoPrazo', () => {
+  it('cai na primeira fase que ainda comporta o prazo', () => {
+    // 200 dias antes está entre 270 e 180: pertence à faixa de 9 meses.
+    expect(faseDoPrazo('2026-11-24', EVENTO)).toBe('nove_meses')
+  })
+
+  it('prazo mais distante que a fase mais distante fica nela mesma', () => {
+    // "Mais de um ano antes" não é um grupo útil.
+    expect(faseDoPrazo('2020-01-01', EVENTO)).toBe('doze_meses')
+  })
+
+  it('prazo depois do evento vai para "Depois do casamento"', () => {
+    expect(faseDoPrazo('2027-07-01', EVENTO)).toBe('depois')
+  })
+
+  it('o dia do evento pertence à semana dele', () => {
+    expect(faseDoPrazo(EVENTO, EVENTO)).toBe('semana')
   })
 })
 
@@ -70,7 +108,10 @@ describe('janelaDaSugestao', () => {
   })
 
   it('cai na janela do próprio prazo sugerido — mesmo eixo das tarefas', () => {
-    expect(janelaDaSugestao(sugestao('depois'), EVENTO, HOJE)).toBe('mais_adiante')
+    // E agora também com o mesmo RÓTULO: a sugestão da fase "depois" cai no
+    // grupo "Depois do casamento", não num "Mais adiante" genérico.
+    expect(janelaDaSugestao(sugestao('depois'), EVENTO, HOJE)).toBe('depois')
+    expect(janelaDaSugestao(sugestao('seis_meses'), EVENTO, HOJE)).toBe('seis_meses')
   })
 
   it('fase já passada vai para o grupo de contexto, nunca para "vencida"', () => {
