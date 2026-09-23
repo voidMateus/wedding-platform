@@ -20,7 +20,6 @@
 // nasce com dois.
 provide(ADMIN_UI_CONTEXT_KEY, true)
 
-const { signOut } = useAuth()
 const authStore = useAuthStore()
 
 useHead({
@@ -66,21 +65,11 @@ const { proprios } = useMinhasMemberships()
           Meus casamentos
         </NuxtLink>
 
-        <AdminAccountBadge
+        <AdminAccountMenu
           :email="email"
           legenda="Plataforma"
           class="lg:border-l lg:border-border lg:pl-3"
         />
-
-        <button
-          type="button"
-          aria-label="Sair"
-          title="Sair"
-          class="shrink-0 rounded-md p-1.5 text-text-muted transition-brand hover:bg-surface-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          @click="signOut"
-        >
-          <Icon name="lucide:log-out" class="h-5 w-5" />
-        </button>
       </div>
     </header>
 

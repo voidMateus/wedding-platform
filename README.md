@@ -44,7 +44,15 @@ O `.env` **não** é lido de propósito: o alvo vai na linha de comando e é con
 
 ### Links de e-mail (convite, acesso, senha)
 
-Os links que o Supabase Auth envia voltam para `/auth/callback`, que troca o código por sessão e redireciona (`?next=`). O endereço é montado em tempo de execução a partir da origem, então vale igual em local, preview e produção — **mas cada ambiente precisa ter o seu na allowlist do projeto Supabase**, em Authentication → URL Configuration → Redirect URLs:
+Os quatro e-mails do Supabase Auth levam para `/auth/confirmar`, que verifica o `token_hash` no **servidor** e grava a sessão nos cookies da resposta. Nada depende de storage do navegador, então o link funciona no aparelho que abrir o e-mail — e não só naquele que o pediu.
+
+O HTML dos quatro templates é gerado e versionado em [`supabase/templates/`](supabase/templates/), com um README dizendo **onde colar cada um** no dashboard. Eles são configuração do **projeto** Supabase, não do repositório: não há migration que os aplique, e precisam ser colados nos três ambientes.
+
+```bash
+node scripts/templates-de-email.mjs   # regenera supabase/templates/*.html
+```
+
+Enquanto algum ambiente ainda tiver o template antigo, o link chega no formato anterior (`?code=`) e a página `/auth/callback` continua atendendo. Para isso, cada ambiente precisa do seu endereço na allowlist do projeto, em Authentication → URL Configuration → Redirect URLs:
 
 ```
 http://localhost:3000/auth/callback
@@ -52,7 +60,7 @@ https://<preview>.vercel.app/auth/callback
 https://meusitecasamento.com.br/auth/callback
 ```
 
-Sem isso o Supabase ignora o `emailRedirectTo` e manda a pessoa para o `site_url` — que era exatamente o beco do link mágico antes desta rodada (`docs/rodada-usabilidade-2026-09.md`, item A1). É configuração do **projeto**, não do repositório: não há migration que a aplique.
+O histórico de por que o formato mudou está em `docs/rodada-usabilidade-2026-09.md`, itens A1 e B2.
 
 ## Desenvolvimento
 

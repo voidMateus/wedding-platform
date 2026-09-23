@@ -123,3 +123,29 @@ function getPlacesRatelimit(): Ratelimit {
 export async function checkPlacesRateLimit(identifier: string): Promise<RateLimitResult> {
   return getPlacesRatelimit().limit(identifier)
 }
+
+// E-mail de acesso (`/api/auth/magic-link`, `/api/auth/password-reset`). Mais
+// apertado que o resto porque cada chamada **manda e-mail** para um endereço
+// que quem chama escolhe: sem limite, a tela de login é um disparador anônimo
+// de mensagens com o nome da plataforma no remetente, e quem perde reputação
+// de domínio somos nós. Cinco por minuto por IP cobre errar o e-mail duas
+// vezes e pedir de novo porque a mensagem demorou.
+const EMAIL_DE_ACESSO_LIMIT = 5
+const EMAIL_DE_ACESSO_WINDOW = '60 s' as const
+
+let emailDeAcessoRatelimit: Ratelimit | null = null
+
+function getEmailDeAcessoRatelimit(): Ratelimit {
+  if (!emailDeAcessoRatelimit) {
+    emailDeAcessoRatelimit = new Ratelimit({
+      redis: getRedisClient(),
+      limiter: Ratelimit.slidingWindow(EMAIL_DE_ACESSO_LIMIT, EMAIL_DE_ACESSO_WINDOW),
+      prefix: 'ratelimit:email-de-acesso',
+    })
+  }
+  return emailDeAcessoRatelimit
+}
+
+export async function checkEmailDeAcessoRateLimit(identifier: string): Promise<RateLimitResult> {
+  return getEmailDeAcessoRatelimit().limit(identifier)
+}

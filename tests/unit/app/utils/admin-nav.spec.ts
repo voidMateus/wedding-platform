@@ -220,12 +220,12 @@ describe('menu da seção de Configurações', () => {
   // As abas que ficavam no topo são os grupos; as âncoras que ficavam numa
   // coluna dentro da página são os itens.
   it('vira um grupo por assunto, mais as páginas do site', () => {
+    // Derivado do catálogo, e não uma segunda lista escrita à mão: o que este
+    // teste afirma é que TODO assunto vira coluna, na ordem do catálogo. Com a
+    // lista repetida aqui, acrescentar um assunto quebrava o teste sem nada
+    // estar errado — e a correção óbvia (colar o nome novo) não verificava nada.
     expect(adminSectionMenu(SLUG, `${BASE}/configuracoes`).map((g) => g.label)).toEqual([
-      'Geral',
-      'Aparência',
-      'Avisos',
-      'Conteúdo',
-      'Colaboradores',
+      ...SETTINGS_ASSUNTOS.map((assunto) => assunto.label),
       'Páginas do site',
     ])
   })

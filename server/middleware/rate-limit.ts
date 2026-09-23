@@ -10,6 +10,10 @@
  * tráfego servidor-a-servidor, e a defesa real ali é a reverificação via
  * payment_check, não um limitador por IP (CLAUDE.md, seção 28).
  *
+ * Cobre também os dois pedidos de e-mail de acesso (`/api/auth/magic-link`,
+ * `/api/auth/password-reset`): são públicos e anônimos como os do convidado, e
+ * cada chamada manda mensagem para um endereço escolhido por quem chama.
+ *
  * A classificação de rota mora em server/utils/rate-limit-path.ts (função
  * pura, testada em isolamento) — este arquivo só resolve o IP e chama o
  * limitador correspondente.
@@ -27,7 +31,9 @@ export default defineEventHandler(async (event) => {
       ? await checkRsvpSearchRateLimit(ip)
       : kind === 'rsvp'
         ? await checkRsvpRateLimit(ip)
-        : await checkGiftsRateLimit(ip)
+        : kind === 'email-de-acesso'
+          ? await checkEmailDeAcessoRateLimit(ip)
+          : await checkGiftsRateLimit(ip)
 
   setResponseHeader(event, 'X-RateLimit-Limit', String(result.limit))
   setResponseHeader(event, 'X-RateLimit-Remaining', String(result.remaining))

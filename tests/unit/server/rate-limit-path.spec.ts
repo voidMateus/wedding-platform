@@ -24,6 +24,17 @@ describe('classifyRateLimitPath', () => {
     expect(classifyRateLimitPath('/api/public/rsvp-search/confirm')).toBe('rsvp-search')
   })
 
+  it('classifica os pedidos de e-mail de acesso', () => {
+    expect(classifyRateLimitPath('/api/auth/magic-link')).toBe('email-de-acesso')
+    expect(classifyRateLimitPath('/api/auth/password-reset')).toBe('email-de-acesso')
+  })
+
+  it('deixa de fora o resto de /api/auth', () => {
+    // A leitura da sessão é chamada a cada navegação do painel: limitá-la
+    // derrubaria o uso normal sem defender nada — ela não manda e-mail.
+    expect(classifyRateLimitPath('/api/auth/session')).toBeNull()
+  })
+
   it('classifica mutações de presente', () => {
     expect(classifyRateLimitPath('/api/public/gifts/gift-1/reserve')).toBe('gift-mutation')
     expect(classifyRateLimitPath('/api/public/gifts/gift-1/checkout')).toBe('gift-mutation')

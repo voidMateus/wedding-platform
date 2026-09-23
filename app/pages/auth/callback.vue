@@ -66,19 +66,21 @@ onMounted(async () => {
   const codigoDoErro = parametroDoLink('error_code')
   const descricaoDoErro = parametroDoLink('error_description').replace(/\+/g, ' ')
 
-  if (codigoDoErro || descricaoDoErro || !code) {
+  if (codigoDoErro || descricaoDoErro) {
     erro.value =
       codigoDoErro === 'otp_expired'
         ? 'Este link expirou ou já foi usado.'
-        : codigoDoErro || descricaoDoErro
-          ? 'O provedor de acesso recusou este link.'
-          : 'Este endereço não tem um link de acesso válido.'
+        : 'O provedor de acesso recusou este link.'
     detalhe.value = [codigoDoErro, descricaoDoErro].filter(Boolean).join(' — ') || null
     return
   }
 
+  // Sem `code` não é motivo para desistir: `/auth/confirmar` verifica no
+  // servidor e chega aqui com a sessão já nos cookies, e o fluxo implícito
+  // entrega os tokens no fragmento, que o próprio client recolhe. Quem decide
+  // se há acesso é a sessão, não a query string.
   try {
-    await completarAcessoPorLink(code)
+    await completarAcessoPorLink(code || null)
   } catch (falha) {
     detalhe.value = falha instanceof Error ? falha.message : null
     // A causa mais comum não é link inválido: é link aberto em OUTRO navegador.

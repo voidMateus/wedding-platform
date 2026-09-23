@@ -156,11 +156,29 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+#
+# `localhost`, e nao `127.0.0.1`: o GoTrue valida o `redirectTo` comparando o
+# HOSTNAME dele com o do site_url, e so depois contra os globs abaixo -- a
+# porta nao entra na conta. Com `127.0.0.1` aqui e o app servido em
+# `localhost`, todo link de e-mail voltava para a RAIZ do site_url em vez do
+# endereco pedido, e a recusa e muda: o GoTrue nao responde erro, ele
+# redireciona para outro lugar. Na raiz o plugin de auth nao roda (so
+# /admin, /login, /plataforma e /auth), entao a sessao nunca nascia.
+#
+# Foi o que derrubou no CI os dois testes da ponte do formato antigo de link
+# (23/09/2026). Fora do CI eles passavam porque o `.env` aponta para o projeto
+# HOSPEDADO, cuja allowlist do dashboard ja tinha o endereco -- mesmo teste,
+# dois Supabase diferentes.
+site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# O valor que vinha daqui era o boilerplate da CLI (`https://127.0.0.1:3000`,
+# em HTTPS, que nenhum stack local serve). Estes cobrem quem abre o app pelo
+# IP; quem o abre por `localhost` ja passa pelo hostname do site_url acima,
+# em qualquer porta -- o que importa para quem roda duas arvores do repo ao
+# mesmo tempo.
+additional_redirect_urls = ["http://127.0.0.1:3000/**", "http://localhost:3000/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

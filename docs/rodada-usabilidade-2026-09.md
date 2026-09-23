@@ -389,7 +389,46 @@ estiver na tela, ela não tem função.
 
 Hoje o caminho "equipe cria → dono recebe e-mail → dono entra" não fecha (seção 1.3).
 
-### B1 · Ponto 1 — endereço do site: sugerir e confirmar
+**Progresso** — branch `feature/rodada-usabilidade-fase-b`, iniciada em 21/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| B1 | 1 | Endereço do site: sugerir e confirmar | ✅ concluído |
+| B2 | 3 | E-mail de convite é o template cru do Supabase | ✅ concluído — falta colar nos três ambientes |
+| B3 | 4 | Não existe definir nem redefinir senha | ✅ concluído |
+| B4 | 6 | Landing page com acesso ao login | ✅ concluído |
+
+### B1 · Ponto 1 — endereço do site: sugerir e confirmar ✅
+
+**Concluído em 21/09/2026.** `shared/utils/endereco-do-site.ts` sugere o endereço a partir do
+nome do casal usando **só o primeiro nome de cada lado** ("Lucas Almeida e Maria Almeida" vira
+`lucas-e-maria`): o sobrenome costuma se repetir entre os dois, então alonga o endereço sem
+distinguir nada — e este endereço é o que o casal vai ditar por telefone. A sugestão para de
+valer no instante em que o operador escreve o campo, e **volta** se ele o esvaziar: campo em
+branco é desistência do texto próprio, não escolha pelo vazio.
+
+`GET /api/platform/slug-available` responde se o endereço está livre enquanto se digita (400ms
+de debounce), e a linha de situação mostra o endereço final com o domínio.
+
+**A sugestão nunca oferece um endereço tomado** (corrigido em 21/09/2026, no primeiro uso): a
+primeira versão sugeria `ana-e-joao` a partir do nome do casal e reprovava a própria sugestão na
+linha seguinte — e "Ana e João" é nome comum o bastante para o segundo casal bater nisso cedo.
+A rota passou a devolver a primeira alternativa livre junto do veredito (`proximoEnderecoLivre`,
+sufixo numérico a partir de 2), e o formulário a adota **em silêncio** enquanto o endereço vier
+da sugestão. Endereço digitado à mão nunca é trocado por baixo de quem o escreveu: ali a
+alternativa é oferecida, e aceitá-la é um clique. Sufixo numérico e não o ano do evento — que
+seria mais bonito — porque a data é preenchida **depois** do endereço no formulário, e um
+desempate que às vezes existe é pior que um que sempre funciona. Ela **não decide
+nada**: entre a resposta e o Criar cabe outro operador, e quem garante um casamento só continua
+sendo o `unique` de `casamentos.slug` — o 409 passou a marcar o campo em vez de só aparecer no
+toast. A rota ficou **fora** de `weddings/` porque ali ela casaria com o mesmo padrão de rota
+tipada de `/api/platform/weddings/${id}`, e o `updateWedding` do client passava a ser tipado
+como rota só de GET.
+
+As duas metades falham em silêncio — sugestão que não dispara deixa o campo como era, e
+conferência que não chega ao servidor deixa a tela dizendo "livre" sobre endereço tomado —,
+então o teste é de ponta a ponta (`tests/e2e/criar-casamento.spec.ts`), com um casamento real
+para colidir.
 
 **Diagnóstico.** `app/components/platform/PlatformWeddingCreateModal.vue:61` tem só `:error` —
 validação negativa. Nada confirma que o endereço está bom, e nada sugere um a partir do nome
@@ -407,7 +446,60 @@ do servidor, depois do Criar.
 - O 409 continua sendo a garantia real (é a chave de idempotência do `unique`) — a checagem
   prévia é conveniência, não autoridade.
 
-### B2 · Ponto 3 — o e-mail de convite é o template cru do Supabase
+### B2 · Ponto 3 — o e-mail de convite é o template cru do Supabase ✅
+
+**Concluído em 21/09/2026 — com uma pendência de configuração.** Os quatro templates (convite,
+link mágico, recuperação, confirmação) são **gerados** por `scripts/templates-de-email.mjs` a
+partir de uma casca só e versionados em `supabase/templates/`, com um README dizendo onde colar
+cada um. Quatro HTMLs editados à mão divergiriam no primeiro ajuste — a lição do catálogo de
+atalhos do Hero —, então `tests/unit/scripts/templates-de-email.spec.ts` falha quando o arquivo
+commitado se afasta do gerador. A cor é a **da plataforma** (`#44507a`), nunca a de um casamento:
+quem recebe isto está entrando na ferramenta, não vendo o site de um casal.
+
+**E o link mudou de mecânica.** Ele carrega `{{ .TokenHash }}`, e quem verifica é o servidor
+(`server/routes/auth/confirmar.get.ts`), que troca o token por sessão e grava os cookies na
+resposta antes de redirecionar. Isso derruba as três limitações do A1 de uma vez: o link passa a
+funcionar no aparelho que abre o e-mail, pedir um segundo não inutiliza o primeiro, e um envio
+que falha não deixa nada pela metade. Para o link nascer assim, quem o **pede** também mudou de
+lugar: `POST /api/auth/magic-link` usa um client sem PKCE (`server/utils/link-de-acesso.ts`) — um
+client PKCE no navegador é justamente o que prendia o acesso a ele.
+
+Dois achados que vieram junto e não estavam no diagnóstico:
+
+- **A tela de login criava conta.** `signInWithOtp` sem `shouldCreateUser: false` cria o usuário
+  de qualquer e-mail digitado — e a plataforma não tem cadastro self-service. O usuário nascia
+  sem casamento nenhum e ficava em `auth.users` e na listagem do painel interno. Fechado, com a
+  resposta **igual** para e-mail com e sem conta: a diferença transformaria o login num
+  verificador de quem é cliente.
+- **Os pedidos de e-mail não tinham rate limit.** Cada chamada manda mensagem para um endereço
+  escolhido por quem chama, com o nome da plataforma no remetente. Entraram no mesmo middleware
+  do caminho do convidado, em grupo próprio (5/min por IP).
+
+O teste é de ponta a ponta (`tests/e2e/link-de-acesso.spec.ts`) e prova exatamente o que o item
+promete: um link gerado pela API de administração, aberto numa aba que nunca pediu link nenhum,
+loga — e não loga duas vezes.
+
+**A troca deixou o formato antigo sem entrada, e isso só apareceu no uso** (22/09/2026). Com o
+pedido sem PKCE e o template ainda antigo, o `{{ .ConfirmationURL }}` devolve a sessão nos
+**tokens do fragmento** — e o client do navegador recusa esse formato **em silêncio**:
+`createBrowserClient` fixa `flowType: 'pkce'`, e o `_getSessionFromURL` do auth-js lança
+`Not a valid PKCE flow url` para um retorno implícito, erro que o `_initialize` engole. Medido:
+o link chegava ao callback, nenhum cookie era gravado, e a tela acusava o link por um acesso que
+estava perfeitamente válido — a coexistência entre os dois formatos, que este item prometia,
+não existia.
+
+A ponte ficou no **plugin** (`app/plugins/supabase-auth.client.ts`), e não na página de callback,
+porque a recusa é propriedade do client: `/auth/senha` recebe o mesmo formato na recuperação de
+senha, e qualquer tela futura de `/auth` receberia também. O fragmento é lido, vira sessão
+(`setSession`) e sai do endereço **depois do mount** — antes dele, o roteador reescreve a URL a
+partir do `fullPath` de entrada e devolve o token à vista. Os dois formatos têm teste de ponta a
+ponta, com o `action_link` que a API de administração gera sendo exatamente o que o template
+antigo põe no e-mail.
+
+> **Pendência que não é código:** colar os quatro templates em Authentication → Emails, nos
+> **três** ambientes, junto dos assuntos (campo separado no dashboard). Até lá, o ambiente com o
+> template antigo continua mandando o link no formato `?code=`, que `/auth/callback` ainda
+> atende — os dois caminhos convivem de propósito durante a troca.
 
 **Diagnóstico.** "You've been invited / Accept invitation" é o template padrão do Supabase
 Auth. A plataforma já tem layout de e-mail próprio (`server/utils/email-layout.ts`:
@@ -431,7 +523,35 @@ Aproveitar o layout que já existe.
   versionar o HTML em `supabase/templates/` com um README dizendo onde colar, para não
   existirem só no dashboard. Aplicar nos três ambientes.
 
-### B3 · Ponto 4 — não existe definir nem redefinir senha
+### B3 · Ponto 4 — não existe definir nem redefinir senha ✅
+
+**Concluído em 21/09/2026.** O ciclo fecha: `app/pages/auth/senha.vue` define e redefine a senha
+a partir da sessão que o e-mail acabou de provar, "Esqueci minha senha" na tela de login dispara
+`POST /api/auth/password-reset`, e o convite (B2) chega com `?novo=1` — que muda o texto de
+"escolher uma nova" para "definir a sua", porque quem nunca teve senha não está redefinindo nada.
+
+**Uma tela para os dois casos**, porque o que acontece nela é o mesmo: a pessoa tem uma sessão e
+escolhe a senha. E **nenhuma rota nossa no caminho da senha** — quem autoriza a troca é o próprio
+Supabase, pela sessão do navegador; um endpoint intermediário só acrescentaria um lugar por onde
+a senha passa.
+
+Trocar a própria senha entrou em **Configurações › Sua conta**, um assunto novo e o único do
+módulo que não guarda dado do evento: é a conta de quem está olhando, e vale igual em todos os
+casamentos que a pessoa acessa. A senha atual não é pedida — a sessão é a mesma garantia que
+abriu o painel.
+
+**E o caminho até ela sai do cabeçalho** (ajustado em 21/09/2026, no primeiro uso): dentro de
+Configurações a tela estava a três cliques, e conta se procura no canto superior direito, em
+qualquer sistema. O bloco de identidade virou menu (`AdminAccountMenu`), com o e-mail inteiro,
+**Senha** e **Sair** — e o botão de ícone de sair, que ficava solto ao lado dele nas três cascas,
+saiu: ele duplicava o mesmo assunto em dois controles. Na lista de eventos e no painel interno o
+menu fica só com "Sair", porque a tela de senha vive dentro das Configurações de um casamento e
+ali nenhum evento está aberto.
+
+O teste (`tests/e2e/definir-senha.spec.ts`) percorre o ciclo inteiro, e não só a tela: uma senha
+que salva e um login que continua recusando a senha nova são dois sucessos que somam zero. Ele
+cobre também a resposta idêntica do pedido de redefinição para e-mail com e sem conta — a
+diferença permitiria varrer uma lista de endereços e descobrir quem é cliente da plataforma.
 
 **Diagnóstico.** `app/pages/login.vue` oferece senha **ou** link mágico. Não há "esqueci minha
 senha", não há tela de definir senha, e o convite não leva a lugar nenhum (A1). Na prática o
@@ -447,7 +567,26 @@ casal só entra por link mágico — e, com o ponto 5, nem isso.
   caminho alternativo, não como único.
 - Trocar a própria senha entra em Configurações (conta), não no wizard.
 
-### B4 · Ponto 6 — landing page com acesso ao login
+### B4 · Ponto 6 — landing page com acesso ao login ✅
+
+**Concluído em 21/09/2026.** A raiz virou a **porta**: "Entre no seu painel", uma frase sobre o
+que a plataforma faz e para quem, e **Entrar** em destaque — com o aviso ao convidado logo
+abaixo, como segunda leitura. Ela continua `noindex`.
+
+Reaproveita o layout `auth` em vez de ganhar desenho próprio: aquele layout já é a fronteira
+entre a marca (à esquerda, na linguagem do convite) e a ferramenta (à direita, na do painel), e
+entrar é atravessar de um lado ao outro. Um desenho novo seria uma terceira linguagem para dizer
+a mesma coisa.
+
+**O SDK do Supabase continua fora desta rota** — `supabase-auth.client.ts` só o importa em
+`/admin`, `/login`, `/plataforma` e `/auth` —, e é por isso que "Entrar" é um link para a tela
+de login, nunca um formulário aqui dentro.
+
+A página comercial ficou **nomeada** em `docs/ROADMAP.md`, junto do que depende de billing: ela
+não é uma versão maior desta — tem outro público, outra métrica, e indexar é decisão dela.
+
+O `smoke.spec.ts` deixou de conferir "o cabeçalho de verificação do scaffold" e passou a cobrir
+os **dois** visitantes da raiz: a correção podia facilmente ter trocado um pelo outro.
 
 **Diagnóstico.** `app/pages/index.vue` é uma página neutra `noindex` que diz "acesse pelo link
 do casamento que você recebeu". Foi escrita para o convidado que erra o endereço — e hoje é

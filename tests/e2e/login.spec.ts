@@ -46,7 +46,12 @@ test('casal faz login, acessa o painel e desloga', async ({ page }) => {
   // os blocos do Início — o esqueleto que TODA tela do admin herda.
   await expectNoAccessibilityViolations(page, { rotulo: 'Painel — Dashboard' })
 
-  await page.getByRole('button', { name: 'Sair' }).click()
+  // "Sair" passou a viver DENTRO do menu de conta, junto de "Senha": o bloco de
+  // identidade é o caminho da conta, e um botão de ícone solto ao lado dele
+  // duplicava o mesmo assunto em dois controles.
+  await page.getByRole('button', { name: /^Conta:/ }).click()
+  await expect(page.getByRole('menuitem', { name: 'Senha' })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Sair' }).click()
   await expect(page).toHaveURL(/\/login/)
 
   await page.goto('/admin')
