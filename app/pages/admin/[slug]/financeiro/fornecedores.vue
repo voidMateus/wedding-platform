@@ -129,7 +129,12 @@ const colunas = computed<AdminTableColumn<FornecedorComSituacao>[]>(() => [
   { key: 'gasto', label: 'Gasto' },
   { key: 'contato', label: 'Contato' },
   { key: 'contratado', label: 'Valor fechado', align: 'right' },
-  { key: 'situacao', label: 'Situação' },
+  {
+    key: 'situacao',
+    label: 'Situação',
+    ajuda:
+      'Derivada das parcelas do gasto, nunca marcada à mão: "a pagar" enquanto sobrar saldo, "quitado" quando tudo saiu da conta.',
+  },
   { key: 'acoes', label: '', align: 'right' },
 ])
 

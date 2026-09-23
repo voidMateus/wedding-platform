@@ -183,9 +183,18 @@ const colunas = computed<AdminTableColumn<GastoNaLista>[]>(() => [
   {
     key: 'fase',
     label: 'Situação',
+    ajuda:
+      'A fase do gasto, derivada dos dados: planejado enquanto só há estimativa, em cotação quando existe proposta, contratado quando o valor foi fechado, quitado quando tudo foi pago.',
     filter: { type: 'select', multiple: true, options: [...FASES] },
   },
-  { key: 'valor', label: 'Valor', align: 'right', sort: 'numeric' },
+  {
+    key: 'valor',
+    label: 'Valor',
+    align: 'right',
+    sort: 'numeric',
+    ajuda:
+      'Um número por linha, escolhido pela fase: o estimado quando planejado, a melhor proposta em cotação, o que falta pagar quando contratado, e o que custou quando quitado. Os demais valores estão na ficha.',
+  },
   { key: 'acoes', label: 'Ações', labelHidden: true, align: 'right' },
 ])
 

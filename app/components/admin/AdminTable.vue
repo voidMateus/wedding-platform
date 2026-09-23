@@ -286,7 +286,14 @@ const STACKED_VALUE_CLASS = 'text-right md:text-left'
             >
               <span v-if="column.labelHidden" class="sr-only">{{ column.label }}</span>
               <span v-else class="inline-flex items-center gap-1">
-                {{ column.label }}
+                <!-- O sublinhado pontilhado é o que anuncia que há algo a ler;
+                     sem ele, o tooltip só é descoberto por acidente. -->
+                <UiTooltip v-if="column.ajuda" :texto="column.ajuda">
+                  <span class="cursor-help underline decoration-dotted underline-offset-4">
+                    {{ column.label }}
+                  </span>
+                </UiTooltip>
+                <template v-else>{{ column.label }}</template>
                 <PopoverRoot v-if="isFilterable(column)">
                   <PopoverTrigger
                     :aria-label="`Filtrar e ordenar por ${column.label}`"

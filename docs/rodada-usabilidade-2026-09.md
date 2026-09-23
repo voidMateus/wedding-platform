@@ -940,7 +940,7 @@ como sistema, são um mecanismo e um catálogo.
 |---|---|---|---|
 | D1 | 8 | Ajuda por tela, no primeiro acesso | ✅ concluído |
 | D2 | 9 | Modelo padrão de tarefas, organizado em meses | ✅ concluído |
-| D3 | 12 | Tooltips onde fazem falta | ⏳ |
+| D3 | 12 | Tooltips onde fazem falta | ✅ concluído |
 
 ### D1 · Ponto 8 — ajuda por tela, no primeiro acesso ✅
 
@@ -1063,7 +1063,36 @@ banco (seção 2): **aplicar um modelo continua sendo um clique explícito do ca
 - Atualizar `docs/fase3-planejamento.md` com a fronteira: catálogo sugere, modelo é aplicado a
   pedido, nada nasce sozinho.
 
-### D3 · Ponto 12 — tooltips onde fazem falta
+### D3 · Ponto 12 — tooltips onde fazem falta ✅
+
+**Concluído em 22/09/2026.** Primeiro o componente, depois o inventário — e a ordem é o item:
+sem `UiTooltip`, cada caso viraria uma solução local, e quarenta casos virariam quarenta
+implementações.
+
+**É sempre descrição, nunca o nome do controle** (`aria-describedby`, nunca `aria-labelledby`).
+A lição do `CLAUDE.md` seção 13 vale inteira: nome acessível não se apoia em id, porque ele
+atravessa duas passagens de render e sob SSR pode apontar para um elemento que já não existe.
+Descrição pode se perder sem consequência — o controle continua nomeado.
+
+**No toque, tooltip não existe**, e daí sai a regra que decide todo caso do inventário:
+informação NECESSÁRIA vira texto visível; tooltip é para o que ajuda quem quer entender. Quem
+escreve um tooltip está escolhendo que aquilo não apareça no celular — se essa frase parecer
+errada para o caso, ele não é tooltip. Está documentado em `docs/DESIGN-SYSTEM.md` (3.2.1), com
+a tabela de decisão.
+
+Cabeçalho de coluna ganhou mecanismo próprio — `AdminTableColumn.ajuda`, uma frase, e a tabela
+desenha o tooltip —, pelo mesmo motivo de tudo nesta fase: uma explicação escrita por página
+divergiria de formato na terceira.
+
+O inventário começou pelos números derivados (Estimado/Contratado/Pago na ficha, "Valor" e
+"Situação" na lista de Gastos, "Situação" em Fornecedores) — exatamente a prioridade que o
+relatório pede.
+
+**O teste custou mais que o componente, e o achado vale registro.** O gatilho não abria sob o
+`hover()` do Playwright, e a causa não era o componente: o Reka tem uma "grace area" que marca o
+ponteiro como em trânsito por 300ms depois de ele sair de outro elemento, e nesse intervalo
+ignora o `pointermove` de propósito — é o que impede o balão de piscar quando o cursor só
+atravessa a tela. Medido evento a evento: o primeiro caia dentro da janela, o segundo abria.
 
 **Diagnóstico.** O relatório pede uma análise detalhada, e ele está certo em não listar: hoje
 não existe componente de tooltip no design system, então cada caso viraria uma solução local.

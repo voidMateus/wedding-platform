@@ -460,21 +460,48 @@ async function confirmarExclusao() {
       <!-- O dinheiro do gasto, nas mesmas três palavras do resto do módulo. A
            lista mostra UM número por linha; aqui, onde a pergunta é "como está
            isto?", os três cabem — e são exatamente três. -->
+      <!-- Os três números são a dúvida mais repetida do módulo: "estimado" e
+           "contratado" soam sinônimos para quem nunca planejou um casamento, e
+           a diferença entre eles é a fronteira do produto inteiro. O tooltip
+           explica; os rótulos continuam legiveis sozinhos (rodada de
+           usabilidade de 20/09/2026, ponto 12). -->
       <dl class="grid grid-cols-3 gap-px overflow-clip rounded-lg border border-border bg-border">
         <div class="bg-surface-elevated px-4 py-3">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Estimado</dt>
+          <UiTooltip
+            texto="Quanto vocês imaginam gastar. É planejamento — muda quando quiserem, e não compromete nada."
+          >
+            <dt
+              class="w-fit cursor-help text-xs font-medium tracking-wide text-text-muted uppercase underline decoration-dotted underline-offset-4"
+            >
+              Estimado
+            </dt>
+          </UiTooltip>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(totais.estimado) }}
           </dd>
         </div>
         <div class="bg-surface-elevated px-4 py-3">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Contratado</dt>
+          <UiTooltip
+            texto="O valor que vocês fecharam com o fornecedor. É ele que transforma o gasto em compromisso e o manda para Pagamentos."
+          >
+            <dt
+              class="w-fit cursor-help text-xs font-medium tracking-wide text-text-muted uppercase underline decoration-dotted underline-offset-4"
+            >
+              Contratado
+            </dt>
+          </UiTooltip>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ totais.contratado === null ? '—' : formatCentsToBRL(totais.contratado) }}
           </dd>
         </div>
         <div class="bg-surface-elevated px-4 py-3">
-          <dt class="text-xs font-medium uppercase tracking-wide text-text-muted">Pago</dt>
+          <UiTooltip texto="Quanto já saiu da conta — a soma das parcelas com baixa dada.">
+            <dt
+              class="w-fit cursor-help text-xs font-medium tracking-wide text-text-muted uppercase underline decoration-dotted underline-offset-4"
+            >
+              Pago
+            </dt>
+          </UiTooltip>
           <dd class="num mt-0.5 text-lg font-semibold text-text">
             {{ formatCentsToBRL(totais.pago) }}
           </dd>
