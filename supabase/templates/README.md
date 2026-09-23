@@ -17,7 +17,30 @@ node scripts/templates-de-email.mjs
 `tests/unit/scripts/templates-de-email.spec.ts` falha se o HTML commitado divergir do gerador —
 é o que impede um ajuste feito direto no arquivo de se perder na próxima geração.
 
-## Onde colar cada um
+## Como publicar
+
+```bash
+node scripts/publicar-templates-de-email.mjs --ref <project-ref>
+```
+
+O script escreve os quatro corpos e os quatro assuntos pela Management API, relê a configuração e
+compara com os arquivos deste diretório — um `PATCH` aceito diz que a requisição chegou, não que
+os oito campos ficaram certos. Ele também imprime o **Site URL** do projeto, porque é dele que sai
+o link dos quatro e-mails (`{{ .SiteURL }}`): é o que transforma "publiquei" em "publiquei no
+ambiente certo".
+
+O token é um Personal Access Token da conta (https://supabase.com/dashboard/account/tokens), lido
+de `SUPABASE_ACCESS_TOKEN` no ambiente ou no `.env`. Ele alcança **todos** os projetos da conta —
+daí o `--ref` obrigatório e sem padrão.
+
+São **dois** projetos Supabase, não três: `isfqhtpumsuxxebvorxu` (dev, que também serve os deploys
+de Preview da Vercel) e `elatoqglxrpqriqphkjy` (produção). Um projeto com o template antigo
+continua mandando o link no formato antigo, e o produto lida com os dois — mas só até alguém supor
+que a troca foi feita nos dois.
+
+**Estado:** dev publicado em 23/09/2026.
+
+### À mão, se preciso
 
 No dashboard do projeto, em **Authentication → Emails**:
 
@@ -29,11 +52,9 @@ No dashboard do projeto, em **Authentication → Emails**:
 | `confirmacao.html` | Confirm signup | Confirme seu e-mail no MeuSiteCasamento |
 
 O assunto é um campo separado do corpo, e o dashboard não o importa junto — ele precisa ser
-digitado à mão, na linha **Subject heading** de cada template.
-
-Aplicar nos **três** ambientes (desenvolvimento, preview e produção). Um ambiente com o template
-antigo continua mandando o link no formato antigo, e o produto lida com os dois — mas só até
-alguém supor que a troca foi feita em todos.
+digitado à mão, na linha **Subject heading** de cada template. É o campo que a publicação manual
+esquece: até 23/09/2026 o projeto de desenvolvimento tinha os quatro assuntos em inglês, os
+padrões de fábrica.
 
 ## O que o link carrega, e por quê
 
