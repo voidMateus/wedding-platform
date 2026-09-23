@@ -98,6 +98,7 @@ test('pedir redefinição responde igual para e-mail com e sem conta', async ({ 
  */
 test('a recuperação no formato antigo do link abre a tela de senha com sessão', async ({
   page,
+  baseURL,
 }) => {
   test.setTimeout(90_000)
   const admin = getServiceRoleClient()
@@ -109,7 +110,8 @@ test('a recuperação no formato antigo do link abre a tela de senha com sessão
     const { data, error } = await admin.auth.admin.generateLink({
       type: 'recovery',
       email: membro.email,
-      options: { redirectTo: 'http://localhost:3000/auth/senha' },
+      // Do `baseURL` — ver a nota em `link-de-acesso.spec.ts`.
+      options: { redirectTo: `${baseURL}/auth/senha` },
     })
     if (error || !data.properties?.action_link) {
       throw new Error(`Falha ao gerar o link de recuperação: ${error?.message}`)

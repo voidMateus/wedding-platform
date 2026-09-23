@@ -82,7 +82,10 @@ test('o link de acesso verificado no servidor loga num navegador que não o pedi
  *
  * `action_link` é exatamente o endereço que o template antigo põe no e-mail.
  */
-test('o formato antigo do link, com os tokens no fragmento, também loga', async ({ page }) => {
+test('o formato antigo do link, com os tokens no fragmento, também loga', async ({
+  page,
+  baseURL,
+}) => {
   test.setTimeout(90_000)
   const admin = getServiceRoleClient()
 
@@ -93,7 +96,11 @@ test('o formato antigo do link, com os tokens no fragmento, também loga', async
     const { data, error } = await admin.auth.admin.generateLink({
       type: 'magiclink',
       email: membro.email,
-      options: { redirectTo: `http://localhost:3000/auth/callback?next=/admin/${casamento.slug}` },
+      // Do `baseURL`, nunca `localhost:3000` na mão: o endereço aqui decide para
+      // qual servidor o link volta, e a porta do dev server muda por árvore do
+      // repo (`scripts/dev-port.mjs`). Fixo, o teste mandaria o link para a
+      // árvore ao lado e mediria o app errado.
+      options: { redirectTo: `${baseURL}/auth/callback?next=/admin/${casamento.slug}` },
     })
     if (error || !data.properties?.action_link) {
       throw new Error(`Falha ao gerar o link de acesso: ${error?.message}`)
