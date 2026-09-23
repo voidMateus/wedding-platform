@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -87,10 +87,34 @@ describe('auditoria de ações administrativas', () => {
     // verificável, não dispensa (docs/fase5-multievento.md seção 7).
     const emTransacao = /auditoria em transação:/.test(conteudo)
 
+    // Terceira forma, e também afirmação em vez de dispensa: a rota delega o
+    // trabalho inteiro a um util compartilhado, e é ELE que audita. Acontece
+    // quando duas portas levam ao mesmo ato — contratar a partir da proposta
+    // ou a partir do gasto é o mesmo fato, e duplicar a trilha nas duas rotas
+    // seria duplicar a chance de elas divergirem.
+    //
+    // A frase nomeia o destino, e o teste ABRE o destino: uma rota não escapa
+    // apontando para um arquivo que não audita, nem para um que não existe.
+    const delegada = conteudo.match(/auditoria delegada:\s*(\S+)/)
+    let delegadoAudita = false
+
+    if (delegada?.[1]) {
+      const destino = join(process.cwd(), delegada[1])
+      expect(
+        existsSync(destino),
+        `${rota}: delega auditoria para ${delegada[1]}, que não existe`,
+      ).toBe(true)
+      delegadoAudita = /record(System|Platform)?AuditLog\(/.test(readFileSync(destino, 'utf8'))
+      expect(delegadoAudita, `${rota}: ${delegada[1]} não registra na trilha`).toBe(true)
+    }
+
     // Os três autores possíveis: membro (recordAuditLog), sistema (o cron) e
     // operador de plataforma (docs/fase5-multievento.md seção 7).
-    expect(dispensada || emTransacao || /record(System|Platform)?AuditLog\(/.test(conteudo)).toBe(
-      true,
-    )
+    expect(
+      dispensada ||
+        emTransacao ||
+        delegadoAudita ||
+        /record(System|Platform)?AuditLog\(/.test(conteudo),
+    ).toBe(true)
   })
 })

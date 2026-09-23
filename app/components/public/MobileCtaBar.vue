@@ -10,6 +10,12 @@
 // Não aparece quando o casal desligou a seção de RSVP: nesse caso a
 // confirmação não é o que ele quer que o convidado faça, e uma barra fixa
 // insistindo nisso contraria a escolha dele.
+//
+// E não aparece **enquanto a capa está na tela**: ali o Hero já mostra o mesmo
+// botão, e os dois ficavam a três dedos de distância — a primeira impressão do
+// site era um pedido repetido (rodada de usabilidade de 20/09/2026, ponto 27).
+// A barra existe para quem já rolou e ficou longe do CTA; no topo ela não tem
+// função.
 interface Props {
   slug: string
   /** `config_tema.activeSections` — sem o RSVP ligado, esta barra não existe. */
@@ -18,28 +24,89 @@ interface Props {
 
 const { slug, activeSections = [] } = defineProps<Props>()
 
-const isVisible = computed(() => activeSections.includes('confirmar-presenca'))
+const route = useRoute()
+
+const temRsvp = computed(() => activeSections.includes('confirmar-presenca'))
 const rsvpLink = computed(() => `/${slug}/rsvp`)
+
+/**
+ * A capa está à vista?
+ *
+ * O valor inicial é derivado da ROTA, não medido: no servidor não há viewport,
+ * e um palpite diferente do que o cliente calcula depois seria divergência de
+ * hidratação. Só a home tem capa, e ela é a rota do slug sem mais nada — então
+ * o HTML já sai sem a barra ali, e com ela nas outras páginas (Presentes, RSVP,
+ * Galeria), onde não há Hero nenhum para duplicar.
+ */
+const paginaDaCapa = computed(() => route.path.replace(/\/$/, '') === `/${slug}`)
+const capaNaTela = ref(paginaDaCapa.value)
+
+let observador: IntersectionObserver | null = null
+
+function observarCapa() {
+  observador?.disconnect()
+  observador = null
+
+  const capa = document.querySelector('[data-capa]')
+  if (!capa) {
+    capaNaTela.value = false
+    return
+  }
+
+  observador = new IntersectionObserver(
+    ([entrada]) => {
+      capaNaTela.value = entrada?.isIntersecting ?? false
+    },
+    // Sem margem: a barra entra assim que o último pixel da capa sai, que é
+    // exatamente quando o botão do Hero deixa de estar disponível.
+    { threshold: 0 },
+  )
+  observador.observe(capa)
+}
+
+onMounted(() => nextTick(observarCapa))
+
+// O layout não desmonta ao navegar entre páginas do mesmo casamento, então o
+// observador precisa ser refeito na troca de rota — senão ele continuaria
+// olhando um elemento que saiu do DOM.
+watch(
+  () => route.fullPath,
+  () => nextTick(observarCapa),
+)
+
+onUnmounted(() => observador?.disconnect())
 </script>
 
 <template>
-  <template v-if="isVisible">
-    <div
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
+  <template v-if="temRsvp">
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-2"
+      leave-active-class="transition duration-150 ease-in"
+      leave-to-class="opacity-0 translate-y-2"
     >
-      <NuxtLink
-        :to="rsvpLink"
-        class="flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground [font-family:var(--font-button)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      <div
+        v-if="!capaNaTela"
+        class="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
       >
-        <Icon name="lucide:heart-handshake" class="h-4 w-4" aria-hidden="true" />
-        Confirmar presença
-      </NuxtLink>
-    </div>
+        <NuxtLink
+          :to="rsvpLink"
+          class="flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground [font-family:var(--font-button)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <Icon name="lucide:heart-handshake" class="h-4 w-4" aria-hidden="true" />
+          Confirmar presença
+        </NuxtLink>
+      </div>
+    </Transition>
 
     <!--
       Espaçador da mesma altura da barra. Sem ele o rodapé fica coberto: a
       barra é `fixed`, não ocupa espaço no fluxo, e as últimas linhas da página
       passariam por baixo dela sem nunca poderem ser roladas até aparecer.
+
+      Fica de pé mesmo com a barra escondida, de propósito: ele vive no fim da
+      página, e criar 80px de altura ali no instante em que a barra entra
+      empurraria o conteúdo debaixo do dedo de quem está rolando.
     -->
     <div class="h-20 md:hidden" aria-hidden="true" />
   </template>

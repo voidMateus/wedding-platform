@@ -469,6 +469,64 @@ test('a categoria edita os gastos no lugar, sem abrir diálogo', async ({ page }
   }
 })
 
+test('Enter e clicar fora criam UM gasto, não dois', async ({ page }) => {
+  test.setTimeout(180_000)
+  const nome = `ZDuplo ${Date.now().toString().slice(-8)}`
+  const slug = await entrar(page)
+
+  await page.goto(`/admin/${slug}/financeiro/categorias`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Categorias' })).toBeVisible({
+    timeout: 20_000,
+  })
+
+  await expect(async () => {
+    await page.getByRole('button', { name: /^Música/ }).click({ timeout: 3_000 })
+    await expect(page.getByRole('button', { name: 'Adicionar gasto' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 30_000 })
+
+  await page.getByRole('button', { name: 'Adicionar gasto' }).click()
+  await page.getByLabel('Nome do gasto novo').fill(nome)
+
+  try {
+    // O gesto que a inspeção de usabilidade fotografou: Enter e, logo em
+    // seguida, o clique fora — sem esperar a linha sumir. A linha salvava nos
+    // dois gatilhos e só era limpa depois da resposta do servidor, então o
+    // segundo entrava com o mesmo conteúdo e criava o gasto de novo.
+    await page.getByLabel('Nome do gasto novo').press('Enter')
+    await page.getByRole('heading', { level: 1, name: 'Categorias' }).click()
+
+    await expect(page.getByLabel(`Estimativa de ${nome}`)).toBeVisible({ timeout: 20_000 })
+
+    // Um, e só um. `toHaveCount` porque o que se afirma aqui é a contagem —
+    // `toBeVisible` passaria com dois.
+    await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveCount(1)
+
+    // E continua um depois de recarregar: duas linhas idênticas na tela
+    // poderiam ser uma só desenhada duas vezes; no banco, não.
+    await page.reload()
+    await expect(async () => {
+      await page.getByRole('button', { name: /^Música/ }).click({ timeout: 3_000 })
+      await expect(page.getByLabel(`Estimativa de ${nome}`)).toBeVisible({ timeout: 3_000 })
+    }).toPass({ timeout: 30_000 })
+    await expect(page.getByLabel(`Estimativa de ${nome}`)).toHaveCount(1)
+  } finally {
+    await page
+      .getByRole('link', { name: `Abrir ficha de ${nome}` })
+      .first()
+      .click()
+    await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible({
+      timeout: 20_000,
+    })
+    await page.getByRole('button', { name: 'Excluir gasto' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Excluir', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Gastos' })).toBeVisible({
+      timeout: 20_000,
+    })
+  }
+})
+
 test('a categoria oferece o que costuma faltar, e a sugestão vira gasto', async ({ page }) => {
   test.setTimeout(180_000)
   const item = 'Som e iluminação de pista'

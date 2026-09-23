@@ -38,6 +38,36 @@ const { criarDespesa, atualizarDespesa } = useFinance()
 const rascunhos = ref<Record<string, { descricao: string; estimado: number | null }>>({})
 
 /**
+ * As linhas em salvamento agora — a guarda de reentrância.
+ *
+ * A linha salva por Enter **e** por sair dela, e as duas coisas acontecem no
+ * mesmo gesto o tempo todo: digitar, Enter, clicar na linha de baixo. Sem esta
+ * guarda, a segunda chamada entrava enquanto a primeira ainda esperava o
+ * servidor — e no caso da linha nova isso criava o mesmo gasto duas vezes
+ * (rodada de usabilidade de 20/09/2026, ponto 14).
+ */
+const salvandoIds = ref<string[]>([])
+const criandoNova = ref(false)
+
+/**
+ * As linhas que acabaram de salvar, por alguns segundos.
+ *
+ * Existe pelo outro lado do mesmo ponto 14: sem nenhuma confirmação, o casal
+ * aperta Enter, não vê nada acontecer e clica fora para "garantir" — que era
+ * justamente o segundo gatilho da duplicata.
+ */
+const salvosRecentemente = ref<string[]>([])
+
+function confirmarSalvo(id: string) {
+  if (!salvosRecentemente.value.includes(id)) {
+    salvosRecentemente.value = [...salvosRecentemente.value, id]
+  }
+  setTimeout(() => {
+    salvosRecentemente.value = salvosRecentemente.value.filter((atual) => atual !== id)
+  }, 2500)
+}
+
+/**
  * A linha nova, ainda sem id. Nula quando ninguém pediu uma.
  *
  * `focarValor` distingue as duas origens: "+ Adicionar gasto" abre com o cursor
@@ -97,9 +127,11 @@ function mudou(despesa: DespesaComParcelas): boolean {
 }
 
 async function salvar(despesa: DespesaComParcelas) {
-  if (!mudou(despesa)) return
+  if (!mudou(despesa) || salvandoIds.value.includes(despesa.id)) return
   const atual = rascunhos.value[despesa.id]
   if (!atual) return
+
+  salvandoIds.value = [...salvandoIds.value, despesa.id]
 
   // Nome vazio é engano de digitação, não intenção de apagar o gasto: o campo
   // volta ao que era. Excluir é ação explícita, na ficha.
@@ -114,18 +146,21 @@ async function salvar(despesa: DespesaComParcelas) {
       valorEstimadoCentavos: atual.estimado ?? 0,
     })
     esquecer(despesa.id)
+    confirmarSalvo(despesa.id)
   } catch (erro) {
     // O rascunho é descartado TAMBÉM no erro: manter no campo um número que o
     // servidor recusou é pior que voltar ao anterior, porque o casal continua
     // lendo como salvo.
     esquecer(despesa.id)
     toast.error(getApiErrorMessage(erro, 'Não foi possível salvar o gasto.'))
+  } finally {
+    salvandoIds.value = salvandoIds.value.filter((id) => id !== despesa.id)
   }
 }
 
 async function salvarNova() {
   const atual = nova.value
-  if (!atual) return
+  if (!atual || criandoNova.value) return
 
   // Sair da linha sem escrever nada é desistir dela, não criar um gasto sem
   // nome — "+ adicionar" é barato de clicar por engano.
@@ -133,6 +168,13 @@ async function salvarNova() {
     nova.value = null
     return
   }
+
+  // A linha sai da tela ANTES do await, e não depois: enquanto ela existisse,
+  // o `focusout` do clique fora — ou um segundo Enter — entraria de novo com o
+  // mesmo conteúdo e criaria o gasto duas vezes. O `criandoNova` cobre a
+  // janela em que a linha já saiu mas a requisição ainda não voltou.
+  criandoNova.value = true
+  nova.value = null
 
   try {
     await criarDespesa({
@@ -143,9 +185,13 @@ async function salvarNova() {
       fornecedorId: null,
       observacao: null,
     })
-    nova.value = null
   } catch (erro) {
+    // Devolve a linha com o que estava escrito — o casal corrige e tenta de
+    // novo, em vez de digitar tudo outra vez.
+    nova.value = atual
     toast.error(getApiErrorMessage(erro, 'Não foi possível criar o gasto.'))
+  } finally {
+    criandoNova.value = false
   }
 }
 
@@ -203,6 +249,20 @@ function usarSugestao(item: string) {
           :aria-label="`Estimativa de ${despesa.descricao}`"
           @update:model-value="editar(despesa, 'estimado', $event)"
         />
+
+        <!-- Largura reservada mesmo vazia: o check aparece e some sozinho, e
+             sem o espaço fixo ele empurraria a linha inteira ao surgir. -->
+        <span class="flex w-5 shrink-0 items-center justify-center" role="status">
+          <Icon
+            v-if="salvosRecentemente.includes(despesa.id)"
+            name="lucide:check"
+            class="h-4 w-4 text-success"
+            aria-hidden="true"
+          />
+          <span v-if="salvosRecentemente.includes(despesa.id)" class="sr-only">
+            {{ despesa.descricao }} salvo
+          </span>
+        </span>
 
         <AdminRowAction
           icon="lucide:arrow-right"

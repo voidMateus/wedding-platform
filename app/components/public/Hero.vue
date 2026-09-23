@@ -125,7 +125,14 @@ const heroButtons = computed(() =>
     derruba abaixo do AA. É escopo de token, não classe por elemento — assim o
     `UiCountdownTimer`, que é compartilhado, herda pelo contexto.
   -->
+  <!--
+    `data-capa`: a barra fixa do celular (PublicMobileCtaBar) observa este nó
+    para não repetir o botão de confirmar presença enquanto a capa está à
+    vista. Atributo de dado, e não a classe de estilo, porque quem observa não
+    deve depender de uma decisão visual que pode ser renomeada.
+  -->
   <section
+    data-capa
     class="superficie-da-capa relative flex min-h-[78vh] flex-col items-center justify-center overflow-hidden bg-surface-muted px-6 pt-10 pb-20 text-center sm:pt-12 sm:pb-24"
   >
     <!--

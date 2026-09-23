@@ -58,28 +58,74 @@ describe('PublicNavBar', () => {
     expect(wrapper.text()).toContain('MeuSiteCasamento')
   })
 
+  /**
+   * Os destinos esperados são DERIVADOS do catálogo, nunca escritos à mão.
+   *
+   * Eles eram uma lista fixa aqui e outra dentro do NavBar — e as duas já
+   * divergiam do catálogo, inclusive na ordem: o teste afirmava
+   * `manual-convidados` antes de `rsvp`, e na home o RSVP vem primeiro. Um
+   * teste que repete a lista que ele deveria verificar só confirma que alguém
+   * copiou os dois lugares igual (rodada de usabilidade de 20/09/2026, ponto
+   * 26).
+   */
+  function destinosEsperados(): string[] {
+    return HOME_SECTION_CATALOG.filter((secao) => !secao.noMenu).map(
+      (secao) => `/${SLUG}${secao.shortcutHref}`,
+    )
+  }
+
+  /** O que a barra mostra como texto, sem o botão de destaque. */
+  function hrefsDaBarra(wrapper: ReturnType<typeof mount>): string[] {
+    return wrapper
+      .findAll('a')
+      .filter((a) => !a.classes().includes('bg-primary'))
+      .map((a) => a.attributes('href') ?? '')
+  }
+
   it('links usam caminho absoluto com o slug do casamento — âncoras ou rota real (/rsvp)', () => {
     const wrapper = mountNavBar()
-    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    const hrefs = hrefsDaBarra(wrapper)
+
+    // Todo link da barra é um destino real do catálogo, com o slug na frente.
+    for (const href of hrefs.filter((href) => href !== `/${SLUG}`)) {
+      expect(destinosEsperados()).toContain(href)
+    }
     expect(hrefs).toContain(`/${SLUG}/#historia`)
-    expect(hrefs).toContain(`/${SLUG}/#grande-dia`)
     expect(hrefs).toContain(`/${SLUG}/rsvp`)
-    expect(hrefs).toContain(`/${SLUG}/#nossos-momentos`)
-    expect(hrefs).toContain(`/${SLUG}/#manual-convidados`)
   })
 
   it('a ordem dos links casa com a ordem das seções na home', () => {
     const wrapper = mountNavBar()
-    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
-    const order = [
-      `/${SLUG}/#historia`,
-      `/${SLUG}/#grande-dia`,
-      `/${SLUG}/#manual-convidados`,
-      `/${SLUG}/rsvp`,
-      `/${SLUG}/#nossos-momentos`,
-    ]
-    const filtered = order.filter((href) => hrefs.includes(href))
-    expect(filtered).toEqual(order)
+    const hrefs = hrefsDaBarra(wrapper)
+
+    const naBarra = destinosEsperados().filter((href) => hrefs.includes(href))
+    const naOrdemDaBarra = hrefs.filter((href) => destinosEsperados().includes(href))
+    expect(naOrdemDaBarra).toEqual(naBarra)
+  })
+
+  it('todo destino ligado tem caminho — o que não cabe na barra está no painel', () => {
+    // A regra que faltava: presentes sumia da navegação inteira sempre que o
+    // destaque do casal era outro, porque a barra tinha cinco entradas escritas
+    // à mão e o painel repetia as mesmas cinco. Com o menu derivado, o painel
+    // lista TUDO — e é ele que sustenta a promessa quando a barra enche.
+    const wrapper = mountNavBar({ featuredButtonId: 'confirmar-presenca' })
+    const noPainel = [...document.body.querySelectorAll('a')].map(
+      (a) => a.getAttribute('href') ?? '',
+    )
+    const emQualquerLugar = new Set([...hrefsDaBarra(wrapper), ...noPainel])
+
+    for (const destino of destinosEsperados()) {
+      expect(emQualquerLugar.has(destino), `sem caminho para ${destino}`).toBe(true)
+    }
+  })
+
+  it('a lista de presentes continua no menu mesmo quando o destaque é outro', () => {
+    // O ponto 26, na forma exata em que foi relatado.
+    const wrapper = mountNavBar({ featuredButtonId: 'confirmar-presenca' })
+    const noPainel = [...document.body.querySelectorAll('a')].map(
+      (a) => a.getAttribute('href') ?? '',
+    )
+    expect([...hrefsDaBarra(wrapper), ...noPainel]).toContain(`/${SLUG}/presentes`)
   })
 
   it('o CTA "Presentear" aponta para a página dedicada /{slug}/presentes', () => {
@@ -139,16 +185,15 @@ describe('PublicNavBar', () => {
 
   it('nenhum link de texto do menu fica destacado', () => {
     const wrapper = mountNavBar()
-    const navHrefs = [
-      `/${SLUG}/#historia`,
-      `/${SLUG}/#grande-dia`,
-      `/${SLUG}/#manual-convidados`,
-      `/${SLUG}/rsvp`,
-      `/${SLUG}/#nossos-momentos`,
-    ]
-    const links = wrapper.findAll('a').filter((a) => navHrefs.includes(a.attributes('href') ?? ''))
-    expect(links).toHaveLength(navHrefs.length)
+    const destinos = destinosEsperados()
+    const links = wrapper.findAll('a').filter((a) => destinos.includes(a.attributes('href') ?? ''))
+
+    // Guarda contra passar por vacuidade: sem links encontrados, o laço abaixo
+    // não verificaria nada.
+    expect(links.length).toBeGreaterThan(3)
     for (const link of links) {
+      // O destaque é o botão (bg-primary); nenhum link de TEXTO usa cor.
+      if (link.classes().includes('bg-primary')) continue
       expect(link.classes()).not.toContain('text-primary')
     }
   })

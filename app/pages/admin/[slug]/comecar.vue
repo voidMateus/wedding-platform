@@ -28,9 +28,6 @@ import type { EventSegmentLocation } from '~/types/event-segment-location'
 
 definePageMeta({ layout: 'admin' })
 
-/** Hora usada quando o casal escolhe a data do prazo e não mexe no horário. */
-const HORA_PADRAO_DO_PRAZO = '23:59'
-
 const slug = useActiveWeddingSlug()
 const route = useRoute()
 const router = useRouter()
@@ -42,7 +39,6 @@ const { data: wedding, refresh: recarregarCasamento } = await getWedding()
 const { listEventSegments, createEventSegment, updateEventSegment } = useEventSegments()
 const { data: segmentos, refresh: recarregarSegmentos } = listEventSegments()
 
-const { definirTetoDoOrcamento } = useFinance()
 const { getRoteiro, atualizarRoteiro } = useOnboarding()
 const { roteiro } = getRoteiro()
 
@@ -107,8 +103,6 @@ async function salvarEtapaAtual() {
   if (!wedding.value) return
   if (passo.value.id === 'data-horario') return salvarDataEHorario()
   if (passo.value.id === 'local') return salvarLocal()
-  if (passo.value.id === 'prazo-rsvp') return salvarPrazo()
-  if (passo.value.id === 'orcamento') return salvarOrcamento()
   if (passo.value.id === 'aparencia') return salvarAparencia()
 }
 
@@ -166,33 +160,7 @@ async function salvarLocal() {
   await recarregarSegmentos()
 }
 
-// --- etapa 3: prazo de RSVP ---
-const prazoData = ref('')
-const prazoHora = ref('')
-
-async function salvarPrazo() {
-  if (!wedding.value) return
-  const prazoRsvp = prazoData.value
-    ? `${prazoData.value}T${prazoHora.value || HORA_PADRAO_DO_PRAZO}`
-    : ''
-  await updateWedding({ ...weddingSettingsFromRow(wedding.value), prazoRsvp })
-  await recarregarCasamento()
-}
-
-// --- etapa 4: teto do orçamento ---
-//
-// Pergunta um número, não abre um módulo: "Defina seu orçamento" prometeria
-// uma tela de planejamento inteira e faria quem não tem resposta pronta
-// abandonar o wizard aqui. Distribuir por categoria é o trabalho que o
-// Financeiro já sabe fazer.
-const teto = ref<number | null>(null)
-
-async function salvarOrcamento() {
-  await definirTetoDoOrcamento(teto.value)
-  await recarregarCasamento()
-}
-
-// --- etapa 5: a cara do site ---
+// --- etapa 3: a cara do site ---
 //
 // Última de propósito: é a única em que errar não custa nada. Aplicar um
 // preset preenche cor e tipografia de uma vez, exatamente como em Aparência —
@@ -219,10 +187,6 @@ watch(
     if (!valor) return
     data.value = valor.data_evento
     horario.value = valor.horario_evento ? valor.horario_evento.slice(0, 5) : ''
-    const prazo = valor.prazo_rsvp ? isoParaDatetimeLocal(valor.prazo_rsvp) : ''
-    prazoData.value = prazo.split('T')[0] ?? ''
-    prazoHora.value = prazo.split('T')[1] ?? ''
-    teto.value = valor.orcamento_total_centavos
     presetId.value = (valor.config_tema as { presetId?: string } | null)?.presetId ?? null
     local.value = cerimonia.value
       ? eventSegmentLocationFromSegment(cerimonia.value)
@@ -294,34 +258,7 @@ watch(
           <AdminLocationField v-model="local" label="Local da cerimônia" />
         </div>
 
-        <!-- --- etapa 3: prazo de RSVP --- -->
-        <div v-else-if="passo.id === 'prazo-rsvp'" class="flex flex-col gap-3">
-          <h2 class="font-display text-xl font-semibold text-text">
-            Até quando dá para confirmar presença?
-          </h2>
-          <p class="text-sm text-text-muted">
-            Depois desta data, o convidado não consegue mais alterar a resposta. Sem prazo, a
-            confirmação fica aberta até o dia do evento.
-          </p>
-          <div class="grid max-w-md gap-4 sm:grid-cols-2">
-            <UiDatePicker v-model="prazoData" label="Data" placeholder="Sem prazo" clearable />
-            <UiTimePicker v-model="prazoHora" label="Horário" :disabled="!prazoData" />
-          </div>
-        </div>
-
-        <!-- --- etapa 4: teto do orçamento --- -->
-        <div v-else-if="passo.id === 'orcamento'" class="flex flex-col gap-3">
-          <h2 class="font-display text-xl font-semibold text-text">
-            Quanto vocês pretendem gastar no total?
-          </h2>
-          <p class="text-sm text-text-muted">
-            Um número aproximado basta — dá para mudar quando quiser. É a régua do Financeiro:
-            distribuir por categoria vem depois, lá dentro.
-          </p>
-          <UiCurrencyInput v-model="teto" label="Orçamento total" class="max-w-xs" />
-        </div>
-
-        <!-- --- etapa 5: a cara do site --- -->
+        <!-- --- etapa 3: a cara do site --- -->
         <div v-else-if="passo.id === 'aparencia'" class="flex flex-col gap-3">
           <h2 class="font-display text-xl font-semibold text-text">Escolham a cara do site</h2>
           <p class="text-sm text-text-muted">

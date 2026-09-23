@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onKeyStroke } from '@vueuse/core'
 import { DEFAULT_HERO_FEATURED_BUTTON, resolveHeroButtons } from '#shared/hero-buttons'
+import { resolveHomeSections } from '#shared/home-sections'
 import { NOME_DO_PRODUTO } from '#shared/marca'
 import { primeirosNomesCasal } from '#shared/utils/nomes-casal'
 
@@ -39,6 +40,12 @@ interface Props {
    */
   activeSections?: string[]
   /**
+   * `config_tema.sectionOrder` — a ordem que o casal salvou. O menu lista os
+   * capítulos na mesma sequência em que a página os desenha; sem a ordem, ele
+   * descreveria uma home que não existe.
+   */
+  sectionOrder?: string[]
+  /**
    * Caminho da rota atual (`route.path`), resolvido pelo layout. Alimenta o
    * `aria-current` dos links — ver isCurrent().
    */
@@ -58,35 +65,37 @@ const {
   featuredButtonId,
   monogramImageUrl,
   activeSections = [],
+  sectionOrder,
   currentPath,
 } = defineProps<Props>()
 
-// "/{slug}/presentes" fica de fora da lista de texto — vira um CTA
-// destacado (UiButton, formato pill) tanto no menu desktop quanto no topo
-// do drawer mobile, mesmo papel do botão "Presentear" do concorrente:
-// sempre visível, sempre a ação com mais destaque visual da navegação. A
-// lista de presentes tem página própria dedicada (não fica mais embutida na
-// home como vitrine completa — só um teaser lá, ver GiftsShowcaseSection) —
-// pensada para escalar quando a lista crescer bastante (ex.: 100+ itens).
-// `id` casa com o id do catálogo de atalhos do Hero (shared/hero-buttons.ts)
-// — usado só para sincronizar o destaque, não pra navegação.
-// Ordem casa exatamente com a ordem das seções na home (index.vue) — Hero
-// → Boas-vindas → Nossa História → O Grande Dia → Dress Code → Manual dos
-// Convidados → Confirme sua Presença → Presentes → FAQ → Nossos Momentos.
-// Dress Code/Presentes/FAQ ficam fora do menu por curadoria deliberada
-// (ver comentário abaixo), mas os que entram seguem a sequência real.
-const NAV_LINKS = computed(() =>
-  [
-    // `id` é sempre o id da seção no catálogo (shared/home-sections.ts) — é o
-    // que faz o filtro de ocultas e o destaque sincronizado com o Hero
-    // encontrarem o link certo. 'cronograma'/'galeria' eram os ids antigos do
-    // catálogo de atalhos, antes de ele ser unificado com o de seções.
-    { id: 'historia', to: `/${slug}/#historia`, label: 'Nossa História' },
-    { id: 'grande-dia', to: `/${slug}/#grande-dia`, label: 'O Grande Dia' },
-    { id: 'manual-convidados', to: `/${slug}/#manual-convidados`, label: 'Manual do Convidado' },
-    { id: 'confirmar-presenca', to: `/${slug}/rsvp`, label: 'Confirmar Presença' },
-    { id: 'nossos-momentos', to: `/${slug}/#nossos-momentos`, label: 'Nossos Momentos' },
-  ].filter((link) => activeSections.includes(link.id)),
+// O menu é DERIVADO do catálogo de seções (shared/home-sections.ts), nunca de
+// uma lista própria. Aqui existia uma lista fixa de cinco destinos escrita à
+// mão — e foi ela que deixou a lista de presentes fora da navegação inteira
+// sempre que o atalho em destaque do casal era outro (rodada de usabilidade de
+// 20/09/2026, ponto 26). Era a terceira lista paralela do projeto: o catálogo
+// de atalhos do Hero já havia ficado com oito entradas para onze seções pelo
+// mesmo motivo, e a lição registrada foi derivar, não sincronizar.
+//
+// O que sobrevive da curadoria antiga vive no catálogo, como dado (`noMenu`):
+// Boas-vindas e Versículo continuam fora, porque não são destino de navegação.
+//
+// `hasContent` fica de fora da resolução de propósito: o menu pergunta o que o
+// casal LIGOU, não o que já escreveu. Uma seção ligada e ainda vazia é trabalho
+// em andamento dele; some da home, mas continua sendo um capítulo do site.
+const secoesDoMenu = computed(() =>
+  resolveHomeSections({ order: sectionOrder, active: activeSections, hasContent: {} })
+    .filter((secao) => !secao.definition.noMenu)
+    .map((secao) => ({
+      id: secao.id,
+      // 'presentes' é o único destino que troca de rota de verdade e por isso
+      // precisa preservar ?code= — sem ele o convidado perde a autorização de
+      // reservar/contribuir ao clicar (mesma regra do Hero e do destaque).
+      to: `/${slug}${secao.definition.shortcutHref}${
+        secao.id === 'presentes' && code ? `?code=${code}` : ''
+      }`,
+      label: secao.definition.navLabel ?? secao.definition.shortcutLabel,
+    })),
 )
 
 /**
@@ -132,9 +141,29 @@ const featuredShortcut = computed(() => {
  * Os links de texto, já sem o destaque — ele virou o botão ao lado, e repetir
  * o mesmo destino nas duas formas na mesma barra é ruído.
  */
-const textLinks = computed(() =>
-  NAV_LINKS.value.filter((link) => link.id !== featuredShortcut.value?.id),
+/**
+ * Quantos links de TEXTO cabem na barra do desktop.
+ *
+ * Cinco é medição, não gosto: o comentário do bloco da barra registra que os
+ * cinco destinos mais o botão ocupam ~990px e a marca pede ~210px, com folga
+ * em 1280px — o menor tamanho em que essa faixa aparece. Derivar o menu do
+ * catálogo trouxe até nove destinos possíveis, e sem teto a mesma barra que a
+ * medição aprova passaria a estourar no primeiro casal que ligasse tudo.
+ *
+ * Nada some: o que passa do teto continua no painel do menu, que a partir daí
+ * também aparece no desktop.
+ */
+const MAX_LINKS_NA_BARRA = 5
+
+/** Sem o destaque, que já é o botão ao lado — repetir o destino é ruído. */
+const linksDoMenu = computed(() =>
+  secoesDoMenu.value.filter((link) => link.id !== featuredShortcut.value?.id),
 )
+
+const textLinks = computed(() => linksDoMenu.value.slice(0, MAX_LINKS_NA_BARRA))
+
+/** Sobrou destino para fora da barra? Então o desktop também precisa do painel. */
+const temLinksForaDaBarra = computed(() => linksDoMenu.value.length > MAX_LINKS_NA_BARRA)
 
 const isMobileMenuOpen = ref(false)
 // Liga o botão ao painel que ele controla (aria-controls). Gerado, não fixo:
@@ -258,7 +287,8 @@ function isCurrent(to: string): boolean {
 
       <button
         type="button"
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary xl:hidden"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :class="temLinksForaDaBarra ? '' : 'xl:hidden'"
         :aria-label="isMobileMenuOpen ? 'Fechar menu' : 'Abrir menu'"
         :aria-expanded="isMobileMenuOpen"
         :aria-controls="mobileMenuId"
@@ -280,7 +310,7 @@ function isCurrent(to: string): boolean {
   <Teleport to="body">
     <div
       v-if="isMobileMenuOpen"
-      class="fixed inset-0 z-40 bg-black/40 xl:hidden"
+      class="fixed inset-0 z-40 bg-black/40"
       aria-hidden="true"
       @click="closeMobileMenu"
     />
@@ -300,7 +330,7 @@ function isCurrent(to: string): boolean {
       `pointer-events-none` na moldura e `auto` no painel: sem isso a camada
       invisível cobriria a página inteira e engoliria todo clique.
     -->
-    <div class="pointer-events-none fixed inset-0 z-50 overflow-hidden xl:hidden">
+    <div class="pointer-events-none fixed inset-0 z-50 overflow-hidden">
       <!--
         `inert` fechado: o painel continua no DOM (é o que permite a transição
         de deslize), e sem isso seus links seguem focáveis fora da tela —
@@ -329,7 +359,7 @@ function isCurrent(to: string): boolean {
           {{ featuredShortcut.navLabel }}
         </UiButton>
         <NuxtLink
-          v-for="link in textLinks"
+          v-for="link in linksDoMenu"
           :key="link.to"
           :to="link.to"
           :aria-current="isCurrent(link.to) ? 'page' : undefined"

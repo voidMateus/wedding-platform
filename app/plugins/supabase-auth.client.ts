@@ -23,7 +23,15 @@
  * não há uso real do caminho createClient (sem cookies) neste projeto.
  */
 function needsSupabaseAuth(path: string): boolean {
-  return path.startsWith('/admin') || path.startsWith('/login') || path.startsWith('/plataforma')
+  return (
+    path.startsWith('/admin') ||
+    path.startsWith('/login') ||
+    path.startsWith('/plataforma') ||
+    // `/auth/**` é a volta dos links de e-mail (convite, acesso, senha). Sem
+    // ela aqui, a página de callback não teria client para trocar o `code` por
+    // sessão — que foi exatamente o beco do ponto 5 da rodada de usabilidade.
+    path.startsWith('/auth')
+  )
 }
 
 export default defineNuxtPlugin({
@@ -36,7 +44,8 @@ export default defineNuxtPlugin({
     }
 
     const { createBrowserClient } = await import('@supabase/ssr')
-    const { url, key, cookieOptions, cookiePrefix, clientOptions } = useRuntimeConfig().public.supabase
+    const { url, key, cookieOptions, cookiePrefix, clientOptions } =
+      useRuntimeConfig().public.supabase
 
     const client = createBrowserClient(url, key, {
       ...clientOptions,
