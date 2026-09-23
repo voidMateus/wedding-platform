@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   destaqueDoPlanejamento,
   diasAteOEvento,
+  JANELAS,
   faseDoPrazo,
   janelaDaSugestao,
   janelaDaTarefa,
@@ -56,6 +57,31 @@ describe('janelaDaTarefa', () => {
   it('sem data de evento, degrada para "mais adiante" em vez de inventar fase', () => {
     expect(janelaDaTarefa(tarefa('2026-09-21'), HOJE)).toBe('mais_adiante')
     expect(janelaDaTarefa(tarefa('2026-10-14'), HOJE)).toBe('mais_adiante')
+  })
+})
+
+describe('a ordem das janelas', () => {
+  /**
+   * O que não tem data para se cobrar sozinho precisa estar à vista: embaixo de
+   * dez faixas de meses, "sem prazo" e "de etapas que já passaram" ficam
+   * invisíveis. Foi o que o uso mostrou em 22/09/2026.
+   */
+  it('põe o que pede decisão antes da contagem regressiva', () => {
+    const posicao = (janela: string) => JANELAS.indexOf(janela as never)
+
+    expect(posicao('ja_passou')).toBeLessThan(posicao('doze_meses'))
+    expect(posicao('sem_prazo')).toBeLessThan(posicao('doze_meses'))
+  })
+
+  it('mas depois do prazo real perdido', () => {
+    const posicao = (janela: string) => JANELAS.indexOf(janela as never)
+
+    expect(posicao('vencida')).toBeLessThan(posicao('ja_passou'))
+    expect(posicao('esta_semana')).toBeLessThan(posicao('ja_passou'))
+  })
+
+  it('e concluídas por último — histórico não disputa a primeira dobra', () => {
+    expect(JANELAS.at(-1)).toBe('concluida')
   })
 })
 

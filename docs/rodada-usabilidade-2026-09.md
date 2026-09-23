@@ -1006,6 +1006,12 @@ Os rótulos vêm de `FASES_DO_PLANEJAMENTO`, o mesmo catálogo que propõe os pr
 chamado "6 meses antes". Sem data do evento a régua não existe, e a tarefa com prazo próprio
 degrada para "Mais adiante" em vez de cair numa fase inventada.
 
+**"Sem prazo" e "De etapas que já passaram" subiram para o topo** (ajustado em 22/09/2026, no
+uso): embaixo de dez faixas de meses elas ficavam invisíveis, e são justamente as duas que não
+têm data para se cobrar sozinhas — "etapas que já passaram" é a primeira coisa que quem descobre
+o produto a quatro meses do casamento precisa ver. Ficam **depois** de vencida e desta semana,
+não antes: prazo real perdido pesa mais que sugestão de fase antiga.
+
 **E o cronograma padrão passou a ser aplicável.** A tela dizia, num comentário, que "não existe
 criar tudo de uma vez — quarenta e cinco linhas nascidas juntas fazem o progresso começar em 0
 de 45". O motivo era bom, mas a regra que importa nunca foi "poucas linhas": é **nada nasce sem

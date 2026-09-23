@@ -43,23 +43,31 @@ export const DIAS_ESTE_MES = 30
  * não inventa atraso que o casal talvez não tenha.
  */
 /**
- * As duas janelas de URGÊNCIA, sempre no topo.
+ * O que pede decisão — sempre no topo, acima da contagem regressiva.
  *
- * Elas vencem a régua da contagem regressiva de propósito: quem tem algo
- * atrasado não quer ler "6 meses antes" primeiro (rodada de usabilidade de
- * 20/09/2026, ponto 9).
+ * As duas primeiras são urgência pura: quem tem algo atrasado não quer ler
+ * "6 meses antes" primeiro (rodada de usabilidade de 20/09/2026, ponto 9).
+ *
+ * As duas seguintes sobem por outro motivo, e ele veio do uso (22/09/2026):
+ * embaixo de dez faixas de meses, elas ficam **invisíveis** — e são justamente
+ * o que não tem data para se cobrar sozinho. "De etapas que já passaram" é a
+ * primeira coisa que quem descobre o produto a quatro meses do casamento
+ * precisa ver; "Sem prazo" é a tarefa que o casal parou de decidir.
+ *
+ * Elas ficam DEPOIS de vencida e desta semana, e não antes: prazo real perdido
+ * pesa mais que sugestão de fase antiga.
  */
-const JANELAS_DE_URGENCIA = ['vencida', 'esta_semana'] as const
+const JANELAS_DO_TOPO = ['vencida', 'esta_semana', 'ja_passou', 'sem_prazo'] as const
 
 /**
- * E as três do fim, que não são tempo: ausência de prazo, fase que ficou para
- * trás e histórico.
+ * E as duas do fim.
  *
  * `mais_adiante` sobreviveu à troca de régua como **degradação**: sem data do
  * evento não existe "6 meses antes" de nada, e uma tarefa com prazo próprio
- * precisa cair em algum lugar honesto.
+ * precisa cair em algum lugar honesto. `concluida` é histórico, e histórico não
+ * disputa a primeira dobra.
  */
-const JANELAS_FINAIS = ['mais_adiante', 'sem_prazo', 'ja_passou', 'concluida'] as const
+const JANELAS_FINAIS = ['mais_adiante', 'concluida'] as const
 
 /**
  * As janelas, na ordem em que a tela as mostra.
@@ -77,7 +85,7 @@ const JANELAS_FINAIS = ['mais_adiante', 'sem_prazo', 'ja_passou', 'concluida'] a
  * não inventa atraso que o casal talvez não tenha.
  */
 export const JANELAS = [
-  ...JANELAS_DE_URGENCIA,
+  ...JANELAS_DO_TOPO,
   ...FASES_DO_PLANEJAMENTO.map((fase) => fase.id),
   ...JANELAS_FINAIS,
 ] as const
