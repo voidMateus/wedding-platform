@@ -198,10 +198,17 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   // teste manual, porque o casal nunca a vê.
   await expectNoAccessibilityViolations(page, { rotulo: 'RSVP — convite por link direto' })
 
+  // Uma pessoa por vez: responder avança sozinho, e a última resposta leva
+  // direto à revisão (ponto 25). Não há mais "Revisar e enviar" a clicar —
+  // o passo existe, e chegar nele deixou de ser um gesto a mais.
   await page.getByRole('button', { name: `Estarei lá — ${primaryName}` }).click()
   await page.getByRole('button', { name: `Não poderei ir — ${companionName}` }).click()
 
-  await page.getByRole('button', { name: 'Revisar e enviar' }).click()
+  await expect(page.getByText('O que vai ser enviado')).toBeVisible({ timeout: 10_000 })
+  // O estado aparece por extenso, e não só pela cor do botão.
+  await expect(page.getByText('Estará lá')).toBeVisible()
+  await expect(page.getByText('Não poderá ir')).toBeVisible()
+
   await page.getByRole('button', { name: 'Confirmar presença' }).click()
   await expect(page.getByText('Presença confirmada!')).toBeVisible({ timeout: 10_000 })
 
