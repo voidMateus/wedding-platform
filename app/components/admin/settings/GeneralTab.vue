@@ -7,6 +7,16 @@ import type { Wedding } from '~/types/wedding'
 
 interface Props {
   wedding: Wedding | null | undefined
+  /**
+   * Os cartões que esta tela mostra.
+   *
+   * O formulário continua inteiro por dentro — ele é uma linha só do banco, e o
+   * endpoint a substitui —, mas os cartões dele se espalham por três assuntos
+   * do menu (O evento, RSVP e convidados, Avançado). Sem este recorte, clicar
+   * em "Avançado" mostraria também o nome do casal e o prazo de RSVP, e o menu
+   * estaria prometendo uma separação que a tela não cumpre.
+   */
+  secoes: readonly string[]
 }
 
 const props = defineProps<Props>()
@@ -102,6 +112,7 @@ const onSubmit = handleSubmit(
 <template>
   <form class="flex flex-col gap-5" @submit="onSubmit">
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('evento')"
       section-id="evento"
       title="O evento"
       description="Informações básicas usadas no site, nos convites e na contagem regressiva."
@@ -124,6 +135,7 @@ const onSubmit = handleSubmit(
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('rsvp')"
       section-id="rsvp"
       title="RSVP e convidados"
       description="Regras de confirmação de presença e de quem pode responder."
@@ -189,6 +201,7 @@ const onSubmit = handleSubmit(
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('pagamentos')"
       section-id="pagamentos"
       title="Presentes e pagamentos"
       description="Conecte sua conta para receber contribuições online."

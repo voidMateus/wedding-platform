@@ -15,6 +15,8 @@ import type { Wedding } from '~/types/wedding'
 interface Props {
   wedding: Wedding | null | undefined
   coupleNames: string
+  /** Os cartões que esta tela mostra — ver a nota gêmea em `GeneralTab.vue`. */
+  secoes: readonly string[]
 }
 
 const props = defineProps<Props>()
@@ -217,6 +219,7 @@ const onSubmit = handleSubmit(
          formulário nem pela barra de salvamento, e por isso o meta.dirty da
          aba não as cobre. Daí a descrição avisar que são salvas na hora. -->
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('branding')"
       section-id="branding"
       title="Branding"
       description="As imagens que aparecem no site dos convidados — cada uma é salva no próprio envio."
@@ -249,6 +252,7 @@ const onSubmit = handleSubmit(
       opções avançadas.
     -->
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('tema')"
       section-id="tema"
       title="Opções de tema"
       description="Um preset pronto já define a tipografia e as cores do site de uma vez."
@@ -277,6 +281,7 @@ const onSubmit = handleSubmit(
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('avancado')"
       section-id="avancado"
       title="Opções avançadas"
       description="Para quando o preset é só o ponto de partida: cada peça do tema pode ser definida à mão."
@@ -335,6 +340,7 @@ const onSubmit = handleSubmit(
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('experiencia')"
       section-id="experiencia"
       title="Experiência"
       description="Recursos opcionais exibidos para os convidados."
@@ -356,6 +362,7 @@ const onSubmit = handleSubmit(
     </AdminSettingsSectionCard>
 
     <AdminSettingsSectionCard
+      v-if="props.secoes.includes('ordem')"
       section-id="ordem"
       title="Ordem das seções"
       description="A sequência dos capítulos da página inicial do site, e quais deles aparecem."

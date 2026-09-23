@@ -27,6 +27,18 @@ const secaoAtual = computed(() => {
 
 const assunto = computed(() => assuntoDaSecao(secaoAtual.value))
 
+/**
+ * Qual formulário desenhar, e quais cartões dele.
+ *
+ * Quem decide é a SEÇÃO, não o assunto: "Avançado" reúne um cartão do tema e
+ * um do evento, que vivem em formulários diferentes. E os cartões são
+ * filtrados para que a tela mostre o que o menu prometeu — o formulário
+ * continua inteiro por dentro, porque o endpoint substitui a linha toda do
+ * casamento e um formulário partido apagaria os campos que ficaram de fora.
+ */
+const aba = computed(() => abaDaSecao(secaoAtual.value))
+const secoesDaTela = computed(() => secoesVisiveis(secaoAtual.value))
+
 const { getWedding } = useWedding()
 // Aguardado (não apenas destructuring de useFetch): sem isso, o formulário de
 // Aparência é populado por um watcher assíncrono que roda DEPOIS do walk de
@@ -74,25 +86,31 @@ watch(secaoAtual, (secao) => rolarAteSecao(secao))
     </div>
 
     <template v-else>
-      <AdminSettingsGeneralTab v-if="assunto.id === 'geral'" :wedding="wedding" @saved="refresh" />
+      <AdminSettingsAssuntosIndex :atual="assunto.id" />
+
+      <!--
+        O ramo é por ABA, não por assunto: "O evento" e "RSVP e convidados" são
+        assuntos diferentes servidos pelo mesmo formulário, e com um ramo por
+        assunto o Vue remontaria o componente ao trocar entre eles — perdendo o
+        que estivesse editado e sem salvar.
+      -->
+      <AdminSettingsGeneralTab
+        v-if="aba === 'geral'"
+        :wedding="wedding"
+        :secoes="secoesDaTela"
+        @saved="refresh"
+      />
       <AdminSettingsAppearanceTab
-        v-else-if="assunto.id === 'aparencia'"
+        v-else-if="aba === 'aparencia'"
         :wedding="wedding"
         :couple-names="wedding?.nomes_noivos ?? ''"
+        :secoes="secoesDaTela"
         @refresh="refresh"
       />
-      <AdminSettingsRemindersTab
-        v-else-if="assunto.id === 'avisos'"
-        :wedding="wedding"
-        @saved="refresh"
-      />
-      <AdminSettingsContentTab
-        v-else-if="assunto.id === 'conteudo'"
-        :wedding="wedding"
-        @saved="refresh"
-      />
-      <AdminSettingsMembersTab v-else-if="assunto.id === 'colaboradores'" />
-      <AdminSettingsAccountTab v-else-if="assunto.id === 'conta'" />
+      <AdminSettingsRemindersTab v-else-if="aba === 'avisos'" :wedding="wedding" @saved="refresh" />
+      <AdminSettingsContentTab v-else-if="aba === 'conteudo'" :wedding="wedding" @saved="refresh" />
+      <AdminSettingsMembersTab v-else-if="aba === 'colaboradores'" />
+      <AdminSettingsAccountTab v-else-if="aba === 'conta'" />
     </template>
   </AdminSection>
 </template>

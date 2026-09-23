@@ -36,6 +36,49 @@ interface GiftListResponse {
   raisedByGift: Record<string, number>
 }
 
+/** Uma linha de "quanto este presente rendeu". */
+export interface GiftReceivedByGift {
+  /** O id do próprio presente. */
+  id: string
+  title: string
+  cents: number
+  entries: number
+}
+
+/** Uma linha de "quanto esta pessoa deu" — é a lista de quem agradecer. */
+export interface GiftReceivedByGiver {
+  /** O nome — a agregação é por ele, e não existe cadastro de presenteador. */
+  id: string
+  name: string
+  cents: number
+  entries: number
+  lastAt: string
+}
+
+/**
+ * Pagamento que o convidado fez e a plataforma não conseguiu registrar.
+ *
+ * Era um contador solto no topo da lista, sem destino: o casal lia "2" e não
+ * tinha para onde ir. Aqui vem a linha inteira, que é o que permite resolver.
+ */
+export interface GiftFailedPayment {
+  id: string
+  giftId: string
+  giftTitle: string
+  name: string
+  phone: string | null
+  cents: number
+  reason: string | null
+  at: string
+}
+
+export interface GiftReceivedResponse {
+  totalCents: number
+  byGift: GiftReceivedByGift[]
+  byGiver: GiftReceivedByGiver[]
+  failed: GiftFailedPayment[]
+}
+
 /**
  * CRUD de presentes (CLAUDE.md, seção 18/19.2). Toda chamada de rede do
  * client passa por aqui (CLAUDE.md, seção 5.1).
@@ -43,6 +86,13 @@ interface GiftListResponse {
 export function useGifts() {
   function listGifts() {
     return useFetch<GiftListResponse>('/api/gifts', { key: useWeddingScopedKey('gifts') })
+  }
+
+  /** O dinheiro que entrou, nos dois recortes — a tela de Recebidos. */
+  function listReceived() {
+    return useFetch<GiftReceivedResponse>('/api/gifts/received', {
+      key: useWeddingScopedKey('gifts-received'),
+    })
   }
 
   async function createGift(input: GiftInput): Promise<Gift> {
@@ -57,5 +107,5 @@ export function useGifts() {
     return $fetch<{ id: string }>(`/api/gifts/${id}`, { method: 'DELETE' })
   }
 
-  return { listGifts, createGift, updateGift, deleteGift }
+  return { listGifts, listReceived, createGift, updateGift, deleteGift }
 }

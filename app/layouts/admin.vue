@@ -244,6 +244,22 @@ const menuExpandeNoHover = computed(() => uiStore.menuDaSecaoRecolhido && !hover
       <AdminPrimaryNav :itens="navPrimaria" class="mx-auto shrink-0" />
 
       <div class="ml-auto flex shrink-0 items-center gap-2 lg:ml-0 lg:gap-3">
+        <!--
+          A busca do painel — convidado, convite, grupo e, desde a Fase E, as
+          seções de Configurações.
+
+          Ela esteve no cabeçalho até o #99 (o admin em módulos), e saiu de
+          carona naquela reestruturação: o componente continuou no repositório,
+          mantido, e sem nenhuma tela que o montasse. `admin-nav.spec.ts` passou
+          a exigir este ponto de montagem, porque a perda foi muda — nada
+          quebra quando uma busca deixa de existir, ela só não está mais lá.
+
+          Só a partir de `xl`: abaixo disso ela disputaria a largura com a nav
+          primária, e quem navega no celular tem o índice de assuntos e o menu
+          da seção.
+        -->
+        <AdminGlobalSearch class="hidden xl:block xl:w-64" />
+
         <!-- Reabre a explicação da tela atual. Só aparece onde existe uma:
              um "?" que não responde nada é pior que nenhum. -->
         <button
