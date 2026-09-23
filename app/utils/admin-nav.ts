@@ -77,6 +77,12 @@ const ROTAS_DO_MODULO_CONFIGURACOES = ['/configuracoes', '/cronograma', '/galeri
 const ROTAS_DO_MODULO_FINANCEIRO = ['/financeiro'] as const
 
 /**
+ * Rotas do módulo Presentes. Como no Financeiro, as telas nascem debaixo de um
+ * prefixo comum — nenhuma lista de posse é necessária.
+ */
+const ROTAS_DO_MODULO_PRESENTES = ['/presentes'] as const
+
+/**
  * Rotas do módulo Planejamento. Uma tela só — e por isso ele não tem menu de
  * seção: um eixo, uma vista. A lista existe assim mesmo para que uma segunda
  * tela (se um dia houver outro EIXO, não outro recorte) não precise reescrever
@@ -85,7 +91,7 @@ const ROTAS_DO_MODULO_FINANCEIRO = ['/financeiro'] as const
 const ROTAS_DO_MODULO_PLANEJAMENTO = ['/planejamento'] as const
 
 /**
- * As seções de Configurações, agrupadas pelo assunto que era aba no topo.
+ * As seções de Configurações, agrupadas por assunto — **na ordem de uso**.
  *
  * Vive aqui, e não na página, porque virou navegação: o menu da seção monta a
  * coluna a partir desta lista, e a página lê a MESMA lista para saber qual
@@ -95,57 +101,167 @@ const ROTAS_DO_MODULO_PLANEJAMENTO = ['/planejamento'] as const
  * `id` de cada seção casa 1:1 com o `sectionId` do `AdminSettingsSectionCard`
  * correspondente — é o que faz o item do menu rolar até o cartão certo.
  * Renomear aqui sem renomear no cartão deixa o item sem destino.
+ *
+ * **A ordem é a do uso, não a da construção** (rodada de usabilidade de
+ * 20/09/2026, ponto 22). Era a da construção, e nela "Opções avançadas" e
+ * "Classificação etária" tinham o mesmo destaque de "O evento", que é a
+ * primeira coisa que todo casal preenche. Agora começa no que se usa no
+ * primeiro dia e termina no que se ajusta uma vez.
+ *
+ * **`aba` diz qual FORMULÁRIO é dono da seção**, e é o que permite esta ordem
+ * existir. O endpoint de Configurações substitui a linha inteira do casamento,
+ * então cartões de um mesmo formulário não podem virar assuntos separados com
+ * barras de salvamento próprias — cada salvamento apagaria os campos dos
+ * outros. Com a posse declarada, a ordem do menu deixou de ser refém do
+ * desenho dos formulários: "O evento" e "RSVP e convidados" abrem o mesmo,
+ * cada um mostrando os cartões que lhe pertencem.
+ *
+ * `termos` alimenta a busca do painel, e são os SINÔNIMOS — o rótulo já é
+ * procurado. Quem digita "countdown" está atrás da contagem regressiva.
  */
 export const SETTINGS_ASSUNTOS = [
   {
-    id: 'geral',
-    label: 'Geral',
-    blurb: 'Dados do evento, RSVP e pagamentos.',
+    id: 'evento',
+    label: 'O evento',
+    blurb: 'Nome do casal, data e publicação do site.',
     secoes: [
-      { id: 'evento', label: 'O evento', icon: 'lucide:calendar-heart' },
-      { id: 'rsvp', label: 'RSVP e convidados', icon: 'lucide:mail-check' },
       {
-        id: 'faixas-etarias',
-        label: 'Classificação etária',
-        icon: 'lucide:chart-no-axes-column',
+        id: 'evento',
+        label: 'O evento',
+        icon: 'lucide:calendar-heart',
+        aba: 'geral',
+        termos: ['data', 'horário', 'nome do casal', 'publicar', 'site no ar', 'rascunho'],
       },
-      { id: 'pagamentos', label: 'Pagamentos', icon: 'lucide:credit-card' },
     ],
   },
   {
     id: 'aparencia',
     label: 'Aparência',
-    blurb: 'Fotos, tema e recursos do site.',
+    blurb: 'Fotos, tema e o que o site mostra.',
     secoes: [
-      { id: 'branding', label: 'Branding', icon: 'lucide:image' },
-      { id: 'tema', label: 'Opções de tema', icon: 'lucide:palette' },
-      { id: 'avancado', label: 'Opções avançadas', icon: 'lucide:sliders-horizontal' },
-      { id: 'experiencia', label: 'Experiência', icon: 'lucide:sparkles' },
-      // Chegou na main pelo rebrand do site público (#96), enquanto esta
-      // branch movia a lista para cá — sem esta linha a seção continuaria
-      // existindo no cartão e ficaria sem nenhum caminho até ela.
-      { id: 'ordem', label: 'Ordem das seções', icon: 'lucide:list-ordered' },
+      {
+        id: 'branding',
+        label: 'Branding',
+        icon: 'lucide:image',
+        aba: 'aparencia',
+        termos: ['capa', 'foto', 'imagem', 'monograma', 'logo', 'história', 'dress code'],
+      },
+      {
+        id: 'tema',
+        label: 'Opções de tema',
+        icon: 'lucide:palette',
+        aba: 'aparencia',
+        termos: ['cor', 'cores', 'preset', 'paleta', 'fonte', 'tipografia'],
+      },
+      {
+        id: 'experiencia',
+        label: 'Experiência',
+        icon: 'lucide:sparkles',
+        aba: 'aparencia',
+        termos: ['contagem regressiva', 'countdown', 'atalhos', 'botões da capa', 'hero'],
+      },
+      {
+        id: 'ordem',
+        label: 'Ordem das seções',
+        icon: 'lucide:list-ordered',
+        aba: 'aparencia',
+        termos: ['seções', 'home', 'página inicial', 'ligar', 'desligar', 'esconder'],
+      },
+    ],
+  },
+  {
+    id: 'conteudo',
+    label: 'Conteúdo',
+    blurb: 'Textos exibidos aos convidados.',
+    secoes: [
+      {
+        id: 'mensagens',
+        label: 'Mensagens do site',
+        icon: 'lucide:message-square-text',
+        aba: 'conteudo',
+        termos: ['texto', 'história', 'versículo', 'faq', 'manual', 'dress code', 'presentes'],
+      },
+    ],
+  },
+  {
+    id: 'rsvp',
+    label: 'RSVP e convidados',
+    blurb: 'Regras de confirmação de presença.',
+    secoes: [
+      {
+        id: 'rsvp',
+        label: 'RSVP',
+        icon: 'lucide:mail-check',
+        aba: 'geral',
+        termos: ['prazo', 'confirmação', 'presença', 'lista aberta', 'lista fechada'],
+      },
+      {
+        id: 'faixas-etarias',
+        label: 'Classificação etária',
+        icon: 'lucide:chart-no-axes-column',
+        aba: 'geral',
+        termos: ['idade', 'criança', 'adolescente', 'bebê', 'faixa etária'],
+      },
     ],
   },
   {
     id: 'avisos',
     label: 'Avisos',
     blurb: 'O que a plataforma envia sozinha.',
-    secoes: [{ id: 'avisos', label: 'Avisos automáticos', icon: 'lucide:bell' }],
-  },
-  {
-    id: 'conteudo',
-    label: 'Conteúdo',
-    blurb: 'Textos exibidos aos convidados.',
-    secoes: [{ id: 'mensagens', label: 'Mensagens do site', icon: 'lucide:message-square-text' }],
+    secoes: [
+      {
+        id: 'avisos',
+        label: 'Avisos automáticos',
+        icon: 'lucide:bell',
+        aba: 'avisos',
+        termos: ['lembrete', 'e-mail automático', 'cobrança', 'vencimento'],
+      },
+    ],
   },
   {
     id: 'colaboradores',
     label: 'Colaboradores',
     blurb: 'Quem pode editar este evento.',
     secoes: [
-      { id: 'convidar', label: 'Convidar', icon: 'lucide:user-plus' },
-      { id: 'acessos', label: 'Quem tem acesso', icon: 'lucide:users' },
+      {
+        id: 'convidar',
+        label: 'Convidar',
+        icon: 'lucide:user-plus',
+        aba: 'colaboradores',
+        termos: ['adicionar pessoa', 'assessoria', 'cerimonialista', 'permissão', 'papel'],
+      },
+      {
+        id: 'acessos',
+        label: 'Quem tem acesso',
+        icon: 'lucide:users',
+        aba: 'colaboradores',
+        termos: ['membros', 'remover acesso', 'dono', 'planejador'],
+      },
+    ],
+  },
+  // O que se configura uma vez e quase nunca se revisita. Não é "escondido":
+  // esconder metade das opções atrás de um botão trocaria um problema de
+  // tamanho por um de descoberta, e a decisão de ser completo em personalização
+  // está tomada (CLAUDE.md, seção 13). É só o fim da fila.
+  {
+    id: 'avancado',
+    label: 'Avançado',
+    blurb: 'Ajuste fino do tema, e recebimento online.',
+    secoes: [
+      {
+        id: 'avancado',
+        label: 'Opções avançadas',
+        icon: 'lucide:sliders-horizontal',
+        aba: 'aparencia',
+        termos: ['cor personalizada', 'ornamento', 'moldura', 'título', 'corpo', 'hex'],
+      },
+      {
+        id: 'pagamentos',
+        label: 'Presentes e pagamentos',
+        icon: 'lucide:credit-card',
+        aba: 'geral',
+        termos: ['infinitepay', 'pix', 'cartão', 'receber', 'handle', 'presente físico'],
+      },
     ],
   },
   // O único assunto que NÃO é do evento: é a conta de quem está olhando, e
@@ -155,7 +271,15 @@ export const SETTINGS_ASSUNTOS = [
     id: 'conta',
     label: 'Sua conta',
     blurb: 'Seu acesso à plataforma.',
-    secoes: [{ id: 'senha', label: 'Senha', icon: 'lucide:lock' }],
+    secoes: [
+      {
+        id: 'senha',
+        label: 'Senha',
+        icon: 'lucide:lock',
+        aba: 'conta',
+        termos: ['trocar senha', 'redefinir', 'login', 'acesso'],
+      },
+    ],
   },
 ] as const
 
@@ -170,6 +294,36 @@ export function assuntoDaSecao(secao: string | null | undefined) {
     SETTINGS_ASSUNTOS.find((assunto) => assunto.secoes.some((s) => s.id === secao)) ??
     SETTINGS_ASSUNTOS[0]
   )
+}
+
+/** Todas as seções, em ordem — a lista que a busca e o índice percorrem. */
+export const SETTINGS_SECOES = SETTINGS_ASSUNTOS.flatMap((assunto) =>
+  assunto.secoes.map((secao) => ({ ...secao, assunto })),
+)
+
+export type SettingsAbaId = (typeof SETTINGS_SECOES)[number]['aba']
+
+/**
+ * Qual formulário desenha a seção pedida.
+ *
+ * É a SEÇÃO que decide, e não o assunto: "Avançado" reúne uma seção do tema e
+ * uma do evento, que vivem em formulários diferentes. Com o assunto decidindo,
+ * um dos dois cartões ficaria sem tela.
+ */
+export function abaDaSecao(secao: string | null | undefined): SettingsAbaId {
+  return SETTINGS_SECOES.find((s) => s.id === secao)?.aba ?? SETTINGS_SECOES[0]!.aba
+}
+
+/**
+ * As seções que a tela mostra: as do assunto pedido que pertencem ao mesmo
+ * formulário. O resto do assunto (quando ele atravessa formulários) continua no
+ * menu, e cada item leva à própria tela.
+ */
+export function secoesVisiveis(secao: string | null | undefined): string[] {
+  const aba = abaDaSecao(secao)
+  return assuntoDaSecao(secao)
+    .secoes.filter((s) => s.aba === aba)
+    .map((s) => s.id)
 }
 
 /**
@@ -210,7 +364,12 @@ export function adminPrimaryNav(slug: string): AdminNavItem[] {
     // a barra mostra quatro destinos, e a escolha é entre um módulo que se
     // configura uma vez e depois só se acompanha e o que responde "o que eu
     // faço hoje". No desktop nada sai — a nav do cabeçalho comporta seis.
-    { to: `${base}/presentes`, label: 'Presentes', icon: 'lucide:gift' },
+    {
+      to: `${base}/presentes`,
+      label: 'Presentes',
+      icon: 'lucide:gift',
+      tambemDonoDe: ROTAS_DO_MODULO_PRESENTES.map((rota) => `${base}${rota}`),
+    },
     // Cronograma e Galeria também perdem aba própria: são telas do módulo
     // Configurações (o casal preparando o que o convidado vai ver).
     {
@@ -354,6 +513,42 @@ export function adminSectionMenu(slug: string, path: string): AdminMenuGroup[] {
             to: `${base}/financeiro/pagamentos`,
             label: 'Pagamentos',
             icon: 'lucide:calendar-clock',
+          },
+        ],
+      },
+    ]
+  }
+
+  if (ROTAS_DO_MODULO_PRESENTES.some((rota) => path.startsWith(`${base}${rota}`))) {
+    return [
+      // Três itens, pelo mesmo critério que o Financeiro usa para admitir tela
+      // nova: eixo novo ou agregação. A lista é o OBJETO; Recebidos é o
+      // dinheiro (outro eixo, e somado); "No site" é o que o convidado vê.
+      //
+      // Não existe tela de Categorias, como não existe no Financeiro: categoria
+      // é atributo do presente, então ela é filtro na lista e ordenação em "No
+      // site" — os dois lugares onde ela significa algo.
+      {
+        label: 'Presentes',
+        itens: [
+          {
+            to: `${base}/presentes`,
+            label: 'Lista',
+            icon: 'lucide:gift',
+            exact: true,
+          },
+          {
+            to: `${base}/presentes/recebidos`,
+            label: 'Recebidos',
+            icon: 'lucide:hand-coins',
+          },
+          // Uma palavra e meia, como os vizinhos: "Como aparece no site" é a
+          // PERGUNTA, e ela é o título da tela — na coluna ela truncaria, que
+          // é o corte medido no ponto 11.
+          {
+            to: `${base}/presentes/site`,
+            label: 'No site',
+            icon: 'lucide:eye',
           },
         ],
       },

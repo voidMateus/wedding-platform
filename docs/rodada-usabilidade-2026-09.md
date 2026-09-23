@@ -425,6 +425,16 @@ toast. A rota ficou **fora** de `weddings/` porque ali ela casaria com o mesmo p
 tipada de `/api/platform/weddings/${id}`, e o `updateWedding` do client passava a ser tipado
 como rota só de GET.
 
+**A regra é mais estreita do que esta frase sugeria, e foi medida em 23/09/2026** (Fase E, ao
+criar `/api/gifts/received` ao lado de `/api/gifts/[id]`): o que a rota literal irmã constrange
+é a chamada que **não passa genérico explícito**. `usePlatformOverview` chama
+`$fetch(...)` sem genérico, e por isso quebrou; `useGifts` chama `$fetch<Gift>(...)`, e aí a
+inferência de método pela tabela de rotas nem acontece. Reproduzido nos dois sentidos — um
+arquivo literal temporário sob `weddings/` derruba o typecheck hoje, e o mesmo desenho sob
+`gifts/` passa. Ou seja: a colisão é real, mas o que a torna visível é o estilo da chamada, e
+uma rota irmã "silenciosa" pode virar erro de compilação quando alguém remover um genérico —
+alto e claro, nunca em silêncio.
+
 As duas metades falham em silêncio — sugestão que não dispara deixa o campo como era, e
 conferência que não chega ao servidor deixa a tela dizendo "livre" sobre endereço tomado —,
 então o teste é de ponta a ponta (`tests/e2e/criar-casamento.spec.ts`), com um casamento real
@@ -1118,7 +1128,14 @@ não existe componente de tooltip no design system, então cada caso viraria uma
 
 Duas telas que cresceram além do formato em que nasceram.
 
-### E1 · Ponto 21 — Presentes sem menu de seção
+**Progresso** — branch `feature/rodada-usabilidade-fase-e`, iniciada em 23/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| E1 | 21 | Presentes sem menu de seção | ✅ concluído |
+| E2 | 22 | Configurações grandes demais | ✅ concluído |
+
+### E1 · Ponto 21 — Presentes sem menu de seção ✅
 
 **Diagnóstico.** `app/utils/admin-nav.ts:204`: Presentes é um destino simples da nav primária,
 e `adminSectionMenu()` não tem um ramo para ele — por isso a coluna não aparece. A tela única
@@ -1138,7 +1155,30 @@ promovido a tela (o erro que o Financeiro já corrigiu ao sair de quatro telas p
 - Sem tela de categorias: assim como no Financeiro, categoria é atributo. Se a agregação por
   categoria provar valor depois, entra pelo mesmo critério de Categorias no Financeiro.
 
-### E2 · Ponto 22 — Configurações grandes demais
+**Concluído em 23/09/2026.** Os três destinos são **Lista**, **Recebidos** e **No site** — e os
+rótulos são curtos pelo motivo do ponto 11: "Como aparece no site" é a PERGUNTA, e ela é o
+título da tela; na coluna ela truncaria. O teste de medição (`scrollWidth > clientWidth`) que
+nasceu no Financeiro passou a cobrir esta coluna também.
+
+**Recebidos** é `GET /api/gifts/received`, e responde nos dois recortes que o casal usa: por
+presente (o que rendeu) e por quem presenteou (a quem agradecer). O que ele muda de fato é a
+falha de pagamento: era um contador no topo da lista — o casal lia "2" e não tinha para onde ir
+—, e agora é a linha com presente, nome, telefone, valor e motivo. Ela aparece **antes** dos
+recortes de dinheiro, porque é a única coisa da tela que pede ação.
+
+**Reserva sem pagamento entra com zero.** Quem reservou um presente físico para comprar e levar
+não mandou dinheiro, então não soma no total — mas continua na lista de quem presenteou, porque
+a pergunta "a quem agradecer" não distingue os dois. Dizer "R$ 0,00" ali seria dizer que a
+pessoa não deu nada; a célula diz "presente reservado".
+
+**"Como aparece no site"** junta o que estava em três lugares que não se conversavam: o estado
+de publicação (Configurações), o texto de abertura (Mensagens do site) e as categorias (um modal
+da lista). Ela **não é dona de nenhum campo** — a mesma regra do wizard de Primeiros passos: o
+texto se edita onde sempre se editou e o botão leva até lá. O que se edita aqui é o que só existe
+aqui (a ordem das categorias) e o atalho legítimo de devolver um presente à lista, que é a mesma
+coluna `esta_ativo` do formulário.
+
+### E2 · Ponto 22 — Configurações grandes demais ✅
 
 **Diagnóstico.** `SETTINGS_ASSUNTOS` (`app/utils/admin-nav.ts:99-151`) tem 5 assuntos e 13
 seções — e a ordem atual é a ordem em que foram construídas, não a ordem em que o casal
@@ -1159,6 +1199,33 @@ em vez de tentar encolher a tela.
 - **Sem separar em "básico/avançado"**: a decisão de ser completo em personalização está
   tomada (`CLAUDE.md` seção 13), e esconder metade das opções atrás de um botão troca um
   problema de tamanho por um de descoberta.
+
+**Concluído em 23/09/2026.** A ordem passou a ser O evento → Aparência → Conteúdo → RSVP e
+convidados → Avisos → Colaboradores → Avançado → Sua conta, e um teste a fixa: ela é uma
+decisão, e sem o teste o próximo assunto entra no fim sem ninguém reparar que a régua era outra.
+"Opções avançadas" e "Classificação etária", que o diagnóstico apontava com o mesmo destaque de
+"O evento", desceram — a primeira para o assunto Avançado, a segunda para RSVP e convidados.
+
+**O que destravou a reordenação foi declarar a posse.** O endpoint de Configurações substitui a
+linha inteira do casamento, então os cartões de um mesmo formulário não podiam virar assuntos
+separados com barras de salvamento próprias — cada salvamento apagaria os campos dos outros, que
+é a armadilha que o comentário de `weddingSettingsSchema` já descrevia. Cada seção passou a
+declarar `aba` (qual formulário a desenha), a página escolhe o formulário pela SEÇÃO (e não pelo
+assunto, porque "Avançado" atravessa dois), e cada tela mostra só os cartões daquele assunto que
+aquele formulário possui. O ramo da página é por aba, e não por assunto, para que trocar entre
+"O evento" e "RSVP e convidados" não remonte o componente e perca o que estiver editado.
+
+Duas varreduras guardam o que antes era só comentário: toda seção precisa ter o cartão
+correspondente em algum formulário (`section-id`), e toda `aba` declarada precisa ter um ramo na
+página — sem elas, renomear uma das duas pontas deixa o item do menu levando a lugar nenhum, em
+silêncio, porque `scrollIntoView` num elemento inexistente não é erro.
+
+**A busca é resolvida no navegador**, ao contrário da de convidados: seção de configuração é
+catálogo estático que já está no bundle, e mandá-lo ao servidor custaria uma viagem de rede para
+comparar strings que o navegador tem na mão. Cada seção carrega `termos` — os sinônimos, não o
+rótulo, que já é procurado —, e é isso que faz "countdown" e "contagem" chegarem em
+"Experiência", que é o caso exato do relatório. O limite de quatro resultados existe para que
+uma consulta curta não empurre convidados e convites para fora da lista.
 
 ---
 

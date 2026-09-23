@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   QUERY_SECAO_CONFIGURACOES,
@@ -57,7 +59,7 @@ describe('nav primária do admin', () => {
   })
 
   // Uma tela, um eixo: sem menu de seção, a coluna não existe e o conteúdo fica
-  // com a largura toda — como já acontece em Presentes.
+  // com a largura toda. Presentes era o outro caso assim até 23/09/2026.
   it('Planejamento não desenha menu de seção', () => {
     expect(adminSectionMenu(SLUG, `${BASE}/planejamento`)).toEqual([])
   })
@@ -83,6 +85,21 @@ describe('nav primária do admin', () => {
   })
 })
 
+/**
+ * A busca do painel esteve no cabeçalho até o PR #99 (o admin em módulos), e
+ * saiu de carona naquela reestruturação: o componente continuou no
+ * repositório, mantido, e sem nenhuma tela que o montasse — ninguém percebeu
+ * por semanas, porque a perda de uma busca é muda. Ela não quebra nada; só
+ * deixa de estar lá.
+ */
+describe('cabeçalho do admin', () => {
+  it('monta a busca do painel', () => {
+    const layout = readFileSync(join(process.cwd(), 'app', 'layouts', 'admin.vue'), 'utf8')
+
+    expect(layout).toContain('<AdminGlobalSearch')
+  })
+})
+
 describe('menu da seção', () => {
   it.each(['/convidados', '/convidados/lista', '/grupos', '/convites'])(
     'desenha a coluna do módulo em %s',
@@ -92,7 +109,37 @@ describe('menu da seção', () => {
   )
 
   it('não desenha coluna onde a seção não tem menu', () => {
-    expect(adminSectionMenu(SLUG, `${BASE}/presentes`)).toEqual([])
+    expect(adminSectionMenu(SLUG, `${BASE}/planejamento`)).toEqual([])
+  })
+
+  /**
+   * Presentes ganhou menu de seção na Fase E (ponto 21), e os três itens são
+   * os três critérios que o projeto aceita: o OBJETO, outro EIXO sobre ele e o
+   * lado de fora. Não existe item de Categorias, como não existe no
+   * Financeiro — categoria é atributo, então ela é filtro e ordenação.
+   */
+  it('desenha os três destinos de Presentes, sem tela de categorias', () => {
+    const grupos = adminSectionMenu(SLUG, `${BASE}/presentes`)
+
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0]?.itens.map((i) => i.label)).toEqual(['Lista', 'Recebidos', 'No site'])
+    expect(grupos[0]?.itens.map((i) => i.label)).not.toContain('Categorias')
+  })
+
+  it.each(['/presentes', '/presentes/recebidos', '/presentes/site'])(
+    'acende Presentes em %s',
+    (caminho) => {
+      expect(ehItemAtivo(itemPrimario('Presentes'), rota(`${BASE}${caminho}`))).toBe(true)
+    },
+  )
+
+  // `exact` na Lista: sem ele, ela ficaria acesa junto de Recebidos e "No
+  // site", que são filhas do mesmo prefixo.
+  it('a Lista só acende na própria tela', () => {
+    const lista = adminSectionMenu(SLUG, `${BASE}/presentes`)[0]?.itens[0]
+
+    expect(ehItemAtivo(lista!, rota(`${BASE}/presentes`))).toBe(true)
+    expect(ehItemAtivo(lista!, rota(`${BASE}/presentes/recebidos`))).toBe(false)
   })
 
   it('leva Convites para Gerenciar, junto de Grupos', () => {
@@ -250,13 +297,15 @@ describe('menu da seção de Configurações', () => {
   })
 
   // Cada seção tem query própria, então o item aceso é exatamente um — se a
-  // query fosse do assunto, os quatro itens de Geral acenderiam juntos.
+  // query fosse do assunto, os dois itens de "RSVP e convidados" acenderiam
+  // juntos. Varre o menu INTEIRO, e não um grupo: o que se afirma é que um só
+  // item acende em toda a coluna.
   it('acende só a seção pedida, não o assunto inteiro', () => {
-    const geral = adminSectionMenu(SLUG, `${BASE}/configuracoes`)[0]!
+    const itens = adminSectionMenu(SLUG, `${BASE}/configuracoes`).flatMap((g) => g.itens)
     const naFaixa = rota(`${BASE}/configuracoes`, {
       [QUERY_SECAO_CONFIGURACOES]: 'faixas-etarias',
     })
-    const acesos = geral.itens.filter((item) => ehItemAtivo(item, naFaixa))
+    const acesos = itens.filter((item) => ehItemAtivo(item, naFaixa))
 
     expect(acesos.map((i) => i.label)).toEqual(['Classificação etária'])
   })
@@ -269,7 +318,7 @@ describe('menu da seção de Configurações', () => {
 
 describe('assuntoDaSecao', () => {
   it('acha o assunto que contém a seção', () => {
-    expect(assuntoDaSecao('faixas-etarias').id).toBe('geral')
+    expect(assuntoDaSecao('faixas-etarias').id).toBe('rsvp')
     expect(assuntoDaSecao('tema').id).toBe('aparencia')
     expect(assuntoDaSecao('acessos').id).toBe('colaboradores')
   })

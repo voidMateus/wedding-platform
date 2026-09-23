@@ -66,7 +66,7 @@ onMounted(() => {
       v-model="query"
       icon="lucide:search"
       tone="muted"
-      placeholder="Buscar convidado ou convite..."
+      placeholder="Buscar convidado, convite ou ajuste..."
       class="[&_input]:pr-16"
       @focus="isOpen = results.length > 0"
     />

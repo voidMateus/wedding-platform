@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import { toTypedSchema } from '@vee-validate/zod'
-import { useForm } from 'vee-validate'
-import { giftCategoryInputSchema } from '#shared/schemas/gift-categories'
 import { gerarCsvPresentes, nomeDoArquivoDePresentes } from '#shared/utils/exportacao-presentes'
-import { formatCentsToBRL, formatCentsToBRLOrDash } from '#shared/utils/format-currency'
-import type { GiftCategory } from '~/types/gift-category'
+import { formatCentsToBRLOrDash } from '#shared/utils/format-currency'
 import type { Gift } from '~/types/gift'
 import type { AdminTableColumn } from '~/types/table'
 import type { ClientColumn } from '~/utils/table-rows'
@@ -12,9 +8,10 @@ import type { GiftReservationsView } from '~/types/gift-public'
 
 definePageMeta({ layout: 'admin' })
 
-const { listGiftCategories, createGiftCategory, updateGiftCategory, deleteGiftCategory } =
-  useGiftCategories()
-const { data: categoriesData, refresh: refreshCategories } = listGiftCategories()
+// As categorias chegam aqui só para NOMEAR e FILTRAR: elas se cadastram e se
+// ordenam em "Como aparece no site", que é onde a ordem delas significa algo.
+const { listGiftCategories } = useGiftCategories()
+const { data: categoriesData } = listGiftCategories()
 
 const { listGifts, deleteGift } = useGifts()
 const {
@@ -137,21 +134,6 @@ const totalLabel = computed(() => {
   return `${total} ${total === 1 ? 'item' : 'itens'} na lista`
 })
 
-const paymentMetrics = computed(() => {
-  const summary = giftsData.value?.paymentsSummary
-  if (!summary) return []
-  return [
-    { label: 'Arrecadado online', value: formatCentsToBRL(summary.confirmedTotalCents) },
-    {
-      label: 'Pagamentos com falha',
-      value: summary.failedCount,
-      // danger, não highlight: é o único lugar do sistema que é literalmente
-      // uma falha exigindo ação manual do casal.
-      tone: summary.failedCount > 0 ? ('danger' as const) : undefined,
-    },
-  ]
-})
-
 // Cota mostra a meta; presente físico, o preço. A ordenação por valor usa o
 // mesmo número que a coluna exibe, senão ordenaria por um valor invisível.
 function priceCents(gift: Gift): number | null {
@@ -191,83 +173,6 @@ function exportarPresentes() {
   )
 
   baixarArquivo(csv, nomeDoArquivoDePresentes(new Date()))
-}
-
-// --- categorias (CRUD compacto) ---
-
-const isCategoriesModalOpen = ref(false)
-const isEditingCategory = ref(false)
-const categoryErrorMessage = ref<string | null>(null)
-const editingCategory = ref<GiftCategory | null>(null)
-
-const {
-  handleSubmit: handleCategorySubmit,
-  defineField: defineCategoryField,
-  errors: categoryErrors,
-  resetForm: resetCategoryForm,
-  isSubmitting: isCategorySubmitting,
-} = useForm({
-  validationSchema: toTypedSchema(giftCategoryInputSchema),
-  initialValues: { nome: '', ordemExibicao: 0 },
-})
-
-const [categoryName_, categoryNameAttrs] = defineCategoryField('nome')
-const [categoryDisplayOrder] = defineCategoryField('ordemExibicao')
-void categoryNameAttrs
-
-const categoryDisplayOrderText = computed({
-  get: () => (categoryDisplayOrder.value === undefined ? '' : String(categoryDisplayOrder.value)),
-  set: (value: string) => {
-    categoryDisplayOrder.value = value === '' ? undefined : Number(value)
-  },
-})
-
-function startCreatingCategory() {
-  editingCategory.value = null
-  categoryErrorMessage.value = null
-  const nextOrder = (categoriesData.value?.data.length ?? 0) + 1
-  resetCategoryForm({ values: { nome: '', ordemExibicao: nextOrder } })
-  isEditingCategory.value = true
-}
-
-function startEditingCategory(category: GiftCategory) {
-  editingCategory.value = category
-  categoryErrorMessage.value = null
-  resetCategoryForm({ values: { nome: category.nome, ordemExibicao: category.ordem_exibicao } })
-  isEditingCategory.value = true
-}
-
-function cancelCategoryForm() {
-  isEditingCategory.value = false
-  editingCategory.value = null
-  categoryErrorMessage.value = null
-}
-
-const onCategorySubmit = handleCategorySubmit(async (values) => {
-  categoryErrorMessage.value = null
-  try {
-    if (editingCategory.value) {
-      await updateGiftCategory(editingCategory.value.id, values)
-    } else {
-      await createGiftCategory(values)
-    }
-    // Fecha só o formulário, não o modal: quem abriu "Categorias" quase sempre
-    // vai cadastrar mais de uma de uma vez.
-    isEditingCategory.value = false
-    editingCategory.value = null
-    await refreshCategories()
-  } catch {
-    categoryErrorMessage.value = 'Não foi possível salvar a categoria.'
-  }
-})
-
-async function handleDeleteCategory(category: GiftCategory) {
-  try {
-    await deleteGiftCategory(category.id)
-    await refreshCategories()
-  } catch {
-    // silencioso: falha de exclusão de categoria não bloqueia o restante da tela
-  }
 }
 
 // --- presentes ---
@@ -322,18 +227,6 @@ async function confirmDelete() {
       </UiButton>
     </template>
 
-    <div v-if="paymentMetrics.length" class="flex flex-col gap-2">
-      <AdminMetricStrip :metrics="paymentMetrics" />
-      <p
-        v-if="giftsData?.paymentsSummary.failedCount"
-        class="px-1 text-xs text-text-muted"
-        role="alert"
-      >
-        Convidado pagou, mas não foi possível reservar/registrar automaticamente — veja "Ver
-        reservas" do presente correspondente.
-      </p>
-    </div>
-
     <AdminPanel title="Lista de presentes" :meta="`${visibleGifts.length} exibidos`">
       <template #headerActions>
         <AdminTableFilterBar
@@ -341,12 +234,6 @@ async function confirmDelete() {
           :filters="filters"
           group-label="Filtros da lista de presentes"
         />
-        <UiButton size="sm" variant="ghost" @click="isCategoriesModalOpen = true">
-          Categorias
-          <span v-if="categoriesData?.data.length" class="num">
-            ({{ categoriesData.data.length }})
-          </span>
-        </UiButton>
       </template>
 
       <div v-if="giftsStatus === 'pending'" class="flex flex-col gap-2 p-4 sm:p-5">
@@ -476,69 +363,6 @@ async function confirmDelete() {
          da lista de presentes (opcional, mexida de vez em quando), então não
          merece um painel permanente competindo com a lista. E modal sobre
          modal (lista abrindo um formulário) empilha foco e ESC. -->
-    <UiModal
-      v-model="isCategoriesModalOpen"
-      title="Categorias"
-      description="Agrupam os presentes na lista do site. Opcionais."
-    >
-      <div class="flex flex-col gap-4">
-        <div v-if="categoriesData?.data.length" class="flex flex-wrap gap-2">
-          <UiChip
-            v-for="category in categoriesData.data"
-            :key="category.id"
-            :label="category.nome"
-            removable
-            @remove="handleDeleteCategory(category)"
-          >
-            <template #actions>
-              <button
-                type="button"
-                class="text-text-muted transition-brand hover:text-text"
-                :aria-label="`Editar categoria ${category.nome}`"
-                @click="startEditingCategory(category)"
-              >
-                <Icon name="lucide:pencil" class="h-3 w-3" />
-              </button>
-            </template>
-          </UiChip>
-        </div>
-        <p v-else class="text-sm text-text-muted">Nenhuma categoria cadastrada ainda.</p>
-
-        <form
-          v-if="isEditingCategory"
-          class="flex flex-col gap-3 border-t border-border pt-4"
-          @submit="onCategorySubmit"
-        >
-          <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-            {{ editingCategory ? 'Editar categoria' : 'Nova categoria' }}
-          </p>
-          <UiInput v-model="categoryName_" label="Nome" :error="categoryErrors.nome" />
-          <UiInput
-            v-model="categoryDisplayOrderText"
-            type="number"
-            label="Ordem de exibição"
-            :error="categoryErrors.ordemExibicao"
-          />
-          <p v-if="categoryErrorMessage" class="text-sm text-danger" role="alert">
-            {{ categoryErrorMessage }}
-          </p>
-          <div class="flex justify-end gap-2">
-            <UiButton type="button" size="sm" variant="ghost" @click="cancelCategoryForm">
-              Cancelar
-            </UiButton>
-            <UiButton type="submit" size="sm" :disabled="isCategorySubmitting">Salvar</UiButton>
-          </div>
-        </form>
-
-        <div v-else>
-          <UiButton size="sm" variant="ghost" @click="startCreatingCategory">
-            <Icon name="lucide:plus" class="h-4 w-4" />
-            Nova categoria
-          </UiButton>
-        </div>
-      </div>
-    </UiModal>
-
     <AdminGiftsAdminGiftFormModal
       v-model="isGiftModalOpen"
       :gift="editingGift"
