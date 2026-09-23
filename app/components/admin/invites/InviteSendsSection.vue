@@ -20,6 +20,7 @@ import {
 } from '#shared/utils/modelo-comunicacao'
 import type { CanalComunicacao, TipoComunicacao } from '#shared/utils/modelo-comunicacao'
 import { formatDatePtBR } from '#shared/utils/format-date'
+import { diaLocal, instanteDoEnvio } from '#shared/utils/data-de-envio'
 import type { InviteDetail } from '~/types/invite'
 
 interface Props {
@@ -41,6 +42,18 @@ const isBusy = ref(false)
 const registrando = ref(false)
 const tipo = ref<TipoComunicacao>('convite')
 const canal = ref<CanalComunicacao>('outro')
+/**
+ * Vazio significa agora. O campo existe porque o envio registrado depois do
+ * fato é o caso comum aqui — o casal abre a ficha para anotar o que entregou
+ * ontem (rodada de usabilidade de 20/09/2026, ponto 24).
+ */
+const dia = ref('')
+
+const hoje = diaLocal()
+
+const erroDaData = computed(() =>
+  dia.value && dia.value > hoje ? 'O envio não pode estar no futuro.' : undefined,
+)
 
 const opcoesDeTipo = TIPOS_COMUNICACAO.map((valor) => ({
   value: valor,
@@ -48,10 +61,11 @@ const opcoesDeTipo = TIPOS_COMUNICACAO.map((valor) => ({
 }))
 
 /**
- * O canal `email` fica de fora daqui: a plataforma ainda não manda e-mail, e
- * oferecer o valor faria o casal registrar um envio que nunca aconteceu por
- * este caminho. WhatsApp aparece porque a tela de Comunicações grava por lá —
- * aqui ele é o registro de "mandei por fora, pelo meu WhatsApp".
+ * O canal `email` fica de fora daqui — e o motivo mudou desde que a plataforma
+ * passou a mandar e-mail de verdade: hoje um registro manual de `email`
+ * nasceria indistinguível de um envio do sistema e, pela regra de remoção (só
+ * canal `outro` se apaga), o casal não conseguiria desfazê-lo. WhatsApp
+ * aparece porque aqui ele é o registro de "mandei por fora, pelo meu WhatsApp".
  */
 const opcoesDeCanal = CANAIS_COMUNICACAO.filter((valor) => valor !== 'email').map((valor) => ({
   value: valor,
@@ -65,8 +79,14 @@ function rotuloDoEnvio(envio: InviteDetail['envios'][number]): string {
 async function confirmarRegistro() {
   isBusy.value = true
   try {
-    await registrarEnvio({ conviteId: props.inviteId, tipo: tipo.value, canal: canal.value })
+    await registrarEnvio({
+      conviteId: props.inviteId,
+      tipo: tipo.value,
+      canal: canal.value,
+      enviadoEm: instanteDoEnvio(dia.value),
+    })
     registrando.value = false
+    dia.value = ''
     toast.success('Envio registrado.')
     emit('changed')
   } catch (err) {
@@ -119,7 +139,17 @@ async function desfazer(id: string) {
     >
       <UiSelect v-model="tipo" label="O que" :options="opcoesDeTipo" class="w-40" />
       <UiSelect v-model="canal" label="Por onde" :options="opcoesDeCanal" class="w-36" />
-      <UiButton size="sm" :disabled="isBusy" @click="confirmarRegistro">Registrar</UiButton>
+      <UiDatePicker
+        v-model="dia"
+        label="Quando"
+        clearable
+        placeholder="Agora"
+        :error="erroDaData"
+        class="w-44"
+      />
+      <UiButton size="sm" :disabled="isBusy || Boolean(erroDaData)" @click="confirmarRegistro">
+        Registrar
+      </UiButton>
       <UiButton size="sm" variant="ghost" :disabled="isBusy" @click="registrando = false">
         Cancelar
       </UiButton>

@@ -367,6 +367,19 @@ const onSubmit = handleSubmit(
       title="Ordem das seções"
       description="A sequência dos capítulos da página inicial do site, e quais deles aparecem."
     >
+      <!-- O combo vem ANTES da lista: quem chega aqui sem saber o que ligar
+           precisa de um ponto de partida, e quem já sabe ignora e usa a lista. -->
+      <AdminSettingsSaveTheDateCombo
+        :ativas="activeSections ?? []"
+        :contagem-ligada="showCountdown ?? true"
+        @aplicar="
+          (payload) => {
+            activeSections = payload.secoes
+            if (payload.ligarContagem) showCountdown = true
+          }
+        "
+      />
+
       <AdminSettingsSectionOrderField
         :model-value="sectionOrder ?? []"
         :active="activeSections ?? []"

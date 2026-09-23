@@ -59,6 +59,49 @@ const faltamDoTipo = computed(
   () => linhas.value.filter((linha) => !linha.envios[tipoEmEnvio.value]).length,
 )
 
+/**
+ * Quem ainda não tem registro do tipo em envio — a fila, e ela é DERIVADA.
+ *
+ * Nada é salvo: fechar a fila não perde nada e reabrir recalcula do zero. Um
+ * estado salvo precisaria ser reconciliado toda vez que um envio acontecesse
+ * por outro caminho (pela linha da tabela, pela ficha do convite).
+ */
+const pendentesDoTipo = computed(() =>
+  linhas.value.filter((linha) => !linha.envios[tipoEmEnvio.value]),
+)
+
+const filaAberta = ref(false)
+/** Congelado na abertura: o denominador não pode encolher junto com a fila. */
+const totalDaFila = ref(0)
+
+function abrirFila() {
+  totalDaFila.value = pendentesDoTipo.value.length
+  filaAberta.value = true
+}
+
+const linhaEmRegistro = ref<LinhaDeComunicacao | null>(null)
+
+function abrirRegistro(linha: LinhaDeComunicacao) {
+  linhaEmRegistro.value = linha
+}
+
+/**
+ * As ações que não cabem no botão principal da linha.
+ *
+ * "Abrir convite" existe porque a tela mandava sem nunca deixar VER: o casal
+ * não tinha como conferir o que o convidado recebe sem sair da lista e
+ * procurar o convite (rodada de usabilidade de 20/09/2026, ponto 24).
+ */
+const ACOES_DA_LINHA = [
+  { key: 'registrar', label: 'Registrar com data…', icon: 'lucide:calendar-check' },
+  { key: 'abrir', label: 'Abrir convite', icon: 'lucide:external-link' },
+] as const
+
+function executarAcao(chave: string, linha: LinhaDeComunicacao) {
+  if (chave === 'registrar') return abrirRegistro(linha)
+  if (chave === 'abrir') return navigateTo(`/admin/${slug}/convites/${linha.id}`)
+}
+
 /** Quantos não dá para alcançar pelo canal de agora — o número muda com ele. */
 const semContato = computed(() =>
   canalEmEnvio.value === 'email' ? (resumo.value?.semEmail ?? 0) : (resumo.value?.semTelefone ?? 0),
@@ -259,6 +302,15 @@ const linkParaAvisos = `/admin/${slug}/configuracoes?secao=avisos`
           aria-label="O que você está enviando"
           class="w-44"
         />
+        <!-- A fila não manda nada sozinha: ela dá ORDEM a uma sessão de
+             oitenta convites, um gesto humano por vez. Disparo em massa exige
+             a API oficial do WhatsApp Business, que é decisão comercial e está
+             fora desta fase, nomeada no plano. -->
+        <UiButton v-if="pendentesDoTipo.length" size="sm" @click="abrirFila">
+          <Icon name="lucide:list-checks" class="h-4 w-4" />
+          Enviar para os que faltam
+          <span class="num">({{ pendentesDoTipo.length }})</span>
+        </UiButton>
       </template>
 
       <div v-if="isFirstLoad" class="flex flex-col gap-2 p-4 sm:p-5">
@@ -303,9 +355,16 @@ const linkParaAvisos = `/admin/${slug}/configuracoes?secao=avisos`
             <span v-if="temContato(row, canalEmEnvio)" class="text-text-muted">
               {{ row.responsavel?.nomeCompleto ?? '—' }}
             </span>
-            <span v-else class="text-warning">
+            <!-- Não é estado terminal: o que falta é um dado que se completa
+                 na ficha do convite, e o link leva direto até ela. Antes, a
+                 palavra ficava ali sem dizer o que fazer com ela. -->
+            <NuxtLink
+              v-else
+              :to="`/admin/${slug}/convites/${row.id}`"
+              class="text-warning underline-offset-4 hover:underline"
+            >
               {{ canalEmEnvio === 'email' ? 'Sem e-mail' : 'Sem telefone' }}
-            </span>
+            </NuxtLink>
           </template>
 
           <template v-for="tipo in TIPOS_COMUNICACAO" :key="tipo" #[`cell-${tipo}`]="{ row }">
@@ -352,6 +411,11 @@ const linkParaAvisos = `/admin/${slug}/configuracoes?secao=avisos`
               <Icon name="lucide:check" class="h-4 w-4" />
               Registrar
             </UiButton>
+            <AdminRowMenu
+              :items="ACOES_DA_LINHA"
+              :label="`Ações de ${row.nome}`"
+              @select="(chave) => executarAcao(chave, row)"
+            />
           </template>
 
           <template #stacked="{ row }">
@@ -383,6 +447,31 @@ const linkParaAvisos = `/admin/${slug}/configuracoes?secao=avisos`
       v-if="isTemplatesOpen"
       :open="isTemplatesOpen"
       @close="isTemplatesOpen = false"
+    />
+
+    <AdminCommunicationsRegisterSendModal
+      v-if="linhaEmRegistro"
+      :open="Boolean(linhaEmRegistro)"
+      :convite-id="linhaEmRegistro.id"
+      :nome="linhaEmRegistro.nome"
+      :tipo-inicial="tipoEmEnvio"
+      :convidado-id="linhaEmRegistro.responsavel?.id ?? null"
+      @close="linhaEmRegistro = null"
+      @registered="refresh()"
+    />
+
+    <AdminCommunicationsSendQueueModal
+      v-if="filaAberta"
+      :open="filaAberta"
+      :pendentes="pendentesDoTipo"
+      :total-inicial="totalDaFila"
+      :tipo="tipoEmEnvio"
+      :canal="canalEmEnvio"
+      :ocupado="Boolean(enviandoId)"
+      :tem-contato="(linha) => temContato(linha, canalEmEnvio)"
+      @close="filaAberta = false"
+      @enviar="enviarDaLinha"
+      @registrar="registrarPorFora"
     />
   </AdminSection>
 </template>

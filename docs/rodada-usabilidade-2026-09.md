@@ -1253,7 +1253,16 @@ uma consulta curta não empurre convidados e convites para fora da lista.
 
 O fluxo por onde o produto começou, revisto com o que aprendemos depois.
 
-### F1 · Ponto 24 — registrar envio sem opções, e o convite que não abre
+**Progresso** — branch `feature/rodada-usabilidade-fase-f`, iniciada em 23/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| F1 | 24 | Registrar envio sem opções, e o convite que não abre | ✅ concluído |
+| F2 | 25 | A tela de confirmação precisa ser revista | ✅ concluído |
+| F3 | 28 | O site como Save the Date | ✅ concluído |
+| F4 | 29 | Responsividade em telas menores de desktop | ✅ concluído — sem defeito objetivo; um achado entregue ao dono |
+
+### F1 · Ponto 24 — registrar envio sem opções, e o convite que não abre ✅
 
 **Diagnóstico.** `app/pages/admin/[slug]/comunicacoes/index.vue:155`: `registrarPorFora()`
 grava canal `outro` com a data de agora, sem perguntar nada. A modal com canal, tipo e data
@@ -1290,7 +1299,25 @@ API oficial do WhatsApp Business: conta verificada, templates aprovados pela Met
 conversa iniciada. Fica registrado aqui como trabalho nomeado, não como acabamento pendente —
 e depende de billing existir para fazer sentido no preço.
 
-### F2 · Ponto 25 — a tela de confirmação precisa ser revista
+**Concluído em 23/09/2026.** O conflito que este item escondia: o endpoint de registro recusava
+data do client **de propósito**, com o motivo escrito no arquivo — um envio datado no futuro
+entraria no funil como se já tivesse acontecido. O risco era só do FUTURO, então a data passou a
+ser aceita **só para trás**, com o futuro barrado no schema e também na tela (o `UiDatePicker`
+não tem limite máximo, e sem a checagem local o engano viraria erro de servidor).
+
+`instanteDoEnvio` é compartilhado entre as duas telas que registram e guarda as duas decisões
+que não podem divergir: **meio-dia e não meia-noite** (à meia-noite, o dia 20 em Brasília é o dia
+19 em UTC) e **"hoje" devolvendo `undefined`**, para o `now()` do banco responder.
+
+A fila é **derivada** de quem não tem registro, nunca salva: fechar não perde nada e reabrir
+recalcula. Um estado salvo precisaria ser reconciliado toda vez que um envio acontecesse por
+outro caminho.
+
+A ficha do convite **não** ganhou a modal: ela registra inline porque o detalhe do convite já é
+um modal, e empilhar diálogo sobre diálogo embaralha foco e ESC — decisão que já estava escrita
+ali. Ela ganhou o mesmo campo de data.
+
+### F2 · Ponto 25 — a tela de confirmação precisa ser revista ✅
 
 **Diagnóstico.** `app/components/rsvp/RsvpInviteFlow.vue`: no celular, os pares de botões
 (Estarei lá / Não poderei ir) empilham por pessoa e o "Revisar e enviar" fica logo abaixo — o
@@ -1310,7 +1337,23 @@ etárias, núcleos e mesas existirem.
   (`prazo_rsvp`) explicado quando estiver perto de vencer.
 - Alvos de toque e contraste conferidos com a suíte de acessibilidade que já existe.
 
-### F3 · Ponto 28 — o site como Save the Date
+**Concluído em 23/09/2026**, com duas diferenças em relação ao escopo escrito.
+
+**O passo a passo vale em TODAS as larguras**, não só no celular. Duas formas de interação para
+o mesmo fluxo exigiriam escolher por largura de tela: ou renderizando as duas (peso dobrado na
+tela mais crítica do produto) ou decidindo no cliente, que sob SSR diverge entre as duas
+passagens de render. A etapa de revisão devolve a visão de conjunto que a lista dava.
+
+**Restrição alimentar não entrou**, embora o escopo a liste: ela saiu da API em 2026-09-04 e não
+existe mais no produto. O item foi escrito olhando a tela, não o schema — reinventar o campo
+criaria dado que nenhum endpoint recebe.
+
+Responder avança sozinho e a última resposta cai direto na revisão. O avanço acontece **antes**
+de a rede responder: a resposta já está na tela, e segurar o passo faria o convidado tocar duas
+vezes num 3G ruim, que é exatamente onde esta tela é usada. O núcleo de Acompanhantes não se
+perdeu na troca — virou a linha "Convidado com Fulano e Sicrano".
+
+### F3 · Ponto 28 — o site como Save the Date ✅
 
 **Diagnóstico.** Com cronograma, contagem regressiva e capa, o site já serve de Save the Date
 — mas só se o casal souber montar isso sozinho, ligando as seções certas em
@@ -1330,7 +1373,21 @@ valor ao produto, então merece nome, não uma dica.
 - **Sem seção nova no catálogo:** o preset combina o que existe. Seção nova entraria pela
   regra de `home-sections.ts`, e este ponto não pede nenhuma.
 
-### F4 · Ponto 29 — responsividade em telas menores de desktop
+**Concluído em 23/09/2026.** O combo **não é um preset de tema**: `THEME_PRESETS` decide cor e
+tipografia, e misturar "quais seções aparecem" ali faria trocar de paleta mexer no conteúdo do
+site. Ele **só acrescenta** — quem já tinha "Nossa História" ligada não a perde por pedir um save
+the date —, e a prévia diz também o que NÃO muda, porque sem essa linha "aplicar" parece que pode
+desligar o que já está ligado.
+
+A oferta aparece no Início quando o site está publicado, a lista está vazia e a data passa de 120
+dias. Ela é **oferta, não passo**: não entra no roteiro de Primeiros passos, que é o básico do
+básico e se marca sozinho — escolha que não se faz não é pendência.
+
+O **Open Graph já cumpria** o que o item pedia, e isso foi conferido em vez de reescrito:
+`useWeddingSeo` monta título com os nomes, descrição com data e local, e capa recortada em
+1200x630 — omitida quando a URL não é absoluta, para não mandar prévia quebrada.
+
+### F4 · Ponto 29 — responsividade em telas menores de desktop ✅
 
 **Diagnóstico.** O site público foi construído para celular e para desktop largo. Entre os
 dois — notebooks de 13", janelas não maximizadas, ~1024-1280px — o relatório descreve "pouco
@@ -1346,6 +1403,21 @@ conteúdo disputam largura.
 - Mesma varredura no painel, com atenção à faixa em que o menu de seção recolhe.
 - Fixar os pontos de controle em teste visual para não regredir — a suíte E2E já roda
   contra o build de produção.
+
+**Concluído em 23/09/2026 — e a varredura não achou defeito objetivo.**
+`tests/e2e/larguras-intermediarias.spec.ts` mede **estouro horizontal** nas quatro larguras, no
+site público e em quatro telas do painel, sobre o pior caso real: as onze seções ligadas (elas
+nascem desligadas, então varrer a capa não prova nada) e um nome de casal comprido, que é o que
+decide se o `<h1>` cabe. Oito casos, todos verdes.
+
+**O que a medição achou, e que não foi consertado:** a tipografia do site tem **um único degrau**,
+em 640px. De 768 a 1920 o `<h1>` da capa fica em 72px e os títulos de seção em 36px, sem mudar —
+a faixa intermediária não está especialmente abandonada, ela herda o layout de 768 e o estica.
+
+Isso ficou como **achado entregue ao dono do produto**, não como correção silenciosa: aumentar o
+`<h1>` introduz risco de estouro no elemento mais visível do produto ("Maria Fernanda
+Albuquerque" a 96px passa de 1024px), e a escala atual é escolha editorial deliberada. É decisão
+de identidade visual, agora com dado para embasá-la.
 
 ---
 

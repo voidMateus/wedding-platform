@@ -14,9 +14,11 @@ import { ROTULOS_TIPO_COMUNICACAO } from '#shared/utils/modelo-comunicacao'
  * funil nunca exigiu jornada digital (docs/PRODUCT.md 5.1). É também o canal
  * que preserva o gesto do "Marcar como enviado" de antes.
  *
- * A data é sempre `now()` (default da coluna): quem registra está dizendo
- * "mandei agora", e aceitar uma data do client abriria a porta para um envio
- * datado no futuro entrar no funil como se já tivesse acontecido.
+ * A data pode vir do client, e só para TRÁS: o convite entregue na mão no
+ * domingo e registrado na segunda precisa entrar no funil com a data do
+ * domingo, senão o "faz quanto tempo" do estágio "enviado" mente. Data no
+ * futuro continua recusada, pelo schema — era esse o risco que a regra
+ * anterior (sempre `now()`) evitava, e ele segue evitado.
  */
 export default defineEventHandler(async (event) => {
   const { weddingId, memberId } = await requireWeddingContext(event)
@@ -46,6 +48,9 @@ export default defineEventHandler(async (event) => {
       convidado_id: input.convidadoId ?? null,
       canal: input.canal,
       tipo: input.tipo,
+      // Ausente deixa o default da coluna (`now()`) responder — que é o caso
+      // normal, de quem acabou de mandar.
+      ...(input.enviadoEm ? { enviado_em: input.enviadoEm } : {}),
       registrado_por: memberId,
     })
     .select('id, tipo, canal, enviado_em')
@@ -69,7 +74,15 @@ export default defineEventHandler(async (event) => {
     entityId: data.id,
     // Sem telefone nem nome: dado pessoal não vai para log em texto pleno
     // (CLAUDE.md, seção 11). O que aconteceu e com qual convite bastam.
-    metadata: { inviteId: input.conviteId, tipo: input.tipo, canal: input.canal },
+    // `retroativo` porque a trilha precisa distinguir "registrou o que acabou
+    // de fazer" de "anotou depois": as duas coisas são legítimas, e só a
+    // segunda explica um envio que aparece com data anterior ao registro.
+    metadata: {
+      inviteId: input.conviteId,
+      tipo: input.tipo,
+      canal: input.canal,
+      retroativo: Boolean(input.enviadoEm),
+    },
   })
 
   return {
