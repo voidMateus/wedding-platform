@@ -934,7 +934,43 @@ e quanto falta, e quando" não está em nenhum lugar de forma direta.
 Três pedidos que, tratados como lista de textos, viram 40 implementações diferentes. Tratados
 como sistema, são um mecanismo e um catálogo.
 
-### D1 · Ponto 8 — ajuda por tela, no primeiro acesso
+**Progresso** — branch `feature/rodada-usabilidade-fase-c`, continuada em 22/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| D1 | 8 | Ajuda por tela, no primeiro acesso | ✅ concluído |
+| D2 | 9 | Modelo padrão de tarefas, organizado em meses | ⏳ |
+| D3 | 12 | Tooltips onde fazem falta | ⏳ |
+
+### D1 · Ponto 8 — ajuda por tela, no primeiro acesso ✅
+
+**Concluído em 22/09/2026.** `shared/ajuda-de-tela.ts` é o catálogo — treze telas, e as **mesmas
+três perguntas** em todas: o que esta tela responde, o que dá para fazer aqui, por onde começar.
+Escrito tela a tela, o formato divergiria no terceiro item e ninguém perceberia; por isso um
+catálogo, pelo mesmo motivo de `home-sections.ts`.
+
+O bloco vive no **layout**, não no `AdminSection`: seis páginas do painel montam o próprio
+cabeçalho e não passam por ele — Convidados entre elas, que é uma das telas que o ponto nomeia.
+O layout é o único ponto por onde toda tela passa, e é o que impede a próxima de nascer sem
+explicação. Tela fora do catálogo não desenha nada.
+
+**"Visto" é da pessoa, e vem num cookie.** Atravessa a troca de casamento de propósito (a
+exceção que o CLAUDE.md seção 12 descreve): quem já leu o que é Mesas não releia ao abrir o
+segundo evento. Cookie e não `localStorage` porque o painel é renderizado no servidor — com
+storage do navegador o bloco apareceria na primeira pintura para quem já o dispensou, e sumiria
+depois da hidratação: um piscar por tela visitada.
+
+O "?" do cabeçalho reabre a ajuda da tela atual, e só aparece onde existe uma — um ponto de
+interrogação que não responde nada é pior que nenhum. Reabrir **não** desfaz o "visto":
+é consulta pontual, e gravar faria o bloco voltar sozinho na próxima visita.
+
+**Um efeito colateral que virou decisão de suíte.** O texto da ajuda usa o mesmo vocabulário da
+tela de propósito, e isso fez um `getByText('Falta acomodar')` em Mesas casar com duas coisas.
+A correção não foi no locator: a suíte inteira passou a rodar com a ajuda **já dispensada**
+(`storageState` no `playwright.config.ts`), porque deixar trinta specs dependendo de um banner de
+primeira visita é tratar como cenário o que é acidente. Quem exercita a primeira visita é
+`tests/e2e/ajuda-de-tela.spec.ts`, que limpa o cookie — e cobre o ciclo inteiro: aparece,
+dispensa, sobrevive ao recarregar, não contamina a tela vizinha, e volta pelo "?".
 
 **Diagnóstico.** O Início tem acolhimento (o roteiro de Primeiros passos) e o Financeiro tem
 estado vazio bem escrito. Fora isso, quem abre Convidados, Mesas, Comunicações ou Presentes

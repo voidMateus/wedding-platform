@@ -26,6 +26,20 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    /**
+     * A ajuda de tela já dispensada, para toda a suíte.
+     *
+     * O bloco de `shared/ajuda-de-tela.ts` aparece na primeira visita a cada
+     * tela, e o texto dele usa o mesmo vocabulário da tela de propósito — foi
+     * assim que um `getByText('Falta acomodar')` em Mesas passou a casar com
+     * duas coisas. Deixar trinta specs dependendo de um banner de primeira
+     * visita é tratar como cenário o que é acidente.
+     *
+     * Aqui, e não no helper de login: metade dos specs faz o próprio
+     * `goto('/login')`, e um helper só alcançaria a outra metade. Quem exercita
+     * a primeira visita é `ajuda-de-tela.spec.ts`, que limpa o cookie.
+     */
+    storageState: './tests/e2e/support/ajuda-vista.json',
   },
   projects: [
     {

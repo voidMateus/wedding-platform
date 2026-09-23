@@ -62,11 +62,17 @@ function tituloDoPlanejamento(page: import('@playwright/test').Page) {
  * gasto só planejado sai sem pergunta, com o desfazer no toast.
  */
 async function excluirPelaLinha(page: import('@playwright/test').Page, nome: string) {
-  await page
-    .getByRole('button', { name: `Ações de ${nome}` })
-    .first()
-    .click()
-  await page.getByRole('menuitem', { name: 'Excluir' }).click()
+  // `toPass` pela corrida de hidratação de sempre: a página vem do servidor e o
+  // gatilho do menu existe antes de o Vue anexar o handler — um clique nessa
+  // janela não abre nada, e a espera pelo item seguinte estoura o teste inteiro.
+  await expect(async () => {
+    await page
+      .getByRole('button', { name: `Ações de ${nome}` })
+      .first()
+      .click({ timeout: 3_000 })
+    await page.getByRole('menuitem', { name: 'Excluir' }).click({ timeout: 3_000 })
+  }).toPass({ timeout: 30_000 })
+
   await expect(page.getByLabel(`Nome do gasto ${nome}`)).toBeHidden({ timeout: 20_000 })
 }
 

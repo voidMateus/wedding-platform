@@ -1,10 +1,9 @@
 <!--
-  Fornecedores — uma tela de LEITURA, e só.
+  Fornecedores — quem vai atender o casamento.
 
-  A decisão original do módulo continua valendo para o cadastro: fornecedor não
-  tem casa própria, ele nasce dentro da ficha do gasto que disputa, e é isso que
-  garante que nenhuma cotação exista órfã e que todo gasto tenha onde pendurar a
-  primeira proposta. Criar daqui reabriria a porta do fornecedor sem gasto.
+  A ficha do gasto continua sendo onde o fornecedor NASCE: ele é uma proposta
+  dentro do gasto que disputa, e é isso que garante que nenhuma cotação exista
+  órfã e que todo gasto tenha onde pendurar a primeira.
 
   O que essa decisão não previu foi um caso de uso de LEITURA que o relatório
   trouxe (rodada de usabilidade de 20/09/2026, ponto 18): **passar a lista para
