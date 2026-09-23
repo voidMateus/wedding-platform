@@ -60,10 +60,17 @@ export default defineNuxtPlugin({
 
     // --- ponte do formato antigo de link de e-mail ---
     //
-    // O pedido do link deixou de usar PKCE (`server/utils/link-de-acesso.ts`),
-    // e enquanto os templates do Auth não forem trocados nos três ambientes o
-    // `{{ .ConfirmationURL }}` devolve a sessão do jeito antigo: os tokens no
-    // FRAGMENTO da URL (`#access_token=...&refresh_token=...`).
+    // O pedido do link deixou de usar PKCE (`server/utils/link-de-acesso.ts`).
+    // Com o template antigo, o `{{ .ConfirmationURL }}` devolvia a sessão do
+    // jeito antigo: os tokens no FRAGMENTO da URL
+    // (`#access_token=...&refresh_token=...`).
+    //
+    // **Os dois projetos publicaram os templates novos em 23/09/2026**
+    // (`supabase/templates/README.md`), então nenhum link NOVO chega assim. O
+    // que esta ponte ainda cobre é o que já estava numa caixa de entrada antes
+    // disso — e link de e-mail é OTP, com validade curta (Authentication →
+    // Providers → Email → Email OTP Expiration). Passada essa janela, ela pode
+    // sair inteira, junto do `emailRedirectTo` de `/api/auth/magic-link`.
     //
     // Este client não aceita esse formato, e não avisa. `createBrowserClient`
     // do `@supabase/ssr` fixa `flowType: 'pkce'`, e o `_getSessionFromURL` do
