@@ -25,7 +25,7 @@
  * Gerar: `node scripts/templates-de-email.mjs`
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const PRODUTO = 'MeuSiteCasamento'
@@ -60,6 +60,15 @@ function linkDeAcesso(tipo) {
 /**
  * As quatro mensagens. Cada uma responde três coisas na ordem em que quem lê
  * pergunta: o que é isto, por que chegou para mim, e o que fazer agora.
+ *
+ * `tipo` e `campoDaApi` são parecidos e NÃO são a mesma coisa: o primeiro é o
+ * `type` do OTP, que vai no link e diz ao `/auth/confirmar` o que verificar; o
+ * segundo é o nome do campo na Management API, que
+ * `publicar-templates-de-email.mjs` usa para escrever no projeto. Eles
+ * divergem em dois dos quatro (`magiclink`/`magic_link`, `signup`/
+ * `confirmation`), então derivar um do outro funcionaria em metade do catálogo
+ * — e a metade que falha grava a recuperação de senha no lugar do convite, sem
+ * nada acusar.
  */
 export const TEMPLATES = {
   convite: {
@@ -73,6 +82,7 @@ export const TEMPLATES = {
     ],
     botao: 'Definir minha senha',
     tipo: 'invite',
+    campoDaApi: 'invite',
     rodape: `Você recebeu este e-mail porque o seu endereço foi cadastrado como responsável por um casamento no ${PRODUTO}.`,
   },
 
@@ -86,6 +96,7 @@ export const TEMPLATES = {
     ],
     botao: 'Entrar',
     tipo: 'magiclink',
+    campoDaApi: 'magic_link',
     rodape:
       'Se não foi você quem pediu este link, pode ignorar este e-mail — nada acontece até alguém clicar nele.',
   },
@@ -100,6 +111,7 @@ export const TEMPLATES = {
     ],
     botao: 'Redefinir minha senha',
     tipo: 'recovery',
+    campoDaApi: 'recovery',
     rodape:
       'Se não foi você quem pediu, pode ignorar este e-mail — sua senha atual continua valendo.',
   },
@@ -114,6 +126,7 @@ export const TEMPLATES = {
     ],
     botao: 'Confirmar meu e-mail',
     tipo: 'signup',
+    campoDaApi: 'confirmation',
     rodape: 'Se não foi você quem criou esta conta, pode ignorar este e-mail.',
   },
 }
@@ -181,7 +194,11 @@ export function montarTemplatesDeEmail() {
 
 const ESTE_ARQUIVO = fileURLToPath(import.meta.url)
 
-if (process.argv[1] && process.argv[1].endsWith('templates-de-email.mjs')) {
+// Caminho INTEIRO, nunca `endsWith`: o sufixo casa com qualquer nome que termine
+// nele, e `publicar-templates-de-email.mjs` termina — importar o publicador
+// reescrevia os quatro arquivos de template como efeito colateral, o que se viu
+// no primeiro uso real dele.
+if (process.argv[1] && resolve(process.argv[1]) === ESTE_ARQUIVO) {
   const destino = join(dirname(ESTE_ARQUIVO), '..', 'supabase', 'templates')
   mkdirSync(destino, { recursive: true })
 
