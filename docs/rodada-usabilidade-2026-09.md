@@ -707,7 +707,7 @@ primeiro uso já tem um caminho melhor: o estado vazio.
 - Conferir que o nome novo cabe no menu recolhido e na barra de abas do celular; se não
   couber inteiro, o menu abrevia e o título da tela carrega a frase completa.
 
-### C3 · Ponto 11 — nome de categoria não cabe ✅
+### C3 · Ponto 11 — nome de categoria não cabe ✅ (reaberto e refeito em 23/09)
 
 **Concluído em 22/09/2026.** A largura saiu de 176px para 224px, e o número não foi escolhido
 no olho: medido no navegador, "Cerimônia e assessoria" e "Papelaria e lembranças" pedem 152px de
@@ -1219,6 +1219,26 @@ Duas varreduras guardam o que antes era só comentário: toda seção precisa te
 correspondente em algum formulário (`section-id`), e toda `aba` declarada precisa ter um ramo na
 página — sem elas, renomear uma das duas pontas deixa o item do menu levando a lugar nenhum, em
 silêncio, porque `scrollIntoView` num elemento inexistente não é erro.
+
+**O ponto 11 voltou por causa desta fase, e a régua não pegou.** Cinco rótulos renomeados aqui
+nasceram cortados na coluna ("Classificação etária", "Avisos automáticos", "Opções avançadas",
+"Mensagens do site", "Presentes e pagamentos"), e quem viu foi o dono do produto, não o teste.
+Duas causas, as duas corrigidas em `fix/rotulos-do-menu-da-secao`:
+
+- **A régua media o elemento errado.** Ela rodava a 640px, largura em que a coluna não existe —
+  ali o menu é a fileira rolável do celular, que não tem `truncate`, e sem `truncate` o
+  `scrollWidth` empata com o `clientWidth`. O teste passava sempre. O novo mede na largura em que
+  a coluna existe, varre os QUATRO módulos e exige que o que ele mediu carregue a classe que
+  corta: uma régua que não pode falhar não é uma régua.
+- **A largura dependia da máquina.** O Chrome do Windows desenha barra de rolagem clássica, que
+  come ~15px do conteúdo; o Chromium headless desenha barra sobreposta, que não come nada. A
+  caixa media 135px na medição e 120px na tela de quem usa — e os cinco cortados eram exatamente
+  os que passavam de 120px. `scrollbar-gutter: stable` no menu aberto tornou a caixa a mesma em
+  toda máquina, e a menor das duas.
+
+Os rótulos novos são de uma ou duas palavras, como no Financeiro, e o nome inteiro segue no
+título do cartão. "Faixas etárias" é o que o menu de Convidados já usava para essa mesma seção:
+eram dois nomes para o mesmo destino.
 
 **A busca é resolvida no navegador**, ao contrário da de convidados: seção de configuração é
 catálogo estático que já está no bundle, e mandá-lo ao servidor custaria uma viagem de rede para

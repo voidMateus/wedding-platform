@@ -104,14 +104,14 @@ describe('busca de configurações', () => {
 
   it('acha pelo rótulo e pelo sinônimo', () => {
     expect(buscar('branding')).toContain('Branding')
-    expect(buscar('pix')).toContain('Presentes e pagamentos')
+    expect(buscar('pix')).toContain('Pagamentos')
     expect(buscar('cerimonialista')).toContain('Convidar')
   })
 
   /** Quem digita depressa não digita acento. */
   it('ignora acento dos dois lados', () => {
-    expect(buscar('secoes')).toContain('Ordem das seções')
-    expect(buscar('versiculo')).toContain('Mensagens do site')
+    expect(buscar('secoes')).toContain('Seções da home')
+    expect(buscar('versiculo')).toContain('Mensagens')
   })
 
   it('devolve o endereço da própria seção', () => {

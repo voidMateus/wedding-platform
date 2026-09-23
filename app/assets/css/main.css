@@ -229,6 +229,22 @@
 }
 
 @layer utilities {
+  /* Reserva a calha da barra de rolagem SEMPRE, role ou não.
+
+     Sem isto, a largura útil de um contêiner rolável depende do navegador: o
+     Chrome do Windows desenha barra clássica, que COME ~15px do conteúdo; o
+     Chromium headless (e o macOS) desenha barra sobreposta, que não come nada.
+     A mesma tela cabe numa máquina e corta na outra, e o teste que mede o
+     corte mede a versão que não corta.
+
+     Foi assim que cinco rótulos do menu de Configurações apareceram truncados
+     na tela do dono do produto enquanto a medição automatizada via 135px de
+     caixa e aprovava tudo (23/09/2026). Com a calha reservada, a caixa é a
+     mesma em toda máquina — e é a menor das duas, que é a que precisa caber. */
+  .rolagem-estavel {
+    scrollbar-gutter: stable;
+  }
+
   .transition-brand {
     transition-duration: var(--transition-duration);
     transition-timing-function: var(--transition-easing);
