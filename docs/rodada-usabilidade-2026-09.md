@@ -1028,6 +1028,17 @@ intenção.
 O catálogo já tinha as 49 tarefas e as fases em meses desde a Fase 3 — não foi preciso
 acrescentar nenhuma para o modelo ser um cronograma de verdade.
 
+**Dois ajustes que vieram do uso, no mesmo dia:**
+
+- **O painel do Início passou a cobrar o MÊS**, não os próximos 7 dias. Sete dias era um
+  recorte que o Planejamento nem agrupa mais desde a troca de régua — o painel cobrava uma
+  urgência que a tela não sabia mostrar. A métrica do topo da própria tela seguiu junto. O
+  número sai do **prazo**, e não de uma janela: nenhuma delas corresponde a "os próximos
+  trinta dias".
+- **Recolher e expandir tudo**, como em Pagamentos. Com dez faixas de meses, percorrer a lista
+  sem atalho custa uma rolagem longa. Isso exigiu tirar o "aberto" de dentro de cada grupo e
+  dá-lo à página: dez componentes com dez refs próprios não têm como ser alcançados juntos.
+
 **Diagnóstico.** `app/pages/admin/[slug]/planejamento/index.vue` abre com a checklist vazia por
 decisão registrada, e oferece sugestões no rodapé de cada janela. O relatório diz que, na
 prática, o casal "cai aqui perdido demais" e cita o concorrente que entrega um cronograma

@@ -150,7 +150,7 @@ describe('janelaDaSugestao', () => {
 })
 
 describe('resumoDoPlanejamento', () => {
-  it('conta cada tarefa uma vez, na janela dela', () => {
+  it('conta cada tarefa uma vez', () => {
     const resumo = resumoDoPlanejamento(
       [tarefa('2026-09-01'), tarefa('2026-09-02'), tarefa(HOJE), tarefa('2027-01-01', true)],
       HOJE,
@@ -158,10 +158,25 @@ describe('resumoDoPlanejamento', () => {
     expect(resumo).toMatchObject({
       total: 4,
       vencidas: 2,
-      estaSemana: 1,
+      noMes: 1,
       concluidas: 1,
       percentualConcluido: 25,
     })
+  })
+
+  /**
+   * A janela de atenção virou o MÊS quando a régua da tela virou a contagem
+   * regressiva (item D2): o painel cobrava sete dias, um recorte que o
+   * Planejamento nem agrupa mais. E `noMes` sai do PRAZO, não de uma janela —
+   * nenhuma delas corresponde a "os próximos trinta dias".
+   */
+  it('a janela de atenção é o mês, e ela inclui a semana', () => {
+    // HOJE é 2026-09-13. 20 dias à frente entra; 31 dias fica de fora.
+    const resumo = resumoDoPlanejamento(
+      [tarefa(HOJE), tarefa('2026-10-03'), tarefa('2026-10-14')],
+      HOJE,
+    )
+    expect(resumo.noMes).toBe(2)
   })
 
   it('lista vazia não produz percentual — indicador sem base é omitido, não zerado', () => {
@@ -181,9 +196,9 @@ describe('destaqueDoPlanejamento', () => {
     expect(destaqueDoPlanejamento(resumo)).toEqual({ tipo: 'vencidas', quantidade: 1 })
   })
 
-  it('sem vencidas, a semana; sem as duas, o progresso', () => {
+  it('sem vencidas, o mês; sem as duas, o progresso', () => {
     expect(destaqueDoPlanejamento(resumoDoPlanejamento([tarefa(HOJE)], HOJE))).toEqual({
-      tipo: 'esta_semana',
+      tipo: 'no_mes',
       quantidade: 1,
     })
     expect(

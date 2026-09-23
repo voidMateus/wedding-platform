@@ -24,8 +24,15 @@ interface Props {
   rotulo: string
   tarefas: readonly Tarefa[]
   sugestoes: readonly TarefaSugerida[]
-  /** Grupos que são histórico ou pano de fundo começam fechados. */
-  recolhidoPorPadrao?: boolean
+  /**
+   * Aberto ou fechado — quem manda é a PÁGINA.
+   *
+   * Era estado interno do grupo, e um "recolher tudo" no cabeçalho não teria
+   * como alcançá-lo: dez componentes com dez refs próprios. A página guarda
+   * quais estão recolhidos, do mesmo jeito que Pagamentos faz com as faixas
+   * dele.
+   */
+  aberto: boolean
   /**
    * Os nomes já usados como responsável em QUALQUER tarefa da checklist — a
    * lista vem da página, não do grupo: quem escreveu "Cerimonial Ana" numa
@@ -41,14 +48,13 @@ const {
   rotulo,
   tarefas,
   sugestoes,
-  recolhidoPorPadrao = false,
   responsaveisConhecidos = [],
 } = defineProps<Props>()
 
+const emit = defineEmits<{ alternar: [] }>()
+
 const toast = useToast()
 const { atualizarTarefa, excluirTarefa, criarTarefaSugerida } = usePlanning()
-
-const aberto = ref(!recolhidoPorPadrao)
 
 /** Quantas sugestões cabem antes de o rodapé virar uma segunda lista. */
 const SUGESTOES_VISIVEIS = 5
@@ -186,7 +192,7 @@ const totalNoGrupo = computed(() => (tarefas.length > 0 ? String(tarefas.length)
       type="button"
       class="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       :aria-expanded="aberto"
-      @click="aberto = !aberto"
+      @click="emit('alternar')"
     >
       <Icon
         :name="aberto ? 'lucide:chevron-down' : 'lucide:chevron-right'"

@@ -60,7 +60,10 @@ test('o cronograma padrão nasce por clique, diz quantas e desfaz', async ({ pag
   // --- as janelas falam em meses antes, não em "próximos 30 dias" ---
   await expect(page.getByText('12 meses antes')).toBeVisible()
   await expect(page.getByText('Semana do casamento')).toBeVisible()
-  await expect(page.getByText('Próximos 30 dias')).toHaveCount(0)
+  // Nenhum GRUPO se chama assim: "Próximos 30 dias" sobrevive como métrica no
+  // topo (a pergunta "o que merece atenção agora?"), mas deixou de ser régua de
+  // agrupamento. O cabeçalho de grupo é um botão; a métrica, não.
+  await expect(page.getByRole('button', { name: /Próximos 30 dias/ })).toHaveCount(0)
 
   const { count: criadas } = await conta.admin
     .from('tarefas')
@@ -68,6 +71,27 @@ test('o cronograma padrão nasce por clique, diz quantas e desfaz', async ({ pag
     .eq('casamento_id', conta.casamentoId)
 
   expect(criadas).toBe(TAREFAS_SUGERIDAS.length)
+
+  // --- recolher tudo fecha os grupos, e expandir devolve ---
+  //
+  // Com dez faixas de meses, percorrer a lista sem um atalho custa uma rolagem
+  // longa — e o botão só existe porque o estado saiu de dentro de cada grupo
+  // para a página: dez refs independentes não têm como ser alcançados juntos.
+  const recolherTudo = page.getByRole('button', { name: 'Recolher tudo' })
+  await expect(recolherTudo).toBeVisible()
+
+  // Uma tarefa do primeiro grupo aberto — o que se recolhe é o conteúdo, e é
+  // ele que precisa sumir. Contar `aria-expanded` pegaria também os controles
+  // da chrome do painel.
+  // O título da tarefa é um CAMPO editável no lugar, não texto: por rótulo.
+  const primeiraTarefa = page.getByLabel(`Tarefa ${TAREFAS_SUGERIDAS[0]!.titulo}`).first()
+  await expect(primeiraTarefa).toBeVisible()
+
+  await recolherTudo.click()
+  await expect(primeiraTarefa).toBeHidden()
+
+  await page.getByRole('button', { name: 'Expandir tudo' }).click()
+  await expect(primeiraTarefa).toBeVisible()
 
   // --- e desfazer devolve a tela ao que era ---
   await page.getByRole('button', { name: 'Desfazer' }).click()

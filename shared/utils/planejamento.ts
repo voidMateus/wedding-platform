@@ -226,7 +226,15 @@ export interface ResumoDoPlanejamento {
   total: number
   concluidas: number
   vencidas: number
-  estaSemana: number
+  /**
+   * Com prazo nos próximos 30 dias — a janela de atenção do painel.
+   *
+   * Eram sete dias, e sete dias deixou de conversar com a tela quando a régua
+   * virou a contagem regressiva em meses (item D2): o painel cobrava uma
+   * urgência que o Planejamento nem agrupa mais. Trinta dias é o recorte que
+   * responde "o que merece atenção agora" na mesma linguagem do módulo.
+   */
+  noMes: number
   /** `null` quando não há nenhuma tarefa — indicador sem base é omitido, nunca exibido como 0%. */
   percentualConcluido: number | null
 }
@@ -237,20 +245,31 @@ export function resumoDoPlanejamento(
 ): ResumoDoPlanejamento {
   let concluidas = 0
   let vencidas = 0
-  let estaSemana = 0
+  let noMes = 0
+
+  // O limite é calculado uma vez: `noMes` sai do PRAZO, e não da janela — desde
+  // o item D2 as janelas medem a distância até o evento, e nenhuma delas
+  // corresponde a "os próximos trinta dias".
+  const limiteDoMes = somarDias(hoje, DIAS_ESTE_MES)
 
   for (const tarefa of tarefas) {
     const janela = janelaDaTarefa(tarefa, hoje)
-    if (janela === 'concluida') concluidas += 1
-    else if (janela === 'vencida') vencidas += 1
-    else if (janela === 'esta_semana') estaSemana += 1
+    if (janela === 'concluida') {
+      concluidas += 1
+      continue
+    }
+    if (janela === 'vencida') {
+      vencidas += 1
+      continue
+    }
+    if (tarefa.prazo && tarefa.prazo <= limiteDoMes) noMes += 1
   }
 
   return {
     total: tarefas.length,
     concluidas,
     vencidas,
-    estaSemana,
+    noMes,
     percentualConcluido:
       tarefas.length === 0 ? null : Math.round((concluidas / tarefas.length) * 100),
   }
@@ -259,21 +278,21 @@ export function resumoDoPlanejamento(
 /**
  * O que o painel mostra do módulo: UM número, o que pede providência hoje.
  *
- * Vencidas primeiro; sem vencidas, as desta semana; sem nenhuma das duas, o
+ * Vencidas primeiro; sem vencidas, as do mês; sem nenhuma das duas, o
  * progresso. Nunca os três — é a mesma regra do alerta do Financeiro, e ela
  * existe porque um painel com quatro números de quatro módulos deixa de ser
  * painel.
  */
 export type DestaqueDoPlanejamento =
   | { tipo: 'vencidas'; quantidade: number }
-  | { tipo: 'esta_semana'; quantidade: number }
+  | { tipo: 'no_mes'; quantidade: number }
   | { tipo: 'progresso'; concluidas: number; total: number }
   | null
 
 export function destaqueDoPlanejamento(resumo: ResumoDoPlanejamento): DestaqueDoPlanejamento {
   if (resumo.total === 0) return null
   if (resumo.vencidas > 0) return { tipo: 'vencidas', quantidade: resumo.vencidas }
-  if (resumo.estaSemana > 0) return { tipo: 'esta_semana', quantidade: resumo.estaSemana }
+  if (resumo.noMes > 0) return { tipo: 'no_mes', quantidade: resumo.noMes }
   return { tipo: 'progresso', concluidas: resumo.concluidas, total: resumo.total }
 }
 

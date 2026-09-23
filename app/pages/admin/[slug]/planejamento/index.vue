@@ -108,9 +108,13 @@ const metrics = computed(() => {
   if (resumo.value.vencidas > 0) {
     itens.push({ label: 'Vencidas', value: resumo.value.vencidas, tone: 'danger' })
   }
+  // "Próximos 30 dias", e não o rótulo de uma janela: desde o item D2 as janelas
+  // medem a distância até o evento, e nenhuma delas é "os próximos trinta dias".
+  // A métrica é do MÊS porque é essa a pergunta de quem abre a tela — a mesma
+  // que o painel do Início passou a responder.
   itens.push({
-    label: ROTULOS_JANELA.esta_semana,
-    value: resumo.value.estaSemana,
+    label: 'Próximos 30 dias',
+    value: resumo.value.noMes,
     tone: 'primary',
   })
   // "1 de 5" sozinho não diz de quê: sugestão não é linha no banco, então o
@@ -130,8 +134,35 @@ const metrics = computed(() => {
  * fases que ficaram para trás para quem chegou tarde — contexto, não pendência;
  * e "Concluídas" é registro.
  */
-function recolhido(janela: JanelaId) {
+function nasceRecolhido(janela: JanelaId) {
   return janela === 'concluida' || janela === 'ja_passou'
+}
+
+/**
+ * Quais grupos estão recolhidos — estado da PÁGINA, não de cada grupo.
+ *
+ * Era um `ref` dentro de cada `PlanningTaskGroup`, e um "recolher tudo" no
+ * cabeçalho não teria como alcançar dez refs independentes. Mesmo desenho das
+ * faixas de Pagamentos.
+ */
+const recolhidos = ref<JanelaId[]>(JANELAS.filter(nasceRecolhido))
+
+function alternarGrupo(janela: JanelaId) {
+  recolhidos.value = recolhidos.value.includes(janela)
+    ? recolhidos.value.filter((atual) => atual !== janela)
+    : [...recolhidos.value, janela]
+}
+
+/**
+ * `every` sobre os grupos VISÍVEIS, e não a contagem crua: grupo vazio não é
+ * desenhado, e comparar tamanhos diria "tudo recolhido" com a tela aberta.
+ */
+const tudoRecolhido = computed(
+  () => grupos.value.length > 0 && grupos.value.every((g) => recolhidos.value.includes(g.janela)),
+)
+
+function alternarTudo() {
+  recolhidos.value = tudoRecolhido.value ? [] : grupos.value.map((g) => g.janela)
 }
 
 const vazio = computed(() => status.value === 'success' && tarefas.value.length === 0)
@@ -180,6 +211,16 @@ async function aplicarModelo() {
     title="Planejamento"
     description="O que falta fazer até o casamento — e o que já passou da hora."
   >
+    <template v-if="!vazio" #actions>
+      <UiButton variant="ghost" @click="alternarTudo">
+        <Icon
+          :name="tudoRecolhido ? 'lucide:unfold-vertical' : 'lucide:fold-vertical'"
+          class="h-4 w-4"
+        />
+        {{ tudoRecolhido ? 'Expandir tudo' : 'Recolher tudo' }}
+      </UiButton>
+    </template>
+
     <div v-if="status === 'pending'" class="flex flex-col gap-5">
       <UiSkeleton class="h-20 w-full" />
       <UiSkeleton class="h-64 w-full" />
@@ -239,7 +280,8 @@ async function aplicarModelo() {
             :tarefas="grupo.tarefas"
             :sugestoes="grupo.sugestoes"
             :responsaveis-conhecidos="responsaveisConhecidos"
-            :recolhido-por-padrao="recolhido(grupo.janela)"
+            :aberto="!recolhidos.includes(grupo.janela)"
+            @alternar="alternarGrupo(grupo.janela)"
           />
         </div>
       </AdminPanel>
