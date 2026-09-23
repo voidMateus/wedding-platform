@@ -1337,21 +1337,72 @@ etárias, núcleos e mesas existirem.
   (`prazo_rsvp`) explicado quando estiver perto de vencer.
 - Alvos de toque e contraste conferidos com a suíte de acessibilidade que já existe.
 
-**Concluído em 23/09/2026**, com duas diferenças em relação ao escopo escrito.
+**Concluído em 23/09/2026 — na segunda tentativa.** A primeira seguiu o escopo escrito ao pé
+da letra (uma pessoa por vez, progresso, etapa de revisão) e foi **recusada pelo dono do produto
+no mesmo dia**. O registro fica aqui porque o erro é instrutivo: o diagnóstico estava certo e o
+remédio, não.
 
-**O passo a passo vale em TODAS as larguras**, não só no celular. Duas formas de interação para
-o mesmo fluxo exigiriam escolher por largura de tela: ou renderizando as duas (peso dobrado na
-tela mais crítica do produto) ou decidindo no cliente, que sob SSR diverge entre as duas
-passagens de render. A etapa de revisão devolve a visão de conjunto que a lista dava.
+**Por que o passo a passo falhou.** Ele foi dimensionado para o convite de seis pessoas, que é o
+caso raro — o convite típico tem uma ou duas. Com duas, o fluxo cobrava **três telas** por duas
+decisões binárias; com uma, exibia uma barra de progresso escrita "1 de 1". Responder ainda
+avançava sozinho, então a tela se mexia a cada toque e ninguém via a própria resposta assentar.
+E a etapa de revisão remontava a lista que a tela já era.
+
+**A causa que explica o resto.** "Estarei lá / Não poderei ir" estava desenhado como dois CTAs.
+No site público o `UiButton` assume `rounded="full"`, que força `!text-xs uppercase
+tracking-[0.16em]` — a identidade de convite de luxo, certa para uma ação decisiva e errada para
+uma ESCOLHA. No celular as duas pílulas ocupavam a largura inteira com um rótulo de 12px dentro,
+e liam como faixa decorativa. Pior: o único sinal de "já respondi" era preenchido vs. contornado,
+exatamente a cor que este ponto mandava não exigir — e a linha "Resposta: Estará lá" que eu
+acrescentei para cumprir o requisito era a **muleta do controle errado**, não um requisito.
+
+**O remédio da segunda tentativa** é trocar o controle, não paginar a lista:
+
+- **Uma tela, com todo mundo**, agrupado por núcleo de Acompanhantes como antes — o agrupamento
+  é o que explica, sem uma linha de texto, por que aquelas pessoas vieram no mesmo convite.
+- **`RsvpAnswerChoice`**: um `RadioGroup` do Reka, com `role="radio"` e `aria-checked`. O estado
+  muda **forma** (disco vazio vira disco preenchido com o ícone), peso e fundo — quem não
+  distingue as cores lê o disco. Fica em `components/rsvp/` e não em `components/ui/`: o
+  `UiRadioGroup` pinta qualquer seleção na cor primária, e "Não poderei ir" em cor de festa seria
+  mentira visual. Generalizar antes do segundo caso é a abstração especulativa que o CLAUDE.md
+  (seção 5) proíbe.
+- **Sem etapa de revisão e sem avanço automático.** Cada resposta já é gravada no toque
+  (`autosaveGuestStatus`) e o RSVP é editável até o prazo: um portão de confirmação antes de algo
+  já salvo e reversível é cerimônia, não segurança. Gravar sem bloquear continua — era só isso
+  que o 3G ruim pedia; avançar de pessoa nunca fez parte disso.
+- **O envio desabilitado diz por quem falta, pelo nome.** Botão cinza sem motivo é a forma mais
+  comum de alguém achar que a página quebrou.
 
 **Restrição alimentar não entrou**, embora o escopo a liste: ela saiu da API em 2026-09-04 e não
 existe mais no produto. O item foi escrito olhando a tela, não o schema — reinventar o campo
 criaria dado que nenhum endpoint recebe.
 
-Responder avança sozinho e a última resposta cai direto na revisão. O avanço acontece **antes**
-de a rede responder: a resposta já está na tela, e segurar o passo faria o convidado tocar duas
-vezes num 3G ruim, que é exatamente onde esta tela é usada. O núcleo de Acompanhantes não se
-perdeu na troca — virou a linha "Convidado com Fulano e Sicrano".
+**Dois itens do escopo escrito caíram**, e é deliberado: "uma pessoa por vez no celular, com
+progresso visível" e "revisão final ... com caminho de volta para cada pessoa". A revisão passou
+a ser a própria tela, que nunca sai de vista.
+
+**Fora do escopo original, pedidos do dono do produto na recusa:**
+
+- **Textos mais pessoais.** O fecho chama o casal pelo primeiro nome e tem **três versões**,
+  escolhidas pelo resultado — "que alegria, nos vemos lá" para quem acabou de dizer que não pode
+  ir é a plataforma não ter lido a própria resposta, e o convite misto não é nenhum dos dois.
+- **Acesso rápido às informações.** Data, horário e local numa linha antes da pergunta (é o que a
+  pessoa confere para decidir), e os atalhos do resto do site no fim. Os atalhos são **derivados**
+  de `shared/home-sections.ts`, nunca uma lista à mão: manter duas listas em paralelo já produziu
+  oito atalhos para onze seções, com três destinos inalcançáveis e nada acusando a falta.
+- **Oferta de presentear no fim**, quando o casal ligou a seção e a lista não está comprovadamente
+  vazia. Aparece também para quem **não** vai, com outro texto: quem não pode comparecer é
+  justamente quem costuma querer mandar alguma coisa. Nunca é a ação principal da tela.
+
+**Dois defeitos achados no caminho, corrigidos junto:**
+
+1. `PublicMobileCtaBar` aparecia **dentro** da própria página de RSVP, com o rótulo "Confirmar
+   presença" apontando para a página em que a pessoa já estava — link para lugar nenhum, com o
+   mesmo rótulo do envio do formulário e outro significado, comendo a base da tela mais
+   importante do site justamente no celular.
+2. `rsvp/[code].vue` tinha um "Ver lista de presentes" **incondicional**, para `/#presentes`
+   mesmo com a seção desligada — âncora para um trecho que não existe, oferecida antes de a
+   pessoa responder.
 
 ### F3 · Ponto 28 — o site como Save the Date ✅
 
