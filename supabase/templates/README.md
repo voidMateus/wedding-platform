@@ -38,7 +38,7 @@ de Preview da Vercel) e `elatoqglxrpqriqphkjy` (produção). Um projeto com o te
 continua mandando o link no formato antigo, e o produto lida com os dois — mas só até alguém supor
 que a troca foi feita nos dois.
 
-**Estado:** dev publicado em 23/09/2026.
+**Estado:** os dois projetos publicados em 23/09/2026 — dev e produção.
 
 ### À mão, se preciso
 
