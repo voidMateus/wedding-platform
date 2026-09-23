@@ -8,6 +8,7 @@ import {
   descreverLimitesFaixaEtaria,
 } from '#shared/utils/faixa-etaria'
 import type { InviteListItem, InviteStage } from '~/types/invite'
+import { QUERY_SECAO_CONFIGURACOES } from '~/utils/admin-nav'
 
 definePageMeta({ layout: 'admin' })
 
@@ -116,6 +117,38 @@ const valoresDoRoteiro = computed(() => ({
     ? { convidados: `${data.value.people.total} na lista` }
     : {}),
 }))
+
+/**
+ * Quando faz sentido oferecer o Save the Date.
+ *
+ * O site já serve de Save the Date desde que a contagem regressiva e o
+ * cronograma existem — o que faltava era o caminho (rodada de usabilidade de
+ * 20/09/2026, ponto 28). A oferta aparece exatamente para quem está nessa
+ * situação: site no ar, data longe, e ninguém na lista ainda. Quem já tem
+ * convidados está noutro momento, e quem já mandou um save the date não
+ * precisa da dica.
+ *
+ * É uma OFERTA, não um passo: ela não entra no roteiro de Primeiros passos,
+ * que é o básico do básico e se marca sozinho. Save the Date é escolha, e
+ * escolha que não se faz não é pendência.
+ */
+const DIAS_QUE_FAZEM_UM_SAVE_THE_DATE_VALER = 120
+
+const sugereSaveTheDate = computed(() => {
+  const fatos = onboarding.value?.fatos ?? []
+  if (!fatos.includes('site_publicado') || fatos.includes('tem_save_the_date')) return false
+  if (!semNinguemNaLista.value) return false
+
+  const dataEvento = wedding.value?.data_evento
+  if (!dataEvento) return false
+
+  const dias = Math.ceil((new Date(`${dataEvento}T00:00:00`).getTime() - Date.now()) / 86_400_000)
+  return dias > DIAS_QUE_FAZEM_UM_SAVE_THE_DATE_VALER
+})
+
+const enderecoDasSecoes = computed(
+  () => `/admin/${slug}/configuracoes?${QUERY_SECAO_CONFIGURACOES}=ordem`,
+)
 
 // --- alerta do Financeiro ---
 //
@@ -329,6 +362,27 @@ function statusOf(invite: InviteListItem) {
         :destaque="modoAcolhimento"
         :nomes-noivos="wedding?.nomes_noivos ?? ''"
       />
+
+      <!-- A oferta vem depois do roteiro e antes dos relatórios: ela fala de um
+           casamento que ainda não começou a convidar, como o roteiro — e os
+           blocos abaixo falam de um em andamento. -->
+      <AdminPanel v-if="sugereSaveTheDate">
+        <div class="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-7">
+          <div class="flex flex-col gap-1">
+            <p class="font-display text-lg font-semibold text-text">
+              Falta muito — que tal um Save the Date?
+            </p>
+            <p class="max-w-prose text-sm text-text-muted">
+              Seu site já está no ar e ainda não tem convidados. Dá para usá-lo agora só para avisar
+              a data: quem está casando, quanto falta e onde vai ser.
+            </p>
+          </div>
+          <UiButton :to="enderecoDasSecoes" variant="ghost">
+            <Icon name="lucide:calendar-heart" class="h-4 w-4" />
+            Ver como
+          </UiButton>
+        </div>
+      </AdminPanel>
 
       <!-- A contagem é verdadeira com ou sem lista: a data existe desde que o
            casamento nasce. Só sai de cena no acolhimento, onde a tela inteira
