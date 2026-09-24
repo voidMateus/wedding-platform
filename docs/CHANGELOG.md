@@ -10,6 +10,16 @@
 
 Estes achados continuam com uma regra/pointer de uma linha na seção correspondente do CLAUDE.md — aqui fica o relato completo (causa raiz, exploração, correção) para quem quiser o contexto completo.
 
+### Achado: nenhuma tabela declarava GRANT, e o CI escondia isso (2026-09-24)
+
+Aviso da Supabase recebido em 23/09/2026: a partir de **30/10/2026**, tabela nova no schema `public` deixa de ganhar acesso da Data API sozinha — inclusive a criada por migration, em projeto novo, preview branch e `supabase db reset`. Sem GRANT, a API responde 42501.
+
+**O estado do repositório.** As 39 tabelas do schema nasceram sem GRANT em migration nenhuma; todas dependiam do default privilege de fábrica do projeto hospedado. Nada quebra nas existentes — o aviso é explícito sobre isso —, mas a primeira migration de tabela depois de 30/10 criaria uma tabela fechada em dev e prod, e um banco montado só pelas migrations (recuperação de desastre, projeto novo) nasceria com as 39 fechadas.
+
+**E o CI não teria visto.** O Docker local nunca concedeu DML de tabela (achado de 2026-08-24, `docs/PLANO-SAAS.md`), e a correção da época foi um `grant ... on all tables` mais `alter default privileges` em `supabase/seed.sql`. O seed roda no CI e nunca em dev/prod — então uma tabela sem GRANT ganharia acesso exatamente no ambiente que valida, passaria na suíte de integração, e sairia fechada pelo `db push` do `migrate-prod`. A mesma forma de falha de 20260924110001 (EXECUTE de função: o ambiente local e o hospedado concediam coisas diferentes, e a diferença só apareceu quando mordeu), agora com data marcada.
+
+**Correção.** `20260924120001_grants_explicitos_de_tabela.sql` declara, tabela por tabela, o que elas já tinham (DML a `anon`/`authenticated`/`service_role` — no-op em dev/prod, porque GRANT repetido não muda nada). O seed deixou de conceder qualquer coisa, e o stack local passa a ser montado como prod: tabela sem GRANT falha no CI, antes do merge. A regra entrou na seção 10 do CLAUDE.md, com a receita para tabela nova — `anon` só com policy de leitura pública, em vez do DML amplo herdado —, e `tests/unit/server/grants-de-tabela.spec.ts` falha quando uma migration cria tabela sem GRANT, com uma mensagem mais clara que o 42501 de um teste de integração. Estreitar o `anon` das tabelas existentes ficou de fora de propósito: mudaria o comportamento de prod, e o objetivo aqui era só não depender de herança.
+
 ### Medição: a transição por clique no painel, e as três vezes em que a régua mediu nada (2026-09-24)
 
 O ponto 23 da rodada de usabilidade ("o painel demora milissegundos perceptíveis") pedia medir
