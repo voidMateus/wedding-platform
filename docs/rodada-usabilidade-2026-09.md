@@ -1571,7 +1571,41 @@ que também é o caso certo a orçar: o convidado chega pelo WhatsApp, sem cache
 
 ---
 
-## Fase H · Contas e permissões (ponto 2)
+## Fase H · Contas e permissões (ponto 2) ✅
+
+**Concluída em 24/09/2026**, branch `feat/fase-h-contas-e-acessos`. O refinamento e as decisões
+de regra de negócio vivem em `docs/fase6-contas-e-acessos.md`; aqui fica só o que mudou em
+relação ao que este plano previa.
+
+**Metade do escopo previsto já existia.** O relatório de inspeção olhou a TELA e concluiu "não há
+gestão de usuários" — diagnóstico certo, inventário errado. O acesso de suporte pelo painel
+interno já estava construído desde a Fase 5 (rota e interface), e a assessoria já enxerga os
+eventos dela em `/admin`. Sobraram dois assuntos: operadores da plataforma e a consulta
+transversal de acessos.
+
+**A trilha de auditoria não servia, e o plano dizia que sim.** Este documento afirmava "com trilha
+de auditoria (`tipo_autor = 'operador'`, que já existe)". Vale para o que um operador faz DENTRO
+de um casamento; não vale para a gestão de operadores, porque `trilha_auditoria.casamento_id` é
+`not null` e conceder um operador não é evento de casamento nenhum. Nasceu
+`trilha_auditoria_plataforma`, com o precedente de `exclusoes_de_casamento` (que existe pelo mesmo
+motivo, e também denormaliza o que identifica o alvo).
+
+**A trava do último operador é de CORRIDA, não de sequência.** Sequencialmente ela é inalcançável:
+ator e alvo precisam ser operadores distintos, logo já são dois quando a contagem roda. Quem
+garante "sempre sobra alguém" no caminho normal é a proibição de autoalteração. A contagem existe
+para A revogar B enquanto B revoga A — as duas passando por checagens verdadeiras no instante em
+que cada uma as faz. É o `for update` da função que serializa.
+
+**Um buraco de escalada de privilégio, fechado no caminho.** As funções são `security definer` e
+recebem o ator por parâmetro (sob `service_role` o `auth.uid()` é nulo), e função nova no Supabase
+nasce executável por `public`: qualquer autenticado poderia chamá-las por RPC passando o id de um
+operador real e se conceder acesso. `revoke execute` no fim da migration, com teste que tenta a
+escalada.
+
+**O script não foi aposentado**, mudou de papel: a tela exige um operador logado, e o primeiro
+operador de um ambiente novo não tem quem o conceda.
+
+### O escopo original, para referência
 
 **Diagnóstico.** A plataforma já tem o modelo: `membros_casamento` com a escada
 dono > planejador > colaborador (`shared/papeis-de-membro.ts`, com par em SQL), acesso de

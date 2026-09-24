@@ -29,11 +29,18 @@ const RAIZ = join(process.cwd(), 'app', 'composables')
 const PUBLICOS = /^usePublic/
 
 /**
- * `platform-overview` é deliberadamente cross-tenant (CLAUDE.md 4.2, 5º
- * modelo de confiança): escopá-lo a um casamento seria o oposto do que a tela
- * faz. Cada dispensa é uma decisão, e acrescentar uma aqui deveria doer.
+ * O painel INTERNO é deliberadamente cross-tenant (CLAUDE.md 4.2, 5º modelo de
+ * confiança): escopar estas chaves a um casamento seria o oposto do que as
+ * telas fazem. Cada dispensa é uma decisão, e acrescentar uma aqui deveria
+ * doer — por isso a lista é de nomes, e não um prefixo `^usePlatform` que
+ * dispensaria sozinho o próximo composable que alguém criasse.
+ *
+ * - `usePlatformOverview`: a lista de casamentos e o diagnóstico.
+ * - `usePlatformAccounts` (Fase 6): operadores da plataforma e a consulta de
+ *   "quem tem acesso a quê". Operador não pertence a casamento nenhum, e a
+ *   consulta atravessa todos por definição.
  */
-const FORA_DO_PAINEL = ['usePlatformOverview.ts']
+const FORA_DO_PAINEL = ['usePlatformOverview.ts', 'usePlatformAccounts.ts']
 
 function arquivosDe(diretorio: string): string[] {
   const encontrados: string[] = []
