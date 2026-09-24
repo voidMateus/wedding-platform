@@ -2235,6 +2235,44 @@ export type Database = {
           },
         ]
       }
+      trilha_auditoria_plataforma: {
+        Row: {
+          alvo_email: string
+          alvo_usuario_id: string | null
+          autor_operador_id: string | null
+          created_at: string
+          id: string
+          metadados: Json
+          tipo_acao: string
+        }
+        Insert: {
+          alvo_email: string
+          alvo_usuario_id?: string | null
+          autor_operador_id?: string | null
+          created_at?: string
+          id?: string
+          metadados?: Json
+          tipo_acao: string
+        }
+        Update: {
+          alvo_email?: string
+          alvo_usuario_id?: string | null
+          autor_operador_id?: string | null
+          created_at?: string
+          id?: string
+          metadados?: Json
+          tipo_acao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trilha_auditoria_plataforma_autor_operador_id_fkey"
+            columns: ["autor_operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores_plataforma"
+            referencedColumns: ["usuario_id"]
+          },
+        ]
+      }
       vinculos_convite_etiqueta: {
         Row: {
           convite_id: string
@@ -2419,6 +2457,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      conceder_operador_plataforma: {
+        Args: { p_alvo: string; p_alvo_email: string; p_ator: string }
+        Returns: boolean
+      }
       confirmar_pagamento_presente: {
         Args: { p_pagamento_id: string }
         Returns: {
@@ -2593,6 +2635,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      revogar_operador_plataforma: {
+        Args: { p_alvo: string; p_alvo_email: string; p_ator: string }
+        Returns: undefined
       }
       salvar_rsvp_convidado: {
         Args: {

@@ -39,6 +39,33 @@ const email = computed(() => authStore.user?.email ?? '')
 // casamento próprio não tem painel de casal nenhum, e o link levaria a uma
 // tela que o middleware devolve para cá.
 const { proprios } = useMinhasMemberships()
+
+/**
+ * Os dois assuntos do painel interno (docs/fase6-contas-e-acessos.md).
+ *
+ * `exato` existe porque "/plataforma" é prefixo de tudo aqui — inclusive da
+ * ficha de um casamento (`/plataforma/{id}`), que pertence a Casamentos, e de
+ * `/plataforma/contas`, que não. Sem ele os dois itens acenderiam juntos, e um
+ * indicador que acende sempre não indica nada.
+ */
+const DESTINOS_DA_PLATAFORMA = [
+  { to: '/plataforma', label: 'Casamentos', icon: 'lucide:heart-handshake', exato: false },
+  { to: '/plataforma/contas', label: 'Contas', icon: 'lucide:users', exato: true },
+] as const
+
+const route = useRoute()
+
+function estaAtivo(destino: (typeof DESTINOS_DA_PLATAFORMA)[number]): boolean {
+  const caminho = route.path.replace(/\/$/, '')
+  if (destino.exato) return caminho === destino.to
+  // Casamentos acende também na ficha de um deles, mas nunca nos destinos que
+  // têm item próprio.
+  return (
+    caminho === destino.to ||
+    (caminho.startsWith(`${destino.to}/`) &&
+      !DESTINOS_DA_PLATAFORMA.some((outro) => outro.exato && caminho === outro.to))
+  )
+}
 </script>
 
 <template>
@@ -54,6 +81,28 @@ const { proprios } = useMinhasMemberships()
       >
         <UiBrandMark legenda="Painel interno" />
       </NuxtLink>
+
+      <!-- A nav nasce com DOIS destinos, que é a condição que o comentário do
+           script sempre impôs: item de menu que promete e não entrega é pior
+           que item ausente. Antes da Fase 6 havia um assunto só, e por isso não
+           havia nav. -->
+      <nav aria-label="Seções do painel interno" class="flex items-center gap-0.5">
+        <NuxtLink
+          v-for="destino in DESTINOS_DA_PLATAFORMA"
+          :key="destino.to"
+          :to="destino.to"
+          class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-brand hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :class="
+            estaAtivo(destino)
+              ? 'bg-surface-muted font-medium text-text'
+              : 'text-text-muted hover:text-text'
+          "
+          :aria-current="estaAtivo(destino) ? 'page' : undefined"
+        >
+          <Icon :name="destino.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span class="hidden sm:inline">{{ destino.label }}</span>
+        </NuxtLink>
+      </nav>
 
       <div class="ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
         <NuxtLink

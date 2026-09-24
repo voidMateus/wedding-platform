@@ -32,7 +32,9 @@ Em **produção não se faz isso à mão**: o job `migrate-prod` do CI aplica as
 
 ### Primeiro operador da plataforma
 
-`operadores_plataforma` nasce vazia e sem tela de gestão (a tela é a Fase H de `docs/rodada-usabilidade-2026-09.md`). Até ela existir, o caminho oficial é este script — que cria o usuário no Auth, promove a operador e confere o projeto alvo antes de escrever:
+Desde a Fase 6 (`docs/fase6-contas-e-acessos.md`) a gestão de operadores tem tela: **Painel interno → Contas**, onde se concede por e-mail e se revoga, com trilha própria da plataforma.
+
+O script **continua existindo, e não foi aposentado** — ele mudou de papel. A tela exige um operador logado, e o primeiro operador de um ambiente novo não tem quem o conceda. Este é o caminho desse primeiro: cria o usuário no Auth, promove a operador e confere o projeto alvo antes de escrever.
 
 ```bash
 # PowerShell, da raiz do repo
