@@ -6,7 +6,6 @@ definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const code = route.params.code as string
-const slug = useWeddingSlug()
 
 const { getRsvpByCode } = useRsvp()
 // server: false de propósito — a resposta emite o cookie httpOnly da sessão
@@ -55,14 +54,16 @@ function formatDeadline(value: string | null): string {
         :description="`Confirme sua presença até ${formatDeadline(data.wedding.rsvpDeadline)}.`"
       />
 
-      <RsvpInviteFlow :payload="data" />
+      <!--
+        A lista de presentes NÃO é oferecida aqui.
 
-      <NuxtLink
-        :to="`/${slug}/#presentes`"
-        class="text-center text-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        Ver lista de presentes
-      </NuxtLink>
+        Este link era incondicional e apontava para `/#presentes` mesmo quando
+        o casal tinha a seção desligada — âncora para um trecho de página que
+        não existe. E oferecia a lista antes de a pessoa responder, que é a
+        única coisa que esta página pede. Quem oferece agora é o próprio fluxo,
+        no fim e só quando a seção está ligada (RsvpInviteFlow).
+      -->
+      <RsvpInviteFlow :payload="data" />
     </template>
   </div>
 </template>

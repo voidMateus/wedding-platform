@@ -179,38 +179,61 @@ test('cadastro de convidado com acompanhante cria convite, e RSVP por busca func
   // --- RSVP público via atalho de link direto ---
   await page.goto(linkPath)
   await page.waitForLoadState('networkidle')
-  await expect(page.getByText(primaryName)).toBeVisible({ timeout: 10_000 })
-  await expect(page.getByText(companionName)).toBeVisible()
+  // `exact` porque o nome aparece DUAS vezes com a tela intocada: no título da
+  // pessoa e na linha "Falta responder por ...", que nomeia quem ainda não
+  // respondeu. Só o título tem o nome como texto inteiro.
+  await expect(page.getByText(primaryName, { exact: true })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText(companionName, { exact: true })).toBeVisible()
 
-  // Os dois botões de cada pessoa são encontrados pelo NOME dela, não pela
-  // posição de um cartão. Aqui havia `div.rounded-lg.border` e índice — e o
-  // teste quebrou quando a tela passou a agrupar o núcleo de Acompanhantes num
-  // cartão só (as duas pessoas deste convite formam um), porque os dois "Estarei
-  // lá" passaram a viver dentro do mesmo `div`.
+  // A resposta de cada pessoa é encontrada pelo NOME dela, não pela posição de
+  // um cartão. Aqui havia `div.rounded-lg.border` e índice — e o teste quebrou
+  // quando a tela passou a agrupar o núcleo de Acompanhantes num cartão só (as
+  // duas pessoas deste convite formam um), porque os dois "Estarei lá" passaram
+  // a viver dentro do mesmo `div`.
   //
   // A quebra apontou um defeito de acessibilidade que já existia antes do
   // agrupamento: com um cartão por pessoa, quem enxerga se orientava pelo nome
-  // logo acima, mas quem navega botão a botão ouvia "Estarei lá" repetido, sem
-  // dono. Os botões ganharam `aria-label` com o nome, e este teste passou a usar
-  // exatamente o mesmo caminho que um leitor de tela usa.
+  // logo acima, mas quem navega controle a controle ouvia "Estarei lá" repetido,
+  // sem dono. Cada opção carrega `aria-label` com o nome, e este teste percorre
+  // exatamente o mesmo caminho que um leitor de tela.
   // O RSVP do convidado é a única tela que uma pessoa de fora percorre inteira,
   // muitas vezes no celular e sem ajuda de ninguém — e é a que menos aparece em
   // teste manual, porque o casal nunca a vê.
   await expectNoAccessibilityViolations(page, { rotulo: 'RSVP — convite por link direto' })
 
-  // Uma pessoa por vez: responder avança sozinho, e a última resposta leva
-  // direto à revisão (ponto 25). Não há mais "Revisar e enviar" a clicar —
-  // o passo existe, e chegar nele deixou de ser um gesto a mais.
-  await page.getByRole('button', { name: `Estarei lá — ${primaryName}` }).click()
-  await page.getByRole('button', { name: `Não poderei ir — ${companionName}` }).click()
+  // UMA tela, com todo mundo: responder não avança nem troca de etapa.
+  //
+  // O passo a passo que viveu aqui por algumas horas em 23/09/2026 cobrava três
+  // telas por duas decisões binárias, e a tela se mexia a cada toque — recusado
+  // pelo dono do produto no mesmo dia. A asserção logo abaixo do primeiro
+  // clique é a régua disso: a segunda pessoa continua visível na mesma tela.
+  const escolhaPrincipal = page.getByRole('radio', { name: `Estarei lá! — ${primaryName}` })
+  const escolhaAcompanhante = page.getByRole('radio', {
+    name: `Não poderei ir — ${companionName}`,
+  })
+  const enviar = page.getByRole('button', { name: 'Enviar resposta' })
 
-  await expect(page.getByText('O que vai ser enviado')).toBeVisible({ timeout: 10_000 })
-  // O estado aparece por extenso, e não só pela cor do botão.
-  await expect(page.getByText('Estará lá')).toBeVisible()
-  await expect(page.getByText('Não poderá ir')).toBeVisible()
+  // O envio só libera com o convite inteiro respondido — e a tela diz por quem
+  // falta, porque botão cinza sem motivo lê como página quebrada.
+  await expect(enviar).toBeDisabled()
 
-  await page.getByRole('button', { name: 'Confirmar presença' }).click()
-  await expect(page.getByText('Presença confirmada!')).toBeVisible({ timeout: 10_000 })
+  await escolhaPrincipal.click()
+  await expect(escolhaAcompanhante).toBeVisible()
+  await expect(page.getByText(`Falta responder por ${companionName}`)).toBeVisible()
+
+  await escolhaAcompanhante.click()
+
+  // O estado é `aria-checked`, não a cor do controle: é o que o leitor de tela
+  // anuncia, e o que sobra para quem não distingue as duas cores.
+  await expect(escolhaPrincipal).toHaveAttribute('aria-checked', 'true')
+  await expect(escolhaAcompanhante).toHaveAttribute('aria-checked', 'true')
+
+  await expect(enviar).toBeEnabled()
+  await enviar.click()
+
+  // Convite misto (uma pessoa vai, a outra não) tem fecho próprio: "que alegria,
+  // nos vemos lá" seria a plataforma não ter lido a própria resposta.
+  await expect(page.getByText('Resposta enviada')).toBeVisible({ timeout: 10_000 })
 
   // --- busca pública por nome também encontra o mesmo convidado ---
   await page.goto(`/${slug}/rsvp`)

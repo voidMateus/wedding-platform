@@ -41,6 +41,25 @@ const rsvpLink = computed(() => `/${slug}/rsvp`)
 const paginaDaCapa = computed(() => route.path.replace(/\/$/, '') === `/${slug}`)
 const capaNaTela = ref(paginaDaCapa.value)
 
+/**
+ * E some por inteiro DENTRO do próprio RSVP.
+ *
+ * A barra existe para levar até a confirmação quem está longe dela. Na página
+ * de confirmação ela apontava para a página em que a pessoa já estava — um
+ * link que não vai a lugar nenhum —, com o mesmo rótulo do botão de envio do
+ * formulário logo acima e outro significado. Além disso comia a base da tela
+ * mais importante do site, justamente no celular (recusa do dono do produto em
+ * 23/09/2026).
+ *
+ * Derivada da ROTA, como `paginaDaCapa`: não há viewport no servidor, e um
+ * palpite diferente do que o cliente calcula depois seria divergência de
+ * hidratação.
+ */
+const paginaDeRsvp = computed(() => {
+  const caminho = route.path.replace(/\/$/, '')
+  return caminho === `/${slug}/rsvp` || caminho.startsWith(`/${slug}/rsvp/`)
+})
+
 let observador: IntersectionObserver | null = null
 
 function observarCapa() {
@@ -78,7 +97,7 @@ onUnmounted(() => observador?.disconnect())
 </script>
 
 <template>
-  <template v-if="temRsvp">
+  <template v-if="temRsvp && !paginaDeRsvp">
     <Transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="opacity-0 translate-y-2"
