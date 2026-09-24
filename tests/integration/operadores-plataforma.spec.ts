@@ -313,6 +313,20 @@ describe('invariantes: operadores da plataforma', () => {
       return
     }
 
+    // Os testes acima deixam operadores de pé — cada `conceder` que não foi
+    // revogado é um. A corrida exige que A e B sejam os ÚNICOS, então o estado
+    // é montado aqui em vez de suposto: sem isto o total era 4 e a asserção
+    // seguinte reprovava por aritmética, não por invariante (visto no CI, que é
+    // o único lugar onde este teste roda de verdade).
+    await admin
+      .from('operadores_plataforma')
+      .delete()
+      .in(
+        'usuario_id',
+        usuariosCriados.filter((id) => id !== ator.id),
+      )
+    expect(await totalDeOperadores()).toBe(1)
+
     // `ator` (do beforeAll) e `b` passam a ser os únicos dois operadores.
     const b = await criarUsuario()
     await admin.rpc('conceder_operador_plataforma', {
