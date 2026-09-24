@@ -1386,13 +1386,18 @@ a ser a própria tela, que nunca sai de vista.
 - **Textos mais pessoais.** O fecho chama o casal pelo primeiro nome e tem **três versões**,
   escolhidas pelo resultado — "que alegria, nos vemos lá" para quem acabou de dizer que não pode
   ir é a plataforma não ter lido a própria resposta, e o convite misto não é nenhum dos dois.
-- **Acesso rápido às informações.** Data, horário e local numa linha antes da pergunta (é o que a
-  pessoa confere para decidir), e os atalhos do resto do site no fim. Os atalhos são **derivados**
-  de `shared/home-sections.ts`, nunca uma lista à mão: manter duas listas em paralelo já produziu
-  oito atalhos para onze seções, com três destinos inalcançáveis e nada acusando a falta.
+- **Acesso rápido às informações.** Data, horário e local numa linha **antes** da pergunta — é o
+  dado que muda a resposta. Houve também um bloco de atalhos para as seções do site no fim, e ele
+  foi **removido em 24/09/2026**: num site com as seções em uso virava uma malha de sete pílulas
+  embaixo do agradecimento, e o "Voltar ao site" logo abaixo já entrega os mesmos destinos sem
+  ocupar meia tela.
 - **Oferta de presentear no fim**, quando o casal ligou a seção e a lista não está comprovadamente
-  vazia. Aparece também para quem **não** vai, com outro texto: quem não pode comparecer é
-  justamente quem costuma querer mandar alguma coisa. Nunca é a ação principal da tela.
+  vazia. Aparece também para quem **não** vai: quem não pode comparecer é justamente quem costuma
+  querer presentear. Nunca é a ação principal da tela. O verbo é **"presentear"**, nunca "levar"
+  nem "mandar" — os dois descrevem uma entrega, e nenhuma delas é o que acontece: a lista é
+  escolhida e paga no site, e presente de cota não tem objeto para carregar. "Quer levar um
+  presente?" fazia o convidado entender que teria de comprar por fora e aparecer com o pacote na
+  festa.
 
 **Dois defeitos achados no caminho, corrigidos junto:**
 

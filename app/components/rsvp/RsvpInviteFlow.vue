@@ -30,7 +30,6 @@
   produto. O plano da rodada a menciona porque foi escrito olhando a tela.
 -->
 <script setup lang="ts">
-import { resolveHomeSections } from '#shared/home-sections'
 import type { ThemeConfig } from '#shared/schemas/theme'
 import { diaLocal } from '#shared/utils/data-de-envio'
 import { resolveEventDateTime } from '#shared/utils/event-datetime'
@@ -247,36 +246,16 @@ const fecho = computed(() => {
   }
 })
 
-/**
- * Atalhos para o resto do site — DERIVADOS do catálogo de seções, nunca uma
- * lista escrita à mão.
+/*
+ * Não há atalhos para o resto do site aqui.
  *
- * Manter uma segunda lista em paralelo já produziu oito atalhos para onze
- * seções, com três destinos inalcançáveis e nada acusando a falta (CLAUDE.md,
- * seção 13). `hasContent: {}` pela mesma razão da barra de navegação: aqui a
- * pergunta é o que o casal LIGOU.
- *
- * Fora dos atalhos: `confirmar-presenca` (é esta tela) e `presentes`, que tem
- * uma oferta própria logo acima — repetido nos dois lugares, o convite a
- * presentear vira insistência.
+ * Existiu um bloco "Enquanto está por aqui" com uma pílula por seção ligada, e
+ * ele foi removido em 24/09/2026: num site com as seções em uso vira uma malha
+ * de sete pílulas embaixo do agradecimento, e "Voltar ao site" logo abaixo já
+ * entrega os mesmos destinos sem ocupar meia tela. O que a pessoa precisa
+ * ANTES de decidir (quando e onde) continua na linha de contexto, acima da
+ * pergunta — aquele é o dado que muda a resposta; o resto é navegação.
  */
-const atalhosDoSite = computed(() =>
-  resolveHomeSections({
-    order: theme.value.sectionOrder,
-    active: activeSections.value,
-    hasContent: {},
-  })
-    .filter(
-      (secao) =>
-        !secao.definition.noMenu && secao.id !== 'confirmar-presenca' && secao.id !== 'presentes',
-    )
-    .map((secao) => ({
-      id: secao.id,
-      to: `/${slug}${secao.definition.shortcutHref}`,
-      label: secao.definition.navLabel ?? secao.definition.shortcutLabel,
-      icon: secao.definition.shortcutIcon,
-    })),
-)
 
 const { getPublicGifts } = usePublicGifts()
 const { data: presentes } = getPublicGifts()
@@ -457,35 +436,27 @@ const linkDePresentes = computed(() => `/${slug}/presentes`)
         v-if="oferecePresentes"
         class="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-elevated p-5 text-center"
       >
+        <!--
+          "Presentear", nunca "levar" nem "mandar".
+
+          Os dois verbos descrevem uma ENTREGA, e nenhuma delas é o que
+          acontece aqui: a lista é escolhida e paga no site, e presente de cota
+          não tem objeto nenhum para carregar. "Quer levar um presente?" fazia
+          o convidado entender que teria de comprar por fora e aparecer com o
+          pacote na festa (observação do dono do produto, 24/09/2026).
+          "Presentear" não promete caminho nenhum — quem decide como é a
+          própria lista, na página dela.
+        -->
         <p class="text-sm text-text">
           <template v-if="algumVai">
-            Quer levar um presente? {{ nomesDoCasal }} montaram uma lista.
+            Se quiser presentear, {{ nomesDoCasal }} montaram uma lista.
           </template>
-          <template v-else>
-            Mesmo sem poder ir, você pode mandar um presente para {{ nomesDoCasal }}.
-          </template>
+          <template v-else> Mesmo sem poder ir, você pode presentear {{ nomesDoCasal }}. </template>
         </p>
         <UiButton variant="outline" :to="linkDePresentes">
           <Icon name="lucide:gift" class="h-4 w-4" />
           Ver lista de presentes
         </UiButton>
-      </div>
-
-      <!-- O resto do site, a um toque: quem respondeu costuma querer conferir
-           traje, horário e como chegar na mesma visita. -->
-      <div v-if="atalhosDoSite.length" class="flex flex-col gap-3">
-        <p class="text-center text-sm font-medium text-text">Enquanto está por aqui</p>
-        <div class="flex flex-wrap justify-center gap-2">
-          <NuxtLink
-            v-for="atalho in atalhosDoSite"
-            :key="atalho.id"
-            :to="atalho.to"
-            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface-elevated px-4 text-sm text-text transition-brand hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <Icon :name="atalho.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
-            {{ atalho.label }}
-          </NuxtLink>
-        </div>
       </div>
 
       <div class="flex flex-wrap justify-center gap-3">
