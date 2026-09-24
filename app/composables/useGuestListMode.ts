@@ -37,15 +37,32 @@ export interface GuestListModeData {
 /** O fetch de `useRequestFetch()` — ver o porquê em `useGuestListMode`. */
 type FetchDaRequisicao = ReturnType<typeof useRequestFetch>
 
+/**
+ * Uma ida para descobrir o tamanho, e o resto de uma vez só.
+ *
+ * O laço era sequencial — página 1, esperar, página 2, esperar — e cada espera
+ * é uma viagem de rede inteira. A medição de 24/09/2026 contra a fixture de 520
+ * convidados registrou **7 chamadas a `/api/guests` em série**, 1737ms até a
+ * última: seis páginas do conjunto real mais a do rascunho. Não era defeito de
+ * volume (a auditoria de 2026-09-16 já tinha estabelecido que 200 linhas custam
+ * 106ms contra 97ms de 25); era a fila.
+ *
+ * `meta.total` vem já na primeira resposta, então quantas páginas existem é
+ * sabido depois de uma ida — as demais não dependem umas das outras e não
+ * precisam se esperar. `Promise.all` preserva a ordem dos argumentos, então a
+ * lista continua saindo na mesma sequência de antes; quem decide a ordem é o
+ * `ORDER BY` do endpoint, não a ordem de chegada das respostas.
+ *
+ * `summary.confirmed` passa a vir da primeira página em vez da última. É o
+ * mesmo número: o endpoint o calcula numa contagem à parte, sobre o recorte
+ * inteiro (`confirmedQuery`), e não sobre a página.
+ */
 async function carregarTodasAsPaginas(
   request: FetchDaRequisicao,
   emConsideracao: boolean,
 ): Promise<{ linhas: GuestListItem[]; confirmados: number }> {
-  const linhas: GuestListItem[] = []
-  let confirmados = 0
-
-  for (let pagina = 1; pagina <= MAXIMO_DE_PAGINAS; pagina++) {
-    const resposta = await request<GuestListResponse>('/api/guests', {
+  const buscarPagina = (pagina: number) =>
+    request<GuestListResponse>('/api/guests', {
       query: {
         page: pagina,
         pageSize: TAMANHO_DA_PAGINA,
@@ -53,16 +70,25 @@ async function carregarTodasAsPaginas(
       },
     })
 
-    linhas.push(...resposta.data)
-    confirmados = resposta.summary.confirmed
+  const primeira = await buscarPagina(1)
+  const confirmados = primeira.summary.confirmed
 
-    // `meta.total` é do recorte inteiro, então ele é quem diz onde parar —
-    // não o tamanho da última página, que só coincide quando o total não é
-    // múltiplo exato de TAMANHO_DA_PAGINA.
-    if (linhas.length >= resposta.meta.total || !resposta.data.length) break
+  // O teto continua valendo: `meta.total` é dado do servidor, e um valor
+  // inconsistente não pode virar um disparo de centenas de requisições.
+  const paginas = Math.min(Math.ceil(primeira.meta.total / TAMANHO_DA_PAGINA), MAXIMO_DE_PAGINAS)
+
+  if (paginas <= 1 || !primeira.data.length) {
+    return { linhas: primeira.data, confirmados }
   }
 
-  return { linhas, confirmados }
+  const restantes = await Promise.all(
+    Array.from({ length: paginas - 1 }, (_, indice) => buscarPagina(indice + 2)),
+  )
+
+  return {
+    linhas: [primeira.data, ...restantes.map((resposta) => resposta.data)].flat(),
+    confirmados,
+  }
 }
 
 export function useGuestListMode() {

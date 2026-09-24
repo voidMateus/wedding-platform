@@ -1479,7 +1479,14 @@ de identidade visual, agora com dado para embasá-la.
 
 ## Fase G · Velocidade
 
-### G1 · Ponto 23 — o painel demora milissegundos perceptíveis
+**Progresso** — branch `fix/fase-g-velocidade`, 24/09/2026.
+
+| Item | Ponto | O que é | Situação |
+|---|---|---|---|
+| G1 | 23 | O painel demora milissegundos perceptíveis | ✅ concluído — um achado real, corrigido |
+| G2 | 30 | Auditoria de performance do site público | ✅ concluído — virou porta de CI |
+
+### G1 · Ponto 23 — o painel demora milissegundos perceptíveis ✅
 
 **Diagnóstico.** Sintoma consistente com o que o módulo já faz: cada tela do painel monta
 vários `useFetch` e cada mutação dispara releituras em bloco (`atualizarFinanceiro()` são
@@ -1496,6 +1503,33 @@ as telas mais pesadas.
   (o layout e o Início já fazem isso com `wedding`).
 - Registrar os números no `docs/CHANGELOG.md`, como foi feito com o LCP do site público.
 
+**Concluído em 24/09/2026.** A medição custou três tentativas e **duas mediram nada** — o relato
+completo está no `docs/CHANGELOG.md`, porque as duas falharam de um jeito que parecia sucesso:
+`page.goto` devolveu zero chamadas de API (o painel é SSR: numa carga completa o dado vem no HTML,
+e ninguém opera o painel recarregando a página), e `waitForLoadState` devolveu "17ms" (em
+navegação client-side o estado de load continua o da carga inicial). A terceira espera as
+requisições em voo sossegarem, contra a fixture `carga-quinhentos` de 520 convidados.
+
+**Um achado, não vários.** Nenhuma tela repete chamada ao navegar e nenhuma dispara releitura em
+bloco. O único fora da curva é **Convidados › Modo lista**: 7 idas a `/api/guests`, 390 kB. As sete
+não são defeito — é o laço de paginação documentado (seis páginas mais a do rascunho). O defeito
+era a **fila**: cada página esperava a anterior. `meta.total` vem na primeira resposta, então uma
+ida basta para saber quantas existem, e as demais não dependem umas das outras.
+
+| Tempo até a última resposta | Amostras |
+|---|---|
+| Antes | 1737 / 1863 / 2127 ms |
+| Depois | 1060 / 1116 / 1306 ms |
+
+**A contagem de idas continua 7, e está certo que continue**: mudou a ordem, não a quantidade.
+
+**Medido e deliberadamente não mexido:** `atualizarFinanceiro()` dispara quatro releituras, como o
+plano suspeitava — mas por `callHookParallel`, em paralelo. Estreitar o conjunto conforme a mutação
+economizaria idas e reintroduziria a classe de bug que o `callHook` direto acabou de resolver
+(mutação grava, tela não muda, sem erro nenhum). E a regra da auditoria de 2026-09-16 continua
+valendo: latência aqui é contagem de idas em série, não tamanho de lista — 200 linhas custam 106ms
+contra 97ms de 25.
+
 ### G2 · Ponto 30 — auditoria de performance do site público
 
 **Diagnóstico.** O site já passou por uma rodada séria (o `nuxt.config.ts` documenta a remoção
@@ -1511,6 +1545,29 @@ convidado). O pedido agora é manter isso verdadeiro enquanto o site cresce.
   (tipos vs migrations, auditoria de rotas, escopo por casamento).
 - Foto do estado atual antes da Fase F, para que a revisão do RSVP e o preset de Save the
   Date sejam medidos contra ela.
+
+**Concluído em 24/09/2026.** `tests/e2e/orcamento-de-performance.spec.ts` mede, contra o build de
+produção, o JS que cada rota pública baixa com **cache frio** — carga inicial e prefetch — e
+reprova quando passa do teto. Medido: home 699 kB, presentes 699, rsvp 699, galeria 701, em 80/81
+arquivos; tetos com ~12% de folga.
+
+**As quatro rotas pesam o mesmo, e não é engano:** o Nuxt prefetcha os chunks das outras rotas
+quando o navegador fica ocioso. É o mecanismo desejado, e foi o alvo do corte do SDK do Supabase em
+2026-09-04 — tirar de dentro dele os 61 kB que ninguém ia usar, sem desligá-lo.
+
+**LCP e CLS ficaram fora do gate, contra o escopo escrito.** Dependem de CPU e rede do runner, que
+no GitHub são compartilhados: um limite ali reprova PR por barulho e acaba afrouxado até não
+significar nada. Continuam medidos à mão com throttling, como o LCP de 2,53s de 2026-09-16. Peso de
+JS é determinístico e é o que de fato regride quando alguém acrescenta um import.
+
+**A foto "antes da Fase F" não aconteceu** — a fase F foi entregue antes desta medição existir.
+O que fica no lugar é a linha de base de 24/09, contra a qual as próximas mudanças serão medidas.
+
+**E o piso de sanidade pegou um defeito do próprio teste na primeira execução**: reaproveitando a
+mesma aba, da segunda rota em diante os chunks vinham do cache e o tamanho voltava -1, somando
+**-24 kB**. Sem o piso, três das quatro rotas teriam passado com folga medindo nada — a mesma
+armadilha da régua de truncamento do menu (23/09/2026). Cada rota passou a medir em contexto novo,
+que também é o caso certo a orçar: o convidado chega pelo WhatsApp, sem cache.
 
 ---
 
