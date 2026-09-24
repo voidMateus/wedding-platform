@@ -10,6 +10,101 @@
 
 Estes achados continuam com uma regra/pointer de uma linha na seção correspondente do CLAUDE.md — aqui fica o relato completo (causa raiz, exploração, correção) para quem quiser o contexto completo.
 
+### Medição: a transição por clique no painel, e as três vezes em que a régua mediu nada (2026-09-24)
+
+O ponto 23 da rodada de usabilidade ("o painel demora milissegundos perceptíveis") pedia medir
+antes de otimizar. A medição custou três tentativas, e **duas delas mediram nada** — o registro
+do método vale mais que o número, porque as duas falharam de um jeito que parecia sucesso.
+
+**Primeira: `page.goto` em cada tela.** Resultado: zero chamadas de API em dez das onze telas.
+Não era velocidade boa — o painel é SSR (CLAUDE.md 4.3), então numa carga completa o `useFetch`
+roda no servidor e a resposta vai embutida no HTML; o navegador não pede nada. Ninguém opera o
+painel recarregando a página: opera clicando no menu, e é aí que a mesma busca roda no cliente.
+
+**Segunda: clique, mas com `waitForLoadState('networkidle')`.** Resultado: "17ms até ocioso".
+Também não era nada — em navegação client-side o estado de load continua o da carga inicial, então
+a espera retorna imediatamente. A régua cronometrava a si mesma.
+
+**Terceira, a que valeu**: espera pelas requisições `/api/` em voo sossegarem, contra a fixture
+`carga-quinhentos` (520 convidados) que ficou de pé em 2026-09-16 justamente para isto. E conta
+**idas**, não milissegundos: aquela auditoria já estabeleceu que cada consulta custa ~90ms *da
+máquina de desenvolvimento* (viagem até a nuvem; em produção o Vercel fica ao lado do banco), então
+cronometrar daqui descreve a rede do escritório.
+
+**O que ela encontrou: um achado, não vários.**
+
+| Tela | Idas | Peso | Repetidas |
+|---|---|---|---|
+| **Convidados › Modo lista** | **7, em série** | 390 kB | `/api/guests` ×7 |
+| Convidados › Mesas | 1 | 137 kB | — |
+| Convidados › Comunicações | 1 | 67 kB | — |
+| Início (qualquer volta) | 4–5 | 16 kB | — |
+| Módulos, e as telas de Financeiro e Presentes | 0–4 | 0–83 kB | — |
+
+Nenhuma tela repete chamada ao navegar, e nenhuma dispara releitura em bloco. As sete idas do Modo
+lista **não são defeito**: são o laço de paginação documentado no próprio composable (seis páginas
+de 520 convidados, mais a do rascunho), que existe para reusar `GET /api/guests` em vez de criar
+uma segunda rota de listagem onde os filtros pudessem divergir.
+
+**O defeito era a FILA.** Cada página esperava a anterior, e cada espera é uma viagem de rede
+inteira. `meta.total` já vem na primeira resposta, então depois de **uma** ida se sabe quantas
+páginas existem — e elas não dependem umas das outras. Uma ida, depois o resto de uma vez:
+
+| `Convidados › Modo lista`, tempo até a última resposta | Amostras |
+|---|---|
+| Antes | 1737 / 1863 / 2127 ms |
+| Depois | 1060 / 1116 / 1306 ms |
+
+Três amostras de cada lado, sem sobreposição entre as faixas. A contagem de idas **continua 7**, e
+está certo que continue: o que mudou foi a ordem, não a quantidade. `Promise.all` preserva a ordem
+dos argumentos, então a lista sai na mesma sequência — quem ordena é o `ORDER BY` do endpoint, não
+a chegada das respostas. E `summary.confirmed` passou a vir da primeira página em vez da última: é
+o mesmo número, calculado pelo endpoint numa contagem à parte sobre o recorte inteiro.
+
+**O que foi medido e deliberadamente NÃO mexido.** `atualizarFinanceiro()` dispara quatro
+releituras — o plano da rodada suspeitava disso. A contagem procede, o formato não: elas vão por
+`callHookParallel`, em paralelo, e não em série. Estreitar o conjunto conforme a mutação
+(um gasto só planejado não move Pagamentos) economizaria idas e reintroduziria exatamente a classe
+de bug que o `callHook` direto acabou de resolver — mutação que grava e tela que não muda, sem erro
+nenhum para acusar. Otimizar aqui custaria a correção que a fase anterior pagou para ter.
+
+### Porta de CI: orçamento de JS por rota pública, e o que ficou de fora dele (2026-09-24)
+
+O ponto 30 pedia auditoria de performance do site público. O site já tinha passado por uma rodada
+séria (remoção do plugin do Supabase das rotas públicas, corte do prefetch do SDK — 61 kB gzip por
+convidado), então o trabalho aqui não era otimizar de novo: era **manter isso verdadeiro enquanto o
+site cresce**. Regressão de peso é silenciosa; ninguém abre um PR dizendo "isto acrescenta 80 kB ao
+bundle do convidado".
+
+`tests/e2e/orcamento-de-performance.spec.ts` mede, contra o build de produção, o JS que cada rota
+pública baixa com cache frio — carga inicial **e** prefetch — e reprova quando passa do teto.
+Medido em 24/09/2026: home 699 kB, presentes 699 kB, rsvp 699 kB, galeria 701 kB, em 80/81
+arquivos. Tetos com ~12% de folga.
+
+**As quatro rotas pesam o mesmo, e isso não é engano**: o Nuxt prefetcha os chunks das outras rotas
+quando o navegador fica ocioso, então quem abre a home acaba com o material de Presentes, RSVP e
+Galeria junto. É o mecanismo desejado (a navegação seguinte fica instantânea) e foi justamente o
+alvo do corte de 2026-09-04 — tirar de dentro dele os 61 kB que ninguém ia usar, sem desligá-lo.
+
+**LCP e CLS ficaram FORA do gate, contra o escopo escrito da fase.** Os dois dependem de CPU e rede
+do runner, que no GitHub são compartilhados; um limite em cima disso reprova PR por barulho e, na
+terceira vez, alguém o afrouxa até ele não significar mais nada. Continuam medidos à mão com
+throttling de verdade — foi assim que o LCP de 2,53s da entrada de 2026-09-16 saiu. Peso de JS é
+determinístico: o mesmo build dá o mesmo número aqui e no runner, e é o que de fato regride quando
+alguém acrescenta um import.
+
+**Bytes crus, não comprimidos**, porque o `node .output/server/index.mjs` não serve nada comprimido
+(achado de 2026-09-16) enquanto a Vercel serve brotli. O número não é o que o convidado baixa — é
+um proxy monótono dele, que é o suficiente para detectar regressão e não depende de como o servidor
+de teste está configurado.
+
+**E o piso de sanidade pegou um defeito do próprio teste, na primeira execução.** Reaproveitando a
+mesma aba, da segunda rota em diante os chunks vinham do cache e o `responseBodySize` do Playwright
+voltava **-1**; somados, davam **-24 kB**. Sem o piso, três das quatro rotas teriam "passado" com
+folga medindo nada — a mesma armadilha da régua de truncamento do menu, que rodou vacuosa por uma
+rodada inteira (23/09/2026). Cada rota passou a medir num contexto novo, que também é o caso certo
+a orçar: o convidado chega pelo WhatsApp, sem cache nenhum.
+
 ### Medição real: Lighthouse mobile pós-Fase Editorial, bundle do admin vazando no público — CLAUDE.md §27.1
 
 Medido contra o build de produção (`npm run build` + `node .output/server/index.mjs`), Lighthouse `--form-factor=mobile --throttling-method=simulate` (4G simulado), na home pública já com as 13 seções da Fase Editorial:
